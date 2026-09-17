@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "detect-secrets baseline contains one-way fingerprints, not credentials"
+paths = ['''^\.secrets\.baseline$''']
