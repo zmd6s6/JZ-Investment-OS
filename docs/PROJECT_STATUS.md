@@ -36,6 +36,8 @@
 - Unit of Work, transactional outbox, advisory locks, and idempotent TaskRun execution are verified
   against PostgreSQL 16.
 - Compose applies migrations through a successful one-shot service before API/worker startup.
+- Remote GitHub CI run `35233458429` passes quality, Compose smoke, and independent Gitleaks jobs
+  for the PR-02 implementation commit.
 
 ## Not yet implemented or verified
 
@@ -65,7 +67,7 @@ owner; merging to `main` remains a separate human action.
 |---|---|---|---|
 | PR-00 | READY_FOR_REVIEW | Pending | Local/container and cumulative remote CI checks pass |
 | PR-01 | READY_FOR_REVIEW | Pending | Reviewer blockers fixed; local and PR/push remote CI pass |
-| PR-02 | READY_FOR_REVIEW | Pending | Local Definition of Done passes; remote CI pending push |
+| PR-02 | READY_FOR_REVIEW | Pending | Local Definition of Done and implementation remote CI pass |
 | PR-03 | PLANNED | Pending | DSA adapter, evidence, feature pipeline |
 | PR-04 | PLANNED | Pending | Thesis and shared memory |
 | PR-05 | PLANNED | Pending | Agent runtime and committee |
