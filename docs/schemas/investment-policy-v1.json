@@ -1,0 +1,411 @@
+{
+  "$defs": {
+    "BehaviorPolicySchema": {
+      "additionalProperties": false,
+      "properties": {
+        "average_down_without_thesis_check": {
+          "title": "Average Down Without Thesis Check",
+          "type": "boolean"
+        },
+        "buy_only_because_price_fell": {
+          "title": "Buy Only Because Price Fell",
+          "type": "boolean"
+        },
+        "chase_high": {
+          "title": "Chase High",
+          "type": "boolean"
+        },
+        "frequent_trading": {
+          "title": "Frequent Trading",
+          "type": "boolean"
+        },
+        "reason_required_for_every_action": {
+          "title": "Reason Required For Every Action",
+          "type": "boolean"
+        },
+        "sell_only_because_position_is_profitable": {
+          "title": "Sell Only Because Position Is Profitable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "chase_high",
+        "frequent_trading",
+        "buy_only_because_price_fell",
+        "sell_only_because_position_is_profitable",
+        "average_down_without_thesis_check",
+        "reason_required_for_every_action"
+      ],
+      "title": "BehaviorPolicySchema",
+      "type": "object"
+    },
+    "EntryPolicySchema": {
+      "additionalProperties": false,
+      "properties": {
+        "require_portfolio_capacity": {
+          "title": "Require Portfolio Capacity",
+          "type": "boolean"
+        },
+        "require_risk_pass": {
+          "title": "Require Risk Pass",
+          "type": "boolean"
+        },
+        "require_thesis_states": {
+          "items": {
+            "$ref": "#/$defs/ThesisState"
+          },
+          "title": "Require Thesis States",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "require_timing_confirmation": {
+          "title": "Require Timing Confirmation",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "require_thesis_states",
+        "require_timing_confirmation",
+        "require_portfolio_capacity",
+        "require_risk_pass"
+      ],
+      "title": "EntryPolicySchema",
+      "type": "object"
+    },
+    "ExecutionPolicySchema": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_ttl_hours": {
+          "exclusiveMinimum": 0,
+          "title": "Approval Ttl Hours",
+          "type": "integer"
+        },
+        "auto_trade": {
+          "const": false,
+          "title": "Auto Trade",
+          "type": "boolean"
+        },
+        "human_approval_required": {
+          "const": true,
+          "title": "Human Approval Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "auto_trade",
+        "human_approval_required",
+        "approval_ttl_hours"
+      ],
+      "title": "ExecutionPolicySchema",
+      "type": "object"
+    },
+    "ExitPolicySchema": {
+      "additionalProperties": false,
+      "properties": {
+        "hard_risk_veto": {
+          "const": "NO_NEW_OR_ADDITIONAL_EXPOSURE",
+          "title": "Hard Risk Veto",
+          "type": "string"
+        },
+        "thesis_broken": {
+          "const": "MANDATORY_REVIEW",
+          "title": "Thesis Broken",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thesis_broken",
+        "hard_risk_veto"
+      ],
+      "title": "ExitPolicySchema",
+      "type": "object"
+    },
+    "HoldingPeriodSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum_days": {
+          "exclusiveMinimum": 0,
+          "title": "Maximum Days",
+          "type": "integer"
+        },
+        "minimum_days": {
+          "exclusiveMinimum": 0,
+          "title": "Minimum Days",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "minimum_days",
+        "maximum_days"
+      ],
+      "title": "HoldingPeriodSchema",
+      "type": "object"
+    },
+    "HorizonPolicySchema": {
+      "additionalProperties": false,
+      "properties": {
+        "core": {
+          "$ref": "#/$defs/HoldingPeriodSchema"
+        },
+        "tactical": {
+          "$ref": "#/$defs/HoldingPeriodSchema"
+        }
+      },
+      "required": [
+        "core",
+        "tactical"
+      ],
+      "title": "HorizonPolicySchema",
+      "type": "object"
+    },
+    "PolicyMetadataSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PolicyStatus"
+        }
+      },
+      "required": [
+        "name",
+        "status"
+      ],
+      "title": "PolicyMetadataSchema",
+      "type": "object"
+    },
+    "PolicyStatus": {
+      "enum": [
+        "TEST_DEFAULT",
+        "DRAFT",
+        "ACTIVE",
+        "RETIRED"
+      ],
+      "title": "PolicyStatus",
+      "type": "string"
+    },
+    "PositionPolicySchema": {
+      "additionalProperties": false,
+      "properties": {
+        "core_ratio_target": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Core Ratio Target"
+        },
+        "gross_exposure_max_pct": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Gross Exposure Max Pct"
+        },
+        "minimum_cash_pct": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Minimum Cash Pct"
+        },
+        "sector_max_pct": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Sector Max Pct"
+        },
+        "single_instrument_max_pct": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Single Instrument Max Pct"
+        },
+        "tactical_ratio_target": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Tactical Ratio Target"
+        }
+      },
+      "required": [
+        "single_instrument_max_pct",
+        "sector_max_pct",
+        "gross_exposure_max_pct",
+        "minimum_cash_pct",
+        "core_ratio_target",
+        "tactical_ratio_target"
+      ],
+      "title": "PositionPolicySchema",
+      "type": "object"
+    },
+    "ReviewCadence": {
+      "enum": [
+        "DAILY",
+        "WEEKLY",
+        "MONTHLY",
+        "QUARTERLY"
+      ],
+      "title": "ReviewCadence",
+      "type": "string"
+    },
+    "ReviewFrequencySchema": {
+      "additionalProperties": false,
+      "properties": {
+        "holdings": {
+          "$ref": "#/$defs/ReviewCadence"
+        },
+        "portfolio": {
+          "$ref": "#/$defs/ReviewCadence"
+        },
+        "screening": {
+          "$ref": "#/$defs/ReviewCadence"
+        },
+        "strategy": {
+          "$ref": "#/$defs/ReviewCadence"
+        },
+        "watchlist": {
+          "$ref": "#/$defs/ReviewCadence"
+        }
+      },
+      "required": [
+        "holdings",
+        "watchlist",
+        "screening",
+        "portfolio",
+        "strategy"
+      ],
+      "title": "ReviewFrequencySchema",
+      "type": "object"
+    },
+    "StrategyPolicySchema": {
+      "additionalProperties": false,
+      "properties": {
+        "primary_style": {
+          "minLength": 1,
+          "title": "Primary Style",
+          "type": "string"
+        },
+        "tactical_style": {
+          "minLength": 1,
+          "title": "Tactical Style",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary_style",
+        "tactical_style"
+      ],
+      "title": "StrategyPolicySchema",
+      "type": "object"
+    },
+    "ThesisState": {
+      "enum": [
+        "UNKNOWN",
+        "VALID",
+        "STRENGTHENING",
+        "WEAKENING",
+        "BROKEN"
+      ],
+      "title": "ThesisState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Versioned machine protocol for an Investment Policy configuration.",
+  "properties": {
+    "behavior": {
+      "$ref": "#/$defs/BehaviorPolicySchema"
+    },
+    "entry": {
+      "$ref": "#/$defs/EntryPolicySchema"
+    },
+    "execution": {
+      "$ref": "#/$defs/ExecutionPolicySchema"
+    },
+    "exit": {
+      "$ref": "#/$defs/ExitPolicySchema"
+    },
+    "horizon": {
+      "$ref": "#/$defs/HorizonPolicySchema"
+    },
+    "metadata": {
+      "$ref": "#/$defs/PolicyMetadataSchema"
+    },
+    "position": {
+      "$ref": "#/$defs/PositionPolicySchema"
+    },
+    "review_frequency": {
+      "$ref": "#/$defs/ReviewFrequencySchema"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "strategy": {
+      "$ref": "#/$defs/StrategyPolicySchema"
+    }
+  },
+  "required": [
+    "schema_version",
+    "metadata",
+    "strategy",
+    "horizon",
+    "behavior",
+    "position",
+    "entry",
+    "exit",
+    "execution",
+    "review_frequency"
+  ],
+  "title": "InvestmentPolicySchema",
+  "type": "object"
+}

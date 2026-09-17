@@ -1,0 +1,70 @@
+name: personal-ai-investment-os
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-investment_os}
+      POSTGRES_USER: ${POSTGRES_USER:-investment_os}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  investment-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      INVESTMENT_OS_ENVIRONMENT: ${INVESTMENT_OS_ENVIRONMENT:-development}
+      INVESTMENT_OS_DATABASE_URL: ${INVESTMENT_OS_DATABASE_URL:-postgresql+asyncpg://investment_os:local-development-only@postgres:5432/investment_os}
+    ports:
+      - "${API_PORT:-8100}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  investment-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "investment_os.worker"]
+    environment:
+      INVESTMENT_OS_ENVIRONMENT: ${INVESTMENT_OS_ENVIRONMENT:-development}
+      INVESTMENT_OS_DATABASE_URL: ${INVESTMENT_OS_DATABASE_URL:-postgresql+asyncpg://investment_os:local-development-only@postgres:5432/investment_os}
+      INVESTMENT_OS_WORKER_POLL_SECONDS: ${INVESTMENT_OS_WORKER_POLL_SECONDS:-10}
+      INVESTMENT_OS_WORKER_READY_FILE: ${INVESTMENT_OS_WORKER_READY_FILE:-/tmp/investment-os-worker-ready}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/investment-os-worker-ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
