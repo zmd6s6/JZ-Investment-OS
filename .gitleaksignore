@@ -1,0 +1,4 @@
+# One-way detect-secrets fingerprints from the initial bootstrap commit.
+375b60264fb7745f955b2b3dcd37d46ba1117e48:.secrets.baseline:generic-api-key:130
+375b60264fb7745f955b2b3dcd37d46ba1117e48:.secrets.baseline:generic-api-key:139
+375b60264fb7745f955b2b3dcd37d46ba1117e48:.secrets.baseline:generic-api-key:148
