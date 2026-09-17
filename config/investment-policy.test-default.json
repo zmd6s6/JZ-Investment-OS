@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "name": "medium_long_term_with_low_frequency_tactical",
+    "status": "TEST_DEFAULT"
+  },
+  "strategy": {
+    "primary_style": "medium_long_term",
+    "tactical_style": "low_frequency_swing"
+  },
+  "horizon": {
+    "core": {
+      "minimum_days": 90,
+      "maximum_days": 548
+    },
+    "tactical": {
+      "minimum_days": 14,
+      "maximum_days": 56
+    }
+  },
+  "behavior": {
+    "chase_high": false,
+    "frequent_trading": false,
+    "buy_only_because_price_fell": false,
+    "sell_only_because_position_is_profitable": false,
+    "average_down_without_thesis_check": false,
+    "reason_required_for_every_action": true
+  },
+  "position": {
+    "single_instrument_max_pct": 8,
+    "sector_max_pct": 25,
+    "gross_exposure_max_pct": 100,
+    "minimum_cash_pct": 10,
+    "core_ratio_target": 0.75,
+    "tactical_ratio_target": 0.25
+  },
+  "entry": {
+    "require_thesis_states": [
+      "VALID",
+      "STRENGTHENING"
+    ],
+    "require_timing_confirmation": true,
+    "require_portfolio_capacity": true,
+    "require_risk_pass": true
+  },
+  "exit": {
+    "thesis_broken": "MANDATORY_REVIEW",
+    "hard_risk_veto": "NO_NEW_OR_ADDITIONAL_EXPOSURE"
+  },
+  "execution": {
+    "auto_trade": false,
+    "human_approval_required": true,
+    "approval_ttl_hours": 24
+  },
+  "review_frequency": {
+    "holdings": "DAILY",
+    "watchlist": "DAILY",
+    "screening": "WEEKLY",
+    "portfolio": "MONTHLY",
+    "strategy": "QUARTERLY"
+  }
+}
