@@ -27,6 +27,7 @@
 - ADR-0001 through ADR-0010 are accepted as Master-Spec implementation decisions.
 - Pure domain values, Investment Policy, and Instrument/Thesis/Decision/Strategy state machines exist.
 - Core/Tactical, Risk Veto, human approval, and Learning authority invariants fail closed.
+- Decision Risk Gate is explicit (`UNKNOWN|PASS|VETO`); missing assessment cannot be interpreted as PASS.
 - ADR-0011 records the pure-domain and strict Policy-boundary implementation decision.
 
 ## Not yet implemented or verified
@@ -34,14 +35,15 @@
 - React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
 - any database, runtime Agent, scheduler, UI, or Learning workflow functionality;
 - persistence/audit of the PR-01 transition records, intentionally deferred to PR-02;
+- auditable Decision rejection actors and deterministic approval-expiry TTL guards, scheduled for PR-07;
 - any complete end-to-end acceptance scenario S1–S15; PR-01 verifies only its domain-gate slices.
 
 Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-Human-review PR-01 using `docs/stages/PR-01.md`. The next implementation stage is PR-02 after PR-01
-acceptance.
+Push the PR #1 blocker fix to its existing branch and verify the complete remote CI run. The next
+implementation stage is PR-02 after PR-01 acceptance.
 
 ## Human decisions currently required
 
@@ -54,7 +56,7 @@ owner; merging to `main` remains a separate human action.
 | Stage | State | Human acceptance | Notes |
 |---|---|---|---|
 | PR-00 | READY_FOR_REVIEW | Pending | Local/container and cumulative remote CI checks pass |
-| PR-01 | READY_FOR_REVIEW | Pending | Local and remote CI verification pass |
+| PR-01 | READY_FOR_REVIEW | Pending | Reviewer blockers fixed locally; full remote CI rerun pending |
 | PR-02 | PLANNED | Pending | Persistence, audit, reliable jobs |
 | PR-03 | PLANNED | Pending | DSA adapter, evidence, feature pipeline |
 | PR-04 | PLANNED | Pending | Thesis and shared memory |

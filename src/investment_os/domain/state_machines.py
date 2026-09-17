@@ -8,6 +8,7 @@ from investment_os.domain.enums import (
     ActorType,
     DecisionState,
     InstrumentLifecycleState,
+    RiskGateState,
     StrategyProposalState,
     ThesisState,
 )
@@ -219,7 +220,7 @@ class DecisionTransitionContext:
     schema_valid: bool = False
     policy_passed: bool = False
     data_sufficient: bool = False
-    risk_veto: bool = False
+    risk_gate: RiskGateState = RiskGateState.UNKNOWN
     risk_reduction_exception_recorded: bool = False
     approval_actor_type: ActorType | None = None
     approval_actor_id: str | None = None
@@ -248,9 +249,14 @@ def transition_decision(
         _guard(context.policy_passed, "Policy Gate must pass")
         _guard(context.data_sufficient, "Decision requires sufficient data")
     elif (current, target) == (DecisionState.VALIDATED, DecisionState.RISK_VETOED):
-        _guard(context.risk_veto, "RISK_VETOED requires an active Veto")
+        _guard(context.risk_gate is RiskGateState.VETO, "RISK_VETOED requires an active Veto")
     elif (current, target) == (DecisionState.VALIDATED, DecisionState.PENDING_APPROVAL):
-        if context.risk_veto:
+        _guard(
+            context.risk_gate is not RiskGateState.UNKNOWN,
+            "an explicit Risk Assessment is required before approval",
+            code=DomainErrorCode.RISK_ASSESSMENT_REQUIRED,
+        )
+        if context.risk_gate is RiskGateState.VETO:
             allowed_exception = (
                 context.action in {Action.REDUCE, Action.EXIT}
                 and context.risk_reduction_exception_recorded

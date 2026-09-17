@@ -22,6 +22,12 @@ class RiskIntent(StrEnum):
     EXIT = "EXIT"
 
 
+class RiskGateState(StrEnum):
+    UNKNOWN = "UNKNOWN"
+    PASS = "PASS"
+    VETO = "VETO"
+
+
 class PositionBucket(StrEnum):
     CORE = "CORE"
     TACTICAL = "TACTICAL"

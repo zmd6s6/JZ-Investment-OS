@@ -7,6 +7,7 @@ from investment_os.domain.enums import (
     ActorType,
     DecisionState,
     InstrumentLifecycleState,
+    RiskGateState,
     StrategyProposalState,
     ThesisState,
 )
@@ -209,12 +210,56 @@ def test_broken_thesis_cannot_recover_without_full_review() -> None:
         )
 
 
+def test_buy_without_risk_assessment_cannot_enter_pending_approval() -> None:
+    with pytest.raises(DomainError) as caught:
+        transition_decision(
+            DecisionState.VALIDATED,
+            DecisionState.PENDING_APPROVAL,
+            DecisionTransitionContext(action=Action.BUY),
+            reason_codes=REASONS,
+            occurred_at=NOW,
+        )
+    assert caught.value.code is DomainErrorCode.RISK_ASSESSMENT_REQUIRED
+
+
+def test_buy_with_explicit_risk_pass_can_enter_pending_approval() -> None:
+    transition = transition_decision(
+        DecisionState.VALIDATED,
+        DecisionState.PENDING_APPROVAL,
+        DecisionTransitionContext(action=Action.BUY, risk_gate=RiskGateState.PASS),
+        reason_codes=REASONS,
+        occurred_at=NOW,
+    )
+    assert transition.to_state is DecisionState.PENDING_APPROVAL
+
+
+def test_add_requires_explicit_risk_pass() -> None:
+    with pytest.raises(DomainError) as caught:
+        transition_decision(
+            DecisionState.VALIDATED,
+            DecisionState.PENDING_APPROVAL,
+            DecisionTransitionContext(action=Action.ADD),
+            reason_codes=REASONS,
+            occurred_at=NOW,
+        )
+    assert caught.value.code is DomainErrorCode.RISK_ASSESSMENT_REQUIRED
+
+    transition = transition_decision(
+        DecisionState.VALIDATED,
+        DecisionState.PENDING_APPROVAL,
+        DecisionTransitionContext(action=Action.ADD, risk_gate=RiskGateState.PASS),
+        reason_codes=REASONS,
+        occurred_at=NOW,
+    )
+    assert transition.to_state is DecisionState.PENDING_APPROVAL
+
+
 def test_buy_decision_cannot_pass_risk_veto() -> None:
     with pytest.raises(DomainError) as caught:
         transition_decision(
             DecisionState.VALIDATED,
             DecisionState.PENDING_APPROVAL,
-            DecisionTransitionContext(action=Action.BUY, risk_veto=True),
+            DecisionTransitionContext(action=Action.BUY, risk_gate=RiskGateState.VETO),
             reason_codes=REASONS,
             occurred_at=NOW,
         )
@@ -230,13 +275,28 @@ def test_risk_reducing_decision_can_proceed_under_recorded_veto_exception(
         DecisionState.PENDING_APPROVAL,
         DecisionTransitionContext(
             action=action,
-            risk_veto=True,
+            risk_gate=RiskGateState.VETO,
             risk_reduction_exception_recorded=True,
         ),
         reason_codes=REASONS,
         occurred_at=NOW,
     )
     assert transition.to_state is DecisionState.PENDING_APPROVAL
+
+
+@pytest.mark.parametrize("action", [Action.REDUCE, Action.EXIT])
+def test_risk_reducing_decision_under_veto_requires_recorded_exception(
+    action: Action,
+) -> None:
+    with pytest.raises(DomainError) as caught:
+        transition_decision(
+            DecisionState.VALIDATED,
+            DecisionState.PENDING_APPROVAL,
+            DecisionTransitionContext(action=action, risk_gate=RiskGateState.VETO),
+            reason_codes=REASONS,
+            occurred_at=NOW,
+        )
+    assert caught.value.code is DomainErrorCode.RISK_VETO_BLOCKED
 
 
 def test_decision_requires_valid_human_approval() -> None:
@@ -288,7 +348,7 @@ def test_decision_full_happy_path() -> None:
         (
             DecisionState.VALIDATED,
             DecisionState.PENDING_APPROVAL,
-            DecisionTransitionContext(action=Action.BUY),
+            DecisionTransitionContext(action=Action.BUY, risk_gate=RiskGateState.PASS),
         ),
         (
             DecisionState.PENDING_APPROVAL,
