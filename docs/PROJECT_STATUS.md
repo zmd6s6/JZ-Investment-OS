@@ -42,8 +42,8 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-Push the PR #1 blocker fix to its existing branch and verify the complete remote CI run. The next
-implementation stage is PR-02 after PR-01 acceptance.
+Human-review the verified PR #1 blocker remediation. The next implementation stage is PR-02 after
+PR-01 acceptance.
 
 ## Human decisions currently required
 
@@ -56,7 +56,7 @@ owner; merging to `main` remains a separate human action.
 | Stage | State | Human acceptance | Notes |
 |---|---|---|---|
 | PR-00 | READY_FOR_REVIEW | Pending | Local/container and cumulative remote CI checks pass |
-| PR-01 | READY_FOR_REVIEW | Pending | Reviewer blockers fixed locally; full remote CI rerun pending |
+| PR-01 | READY_FOR_REVIEW | Pending | Reviewer blockers fixed; local and PR/push remote CI pass |
 | PR-02 | PLANNED | Pending | Persistence, audit, reliable jobs |
 | PR-03 | PLANNED | Pending | DSA adapter, evidence, feature pipeline |
 | PR-04 | PLANNED | Pending | Thesis and shared memory |
