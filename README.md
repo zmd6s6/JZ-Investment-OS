@@ -2,10 +2,10 @@
 
 Personal AI Investment OS is an evidence-first, long-lived investment research and portfolio decision system. It is independent from DSA: DSA supplies research/data through an adapter, while this project owns Thesis, Portfolio, Risk, Decision, Approval, Journal, and Review state.
 
-The repository has completed the local implementation of **PR-01 domain foundations** and is ready
-for review. It provides exact value objects, strict test Policy validation, and governed state
-machines. It does not provide investment advice, persisted portfolio decisions, runtime investment
-agents, or trade execution.
+The repository contains the **PR-02 persistence foundation**: the PR-01 domain kernel plus a complete
+PostgreSQL core schema, Alembic migrations, optimistic concurrency repositories, append-only audit
+and event history, transactional outbox primitives, and advisory-locked idempotent jobs. It does
+not provide investment advice, runtime investment agents, approval APIs, or trade execution.
 
 ## Safety status
 
@@ -60,8 +60,30 @@ uv run pip-licenses --format=markdown --with-urls
 uv run python scripts/check_secrets.py
 ```
 
-These are the authoritative baseline and PR-01 checks. The domain coverage check reads the coverage
-data produced by the preceding test run. Do not report a check as passed unless it was actually run.
+`uv run pytest` now requires the PostgreSQL service because PR-02 integration and migration tests
+are part of the canonical suite. Start it with `docker compose up --detach --wait postgres`. The
+domain coverage check reads the coverage data produced by the preceding test run. Do not report a
+check as passed unless it was actually run.
+
+Run only the PostgreSQL acceptance slice without replacing the full coverage data:
+
+```text
+uv run pytest -m integration --no-cov
+```
+
+## Database migrations
+
+The Compose stack runs a one-shot `investment-migrate` service before API and worker startup. For
+host-side migration verification:
+
+```text
+uv run alembic upgrade head
+uv run alembic current
+```
+
+An empty development database can be round-tripped with `alembic downgrade base` followed by
+`alembic upgrade head`. Do not downgrade a populated database: take a backup and use a reviewed
+forward-fix migration. See [`docs/runbooks/migrations.md`](docs/runbooks/migrations.md).
 
 ## Run the bootstrap stack
 
@@ -73,6 +95,7 @@ uv run python scripts/smoke.py
 Expected services:
 
 - PostgreSQL on `${POSTGRES_PORT:-5432}`
+- One-shot Alembic migration to the recorded head revision
 - API on `http://localhost:${API_PORT:-8100}`
 - Worker with a database-backed readiness marker
 
@@ -122,7 +145,8 @@ See [`docs/WORKING_MODE.md`](docs/WORKING_MODE.md) for the operating model and [
 
 ## Recovery and rollback
 
-PR-01 has no domain migrations or real portfolio data. To rebuild the local environment:
+PR-02 migrations contain only synthetic/development data during project construction. To rebuild a
+disposable local environment:
 
 1. run `docker compose down --volumes` only if local PostgreSQL data may be discarded;
 2. remove the ignored `.venv` and `.env` files if needed;
