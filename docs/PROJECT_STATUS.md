@@ -23,6 +23,7 @@
 - PostgreSQL/API/worker Compose configuration parses successfully.
 - PostgreSQL, API, and worker images build and reach healthy state; end-to-end smoke passes on host port 8100.
 - CI, OpenAPI contract generation, dependency/license checks, and secret scanning are configured.
+- Remote GitHub CI passes quality, Compose smoke, and independent Gitleaks jobs on the PR-01 branch.
 - ADR-0001 through ADR-0010 are accepted as Master-Spec implementation decisions.
 - Pure domain values, Investment Policy, and Instrument/Thesis/Decision/Strategy state machines exist.
 - Core/Tactical, Risk Veto, human approval, and Learning authority invariants fail closed.
@@ -30,7 +31,6 @@
 
 ## Not yet implemented or verified
 
-- remote GitHub CI, because the configured remote has not been pushed or run for this worktree;
 - React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
 - any database, runtime Agent, scheduler, UI, or Learning workflow functionality;
 - persistence/audit of the PR-01 transition records, intentionally deferred to PR-02;
@@ -40,8 +40,8 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-Publish PR-01 on a stage branch under the owner's standing authorization, wait for remote CI, and
-record its result. The next implementation stage is PR-02 after PR-01 acceptance.
+Human-review PR-01 using `docs/stages/PR-01.md`. The next implementation stage is PR-02 after PR-01
+acceptance.
 
 ## Human decisions currently required
 
@@ -53,8 +53,8 @@ owner; merging to `main` remains a separate human action.
 
 | Stage | State | Human acceptance | Notes |
 |---|---|---|---|
-| PR-00 | READY_FOR_REVIEW | Pending | Local/container checks pass; remote CI not verified |
-| PR-01 | READY_FOR_REVIEW | Pending | Domain kernel, Policy, and state machines complete locally |
+| PR-00 | READY_FOR_REVIEW | Pending | Local/container and cumulative remote CI checks pass |
+| PR-01 | READY_FOR_REVIEW | Pending | Local and remote CI verification pass |
 | PR-02 | PLANNED | Pending | Persistence, audit, reliable jobs |
 | PR-03 | PLANNED | Pending | DSA adapter, evidence, feature pipeline |
 | PR-04 | PLANNED | Pending | Thesis and shared memory |
