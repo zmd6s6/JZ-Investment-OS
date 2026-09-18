@@ -7,7 +7,7 @@
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
 - Active roadmap stage: `PR-03 — DSA Adapter, Evidence & Feature Pipeline`
-- Stage state: `IN_PROGRESS`
+- Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
 - Last status update: `2026-09-18`
@@ -52,7 +52,7 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-Implement PR-03: DSA adapter boundary, immutable Evidence ingestion, deterministic quality and
+Human-review PR-03: DSA adapter boundary, immutable Evidence ingestion, deterministic quality and
 freshness handling, minimal Feature Pipeline, and data-lineage ingest API. PR-00 through PR-02 are
 accepted and merged to `main`.
 
@@ -69,7 +69,7 @@ owner; merging to `main` remains a separate human action.
 | PR-00 | ACCEPTED | Merged to `main` | Delivered and accepted with the merged foundational work |
 | PR-01 | ACCEPTED | Merged to `main` on 2026-09-17 | PR #1 merge commit `45b024109775e233049b8c7df1792b6190c67a58` |
 | PR-02 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #2 merge commit `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e` |
-| PR-03 | IN_PROGRESS | Pending | DSA adapter, evidence, feature pipeline |
+| PR-03 | READY_FOR_REVIEW | Pending | DSA adapter, evidence, feature pipeline; local verification passes |
 | PR-04 | PLANNED | Pending | Thesis and shared memory |
 | PR-05 | PLANNED | Pending | Agent runtime and committee |
 | PR-06 | PLANNED | Pending | Portfolio, risk, sizing |
