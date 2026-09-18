@@ -1,0 +1,1 @@
+"""Replaceable DSA infrastructure adapter."""

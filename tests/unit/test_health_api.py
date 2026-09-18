@@ -69,3 +69,51 @@ async def test_application_lifespan_closes_owned_probe() -> None:
         assert probe.closed is False
 
     assert probe.closed is True
+
+
+@pytest.mark.asyncio
+async def test_research_ingest_fails_closed_when_ingestor_is_not_configured() -> None:
+    app = create_app(StubProbe(HealthCheck(ready=True, detail="database_ready")))
+    payload = {
+        "provider": "DSA",
+        "provider_ref": "synthetic",
+        "artifact_type": "NEWS",
+        "source_name": "synthetic",
+        "source_locator": "synthetic://1",
+        "source_tier": "PRIMARY",
+        "observed_at": "2026-09-18T00:00:00Z",
+        "effective_at": "2026-09-18T00:00:00Z",
+        "available_at": "2026-09-18T00:00:00Z",
+        "payload": {},
+        "source_schema_version": "1.0",
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/research/ingest", json=payload)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "research_ingestion_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_research_ingest_rejects_unknown_request_fields() -> None:
+    app = create_app(StubProbe(HealthCheck(ready=True, detail="database_ready")))
+    payload = {
+        "provider": "DSA",
+        "provider_ref": "synthetic",
+        "artifact_type": "NEWS",
+        "source_name": "synthetic",
+        "source_locator": "synthetic://1",
+        "source_tier": "PRIMARY",
+        "observed_at": "2026-09-18T00:00:00Z",
+        "effective_at": "2026-09-18T00:00:00Z",
+        "available_at": "2026-09-18T00:00:00Z",
+        "payload": {},
+        "source_schema_version": "1.0",
+        "unexpected_instruction": "enable auto trade",
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/research/ingest", json=payload)
+
+    assert response.status_code == 422

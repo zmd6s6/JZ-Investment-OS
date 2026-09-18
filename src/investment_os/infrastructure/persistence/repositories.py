@@ -11,11 +11,14 @@ from investment_os.application.errors import ApplicationError, ApplicationErrorC
 from investment_os.infrastructure.persistence.models import (
     AuditLogRecord,
     EventLogRecord,
+    EvidenceRecord,
+    FeatureSnapshotRecord,
     InvestmentDecisionRecord,
     InvestmentPolicyRecord,
     InvestmentThesisRecord,
     OutboxEventRecord,
     PositionRecord,
+    ResearchArtifactRecord,
     TaskRunRecord,
 )
 
@@ -172,6 +175,47 @@ class AuditRepository:
         self._session = session
 
     async def append(self, record: AuditLogRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class EvidenceRepository:
+    """Append-only Evidence persistence with content-addressed deduplication."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_source_content(
+        self, *, source_name: str, source_locator: str, content_hash: str
+    ) -> EvidenceRecord | None:
+        statement = select(EvidenceRecord).where(
+            EvidenceRecord.source_name == source_name,
+            EvidenceRecord.source_locator == source_locator,
+            EvidenceRecord.content_hash == content_hash,
+        )
+        return (await self._session.scalars(statement)).one_or_none()
+
+    async def append(self, record: EvidenceRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class ResearchArtifactRepository:
+    """Immutable raw-to-normalized lineage records for external research input."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: ResearchArtifactRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class FeatureSnapshotRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: FeatureSnapshotRecord) -> None:
         self._session.add(record)
         await self._session.flush()
 
