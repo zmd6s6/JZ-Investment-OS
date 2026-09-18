@@ -73,6 +73,7 @@ async def test_evidence_repository_persists_and_finds_content_addressed_record(
             source_locator=normalized.source_locator,
             content_hash=normalized.content_hash,
         )
+        payload = existing.payload_json if existing is not None else None
 
     assert existing is not None
-    assert existing.payload_json == {"headline": "synthetic"}
+    assert payload == {"headline": "synthetic"}
