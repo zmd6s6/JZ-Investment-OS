@@ -103,6 +103,28 @@ class ThesisVersionRecord(AuditFieldsMixin, Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class EvidenceRecord(AuditFieldsMixin, Base):
+    __tablename__ = "evidence"
+    __table_args__ = (UniqueConstraint("source_name", "source_locator", "content_hash"),)
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    evidence_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_locator: Mapped[str] = mapped_column(Text, nullable=False)
+    source_tier: Mapped[str] = mapped_column(String(64), nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    effective_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    quality_score: Mapped[Decimal] = mapped_column(Numeric(20, 12), nullable=False)
+    freshness_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    supersedes_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+
+
 class InvestmentDecisionRecord(AuditFieldsMixin, Base):
     __tablename__ = "investment_decision"
 

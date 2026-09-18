@@ -8,6 +8,7 @@ from investment_os.infrastructure.persistence.repositories import (
     AuditRepository,
     DecisionRepository,
     EventRepository,
+    EvidenceRepository,
     OutboxRepository,
     PolicyRepository,
     PositionRepository,
@@ -24,6 +25,7 @@ class SqlAlchemyUnitOfWork:
         self.decisions = DecisionRepository(self.session)
         self.policies = PolicyRepository(self.session)
         self.audit = AuditRepository(self.session)
+        self.evidence = EvidenceRepository(self.session)
         self.events = EventRepository(self.session)
         self.outbox = OutboxRepository(self.session)
         self.task_runs = TaskRunRepository(self.session)
