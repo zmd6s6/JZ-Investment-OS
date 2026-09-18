@@ -1,6 +1,10 @@
 from uuid import UUID
 
-from investment_os.application.thesis import semantic_diff
+from investment_os.application.thesis import (
+    semantic_diff,
+    thesis_content_hash,
+    thesis_content_payload,
+)
 from investment_os.domain.enums import ThesisState
 from investment_os.domain.thesis import (
     EvidenceBackedClaim,
@@ -103,3 +107,29 @@ def test_diff_is_stable_when_semantic_collections_are_reordered() -> None:
     )
 
     assert not semantic_diff(first, reordered).is_material
+
+
+def test_content_hash_is_stable_for_semantically_reordered_collections() -> None:
+    first = _content(
+        catalysts=(
+            _claim("Second catalyst", EVIDENCE_B),
+            _claim("First catalyst", EVIDENCE_C),
+        ),
+        monitoring=("Review quarterly", "Watch retention"),
+    )
+    reordered = _content(
+        catalysts=(
+            _claim("First catalyst", EVIDENCE_C),
+            _claim("Second catalyst", EVIDENCE_B),
+        ),
+        monitoring=("Watch retention", "Review quarterly"),
+    )
+
+    assert thesis_content_hash(first) == thesis_content_hash(reordered)
+    assert thesis_content_payload(first)["state"] == "VALID"
+
+
+def test_content_hash_changes_when_the_summary_changes() -> None:
+    assert thesis_content_hash(_content()) != thesis_content_hash(
+        _content(summary="A changed synthetic long-term Thesis")
+    )

@@ -1,6 +1,8 @@
 """Deterministic Thesis comparison without a decision or execution path."""
 
+import json
 from dataclasses import dataclass
+from hashlib import sha256
 
 from investment_os.domain.thesis import EvidenceBackedClaim, InvalidationCondition, ThesisContent
 
@@ -11,6 +13,53 @@ def _claim_key(claim: EvidenceBackedClaim) -> tuple[str, tuple[str, ...]]:
 
 def _condition_key(condition: InvalidationCondition) -> tuple[str, str, str, str]:
     return condition.condition, condition.measurement, condition.threshold, condition.window
+
+
+def _claim_payload(claim: EvidenceBackedClaim) -> dict[str, object]:
+    return {
+        "description": claim.description,
+        "evidence_ids": sorted(str(evidence_id) for evidence_id in claim.evidence_ids),
+    }
+
+
+def thesis_content_payload(content: ThesisContent) -> dict[str, object]:
+    """Return a canonical JSON-compatible payload for immutable storage and hashing."""
+
+    return {
+        "state": content.state.value,
+        "long_term_summary": content.long_term_summary,
+        "pillars": [
+            {
+                "key": pillar.key,
+                "claim": _claim_payload(pillar.claim),
+                "status": pillar.status.value,
+            }
+            for pillar in sorted(content.pillars, key=lambda pillar: pillar.key)
+        ],
+        "catalysts": [_claim_payload(claim) for claim in sorted(content.catalysts, key=_claim_key)],
+        "risks": [_claim_payload(claim) for claim in sorted(content.risks, key=_claim_key)],
+        "invalidation_conditions": [
+            {
+                "condition": condition.condition,
+                "measurement": condition.measurement,
+                "threshold": condition.threshold,
+                "window": condition.window,
+            }
+            for condition in sorted(content.invalidation_conditions, key=_condition_key)
+        ],
+        "monitoring_conditions": sorted(content.monitoring_conditions),
+        "change_reason": content.change_reason.value,
+    }
+
+
+def thesis_content_hash(content: ThesisContent) -> str:
+    canonical = json.dumps(
+        thesis_content_payload(content),
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return sha256(canonical.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
