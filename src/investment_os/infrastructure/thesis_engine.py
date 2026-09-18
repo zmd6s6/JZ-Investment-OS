@@ -8,7 +8,13 @@ from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
-from investment_os.application.thesis import thesis_content_hash, thesis_content_payload
+from investment_os.application.thesis import (
+    MetricObservation,
+    ThesisInvalidationEvaluation,
+    evaluate_invalidation,
+    thesis_content_hash,
+    thesis_content_payload,
+)
 from investment_os.domain.thesis import ThesisContent, ThesisVersion
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.persistence.models import (
@@ -26,6 +32,14 @@ class ThesisWriteResult:
     thesis_version_id: UUID
     version: int
     created: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ThesisInvalidationWriteResult:
+    """A persisted invalidation proposal, never a Decision or an order."""
+
+    evaluation: ThesisInvalidationEvaluation
+    thesis_write: ThesisWriteResult | None
 
 
 class SqlAlchemyThesisWriter:
@@ -47,6 +61,7 @@ class SqlAlchemyThesisWriter:
         content: ThesisContent,
         as_of: datetime,
         correlation_id: UUID | None = None,
+        expected_current_content_hash: str | None = None,
     ) -> ThesisWriteResult:
         """Append a material version after validating all referenced Evidence at ``as_of``.
 
@@ -102,6 +117,15 @@ class SqlAlchemyThesisWriter:
                     raise ApplicationError(
                         ApplicationErrorCode.THESIS_CURRENT_VERSION_MISSING,
                         "the Thesis current version record does not exist",
+                        details={"thesis_id": str(thesis.id)},
+                    )
+                if (
+                    expected_current_content_hash is not None
+                    and current.content_hash != expected_current_content_hash
+                ):
+                    raise ApplicationError(
+                        ApplicationErrorCode.THESIS_CURRENT_VERSION_STALE,
+                        "the Thesis changed before its invalidation proposal could be persisted",
                         details={"thesis_id": str(thesis.id)},
                     )
                 if current.content_hash == content_hash:
@@ -174,3 +198,31 @@ class SqlAlchemyThesisWriter:
             causation_id=None,
             metadata_json={"as_of": evaluation_time.isoformat()},
         )
+
+
+class SqlAlchemyThesisInvalidationMonitor:
+    """Evaluate explicit Thesis conditions and persist only a checked BROKEN proposal."""
+
+    def __init__(self, writer: SqlAlchemyThesisWriter) -> None:
+        self._writer = writer
+
+    async def evaluate_and_write(
+        self,
+        *,
+        instrument_id: UUID,
+        current_content: ThesisContent,
+        observations: tuple[MetricObservation, ...],
+        as_of: datetime,
+        correlation_id: UUID | None = None,
+    ) -> ThesisInvalidationWriteResult:
+        evaluation = evaluate_invalidation(current_content, observations)
+        if evaluation.proposed_content is None:
+            return ThesisInvalidationWriteResult(evaluation=evaluation, thesis_write=None)
+        thesis_write = await self._writer.write(
+            instrument_id=instrument_id,
+            content=evaluation.proposed_content,
+            as_of=as_of,
+            correlation_id=correlation_id,
+            expected_current_content_hash=thesis_content_hash(current_content),
+        )
+        return ThesisInvalidationWriteResult(evaluation=evaluation, thesis_write=thesis_write)

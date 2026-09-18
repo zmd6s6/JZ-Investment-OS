@@ -7,7 +7,8 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
-from investment_os.domain.enums import ThesisState
+from investment_os.application.thesis import MetricObservation
+from investment_os.domain.enums import Action, ThesisState
 from investment_os.domain.thesis import (
     EvidenceBackedClaim,
     InvalidationCondition,
@@ -16,12 +17,17 @@ from investment_os.domain.thesis import (
     ThesisContent,
     ThesisPillar,
 )
+from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.persistence.models import (
     EvidenceRecord,
+    InvestmentDecisionRecord,
     ThesisVersionEvidenceRecord,
     ThesisVersionRecord,
 )
-from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisWriter
+from investment_os.infrastructure.thesis_engine import (
+    SqlAlchemyThesisInvalidationMonitor,
+    SqlAlchemyThesisWriter,
+)
 
 NOW = datetime(2026, 9, 18, 20, 0, tzinfo=UTC)
 
@@ -31,6 +37,7 @@ def _content(
     *,
     summary: str = "Synthetic thesis summary",
     reverse_catalysts: bool = False,
+    invalidation_window: str = "single observation",
 ) -> ThesisContent:
     catalysts: tuple[EvidenceBackedClaim, ...] = (
         EvidenceBackedClaim("Synthetic product adoption", (evidence_ids[0],)),
@@ -55,7 +62,7 @@ def _content(
                 condition="Synthetic retention deterioration",
                 measurement="synthetic net retention",
                 threshold="below 90%",
-                window="two synthetic quarters",
+                window=invalidation_window,
             ),
         ),
         monitoring_conditions=("Review synthetic retention quarterly",),
@@ -142,6 +149,15 @@ async def test_thesis_writer_appends_material_versions_and_retains_evidence_line
         ),
         as_of=NOW,
     )
+    with pytest.raises(ApplicationError) as stale_error:
+        await writer.write(
+            instrument_id=instrument_id,
+            content=_content(
+                (first_evidence_id, second_evidence_id), summary="Synthetic stale proposal"
+            ),
+            as_of=NOW,
+            expected_current_content_hash="0" * 64,
+        )
 
     async with factory() as session:
         versions = list(
@@ -163,6 +179,7 @@ async def test_thesis_writer_appends_material_versions_and_retains_evidence_line
     assert unchanged.thesis_version_id == first.thesis_version_id
     assert second.created is True
     assert second.version == 2
+    assert stale_error.value.code is ApplicationErrorCode.THESIS_CURRENT_VERSION_STALE
     assert [version.parent_version_id for version in versions] == [None, first.thesis_version_id]
     assert link_count == 4
 
@@ -200,3 +217,67 @@ async def test_thesis_writer_rejects_missing_or_not_yet_available_evidence(
     async with factory() as session:
         version_count = await session.scalar(select(func.count()).select_from(ThesisVersionRecord))
     assert version_count == 0
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_s5_invalidation_appends_broken_history_and_forced_review_candidate(
+    database_engine: AsyncEngine,
+) -> None:
+    factory = async_sessionmaker(database_engine, expire_on_commit=False)
+    instrument_id = uuid4()
+    await _insert_instrument(database_engine, instrument_id)
+    base_evidence_id = await _append_evidence(
+        factory, instrument_id=instrument_id, available_at=NOW - timedelta(hours=1)
+    )
+    invalidation_evidence_id = await _append_evidence(
+        factory, instrument_id=instrument_id, available_at=NOW
+    )
+    writer = SqlAlchemyThesisWriter(factory, now=lambda: NOW)
+    current_content = _content((base_evidence_id, base_evidence_id))
+    initial = await writer.write(
+        instrument_id=instrument_id,
+        content=current_content,
+        as_of=NOW,
+    )
+    monitor = SqlAlchemyThesisInvalidationMonitor(writer)
+
+    result = await monitor.evaluate_and_write(
+        instrument_id=instrument_id,
+        current_content=current_content,
+        observations=(
+            MetricObservation(
+                measurement="synthetic net retention",
+                value=Decimal("85"),
+                observed_at=UtcTimestamp(NOW),
+                evidence_ids=(invalidation_evidence_id,),
+            ),
+        ),
+        as_of=NOW,
+    )
+
+    async with factory() as session:
+        versions = list(
+            (
+                await session.scalars(
+                    select(ThesisVersionRecord)
+                    .where(ThesisVersionRecord.thesis_id == initial.thesis_id)
+                    .order_by(ThesisVersionRecord.version)
+                )
+            ).all()
+        )
+        decision_count = await session.scalar(
+            select(func.count()).select_from(InvestmentDecisionRecord)
+        )
+
+    assert [version.thesis_state for version in versions] == ["VALID", "BROKEN"]
+    assert versions[0].summary == current_content.long_term_summary
+    assert versions[1].parent_version_id == initial.thesis_version_id
+    assert result.thesis_write is not None
+    assert result.thesis_write.created is True
+    assert result.evaluation.forced_review_candidate is not None
+    assert result.evaluation.forced_review_candidate.action_candidates == (
+        Action.REDUCE,
+        Action.EXIT,
+    )
+    assert decision_count == 0
