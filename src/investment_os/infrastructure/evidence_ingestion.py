@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.evidence import NormalizedEvidence, normalize_artifact
 from investment_os.application.research import ResearchArtifactDTO
-from investment_os.infrastructure.persistence.models import EvidenceRecord
+from investment_os.infrastructure.persistence.models import EvidenceRecord, ResearchArtifactRecord
 from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 
 
@@ -44,6 +44,21 @@ class SqlAlchemyEvidenceIngestor:
             )
             if existing is not None:
                 return EvidenceIngestResult(evidence_id=existing.id, reused=True)
+            await uow.research_artifacts.append(
+                ResearchArtifactRecord(
+                    provider=normalized.provider,
+                    provider_ref=normalized.provider_ref,
+                    artifact_type=normalized.evidence_type,
+                    as_of=normalized.available_at.value,
+                    raw_payload_ref=normalized.source_locator,
+                    normalized_payload_json=dict(normalized.payload),
+                    content_hash=normalized.content_hash,
+                    created_by="evidence_ingestion",
+                    correlation_id=correlation,
+                    causation_id=None,
+                    metadata_json={"source_schema_version": normalized.source_schema_version},
+                )
+            )
             record = self._record(normalized, correlation)
             await uow.evidence.append(record)
             await uow.commit()

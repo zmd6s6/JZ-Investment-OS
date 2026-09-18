@@ -125,6 +125,20 @@ class EvidenceRecord(AuditFieldsMixin, Base):
     supersedes_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
 
 
+class ResearchArtifactRecord(AuditFieldsMixin, Base):
+    __tablename__ = "research_artifact"
+    __table_args__ = (UniqueConstraint("provider", "provider_ref", "content_hash"),)
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    provider: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    artifact_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    raw_payload_ref: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class InvestmentDecisionRecord(AuditFieldsMixin, Base):
     __tablename__ = "investment_decision"
 

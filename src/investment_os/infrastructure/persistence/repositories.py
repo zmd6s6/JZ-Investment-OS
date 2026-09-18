@@ -17,6 +17,7 @@ from investment_os.infrastructure.persistence.models import (
     InvestmentThesisRecord,
     OutboxEventRecord,
     PositionRecord,
+    ResearchArtifactRecord,
     TaskRunRecord,
 )
 
@@ -194,6 +195,17 @@ class EvidenceRepository:
         return (await self._session.scalars(statement)).one_or_none()
 
     async def append(self, record: EvidenceRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class ResearchArtifactRepository:
+    """Immutable raw-to-normalized lineage records for external research input."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: ResearchArtifactRecord) -> None:
         self._session.add(record)
         await self._session.flush()
 
