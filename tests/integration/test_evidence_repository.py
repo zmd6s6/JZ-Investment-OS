@@ -3,15 +3,20 @@ from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from investment_os.api.app import create_app
-from investment_os.application.evidence import normalize_artifact
+from investment_os.application.evidence import FeatureSnapshot, normalize_artifact
 from investment_os.application.research import ResearchArtifactDTO
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
-from investment_os.infrastructure.persistence.models import EvidenceRecord, ResearchArtifactRecord
+from investment_os.infrastructure.feature_pipeline import SqlAlchemyFeatureSnapshotWriter
+from investment_os.infrastructure.persistence.models import (
+    EvidenceRecord,
+    FeatureSnapshotRecord,
+    ResearchArtifactRecord,
+)
 from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 
 NOW = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
@@ -144,3 +149,35 @@ async def test_ingest_api_persists_and_deduplicates_evidence(database_engine: As
     assert second.status_code == 200
     assert second.json()["reused"] is True
     assert second.json()["evidence_id"] == first.json()["evidence_id"]
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_feature_snapshot_writer_persists_input_lineage(database_engine: AsyncEngine) -> None:
+    factory = async_sessionmaker(database_engine, expire_on_commit=False)
+    instrument_id = uuid4()
+    correlation_id = uuid4()
+    async with database_engine.begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO instrument (id, symbol, exchange, asset_type, currency, lot_size, "
+                "status, created_by, correlation_id) VALUES (:id, 'FEATURE', 'TEST', 'EQUITY', "
+                "'USD', 1, 'ACTIVE', 'pytest', :correlation_id)"
+            ),
+            {"id": instrument_id, "correlation_id": correlation_id},
+        )
+    snapshot = FeatureSnapshot(
+        instrument_id=instrument_id,
+        as_of=UtcTimestamp(NOW),
+        feature_set_version="evidence-count-v1",
+        values={"eligible_evidence_count": "0"},
+        input_hash="f" * 64,
+    )
+
+    result = await SqlAlchemyFeatureSnapshotWriter(factory, now=lambda: NOW).persist(snapshot)
+
+    async with factory() as session:
+        stored = await session.get(FeatureSnapshotRecord, result.snapshot_id)
+    assert stored is not None
+    assert stored.input_hash == snapshot.input_hash
+    assert stored.values_json == {"eligible_evidence_count": "0"}
