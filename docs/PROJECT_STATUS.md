@@ -6,11 +6,11 @@
 
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
-- Active roadmap stage: `PR-01 — Domain Kernel, Policy & State Machines`
+- Active roadmap stage: `PR-02 — Persistence, Audit & Reliable Jobs`
 - Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
-- Last status update: `2026-09-17`
+- Last status update: `2026-09-18`
 
 ## Established
 
@@ -29,12 +29,21 @@
 - Core/Tactical, Risk Veto, human approval, and Learning authority invariants fail closed.
 - Decision Risk Gate is explicit (`UNKNOWN|PASS|VETO`); missing assessment cannot be interpreted as PASS.
 - ADR-0011 records the pure-domain and strict Policy-boundary implementation decision.
+- Alembic revision `20260917_0001` creates all Master-Spec core tables plus normalized Evidence
+  reference tables with UUID, numeric, timestamptz, constraint, and index contracts.
+- Policy, Position, Thesis, and Decision persistence uses optimistic version checks.
+- Audit/event history and immutable artifacts have database-enforced append-only guards.
+- Unit of Work, transactional outbox, advisory locks, and idempotent TaskRun execution are verified
+  against PostgreSQL 16.
+- Compose applies migrations through a successful one-shot service before API/worker startup.
+- Remote GitHub Actions run `35295158962` passes quality, Compose smoke, and independent Gitleaks
+  jobs for the current PR-02 review head `cfb707d4f463a37605d6cae503f5a1f42aaceea9`.
 
 ## Not yet implemented or verified
 
 - React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
-- any database, runtime Agent, scheduler, UI, or Learning workflow functionality;
-- persistence/audit of the PR-01 transition records, intentionally deferred to PR-02;
+- DSA/Evidence ingestion, runtime Agent, scheduler cadence, UI, or Learning workflow functionality;
+- business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
 - auditable Decision rejection actors and deterministic approval-expiry TTL guards, scheduled for PR-07;
 - any complete end-to-end acceptance scenario S1–S15; PR-01 verifies only its domain-gate slices.
 
@@ -42,8 +51,9 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-Human-review the verified PR #1 blocker remediation. The next implementation stage is PR-02 after
-PR-01 acceptance.
+Human-review PR-02 persistence, audit, transactional outbox, optimistic concurrency, migrations,
+and reliable-job primitives. PR-00 and PR-01 are accepted and merged to `main`; PR-02 remains
+available for human acceptance. PR-03 is the next implementation stage after PR-02 acceptance.
 
 ## Human decisions currently required
 
@@ -55,9 +65,9 @@ owner; merging to `main` remains a separate human action.
 
 | Stage | State | Human acceptance | Notes |
 |---|---|---|---|
-| PR-00 | READY_FOR_REVIEW | Pending | Local/container and cumulative remote CI checks pass |
-| PR-01 | READY_FOR_REVIEW | Pending | Reviewer blockers fixed; local and PR/push remote CI pass |
-| PR-02 | PLANNED | Pending | Persistence, audit, reliable jobs |
+| PR-00 | ACCEPTED | Merged to `main` | Delivered and accepted with the merged foundational work |
+| PR-01 | ACCEPTED | Merged to `main` on 2026-09-17 | PR #1 merge commit `45b024109775e233049b8c7df1792b6190c67a58` |
+| PR-02 | READY_FOR_REVIEW | Pending | Local Definition of Done and implementation remote CI pass |
 | PR-03 | PLANNED | Pending | DSA adapter, evidence, feature pipeline |
 | PR-04 | PLANNED | Pending | Thesis and shared memory |
 | PR-05 | PLANNED | Pending | Agent runtime and committee |

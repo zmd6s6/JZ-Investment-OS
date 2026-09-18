@@ -29,8 +29,8 @@ services:
     ports:
       - "${API_PORT:-8100}:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      investment-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -56,8 +56,8 @@ services:
       INVESTMENT_OS_WORKER_POLL_SECONDS: ${INVESTMENT_OS_WORKER_POLL_SECONDS:-10}
       INVESTMENT_OS_WORKER_READY_FILE: ${INVESTMENT_OS_WORKER_READY_FILE:-/tmp/investment-os-worker-ready}
     depends_on:
-      postgres:
-        condition: service_healthy
+      investment-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "test", "-f", "/tmp/investment-os-worker-ready"]
       interval: 10s
@@ -65,6 +65,18 @@ services:
       retries: 10
       start_period: 10s
     restart: unless-stopped
+
+  investment-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      INVESTMENT_OS_DATABASE_URL: ${INVESTMENT_OS_DATABASE_URL:-postgresql+asyncpg://investment_os:local-development-only@postgres:5432/investment_os}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   postgres-data:

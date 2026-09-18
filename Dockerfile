@@ -14,6 +14,8 @@ RUN pip install --no-cache-dir "uv==0.12.9" \
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 RUN uv sync --frozen --no-dev \
     && chown -R investment-os:investment-os /app
