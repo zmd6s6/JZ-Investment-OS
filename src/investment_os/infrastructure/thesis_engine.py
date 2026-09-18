@@ -13,10 +13,22 @@ from investment_os.application.thesis import (
     MetricObservation,
     ThesisInvalidationEvaluation,
     evaluate_invalidation,
+    semantic_diff,
     thesis_content_hash,
     thesis_content_payload,
+    thesis_semantic_diff_payload,
 )
-from investment_os.domain.thesis import ThesisContent, ThesisVersion
+from investment_os.domain.enums import ThesisState
+from investment_os.domain.errors import DomainError
+from investment_os.domain.thesis import (
+    EvidenceBackedClaim,
+    InvalidationCondition,
+    PillarStatus,
+    ThesisChangeReason,
+    ThesisContent,
+    ThesisPillar,
+    ThesisVersion,
+)
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.persistence.models import (
     InvestmentThesisRecord,
@@ -63,6 +75,73 @@ class ThesisVersionRead:
     change_reason: str
     evidence_ids: tuple[UUID, ...]
     created_at: datetime
+
+
+def _mapping(value: object, *, field: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{field} must be an object")
+    return value
+
+
+def _items(value: object, *, field: str) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be a list")
+    return [_mapping(item, field=field) for item in value]
+
+
+def _claim_from_payload(value: object, *, field: str) -> EvidenceBackedClaim:
+    payload = _mapping(value, field=field)
+    description = payload.get("description")
+    evidence_ids = payload.get("evidence_ids")
+    if not isinstance(description, str) or not isinstance(evidence_ids, list):
+        raise ValueError(f"{field} is not an evidence-backed claim")
+    return EvidenceBackedClaim(
+        description=description,
+        evidence_ids=tuple(UUID(str(evidence_id)) for evidence_id in evidence_ids),
+    )
+
+
+def _content_from_record(record: ThesisVersionRecord) -> ThesisContent:
+    pillars = tuple(
+        ThesisPillar(
+            key=str(pillar["key"]),
+            claim=_claim_from_payload(pillar.get("claim"), field="pillar claim"),
+            status=PillarStatus(str(pillar["status"])),
+        )
+        for pillar in _items(record.pillars_json, field="pillars")
+    )
+    invalidation_conditions = tuple(
+        InvalidationCondition(
+            condition=str(condition["condition"]),
+            measurement=str(condition["measurement"]),
+            threshold=str(condition["threshold"]),
+            window=str(condition["window"]),
+        )
+        for condition in _items(
+            record.invalidation_conditions_json, field="invalidation conditions"
+        )
+    )
+    monitoring_conditions = record.monitoring_conditions_json
+    if not isinstance(monitoring_conditions, list) or not all(
+        isinstance(condition, str) for condition in monitoring_conditions
+    ):
+        raise ValueError("monitoring conditions must be a list of strings")
+    return ThesisContent(
+        state=ThesisState(record.thesis_state),
+        long_term_summary=record.summary,
+        pillars=pillars,
+        catalysts=tuple(
+            _claim_from_payload(claim, field="catalyst")
+            for claim in _items(record.catalysts_json, field="catalysts")
+        ),
+        risks=tuple(
+            _claim_from_payload(claim, field="risk")
+            for claim in _items(record.risks_json, field="risks")
+        ),
+        invalidation_conditions=invalidation_conditions,
+        monitoring_conditions=tuple(monitoring_conditions),
+        change_reason=ThesisChangeReason(record.change_reason),
+    )
 
 
 class SqlAlchemyThesisWriter:
@@ -128,6 +207,7 @@ class SqlAlchemyThesisWriter:
                 await uow.theses.add(thesis)
                 version_number = 1
                 parent_version_id = None
+                diff_payload = None
             else:
                 if thesis.current_version_id is None:
                     raise ApplicationError(
@@ -151,7 +231,16 @@ class SqlAlchemyThesisWriter:
                         "the Thesis changed before its invalidation proposal could be persisted",
                         details={"thesis_id": str(thesis.id)},
                     )
-                if current.content_hash == content_hash:
+                try:
+                    previous_content = _content_from_record(current)
+                except (DomainError, KeyError, TypeError, ValueError) as exc:
+                    raise ApplicationError(
+                        ApplicationErrorCode.THESIS_VERSION_CORRUPT,
+                        "the current ThesisVersion cannot be safely interpreted",
+                        details={"thesis_id": str(thesis.id)},
+                    ) from exc
+                diff = semantic_diff(previous_content, content)
+                if not diff.is_material:
                     return ThesisWriteResult(
                         thesis_id=thesis.id,
                         thesis_version_id=current.id,
@@ -160,6 +249,7 @@ class SqlAlchemyThesisWriter:
                     )
                 version_number = current.version + 1
                 parent_version_id = current.id
+                diff_payload = thesis_semantic_diff_payload(diff)
 
             version_id = uuid4()
             version = ThesisVersion(
@@ -175,6 +265,7 @@ class SqlAlchemyThesisWriter:
                 created_at=created_at,
                 evaluation_time=evaluation_time,
                 correlation_id=correlation,
+                diff_payload=diff_payload,
             )
             await uow.thesis_versions.append(record)
             await uow.thesis_versions.link_evidence(record.id, evidence_ids)
@@ -199,6 +290,7 @@ class SqlAlchemyThesisWriter:
         created_at: datetime,
         evaluation_time: datetime,
         correlation_id: UUID,
+        diff_payload: dict[str, object] | None,
     ) -> ThesisVersionRecord:
         payload = thesis_content_payload(version.content)
         return ThesisVersionRecord(
@@ -219,7 +311,10 @@ class SqlAlchemyThesisWriter:
             created_by="thesis_engine",
             correlation_id=correlation_id,
             causation_id=None,
-            metadata_json={"as_of": evaluation_time.isoformat()},
+            metadata_json={
+                "as_of": evaluation_time.isoformat(),
+                **({"semantic_diff": diff_payload} if diff_payload is not None else {}),
+            },
         )
 
 

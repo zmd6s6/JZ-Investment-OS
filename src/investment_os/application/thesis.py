@@ -156,6 +156,42 @@ def semantic_diff(previous: ThesisContent, current: ThesisContent) -> ThesisSema
     )
 
 
+def thesis_semantic_diff_payload(diff: ThesisSemanticDiff) -> dict[str, object]:
+    """Return a stable, audit-ready representation of a semantic Thesis change."""
+
+    return {
+        "state_changed": diff.state_changed,
+        "summary_changed": diff.summary_changed,
+        "added_pillar_keys": list(diff.added_pillar_keys),
+        "removed_pillar_keys": list(diff.removed_pillar_keys),
+        "changed_pillar_keys": list(diff.changed_pillar_keys),
+        "added_catalysts": [_claim_payload(claim) for claim in diff.added_catalysts],
+        "removed_catalysts": [_claim_payload(claim) for claim in diff.removed_catalysts],
+        "added_risks": [_claim_payload(claim) for claim in diff.added_risks],
+        "removed_risks": [_claim_payload(claim) for claim in diff.removed_risks],
+        "added_invalidation_conditions": [
+            {
+                "condition": condition.condition,
+                "measurement": condition.measurement,
+                "threshold": condition.threshold,
+                "window": condition.window,
+            }
+            for condition in diff.added_invalidation_conditions
+        ],
+        "removed_invalidation_conditions": [
+            {
+                "condition": condition.condition,
+                "measurement": condition.measurement,
+                "threshold": condition.threshold,
+                "window": condition.window,
+            }
+            for condition in diff.removed_invalidation_conditions
+        ],
+        "added_monitoring_conditions": list(diff.added_monitoring_conditions),
+        "removed_monitoring_conditions": list(diff.removed_monitoring_conditions),
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class MetricObservation:
     """One evidence-backed, deterministic input to Thesis monitoring."""

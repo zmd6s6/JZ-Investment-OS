@@ -184,6 +184,9 @@ async def test_thesis_writer_appends_material_versions_and_retains_evidence_line
     assert second.version == 2
     assert stale_error.value.code is ApplicationErrorCode.THESIS_CURRENT_VERSION_STALE
     assert [version.parent_version_id for version in versions] == [None, first.thesis_version_id]
+    semantic_diff = versions[1].metadata_json["semantic_diff"]
+    assert isinstance(semantic_diff, dict)
+    assert semantic_diff["summary_changed"] is True
     assert link_count == 4
 
 
