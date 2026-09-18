@@ -9,6 +9,7 @@ from investment_os.application.research import ResearchArtifactDTO
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.persistence.models import EvidenceRecord
 from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
+from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 
 NOW = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
 
@@ -77,3 +78,30 @@ async def test_evidence_repository_persists_and_finds_content_addressed_record(
 
     assert existing is not None
     assert payload == {"headline": "synthetic"}
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_ingestor_reuses_identical_immutable_evidence(database_engine: AsyncEngine) -> None:
+    factory = async_sessionmaker(database_engine, expire_on_commit=False)
+    ingestor = SqlAlchemyEvidenceIngestor(factory, now=lambda: NOW)
+    artifact = ResearchArtifactDTO(
+        provider="DSA",
+        provider_ref="synthetic-evidence-dedupe",
+        artifact_type="NEWS",
+        source_name="synthetic-provider",
+        source_locator="synthetic://evidence/dedupe",
+        source_tier="PRIMARY",
+        observed_at=UtcTimestamp(NOW),
+        effective_at=UtcTimestamp(NOW),
+        available_at=UtcTimestamp(NOW),
+        payload={"headline": "synthetic"},
+        source_schema_version="1.0",
+    )
+
+    first = await ingestor.ingest(artifact)
+    second = await ingestor.ingest(artifact)
+
+    assert first.reused is False
+    assert second.reused is True
+    assert second.evidence_id == first.evidence_id
