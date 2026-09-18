@@ -1,6 +1,29 @@
 {
   "components": {
     "schemas": {
+      "EvidenceClaimResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "description",
+          "evidence_ids"
+        ],
+        "title": "EvidenceClaimResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -12,6 +35,35 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InvalidationConditionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "title": "Condition",
+            "type": "string"
+          },
+          "measurement": {
+            "title": "Measurement",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "string"
+          },
+          "window": {
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "condition",
+          "measurement",
+          "threshold",
+          "window"
+        ],
+        "title": "InvalidationConditionResponse",
         "type": "object"
       },
       "LivenessResponse": {
@@ -231,6 +283,197 @@
         "title": "ResearchIngestResponse",
         "type": "object"
       },
+      "ThesisHistoryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisVersionResponse"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "versions"
+        ],
+        "title": "ThesisHistoryResponse",
+        "type": "object"
+      },
+      "ThesisPillarResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "$ref": "#/components/schemas/EvidenceClaimResponse"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VALID",
+              "AT_RISK",
+              "INVALID"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "claim",
+          "status"
+        ],
+        "title": "ThesisPillarResponse",
+        "type": "object"
+      },
+      "ThesisVersionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "catalysts": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceClaimResponse"
+            },
+            "title": "Catalysts",
+            "type": "array"
+          },
+          "change_reason": {
+            "enum": [
+              "NEW_EVIDENCE",
+              "SCHEDULED_REVIEW",
+              "EVENT",
+              "HUMAN_CORRECTION"
+            ],
+            "title": "Change Reason",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "invalidation_conditions": {
+            "items": {
+              "$ref": "#/components/schemas/InvalidationConditionResponse"
+            },
+            "title": "Invalidation Conditions",
+            "type": "array"
+          },
+          "long_term_summary": {
+            "title": "Long Term Summary",
+            "type": "string"
+          },
+          "monitoring_conditions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Monitoring Conditions",
+            "type": "array"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "pillars": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisPillarResponse"
+            },
+            "title": "Pillars",
+            "type": "array"
+          },
+          "risks": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceClaimResponse"
+            },
+            "title": "Risks",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "UNKNOWN",
+              "VALID",
+              "STRENGTHENING",
+              "WEAKENING",
+              "BROKEN"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "thesis_id": {
+            "format": "uuid",
+            "title": "Thesis Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "thesis_id",
+          "version_id",
+          "version",
+          "parent_version_id",
+          "state",
+          "long_term_summary",
+          "pillars",
+          "catalysts",
+          "risks",
+          "invalidation_conditions",
+          "monitoring_conditions",
+          "change_reason",
+          "evidence_ids",
+          "created_at"
+        ],
+        "title": "ThesisVersionResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -274,7 +517,7 @@
     }
   },
   "info": {
-    "description": "PR-00 infrastructure health API; no investment behavior is implemented.",
+    "description": "Evidence-backed research ingestion and immutable Thesis read API; no execution.",
     "title": "Personal AI Investment OS",
     "version": "0.1.0"
   },
@@ -318,6 +561,109 @@
         "summary": "Ingest",
         "tags": [
           "research"
+        ]
+      }
+    },
+    "/api/v1/theses/{instrument_id}": {
+      "get": {
+        "operationId": "read_thesis_api_v1_theses__instrument_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Thesis",
+        "tags": [
+          "theses"
+        ]
+      }
+    },
+    "/api/v1/theses/{instrument_id}/versions": {
+      "get": {
+        "operationId": "thesis_history_api_v1_theses__instrument_id__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Thesis History",
+        "tags": [
+          "theses"
         ]
       }
     },
