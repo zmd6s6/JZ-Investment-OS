@@ -6,8 +6,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
-from investment_os.application.evidence import normalize_artifact
 from investment_os.api.app import create_app
+from investment_os.application.evidence import normalize_artifact
 from investment_os.application.research import ResearchArtifactDTO
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
