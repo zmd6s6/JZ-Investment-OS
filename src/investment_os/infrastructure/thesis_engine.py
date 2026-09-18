@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
@@ -19,6 +20,7 @@ from investment_os.domain.thesis import ThesisContent, ThesisVersion
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.persistence.models import (
     InvestmentThesisRecord,
+    ThesisVersionEvidenceRecord,
     ThesisVersionRecord,
 )
 from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
@@ -40,6 +42,27 @@ class ThesisInvalidationWriteResult:
 
     evaluation: ThesisInvalidationEvaluation
     thesis_write: ThesisWriteResult | None
+
+
+@dataclass(frozen=True, slots=True)
+class ThesisVersionRead:
+    """A detached, immutable read model for internal API presentation."""
+
+    instrument_id: UUID
+    thesis_id: UUID
+    version_id: UUID
+    version: int
+    parent_version_id: UUID | None
+    state: str
+    summary: str
+    pillars: object
+    catalysts: object
+    risks: object
+    invalidation_conditions: object
+    monitoring_conditions: object
+    change_reason: str
+    evidence_ids: tuple[UUID, ...]
+    created_at: datetime
 
 
 class SqlAlchemyThesisWriter:
@@ -197,6 +220,77 @@ class SqlAlchemyThesisWriter:
             correlation_id=correlation_id,
             causation_id=None,
             metadata_json={"as_of": evaluation_time.isoformat()},
+        )
+
+
+class SqlAlchemyThesisReader:
+    """Read immutable Thesis versions without exposing ORM state to transport code."""
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def current_for_instrument(self, instrument_id: UUID) -> ThesisVersionRead | None:
+        async with SqlAlchemyUnitOfWork(self._session_factory) as uow:
+            thesis = await uow.theses.get_by_instrument(instrument_id)
+            if thesis is None or thesis.current_version_id is None:
+                return None
+            record = await uow.thesis_versions.get(thesis.current_version_id)
+            if record is None:
+                return None
+            return await self._read_model(uow, thesis, record)
+
+    async def as_of_for_instrument(
+        self, instrument_id: UUID, *, as_of: datetime
+    ) -> ThesisVersionRead | None:
+        requested_time = UtcTimestamp(as_of).value
+        async with SqlAlchemyUnitOfWork(self._session_factory) as uow:
+            thesis = await uow.theses.get_by_instrument(instrument_id)
+            if thesis is None:
+                return None
+            record = await uow.thesis_versions.latest_as_of(thesis.id, as_of=requested_time)
+            if record is None:
+                return None
+            return await self._read_model(uow, thesis, record)
+
+    async def history_for_instrument(self, instrument_id: UUID) -> tuple[ThesisVersionRead, ...]:
+        async with SqlAlchemyUnitOfWork(self._session_factory) as uow:
+            thesis = await uow.theses.get_by_instrument(instrument_id)
+            if thesis is None:
+                return ()
+            records = await uow.thesis_versions.list_for_thesis(thesis.id)
+            return tuple([await self._read_model(uow, thesis, record) for record in records])
+
+    @staticmethod
+    async def _read_model(
+        uow: SqlAlchemyUnitOfWork,
+        thesis: InvestmentThesisRecord,
+        record: ThesisVersionRecord,
+    ) -> ThesisVersionRead:
+        evidence_ids = tuple(
+            (
+                await uow.session.scalars(
+                    select(ThesisVersionEvidenceRecord.evidence_id)
+                    .where(ThesisVersionEvidenceRecord.thesis_version_id == record.id)
+                    .order_by(ThesisVersionEvidenceRecord.evidence_id)
+                )
+            ).all()
+        )
+        return ThesisVersionRead(
+            instrument_id=thesis.instrument_id,
+            thesis_id=thesis.id,
+            version_id=record.id,
+            version=record.version,
+            parent_version_id=record.parent_version_id,
+            state=record.thesis_state,
+            summary=record.summary,
+            pillars=record.pillars_json,
+            catalysts=record.catalysts_json,
+            risks=record.risks_json,
+            invalidation_conditions=record.invalidation_conditions_json,
+            monitoring_conditions=record.monitoring_conditions_json,
+            change_reason=record.change_reason,
+            evidence_ids=evidence_ids,
+            created_at=record.created_at,
         )
 
 

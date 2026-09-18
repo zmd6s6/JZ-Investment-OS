@@ -3,9 +3,11 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from investment_os.api.app import create_app
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.thesis import MetricObservation
 from investment_os.domain.enums import Action, ThesisState
@@ -26,6 +28,7 @@ from investment_os.infrastructure.persistence.models import (
 )
 from investment_os.infrastructure.thesis_engine import (
     SqlAlchemyThesisInvalidationMonitor,
+    SqlAlchemyThesisReader,
     SqlAlchemyThesisWriter,
 )
 
@@ -281,3 +284,52 @@ async def test_s5_invalidation_appends_broken_history_and_forced_review_candidat
         Action.EXIT,
     )
     assert decision_count == 0
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_thesis_read_api_returns_current_history_and_time_travel(
+    database_engine: AsyncEngine,
+) -> None:
+    factory = async_sessionmaker(database_engine, expire_on_commit=False)
+    instrument_id = uuid4()
+    await _insert_instrument(database_engine, instrument_id)
+    evidence_id = await _append_evidence(
+        factory, instrument_id=instrument_id, available_at=NOW - timedelta(days=2)
+    )
+    initial_writer = SqlAlchemyThesisWriter(factory, now=lambda: NOW - timedelta(days=1))
+    initial_content = _content((evidence_id, evidence_id))
+    initial = await initial_writer.write(
+        instrument_id=instrument_id,
+        content=initial_content,
+        as_of=NOW - timedelta(days=1),
+    )
+    current_writer = SqlAlchemyThesisWriter(factory, now=lambda: NOW)
+    current = await current_writer.write(
+        instrument_id=instrument_id,
+        content=_content((evidence_id, evidence_id), summary="Synthetic corrected current summary"),
+        as_of=NOW,
+    )
+    app = create_app(thesis_reader=SqlAlchemyThesisReader(factory))
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        current_response = await client.get(f"/api/v1/theses/{instrument_id}")
+        historical_response = await client.get(
+            f"/api/v1/theses/{instrument_id}",
+            params={"as_of": (NOW - timedelta(hours=12)).isoformat()},
+        )
+        history_response = await client.get(f"/api/v1/theses/{instrument_id}/versions")
+        missing_response = await client.get(f"/api/v1/theses/{uuid4()}")
+        malformed_time_response = await client.get(
+            f"/api/v1/theses/{instrument_id}", params={"as_of": "not-a-timestamp"}
+        )
+
+    assert current_response.status_code == 200
+    assert current_response.json()["version_id"] == str(current.thesis_version_id)
+    assert current_response.json()["version"] == 2
+    assert historical_response.status_code == 200
+    assert historical_response.json()["version_id"] == str(initial.thesis_version_id)
+    assert history_response.status_code == 200
+    assert [item["version"] for item in history_response.json()["versions"]] == [1, 2]
+    assert missing_response.status_code == 404
+    assert malformed_time_response.status_code == 422
