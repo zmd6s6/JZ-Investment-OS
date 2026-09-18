@@ -58,6 +58,26 @@ def test_expired_evidence_is_stale_and_quality_is_reduced() -> None:
     assert evidence.quality_score == Decimal("0.475")
 
 
+def test_normalization_fails_closed_for_unknown_source_tier() -> None:
+    artifact = _artifact()
+    invalid = ResearchArtifactDTO(
+        provider=artifact.provider,
+        provider_ref=artifact.provider_ref,
+        artifact_type=artifact.artifact_type,
+        source_name=artifact.source_name,
+        source_locator=artifact.source_locator,
+        source_tier="UNVERIFIED",
+        observed_at=artifact.observed_at,
+        effective_at=artifact.effective_at,
+        available_at=artifact.available_at,
+        payload=artifact.payload,
+        source_schema_version=artifact.source_schema_version,
+    )
+
+    with pytest.raises(ValueError, match="unsupported source tier"):
+        normalize_artifact(invalid, ingested_at=NOW)
+
+
 def test_feature_snapshot_excludes_future_and_stale_evidence() -> None:
     instrument_id = uuid4()
     future = normalize_artifact(
