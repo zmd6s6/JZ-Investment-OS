@@ -43,7 +43,7 @@
 ## Not yet implemented or verified
 
 - React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
-- DSA/Evidence ingestion, runtime Agent, scheduler cadence, UI, or Learning workflow functionality;
+- runtime Agent, scheduler cadence, UI, or Learning workflow functionality;
 - business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
 - auditable Decision rejection actors and deterministic approval-expiry TTL guards, scheduled for PR-07;
 - any complete end-to-end acceptance scenario S1–S15; PR-01 verifies only its domain-gate slices.
