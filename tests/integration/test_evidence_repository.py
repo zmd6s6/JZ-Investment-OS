@@ -2,14 +2,14 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from investment_os.application.evidence import normalize_artifact
 from investment_os.application.research import ResearchArtifactDTO
 from investment_os.domain.values import UtcTimestamp
+from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.persistence.models import EvidenceRecord
 from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
-from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 
 NOW = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
 
