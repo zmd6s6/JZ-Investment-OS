@@ -20,6 +20,7 @@ from investment_os.infrastructure.persistence.models import (
     PositionRecord,
     ResearchArtifactRecord,
     TaskRunRecord,
+    ThesisVersionRecord,
 )
 
 
@@ -77,6 +78,12 @@ class ThesisRepository:
     async def get(self, record_id: UUID) -> InvestmentThesisRecord | None:
         return await self._session.get(InvestmentThesisRecord, record_id)
 
+    async def get_by_instrument(self, instrument_id: UUID) -> InvestmentThesisRecord | None:
+        statement = select(InvestmentThesisRecord).where(
+            InvestmentThesisRecord.instrument_id == instrument_id
+        )
+        return (await self._session.scalars(statement)).one_or_none()
+
     async def update_current_version(
         self,
         record_id: UUID,
@@ -102,6 +109,37 @@ class ThesisRepository:
         if updated is None:
             raise _concurrency_conflict("investment_thesis", record_id, expected_version)
         return updated
+
+
+class ThesisVersionRepository:
+    """Append-only ThesisVersion records with time-travel reads."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: ThesisVersionRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def list_for_thesis(self, thesis_id: UUID) -> list[ThesisVersionRecord]:
+        statement = (
+            select(ThesisVersionRecord)
+            .where(ThesisVersionRecord.thesis_id == thesis_id)
+            .order_by(ThesisVersionRecord.version)
+        )
+        return list((await self._session.scalars(statement)).all())
+
+    async def latest_as_of(self, thesis_id: UUID, *, as_of: datetime) -> ThesisVersionRecord | None:
+        statement = (
+            select(ThesisVersionRecord)
+            .where(
+                ThesisVersionRecord.thesis_id == thesis_id,
+                ThesisVersionRecord.created_at <= as_of,
+            )
+            .order_by(ThesisVersionRecord.created_at.desc(), ThesisVersionRecord.version.desc())
+            .limit(1)
+        )
+        return (await self._session.scalars(statement)).one_or_none()
 
 
 class DecisionRepository:

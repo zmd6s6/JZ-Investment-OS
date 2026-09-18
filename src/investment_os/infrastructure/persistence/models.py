@@ -100,6 +100,12 @@ class ThesisVersionRecord(AuditFieldsMixin, Base):
     )
     thesis_state: Mapped[str] = mapped_column(String(32), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
+    pillars_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    catalysts_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    risks_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    invalidation_conditions_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    monitoring_conditions_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    change_reason: Mapped[str] = mapped_column(String(64), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 

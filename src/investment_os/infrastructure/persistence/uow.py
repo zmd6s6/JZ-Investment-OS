@@ -16,6 +16,7 @@ from investment_os.infrastructure.persistence.repositories import (
     ResearchArtifactRepository,
     TaskRunRepository,
     ThesisRepository,
+    ThesisVersionRepository,
 )
 
 
@@ -24,6 +25,7 @@ class SqlAlchemyUnitOfWork:
         self.session = session_factory()
         self.positions = PositionRepository(self.session)
         self.theses = ThesisRepository(self.session)
+        self.thesis_versions = ThesisVersionRepository(self.session)
         self.decisions = DecisionRepository(self.session)
         self.policies = PolicyRepository(self.session)
         self.audit = AuditRepository(self.session)
