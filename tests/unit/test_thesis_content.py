@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -11,6 +11,7 @@ from investment_os.domain.thesis import (
     ThesisChangeReason,
     ThesisContent,
     ThesisPillar,
+    ThesisVersion,
 )
 
 
@@ -79,3 +80,52 @@ def test_broken_thesis_requires_an_explicit_invalidation_condition() -> None:
             monitoring_conditions=(),
             change_reason=ThesisChangeReason.EVENT,
         )
+
+
+def test_thesis_version_enforces_first_and_successor_lineage() -> None:
+    first = ThesisVersion(
+        id=uuid4(),
+        thesis_id=uuid4(),
+        version=1,
+        parent_version_id=None,
+        content_hash="A" * 64,
+        content=_content(),
+    )
+    successor = ThesisVersion(
+        id=uuid4(),
+        thesis_id=first.thesis_id,
+        version=2,
+        parent_version_id=first.id,
+        content_hash="b" * 64,
+        content=_content(),
+    )
+
+    assert first.content_hash == "a" * 64
+    assert successor.parent_version_id == first.id
+
+
+@pytest.mark.parametrize(
+    ("version", "parent_version_id", "content_hash"),
+    [
+        (0, None, "a" * 64),
+        (1, uuid4(), "a" * 64),
+        (2, None, "a" * 64),
+        (1, None, "not-a-sha256-digest"),
+    ],
+)
+def test_thesis_version_rejects_invalid_lineage_or_content_hash(
+    version: int,
+    parent_version_id: UUID | None,
+    content_hash: str,
+) -> None:
+    with pytest.raises(DomainError) as error:
+        ThesisVersion(
+            id=uuid4(),
+            thesis_id=uuid4(),
+            version=version,
+            parent_version_id=parent_version_id,
+            content_hash=content_hash,
+            content=_content(),
+        )
+
+    assert error.value.code is DomainErrorCode.INVARIANT_VIOLATION

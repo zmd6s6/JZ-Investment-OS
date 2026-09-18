@@ -1,5 +1,6 @@
-"""Immutable, evidence-backed Thesis content primitives."""
+"""Immutable, evidence-backed Thesis content and version primitives."""
 
+import string
 from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID
@@ -136,3 +137,50 @@ class ThesisContent:
                 if evidence_id not in evidence_ids:
                     evidence_ids.append(evidence_id)
         return tuple(evidence_ids)
+
+
+@dataclass(frozen=True, slots=True)
+class ThesisVersion:
+    """An immutable, content-addressed point in a Thesis lineage.
+
+    The application layer computes ``content_hash`` from canonical content.  This domain value
+    enforces the lineage shape before persistence, so an invalid version cannot be converted into
+    a mutable current-pointer update.
+    """
+
+    id: UUID
+    thesis_id: UUID
+    version: int
+    parent_version_id: UUID | None
+    content_hash: str
+    content: ThesisContent
+
+    def __post_init__(self) -> None:
+        if self.version < 1:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "a ThesisVersion must have a positive version number",
+            )
+        if self.version == 1 and self.parent_version_id is not None:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "the first ThesisVersion must not have a parent version",
+            )
+        if self.version > 1 and self.parent_version_id is None:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "a successor ThesisVersion requires a parent version",
+            )
+        if self.parent_version_id == self.id:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "a ThesisVersion must not reference itself as its parent",
+            )
+        if len(self.content_hash) != 64 or any(
+            character not in string.hexdigits for character in self.content_hash
+        ):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "a ThesisVersion content hash must be a 64-character hexadecimal SHA-256 digest",
+            )
+        object.__setattr__(self, "content_hash", self.content_hash.lower())
