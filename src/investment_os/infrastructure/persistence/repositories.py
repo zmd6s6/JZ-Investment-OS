@@ -12,6 +12,7 @@ from investment_os.infrastructure.persistence.models import (
     AuditLogRecord,
     EventLogRecord,
     EvidenceRecord,
+    FeatureSnapshotRecord,
     InvestmentDecisionRecord,
     InvestmentPolicyRecord,
     InvestmentThesisRecord,
@@ -206,6 +207,15 @@ class ResearchArtifactRepository:
         self._session = session
 
     async def append(self, record: ResearchArtifactRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class FeatureSnapshotRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: FeatureSnapshotRecord) -> None:
         self._session.add(record)
         await self._session.flush()
 

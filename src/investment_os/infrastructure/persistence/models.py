@@ -139,6 +139,17 @@ class ResearchArtifactRecord(AuditFieldsMixin, Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class FeatureSnapshotRecord(AuditFieldsMixin, Base):
+    __tablename__ = "feature_snapshot"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    feature_set_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    values_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class InvestmentDecisionRecord(AuditFieldsMixin, Base):
     __tablename__ = "investment_decision"
 
