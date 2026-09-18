@@ -1,10 +1,28 @@
 """Deterministic Thesis comparison without a decision or execution path."""
 
 import json
+import re
 from dataclasses import dataclass
+from decimal import Decimal
 from hashlib import sha256
+from uuid import UUID
 
-from investment_os.domain.thesis import EvidenceBackedClaim, InvalidationCondition, ThesisContent
+from investment_os.domain.enums import Action, ThesisState
+from investment_os.domain.errors import DomainError, DomainErrorCode
+from investment_os.domain.thesis import (
+    EvidenceBackedClaim,
+    InvalidationCondition,
+    ThesisChangeReason,
+    ThesisContent,
+)
+from investment_os.domain.values import UtcTimestamp, exact_decimal
+
+_THRESHOLD_PATTERN = re.compile(
+    r"^(?P<operator><=|>=|<|>)\s*(?P<value>\d+(?:\.\d+)?)%?$|"
+    r"^(?P<word>below|above)\s+(?P<word_value>\d+(?:\.\d+)?)%?$",
+    re.IGNORECASE,
+)
+_SINGLE_OBSERVATION_WINDOWS = frozenset({"single observation", "single_observation"})
 
 
 def _claim_key(claim: EvidenceBackedClaim) -> tuple[str, tuple[str, ...]]:
@@ -135,4 +153,153 @@ def semantic_diff(previous: ThesisContent, current: ThesisContent) -> ThesisSema
         ),
         added_monitoring_conditions=tuple(sorted(current_monitoring - previous_monitoring)),
         removed_monitoring_conditions=tuple(sorted(previous_monitoring - current_monitoring)),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class MetricObservation:
+    """One evidence-backed, deterministic input to Thesis monitoring."""
+
+    measurement: str
+    value: Decimal
+    observed_at: UtcTimestamp
+    evidence_ids: tuple[UUID, ...]
+
+    def __post_init__(self) -> None:
+        measurement = self.measurement.strip()
+        if not measurement:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "a monitoring observation requires a measurement",
+            )
+        if not self.evidence_ids:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "a monitoring observation requires Evidence references",
+            )
+        if len(set(self.evidence_ids)) != len(self.evidence_ids):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "a monitoring observation must not repeat Evidence references",
+            )
+        object.__setattr__(self, "measurement", measurement)
+        object.__setattr__(self, "value", exact_decimal(self.value))
+
+
+@dataclass(frozen=True, slots=True)
+class ForcedReviewCandidate:
+    """A non-decision escalation for a BROKEN Thesis; it cannot submit an order."""
+
+    force_committee_review: bool
+    action_candidates: tuple[Action, ...]
+    evidence_ids: tuple[UUID, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ThesisInvalidationEvaluation:
+    triggered_conditions: tuple[InvalidationCondition, ...]
+    unsupported_conditions: tuple[InvalidationCondition, ...]
+    proposed_content: ThesisContent | None
+    forced_review_candidate: ForcedReviewCandidate | None
+
+
+def _threshold_matches(threshold: str, value: Decimal) -> bool | None:
+    """Evaluate the narrow, documented threshold grammar or fail closed with ``None``."""
+
+    match = _THRESHOLD_PATTERN.fullmatch(threshold.strip())
+    if match is None:
+        return None
+    operator = match.group("operator")
+    if operator is None:
+        operator = "<" if match.group("word").lower() == "below" else ">"
+        raw_threshold = match.group("word_value")
+    else:
+        raw_threshold = match.group("value")
+    if raw_threshold is None:
+        return None
+    threshold_value = Decimal(raw_threshold)
+    return {
+        "<": value < threshold_value,
+        "<=": value <= threshold_value,
+        ">": value > threshold_value,
+        ">=": value >= threshold_value,
+    }[operator]
+
+
+def evaluate_invalidation(
+    content: ThesisContent,
+    observations: tuple[MetricObservation, ...],
+) -> ThesisInvalidationEvaluation:
+    """Propose one immutable BROKEN payload only for explicit, evidence-backed conditions.
+
+    Only ``single observation`` conditions using the strict comparison grammar are executable in
+    V1. All other free-text conditions remain visible as unsupported and cannot silently trigger
+    a state change. The returned candidate is deliberately not a Decision, approval, or order.
+    """
+
+    supported_conditions = tuple(
+        condition
+        for condition in content.invalidation_conditions
+        if condition.window.casefold() in _SINGLE_OBSERVATION_WINDOWS
+    )
+    unsupported_conditions = tuple(
+        condition
+        for condition in content.invalidation_conditions
+        if condition not in supported_conditions
+    )
+    triggered: list[tuple[InvalidationCondition, MetricObservation]] = []
+    for condition in sorted(supported_conditions, key=_condition_key):
+        for observation in sorted(
+            observations,
+            key=lambda item: (
+                item.observed_at.value,
+                item.measurement,
+                tuple(map(str, item.evidence_ids)),
+            ),
+        ):
+            if observation.measurement != condition.measurement:
+                continue
+            matches = _threshold_matches(condition.threshold, observation.value)
+            if matches is True:
+                triggered.append((condition, observation))
+
+    triggered_conditions = tuple(condition for condition, _ in triggered)
+    if not triggered or content.state is ThesisState.BROKEN:
+        return ThesisInvalidationEvaluation(
+            triggered_conditions=triggered_conditions,
+            unsupported_conditions=unsupported_conditions,
+            proposed_content=None,
+            forced_review_candidate=None,
+        )
+
+    event_evidence_ids = tuple(
+        evidence_id for _, observation in triggered for evidence_id in observation.evidence_ids
+    )
+    unique_event_evidence_ids = tuple(dict.fromkeys(event_evidence_ids))
+    invalidation_risks = tuple(
+        EvidenceBackedClaim(
+            description=f"Invalidation observed: {condition.condition}",
+            evidence_ids=observation.evidence_ids,
+        )
+        for condition, observation in triggered
+    )
+    proposed_content = ThesisContent(
+        state=ThesisState.BROKEN,
+        long_term_summary=content.long_term_summary,
+        pillars=content.pillars,
+        catalysts=content.catalysts,
+        risks=content.risks + invalidation_risks,
+        invalidation_conditions=content.invalidation_conditions,
+        monitoring_conditions=content.monitoring_conditions,
+        change_reason=ThesisChangeReason.EVENT,
+    )
+    return ThesisInvalidationEvaluation(
+        triggered_conditions=triggered_conditions,
+        unsupported_conditions=unsupported_conditions,
+        proposed_content=proposed_content,
+        forced_review_candidate=ForcedReviewCandidate(
+            force_committee_review=True,
+            action_candidates=(Action.REDUCE, Action.EXIT),
+            evidence_ids=unique_event_evidence_ids,
+        ),
     )
