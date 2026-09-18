@@ -26,6 +26,7 @@ def _artifact(
     *,
     available_at: datetime = NOW,
     expires_at: datetime | None = None,
+    effective_at: datetime = NOW - timedelta(hours=1),
     instrument_id: UUID | None = None,
 ) -> ResearchArtifactDTO:
     return ResearchArtifactDTO(
@@ -36,7 +37,7 @@ def _artifact(
         source_locator="synthetic://artifact/1",
         source_tier="PRIMARY",
         observed_at=UtcTimestamp(NOW - timedelta(hours=1)),
-        effective_at=UtcTimestamp(NOW - timedelta(hours=1)),
+        effective_at=UtcTimestamp(effective_at),
         available_at=UtcTimestamp(available_at),
         payload={"body": "untrusted fixture"},
         source_schema_version="1.0",
@@ -118,7 +119,7 @@ def test_feature_snapshot_excludes_future_and_stale_evidence() -> None:
 
 
 def test_conflicting_content_for_one_source_is_explicit() -> None:
-    first = normalize_artifact(_artifact(), ingested_at=NOW)
+    first = normalize_artifact(_artifact(effective_at=NOW), ingested_at=NOW)
     changed = ResearchArtifactDTO(
         provider="DSA",
         provider_ref="synthetic-1",
@@ -135,6 +136,13 @@ def test_conflicting_content_for_one_source_is_explicit() -> None:
     second = normalize_artifact(changed, ingested_at=NOW)
 
     assert conflicting_source_locators([first, second]) == ("synthetic://artifact/1",)
+
+
+def test_successive_effective_observations_at_one_locator_are_not_conflicts() -> None:
+    first = normalize_artifact(_artifact(effective_at=NOW - timedelta(days=1)), ingested_at=NOW)
+    second = normalize_artifact(_artifact(effective_at=NOW), ingested_at=NOW)
+
+    assert conflicting_source_locators([first, second]) == ()
 
 
 class StubClient:

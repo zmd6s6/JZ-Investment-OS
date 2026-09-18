@@ -172,10 +172,15 @@ def build_feature_snapshot(
 def conflicting_source_locators(evidence: Iterable[NormalizedEvidence]) -> tuple[str, ...]:
     """Return sources that supplied distinct content for the same effective observation."""
 
-    hashes_by_source: dict[tuple[str, str], set[str]] = {}
+    hashes_by_observation: dict[tuple[str, str, UtcTimestamp], set[str]] = {}
     for item in evidence:
-        key = (item.source_name, item.source_locator)
-        hashes_by_source.setdefault(key, set()).add(item.content_hash)
+        key = (item.source_name, item.source_locator, item.effective_at)
+        hashes_by_observation.setdefault(key, set()).add(item.content_hash)
     return tuple(
-        locator for (_, locator), hashes in sorted(hashes_by_source.items()) if len(hashes) > 1
+        locator
+        for (_, locator, _), hashes in sorted(
+            hashes_by_observation.items(),
+            key=lambda entry: (entry[0][0], entry[0][1], entry[0][2].value),
+        )
+        if len(hashes) > 1
     )
