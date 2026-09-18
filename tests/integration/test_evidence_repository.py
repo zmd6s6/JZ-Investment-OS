@@ -2,10 +2,12 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from investment_os.application.evidence import normalize_artifact
+from investment_os.api.app import create_app
 from investment_os.application.research import ResearchArtifactDTO
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
@@ -112,3 +114,33 @@ async def test_ingestor_reuses_identical_immutable_evidence(database_engine: Asy
             select(func.count()).select_from(ResearchArtifactRecord)
         )
     assert artifact_count == 1
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_ingest_api_persists_and_deduplicates_evidence(database_engine: AsyncEngine) -> None:
+    factory = async_sessionmaker(database_engine, expire_on_commit=False)
+    app = create_app(evidence_ingestor=SqlAlchemyEvidenceIngestor(factory, now=lambda: NOW))
+    payload = {
+        "provider": "DSA",
+        "provider_ref": "synthetic-api",
+        "artifact_type": "NEWS",
+        "source_name": "synthetic-provider",
+        "source_locator": "synthetic://evidence/api",
+        "source_tier": "PRIMARY",
+        "observed_at": NOW.isoformat(),
+        "effective_at": NOW.isoformat(),
+        "available_at": NOW.isoformat(),
+        "payload": {"headline": "synthetic"},
+        "source_schema_version": "1.0",
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.post("/api/v1/research/ingest", json=payload)
+        second = await client.post("/api/v1/research/ingest", json=payload)
+
+    assert first.status_code == 200
+    assert first.json()["reused"] is False
+    assert second.status_code == 200
+    assert second.json()["reused"] is True
+    assert second.json()["evidence_id"] == first.json()["evidence_id"]
