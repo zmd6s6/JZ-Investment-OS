@@ -12,7 +12,11 @@ from investment_os.application.evidence import (
 )
 from investment_os.application.research import ResearchArtifactDTO, ResearchRequest
 from investment_os.domain.values import UtcTimestamp
-from investment_os.infrastructure.dsa.adapter import DSAAdapter, ProviderSchemaError
+from investment_os.infrastructure.dsa.adapter import (
+    DSAAdapter,
+    ProviderSchemaError,
+    ProviderUnavailableError,
+)
 
 NOW = datetime(2026, 9, 18, 10, 0, tzinfo=UTC)
 
@@ -151,4 +155,17 @@ async def test_adapter_fails_closed_on_schema_drift() -> None:
     adapter = DSAAdapter(StubClient([{"unexpected": "field"}]))
 
     with pytest.raises(ProviderSchemaError, match="provider schema mismatch"):
+        await adapter.fetch_artifacts(ResearchRequest((), UtcTimestamp(NOW)))
+
+
+class UnavailableClient:
+    async def fetch(self, _: ResearchRequest) -> list[Mapping[str, object]]:
+        raise TimeoutError
+
+
+@pytest.mark.asyncio
+async def test_adapter_fails_closed_when_provider_times_out() -> None:
+    adapter = DSAAdapter(UnavailableClient())
+
+    with pytest.raises(ProviderUnavailableError, match="provider unavailable"):
         await adapter.fetch_artifacts(ResearchRequest((), UtcTimestamp(NOW)))
