@@ -42,6 +42,7 @@ class ResearchIngestRequest(StrictResponse):
     source_schema_version: str
     instrument_id: UUID | None = None
     expires_at: datetime | None = None
+    supersedes_id: UUID | None = None
 
 
 class ResearchIngestResponse(StrictResponse):

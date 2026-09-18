@@ -81,6 +81,7 @@ class SqlAlchemyEvidenceIngestor:
             freshness_status=normalized.freshness_status.value,
             payload_json=dict(normalized.payload),
             content_hash=normalized.content_hash,
+            supersedes_id=normalized.supersedes_id,
             created_by="evidence_ingestion",
             correlation_id=correlation_id,
             causation_id=None,

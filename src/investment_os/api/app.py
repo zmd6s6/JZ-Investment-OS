@@ -80,6 +80,7 @@ def create_app(
             source_schema_version=request.source_schema_version,
             instrument_id=request.instrument_id,
             expires_at=UtcTimestamp(request.expires_at) if request.expires_at else None,
+            supersedes_id=request.supersedes_id,
         )
         result = await evidence_ingestor.ingest(artifact)
         return ResearchIngestResponse(evidence_id=result.evidence_id, reused=result.reused)

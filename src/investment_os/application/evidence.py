@@ -47,6 +47,7 @@ class NormalizedEvidence:
     provider: str
     provider_ref: str
     source_schema_version: str
+    supersedes_id: UUID | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +124,7 @@ def normalize_artifact(
         provider=artifact.provider,
         provider_ref=artifact.provider_ref,
         source_schema_version=artifact.source_schema_version,
+        supersedes_id=artifact.supersedes_id,
     )
 
 

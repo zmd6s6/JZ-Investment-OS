@@ -34,6 +34,7 @@ class ResearchArtifactDTO:
     source_schema_version: str
     instrument_id: UUID | None = None
     expires_at: UtcTimestamp | None = None
+    supersedes_id: UUID | None = None
 
 
 class ResearchProviderPort(Protocol):
