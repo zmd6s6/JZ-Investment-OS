@@ -23,13 +23,14 @@ def _claim(description: str, evidence_id: UUID) -> EvidenceBackedClaim:
 def _content(
     *,
     state: ThesisState = ThesisState.VALID,
+    summary: str = "Synthetic long-term Thesis",
     pillar: ThesisPillar | None = None,
     catalysts: tuple[EvidenceBackedClaim, ...] = (),
     monitoring: tuple[str, ...] = ("Review quarterly",),
 ) -> ThesisContent:
     return ThesisContent(
         state=state,
-        long_term_summary="Synthetic long-term Thesis",
+        long_term_summary=summary,
         pillars=(
             pillar
             or ThesisPillar(
@@ -76,6 +77,13 @@ def test_diff_identifies_changed_pillar_and_state_without_creating_a_version() -
     assert diff.is_material
     assert diff.state_changed
     assert diff.changed_pillar_keys == ("P1",)
+
+
+def test_diff_treats_a_changed_long_term_summary_as_material() -> None:
+    diff = semantic_diff(_content(), _content(summary="A changed synthetic long-term Thesis"))
+
+    assert diff.is_material
+    assert diff.summary_changed
 
 
 def test_diff_is_stable_when_semantic_collections_are_reordered() -> None:

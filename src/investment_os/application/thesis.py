@@ -16,6 +16,7 @@ def _condition_key(condition: InvalidationCondition) -> tuple[str, str, str, str
 @dataclass(frozen=True, slots=True)
 class ThesisSemanticDiff:
     state_changed: bool
+    summary_changed: bool
     added_pillar_keys: tuple[str, ...]
     removed_pillar_keys: tuple[str, ...]
     changed_pillar_keys: tuple[str, ...]
@@ -33,6 +34,7 @@ class ThesisSemanticDiff:
         return any(
             (
                 self.state_changed,
+                self.summary_changed,
                 self.added_pillar_keys,
                 self.removed_pillar_keys,
                 self.changed_pillar_keys,
@@ -66,6 +68,7 @@ def semantic_diff(previous: ThesisContent, current: ThesisContent) -> ThesisSema
 
     return ThesisSemanticDiff(
         state_changed=previous.state is not current.state,
+        summary_changed=previous.long_term_summary != current.long_term_summary,
         added_pillar_keys=tuple(sorted(current_pillars.keys() - previous_pillars.keys())),
         removed_pillar_keys=tuple(sorted(previous_pillars.keys() - current_pillars.keys())),
         changed_pillar_keys=tuple(
