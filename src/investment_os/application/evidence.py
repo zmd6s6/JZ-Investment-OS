@@ -165,3 +165,15 @@ def build_feature_snapshot(
         values=values,
         input_hash=input_hash,
     )
+
+
+def conflicting_source_locators(evidence: Iterable[NormalizedEvidence]) -> tuple[str, ...]:
+    """Return sources that supplied distinct content for the same effective observation."""
+
+    hashes_by_source: dict[tuple[str, str], set[str]] = {}
+    for item in evidence:
+        key = (item.source_name, item.source_locator)
+        hashes_by_source.setdefault(key, set()).add(item.content_hash)
+    return tuple(
+        locator for (_, locator), hashes in sorted(hashes_by_source.items()) if len(hashes) > 1
+    )

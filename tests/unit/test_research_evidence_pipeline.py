@@ -8,6 +8,7 @@ import pytest
 from investment_os.application.evidence import (
     FreshnessStatus,
     build_feature_snapshot,
+    conflicting_source_locators,
     normalize_artifact,
 )
 from investment_os.application.research import ResearchArtifactDTO, ResearchRequest
@@ -114,6 +115,26 @@ def test_feature_snapshot_excludes_future_and_stale_evidence() -> None:
 
     assert snapshot.values["eligible_evidence_count"] == "1"
     assert snapshot.values["eligible_quality_total"] == "0.95"
+
+
+def test_conflicting_content_for_one_source_is_explicit() -> None:
+    first = normalize_artifact(_artifact(), ingested_at=NOW)
+    changed = ResearchArtifactDTO(
+        provider="DSA",
+        provider_ref="synthetic-1",
+        artifact_type="NEWS",
+        source_name="synthetic-provider",
+        source_locator="synthetic://artifact/1",
+        source_tier="PRIMARY",
+        observed_at=UtcTimestamp(NOW),
+        effective_at=UtcTimestamp(NOW),
+        available_at=UtcTimestamp(NOW),
+        payload={"body": "corrected untrusted fixture"},
+        source_schema_version="1.0",
+    )
+    second = normalize_artifact(changed, ingested_at=NOW)
+
+    assert conflicting_source_locators([first, second]) == ("synthetic://artifact/1",)
 
 
 class StubClient:
