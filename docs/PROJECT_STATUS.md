@@ -10,7 +10,7 @@
 - Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
-- Last status update: `2026-09-17`
+- Last status update: `2026-09-18`
 
 ## Established
 
@@ -36,8 +36,8 @@
 - Unit of Work, transactional outbox, advisory locks, and idempotent TaskRun execution are verified
   against PostgreSQL 16.
 - Compose applies migrations through a successful one-shot service before API/worker startup.
-- Remote GitHub CI run `35233458429` passes quality, Compose smoke, and independent Gitleaks jobs
-  for the PR-02 implementation commit.
+- Remote GitHub Actions run `35295158962` passes quality, Compose smoke, and independent Gitleaks
+  jobs for the current PR-02 review head `cfb707d4f463a37605d6cae503f5a1f42aaceea9`.
 
 ## Not yet implemented or verified
 
@@ -52,8 +52,8 @@ Nothing above may be inferred complete from the Master Spec alone.
 ## Next authorized work
 
 Human-review PR-02 persistence, audit, transactional outbox, optimistic concurrency, migrations,
-and reliable-job primitives. PR-01 and PR-02 remain available for human acceptance and are not
-marked accepted by Codex. PR-03 is the next implementation stage after acceptance.
+and reliable-job primitives. PR-00 and PR-01 are accepted and merged to `main`; PR-02 remains
+available for human acceptance. PR-03 is the next implementation stage after PR-02 acceptance.
 
 ## Human decisions currently required
 
@@ -65,8 +65,8 @@ owner; merging to `main` remains a separate human action.
 
 | Stage | State | Human acceptance | Notes |
 |---|---|---|---|
-| PR-00 | READY_FOR_REVIEW | Pending | Local/container and cumulative remote CI checks pass |
-| PR-01 | READY_FOR_REVIEW | Pending | Reviewer blockers fixed; local and PR/push remote CI pass |
+| PR-00 | ACCEPTED | Merged to `main` | Delivered and accepted with the merged foundational work |
+| PR-01 | ACCEPTED | Merged to `main` on 2026-09-17 | PR #1 merge commit `45b024109775e233049b8c7df1792b6190c67a58` |
 | PR-02 | READY_FOR_REVIEW | Pending | Local Definition of Done and implementation remote CI pass |
 | PR-03 | PLANNED | Pending | DSA adapter, evidence, feature pipeline |
 | PR-04 | PLANNED | Pending | Thesis and shared memory |
