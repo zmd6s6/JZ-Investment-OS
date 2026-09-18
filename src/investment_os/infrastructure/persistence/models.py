@@ -109,6 +109,23 @@ class ThesisVersionRecord(AuditFieldsMixin, Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class ThesisVersionEvidenceRecord(Base):
+    """Normalized immutable provenance links for a ThesisVersion."""
+
+    __tablename__ = "thesis_version_evidence"
+
+    thesis_version_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("thesis_version.id"),
+        primary_key=True,
+    )
+    evidence_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("evidence.id"),
+        primary_key=True,
+    )
+
+
 class EvidenceRecord(AuditFieldsMixin, Base):
     __tablename__ = "evidence"
     __table_args__ = (UniqueConstraint("source_name", "source_locator", "content_hash"),)

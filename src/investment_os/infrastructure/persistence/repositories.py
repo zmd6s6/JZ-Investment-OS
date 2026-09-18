@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
@@ -20,6 +20,7 @@ from investment_os.infrastructure.persistence.models import (
     PositionRecord,
     ResearchArtifactRecord,
     TaskRunRecord,
+    ThesisVersionEvidenceRecord,
     ThesisVersionRecord,
 )
 
@@ -119,6 +120,21 @@ class ThesisVersionRepository:
 
     async def append(self, record: ThesisVersionRecord) -> None:
         self._session.add(record)
+        await self._session.flush()
+
+    async def get(self, record_id: UUID) -> ThesisVersionRecord | None:
+        return await self._session.get(ThesisVersionRecord, record_id)
+
+    async def link_evidence(self, thesis_version_id: UUID, evidence_ids: tuple[UUID, ...]) -> None:
+        self._session.add_all(
+            [
+                ThesisVersionEvidenceRecord(
+                    thesis_version_id=thesis_version_id,
+                    evidence_id=evidence_id,
+                )
+                for evidence_id in evidence_ids
+            ]
+        )
         await self._session.flush()
 
     async def list_for_thesis(self, thesis_id: UUID) -> list[ThesisVersionRecord]:
@@ -236,6 +252,25 @@ class EvidenceRepository:
     async def append(self, record: EvidenceRecord) -> None:
         self._session.add(record)
         await self._session.flush()
+
+    async def available_ids(
+        self,
+        evidence_ids: tuple[UUID, ...],
+        *,
+        instrument_id: UUID,
+        as_of: datetime,
+    ) -> frozenset[UUID]:
+        """Return only Evidence valid for this Thesis at the requested business time."""
+
+        statement = select(EvidenceRecord.id).where(
+            EvidenceRecord.id.in_(evidence_ids),
+            EvidenceRecord.available_at <= as_of,
+            or_(
+                EvidenceRecord.instrument_id.is_(None),
+                EvidenceRecord.instrument_id == instrument_id,
+            ),
+        )
+        return frozenset((await self._session.scalars(statement)).all())
 
 
 class ResearchArtifactRepository:
