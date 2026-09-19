@@ -78,6 +78,19 @@ def test_gateway_request_rejects_unbounded_or_ambiguous_repair_metadata(
         )
 
 
+def test_gateway_request_rejects_non_sha256_committee_context_reference() -> None:
+    with pytest.raises(DomainError, match="committee_context_hash"):
+        LLMGatewayRequest(
+            request_id=uuid4(),
+            role=AgentRole.EVENT,
+            prompt_bundle_hash="a" * 64,
+            input_snapshot_hash="b" * 64,
+            timeout_seconds=1,
+            max_output_tokens=1,
+            committee_context_hash="not-a-hash",
+        )
+
+
 async def test_synthetic_gateway_fails_explicitly_when_no_response_is_configured() -> None:
     with pytest.raises(RuntimeError, match="no configured response"):
         await SyntheticLLMGateway(()).complete(_request())

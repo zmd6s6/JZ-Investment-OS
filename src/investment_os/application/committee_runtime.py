@@ -1,12 +1,15 @@
 """Concurrent, bounded execution of a committee round against one frozen context."""
 
 import asyncio
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from hashlib import sha256
 
 from investment_os.application.agent_runtime import AgentRunResult, AgentRuntime
 from investment_os.application.analysis_context import AnalysisContext
 from investment_os.application.committee import (
+    CommitteeConflict,
     CommitteeRound,
     detect_stance_conflicts,
     plan_round_one,
@@ -16,7 +19,58 @@ from investment_os.application.llm_gateway import LLMGatewayRequest
 from investment_os.domain.agent import AgentRole
 from investment_os.domain.errors import DomainError, DomainErrorCode
 
-RequestFactory = Callable[[AgentRole, AnalysisContext], LLMGatewayRequest]
+
+@dataclass(frozen=True, slots=True)
+class CommitteeRoleInput:
+    """Structured, untrusted-data-only input supplied to a role-specific prompt builder."""
+
+    context: AnalysisContext
+    visible_opinions: tuple[AgentRunResult, ...] = ()
+    conflicts: tuple[CommitteeConflict, ...] = ()
+
+    @property
+    def content_hash(self) -> str | None:
+        if not self.visible_opinions and not self.conflicts:
+            return None
+        payload = {
+            "analysis_context_hash": self.context.input_snapshot_hash,
+            "opinions": [
+                {
+                    "role": result.opinion.role.value,
+                    "stance": result.opinion.stance.value,
+                    "confidence": str(result.opinion.confidence.value),
+                    "observations": [
+                        {
+                            "statement": observation.statement,
+                            "evidence_ids": [
+                                str(evidence_id) for evidence_id in observation.evidence_ids
+                            ],
+                        }
+                        for observation in result.opinion.observations
+                    ],
+                    "assumptions": list(result.opinion.assumptions),
+                    "unknowns": list(result.opinion.unknowns),
+                    "risks": list(result.opinion.risks),
+                }
+                for result in self.visible_opinions
+            ],
+            "conflicts": [
+                {
+                    "kind": conflict.kind.value,
+                    "roles": [role.value for role in conflict.roles],
+                    "stances": [(role.value, stance.value) for role, stance in conflict.stances],
+                }
+                for conflict in self.conflicts
+            ],
+        }
+        return sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+
+
+RequestFactory = Callable[[AgentRole, CommitteeRoleInput], LLMGatewayRequest]
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +122,7 @@ class CommitteeRuntime:
             plan=plan_round_one(),
             context=context,
             request_factory=request_factory,
+            role_input=CommitteeRoleInput(context=context),
         )
 
     async def run_session(
@@ -81,6 +136,11 @@ class CommitteeRuntime:
             plan=plan_round_two(conflicts),
             context=context,
             request_factory=request_factory,
+            role_input=CommitteeRoleInput(
+                context=context,
+                visible_opinions=round_one.results,
+                conflicts=conflicts,
+            ),
         )
         return CommitteeSessionResult(rounds=(round_one, round_two))
 
@@ -90,14 +150,28 @@ class CommitteeRuntime:
         plan: CommitteeRound,
         context: AnalysisContext,
         request_factory: RequestFactory,
+        role_input: CommitteeRoleInput | None = None,
     ) -> CommitteeRoundResult:
         """Execute all planned roles against exactly the supplied immutable context."""
 
-        requests = tuple(request_factory(role, context) for role in plan.roles)
+        input_for_role = role_input or CommitteeRoleInput(context=context)
+        if input_for_role.context != context:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "committee role input must use the supplied frozen AnalysisContext",
+            )
+        requests = tuple(request_factory(role, input_for_role) for role in plan.roles)
         if tuple(request.role for request in requests) != plan.roles:
             raise DomainError(
                 DomainErrorCode.INVARIANT_VIOLATION,
                 "committee request factory must preserve planned role identities",
+            )
+        if any(
+            request.committee_context_hash != input_for_role.content_hash for request in requests
+        ):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "committee request factory must preserve the structured committee input hash",
             )
         results = await asyncio.gather(
             *(self._agent_runtime.run(request=request, context=context) for request in requests)

@@ -14,6 +14,7 @@ from investment_os.application.analysis_context import (
 )
 from investment_os.application.committee import ROUND_ONE_ROLES
 from investment_os.application.committee_runtime import (
+    CommitteeRoleInput,
     CommitteeRoundResult,
     CommitteeRuntime,
 )
@@ -92,14 +93,15 @@ def _runtime(
     return CommitteeRuntime(agent_runtime=AgentRuntime(registry=registry, gateway=gateway)), gateway
 
 
-def _request_factory(role: AgentRole, context: AnalysisContext) -> LLMGatewayRequest:
+def _request_factory(role: AgentRole, role_input: CommitteeRoleInput) -> LLMGatewayRequest:
     return LLMGatewayRequest(
         request_id=uuid4(),
         role=role,
         prompt_bundle_hash=PROMPT_HASH,
-        input_snapshot_hash=context.input_snapshot_hash,
+        input_snapshot_hash=role_input.context.input_snapshot_hash,
         timeout_seconds=30,
         max_output_tokens=300,
+        committee_context_hash=role_input.content_hash,
     )
 
 
@@ -122,9 +124,9 @@ async def test_round_rejects_a_request_factory_that_impersonates_a_planned_role(
     runtime, gateway = _runtime(context, evidence_id)
 
     def impersonating_factory(
-        _role: AgentRole, supplied_context: AnalysisContext
+        _role: AgentRole, supplied_input: CommitteeRoleInput
     ) -> LLMGatewayRequest:
-        return _request_factory(AgentRole.MACRO, supplied_context)
+        return _request_factory(AgentRole.MACRO, supplied_input)
 
     with pytest.raises(DomainError, match="preserve planned role identities"):
         await runtime.run_round_one(context=context, request_factory=impersonating_factory)
@@ -182,8 +184,15 @@ async def test_session_executes_exactly_two_rounds_with_targeted_rebuttal_and_de
         )
     )
     runtime = CommitteeRuntime(agent_runtime=AgentRuntime(registry=registry, gateway=gateway))
+    role_inputs: list[CommitteeRoleInput] = []
 
-    result = await runtime.run_session(context=context, request_factory=_request_factory)
+    def recording_request_factory(
+        role: AgentRole, role_input: CommitteeRoleInput
+    ) -> LLMGatewayRequest:
+        role_inputs.append(role_input)
+        return _request_factory(role, role_input)
+
+    result = await runtime.run_session(context=context, request_factory=recording_request_factory)
 
     assert len(result.rounds) == 2
     assert result.rounds[1].plan.roles == second_round_roles
@@ -192,3 +201,45 @@ async def test_session_executes_exactly_two_rounds_with_targeted_rebuttal_and_de
         *ROUND_ONE_ROLES,
         *second_round_roles,
     )
+    round_two_input = role_inputs[-1]
+    assert tuple(item.opinion.role for item in round_two_input.visible_opinions) == ROUND_ONE_ROLES
+    assert round_two_input.conflicts == result.rounds[1].plan.conflicts
+    assert round_two_input.content_hash == gateway.requests[-1].committee_context_hash
+
+
+async def test_session_rejects_request_factory_that_drops_structured_rebuttal_input() -> None:
+    context, evidence_id = _context()
+    registry = AgentRoleRegistry(
+        tuple(
+            PromptBundle(
+                role=role,
+                version="v1",
+                content_hash=PROMPT_HASH,
+                allowed_tools=(AgentTool.RETRIEVE_EVIDENCE,),
+            )
+            for role in (*ROUND_ONE_ROLES, AgentRole.DEVILS_ADVOCATE)
+        )
+    )
+    gateway = SyntheticLLMGateway(
+        tuple(
+            _response(role=role, stance="MIXED", context=context, evidence_id=evidence_id)
+            for role in ROUND_ONE_ROLES
+        )
+    )
+    runtime = CommitteeRuntime(agent_runtime=AgentRuntime(registry=registry, gateway=gateway))
+
+    def dropping_factory(role: AgentRole, role_input: CommitteeRoleInput) -> LLMGatewayRequest:
+        request = _request_factory(role, role_input)
+        if role_input.content_hash is not None:
+            return LLMGatewayRequest(
+                request_id=request.request_id,
+                role=request.role,
+                prompt_bundle_hash=request.prompt_bundle_hash,
+                input_snapshot_hash=request.input_snapshot_hash,
+                timeout_seconds=request.timeout_seconds,
+                max_output_tokens=request.max_output_tokens,
+            )
+        return request
+
+    with pytest.raises(DomainError, match="structured committee input hash"):
+        await runtime.run_session(context=context, request_factory=dropping_factory)

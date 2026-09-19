@@ -15,6 +15,10 @@ def _positive(value: int, field: str) -> int:
     return value
 
 
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
 @dataclass(frozen=True, slots=True)
 class LLMGatewayRequest:
     request_id: UUID
@@ -26,6 +30,7 @@ class LLMGatewayRequest:
     protocol_version: str = "v1"
     repair_attempt: int = 0
     repair_error_code: str | None = None
+    committee_context_hash: str | None = None
 
     def __post_init__(self) -> None:
         _positive(self.timeout_seconds, "timeout_seconds")
@@ -50,6 +55,11 @@ class LLMGatewayRequest:
             raise DomainError(
                 DomainErrorCode.INVARIANT_VIOLATION,
                 "repair LLM gateway requests require a sanitized repair error code",
+            )
+        if self.committee_context_hash is not None and not _is_sha256(self.committee_context_hash):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "committee_context_hash must be a lowercase SHA-256 hex digest",
             )
 
 

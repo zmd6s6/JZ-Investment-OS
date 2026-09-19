@@ -46,6 +46,7 @@ def agent_run_record_from_result(
         correlation_id=correlation_id,
         metadata_json={
             "prompt_bundle_hash": prompt_bundle.content_hash,
+            "committee_context_hash": request.committee_context_hash,
             "allowed_tools": [tool.value for tool in prompt_bundle.allowed_tools],
             "repair_count": result.repair_count,
             "latency_ms": sum(attempt.latency_ms for attempt in result.attempts),
