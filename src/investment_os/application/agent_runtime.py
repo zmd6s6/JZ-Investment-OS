@@ -109,6 +109,15 @@ class AgentRunResult:
                 ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
                 "invalid-output failures require the initial attempt and two repairs",
             )
+        if self.failure is not None and (
+            self.opinion.stance is not OpinionStance.INSUFFICIENT_DATA
+            or self.opinion.confidence.value != 0
+            or self.opinion.observations
+        ):
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "failed Agent runs must retain only a zero-confidence INSUFFICIENT_DATA opinion",
+            )
 
 
 class AgentRuntime:

@@ -258,3 +258,11 @@ async def test_run_result_rejects_nonsequential_or_inconsistent_repair_telemetry
             raw_output_hashes=result.raw_output_hashes,
             attempts=(replace(result.attempts[0], repair_attempt=1),),
         )
+    with pytest.raises(ApplicationError, match="INSUFFICIENT_DATA"):
+        AgentRunResult(
+            opinion=result.opinion,
+            repair_count=1,
+            raw_output_hashes=result.raw_output_hashes,
+            attempts=result.attempts,
+            failure=AgentRunFailure.GATEWAY_FAILURE,
+        )
