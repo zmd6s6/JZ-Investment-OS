@@ -1,0 +1,133 @@
+"""Safe translation of completed Agent runs into append-only persistence records."""
+
+import json
+from datetime import datetime
+from hashlib import sha256
+from uuid import UUID, uuid4
+
+from investment_os.application.agent_registry import PromptBundle
+from investment_os.application.agent_runtime import AgentRunResult
+from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+from investment_os.application.llm_gateway import LLMGatewayRequest
+from investment_os.infrastructure.persistence.models import AgentOpinionRecord, AgentRunRecord
+
+
+def agent_run_record_from_result(
+    *,
+    run_id: UUID | None = None,
+    request: LLMGatewayRequest,
+    prompt_bundle: PromptBundle,
+    result: AgentRunResult,
+    started_at: datetime,
+    ended_at: datetime,
+    created_by: str,
+    correlation_id: UUID,
+) -> AgentRunRecord:
+    """Build a complete audit row without retaining untrusted raw provider output."""
+
+    _validate_provenance(request=request, prompt_bundle=prompt_bundle, result=result)
+    latest = result.attempts[-1] if result.attempts else None
+    return AgentRunRecord(
+        id=run_id or uuid4(),
+        agent_role=request.role.value,
+        model_provider=latest.provider if latest is not None else "unavailable",
+        model_name=latest.model_name if latest is not None else "unavailable",
+        prompt_version=prompt_bundle.version,
+        input_snapshot_hash=request.input_snapshot_hash,
+        started_at=started_at,
+        ended_at=ended_at,
+        status="SUCCEEDED" if result.failure is None else "INSUFFICIENT_DATA",
+        token_usage_json={
+            "input": sum(attempt.input_tokens for attempt in result.attempts),
+            "output": sum(attempt.output_tokens for attempt in result.attempts),
+        },
+        error_code=result.failure.value if result.failure is not None else None,
+        created_by=created_by,
+        correlation_id=correlation_id,
+        metadata_json={
+            "prompt_bundle_hash": prompt_bundle.content_hash,
+            "allowed_tools": [tool.value for tool in prompt_bundle.allowed_tools],
+            "repair_count": result.repair_count,
+            "latency_ms": sum(attempt.latency_ms for attempt in result.attempts),
+            "attempts": [
+                {
+                    "repair_attempt": attempt.repair_attempt,
+                    "provider": attempt.provider,
+                    "model_name": attempt.model_name,
+                    "latency_ms": attempt.latency_ms,
+                    "input_tokens": attempt.input_tokens,
+                    "output_tokens": attempt.output_tokens,
+                    "raw_output_hash": attempt.raw_output_hash,
+                }
+                for attempt in result.attempts
+            ],
+        },
+    )
+
+
+def agent_opinion_record_from_result(
+    *,
+    opinion_id: UUID | None = None,
+    agent_run_id: UUID,
+    result: AgentRunResult,
+    created_by: str,
+    correlation_id: UUID,
+) -> AgentOpinionRecord:
+    """Persist only the validated structured opinion and evidence identifiers."""
+
+    opinion = result.opinion
+    payload = {
+        "schema_version": opinion.schema_version,
+        "role": opinion.role.value,
+        "instrument_id": str(opinion.instrument_id),
+        "stance": opinion.stance.value,
+        "confidence": str(opinion.confidence.value),
+        "time_horizon": opinion.time_horizon,
+        "observations": [
+            {
+                "statement": observation.statement,
+                "evidence_ids": [str(evidence_id) for evidence_id in observation.evidence_ids],
+            }
+            for observation in opinion.observations
+        ],
+        "assumptions": list(opinion.assumptions),
+        "unknowns": list(opinion.unknowns),
+        "risks": list(opinion.risks),
+    }
+    content_hash = sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+    return AgentOpinionRecord(
+        id=opinion_id or uuid4(),
+        agent_run_id=agent_run_id,
+        instrument_id=opinion.instrument_id,
+        stance=opinion.stance.value,
+        confidence=opinion.confidence.value,
+        time_horizon=opinion.time_horizon,
+        observations_json=payload["observations"],
+        thesis_impacts_json=[],
+        assumptions_json=payload["assumptions"],
+        risks_json=payload["risks"],
+        invalidation_conditions_json=[],
+        unknowns_json=payload["unknowns"],
+        content_hash=content_hash,
+        created_by=created_by,
+        correlation_id=correlation_id,
+        metadata_json={"agent_opinion_schema_version": opinion.schema_version},
+    )
+
+
+def _validate_provenance(
+    *, request: LLMGatewayRequest, prompt_bundle: PromptBundle, result: AgentRunResult
+) -> None:
+    if (
+        request.role is not prompt_bundle.role
+        or request.role is not result.opinion.role
+        or request.prompt_bundle_hash != prompt_bundle.content_hash
+    ):
+        raise ApplicationError(
+            ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+            "Agent observability record provenance does not match the completed runtime result",
+        )
