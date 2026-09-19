@@ -44,6 +44,21 @@ class AgentRunAttempt:
                 ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
                 "Agent run telemetry repair attempt must be between zero and two",
             )
+        if not self.provider or not self.model_name:
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "Agent run telemetry requires provider and model provenance",
+            )
+        if min(self.latency_ms, self.input_tokens, self.output_tokens) < 0:
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "Agent run telemetry values must not be negative",
+            )
+        if not _is_sha256(self.raw_output_hash):
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "Agent run telemetry raw output reference must be a lowercase SHA-256 digest",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,10 +72,42 @@ class AgentRunResult:
     failure: AgentRunFailure | None = None
 
     def __post_init__(self) -> None:
+        if self.repair_count < 0 or self.repair_count > 2:
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "Agent run repair count must be between zero and two",
+            )
         if self.raw_output_hashes != tuple(attempt.raw_output_hash for attempt in self.attempts):
             raise ApplicationError(
                 ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
                 "Agent run telemetry must contain one raw-output hash per response attempt",
+            )
+        if tuple(attempt.repair_attempt for attempt in self.attempts) != tuple(
+            range(len(self.attempts))
+        ):
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "Agent run telemetry attempts must be sequential and begin at zero",
+            )
+        if self.failure is None and len(self.attempts) != self.repair_count + 1:
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "successful Agent runs must retain every attempt through the successful response",
+            )
+        if (
+            self.failure is AgentRunFailure.GATEWAY_FAILURE
+            and len(self.attempts) != self.repair_count
+        ):
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "gateway failures must retain only the responses received before the failed call",
+            )
+        if self.failure is AgentRunFailure.INVALID_OUTPUT and (
+            self.repair_count != 2 or len(self.attempts) != 3
+        ):
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "invalid-output failures require the initial attempt and two repairs",
             )
 
 
@@ -169,6 +216,10 @@ def _attempt_telemetry(*, response: LLMGatewayResponse, repair_attempt: int) -> 
         output_tokens=response.output_tokens,
         raw_output_hash=sha256(response.raw_output.encode("utf-8")).hexdigest(),
     )
+
+
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
 def _validated_opinion(

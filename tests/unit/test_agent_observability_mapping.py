@@ -92,7 +92,7 @@ def _result(*, failure: AgentRunFailure | None = None) -> AgentRunResult:
     )
     return AgentRunResult(
         opinion=opinion,
-        repair_count=0,
+        repair_count=1 if failure else 0,
         raw_output_hashes=("c" * 64,),
         attempts=attempts,
         failure=failure,
@@ -191,8 +191,18 @@ def _committee_run(
             risks=(),
         ),
         repair_count=0,
-        raw_output_hashes=(),
-        attempts=(),
+        raw_output_hashes=("f" * 64,),
+        attempts=(
+            AgentRunAttempt(
+                repair_attempt=0,
+                provider="synthetic",
+                model_name="fixture-v1",
+                latency_ms=1,
+                input_tokens=1,
+                output_tokens=1,
+                raw_output_hash="f" * 64,
+            ),
+        ),
     )
 
 

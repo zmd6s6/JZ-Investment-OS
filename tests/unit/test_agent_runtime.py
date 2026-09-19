@@ -1,12 +1,18 @@
 """Tests for bounded, fail-closed single-role Agent execution."""
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 
 from investment_os.application.agent_registry import AgentRoleRegistry, PromptBundle
-from investment_os.application.agent_runtime import AgentRunFailure, AgentRuntime
+from investment_os.application.agent_runtime import (
+    AgentRunAttempt,
+    AgentRunFailure,
+    AgentRunResult,
+    AgentRuntime,
+)
 from investment_os.application.analysis_context import AnalysisEvidence, freeze_analysis_context
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.llm_gateway import (
@@ -210,3 +216,45 @@ async def test_runtime_rejects_a_request_with_unregistered_prompt_provenance() -
 
     assert error.value.code is ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID
     assert gateway.requests == []
+
+
+@pytest.mark.parametrize(
+    ("provider", "latency_ms", "raw_output_hash"),
+    [("", 1, "a" * 64), ("synthetic", -1, "a" * 64), ("synthetic", 1, "A" * 64)],
+)
+def test_run_attempt_rejects_invalid_sanitized_telemetry(
+    provider: str, latency_ms: int, raw_output_hash: str
+) -> None:
+    with pytest.raises(ApplicationError) as error:
+        AgentRunAttempt(
+            repair_attempt=0,
+            provider=provider,
+            model_name="fixture-v1",
+            latency_ms=latency_ms,
+            input_tokens=1,
+            output_tokens=1,
+            raw_output_hash=raw_output_hash,
+        )
+
+    assert error.value.code is ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID
+
+
+async def test_run_result_rejects_nonsequential_or_inconsistent_repair_telemetry() -> None:
+    context, evidence_id = _context()
+    runtime, _gateway = _runtime((_response(_valid_payload(context, evidence_id)),))
+    result = await runtime.run(request=_request(context), context=context)
+
+    with pytest.raises(ApplicationError, match="successful"):
+        AgentRunResult(
+            opinion=result.opinion,
+            repair_count=1,
+            raw_output_hashes=result.raw_output_hashes,
+            attempts=result.attempts,
+        )
+    with pytest.raises(ApplicationError, match="sequential"):
+        AgentRunResult(
+            opinion=result.opinion,
+            repair_count=0,
+            raw_output_hashes=result.raw_output_hashes,
+            attempts=(replace(result.attempts[0], repair_attempt=1),),
+        )
