@@ -98,6 +98,10 @@ async def test_runtime_validates_evidence_backed_output_without_repair() -> None
     assert result.opinion.stance is OpinionStance.POSITIVE
     assert result.repair_count == 0
     assert result.failure is None
+    assert result.attempts[0].provider == "synthetic"
+    assert result.attempts[0].model_name == "fixture-v1"
+    assert result.attempts[0].latency_ms == 1
+    assert result.raw_output_hashes == (result.attempts[0].raw_output_hash,)
     assert gateway.requests[0].repair_attempt == 0
     assert gateway.requests[0].repair_error_code is None
 
@@ -117,6 +121,8 @@ async def test_runtime_uses_one_sanitized_repair_attempt_for_invalid_json() -> N
     assert result.failure is None
     assert [request.repair_attempt for request in gateway.requests] == [0, 1]
     assert gateway.requests[1].repair_error_code == "AGENT_OPINION_INVALID"
+    assert [attempt.repair_attempt for attempt in result.attempts] == [0, 1]
+    assert all("not json" not in attempt.raw_output_hash for attempt in result.attempts)
 
 
 async def test_runtime_fails_as_insufficient_data_after_two_invalid_repairs() -> None:
@@ -131,6 +137,7 @@ async def test_runtime_fails_as_insufficient_data_after_two_invalid_repairs() ->
     assert result.opinion.confidence.value == 0
     assert result.opinion.observations == ()
     assert len(result.raw_output_hashes) == 3
+    assert tuple(attempt.raw_output_hash for attempt in result.attempts) == result.raw_output_hashes
     assert len(gateway.requests) == 3
 
 

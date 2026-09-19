@@ -26,13 +26,41 @@ class AgentRunFailure(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class AgentRunAttempt:
+    """Sanitized provider telemetry for one response; the untrusted response text is omitted."""
+
+    repair_attempt: int
+    provider: str
+    model_name: str
+    latency_ms: int
+    input_tokens: int
+    output_tokens: int
+    raw_output_hash: str
+
+    def __post_init__(self) -> None:
+        if self.repair_attempt < 0 or self.repair_attempt > 2:
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "Agent run telemetry repair attempt must be between zero and two",
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class AgentRunResult:
     """Safe outcome with raw-output hashes only; untrusted text never leaves the runner."""
 
     opinion: AgentOpinion
     repair_count: int
     raw_output_hashes: tuple[str, ...]
+    attempts: tuple[AgentRunAttempt, ...]
     failure: AgentRunFailure | None = None
+
+    def __post_init__(self) -> None:
+        if self.raw_output_hashes != tuple(attempt.raw_output_hash for attempt in self.attempts):
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                "Agent run telemetry must contain one raw-output hash per response attempt",
+            )
 
 
 class AgentRuntime:
@@ -60,7 +88,7 @@ class AgentRuntime:
                 "AgentRuntime accepts only an initial LLM gateway request",
             )
 
-        raw_output_hashes: list[str] = []
+        attempts: list[AgentRunAttempt] = []
         for repair_attempt in range(3):
             attempt_request = replace(
                 request,
@@ -78,11 +106,11 @@ class AgentRuntime:
                     request=request,
                     context=context,
                     repair_count=repair_attempt,
-                    raw_output_hashes=tuple(raw_output_hashes),
+                    attempts=tuple(attempts),
                     failure=AgentRunFailure.GATEWAY_FAILURE,
                 )
 
-            raw_output_hashes.append(_raw_output_hash(response))
+            attempts.append(_attempt_telemetry(response=response, repair_attempt=repair_attempt))
             try:
                 opinion = _validated_opinion(response=response, request=request, context=context)
             except ApplicationError:
@@ -90,14 +118,15 @@ class AgentRuntime:
             return AgentRunResult(
                 opinion=opinion,
                 repair_count=repair_attempt,
-                raw_output_hashes=tuple(raw_output_hashes),
+                raw_output_hashes=tuple(attempt.raw_output_hash for attempt in attempts),
+                attempts=tuple(attempts),
             )
 
         return self._insufficient_data(
             request=request,
             context=context,
             repair_count=2,
-            raw_output_hashes=tuple(raw_output_hashes),
+            attempts=tuple(attempts),
             failure=AgentRunFailure.INVALID_OUTPUT,
         )
 
@@ -107,7 +136,7 @@ class AgentRuntime:
         request: LLMGatewayRequest,
         context: AnalysisContext,
         repair_count: int,
-        raw_output_hashes: tuple[str, ...],
+        attempts: tuple[AgentRunAttempt, ...],
         failure: AgentRunFailure,
     ) -> AgentRunResult:
         return AgentRunResult(
@@ -123,13 +152,22 @@ class AgentRuntime:
                 risks=(),
             ),
             repair_count=repair_count,
-            raw_output_hashes=raw_output_hashes,
+            raw_output_hashes=tuple(attempt.raw_output_hash for attempt in attempts),
+            attempts=attempts,
             failure=failure,
         )
 
 
-def _raw_output_hash(response: LLMGatewayResponse) -> str:
-    return sha256(response.raw_output.encode("utf-8")).hexdigest()
+def _attempt_telemetry(*, response: LLMGatewayResponse, repair_attempt: int) -> AgentRunAttempt:
+    return AgentRunAttempt(
+        repair_attempt=repair_attempt,
+        provider=response.provider,
+        model_name=response.model_name,
+        latency_ms=response.latency_ms,
+        input_tokens=response.input_tokens,
+        output_tokens=response.output_tokens,
+        raw_output_hash=sha256(response.raw_output.encode("utf-8")).hexdigest(),
+    )
 
 
 def _validated_opinion(
