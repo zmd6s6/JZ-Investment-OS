@@ -24,6 +24,8 @@ class LLMGatewayRequest:
     timeout_seconds: int
     max_output_tokens: int
     protocol_version: str = "v1"
+    repair_attempt: int = 0
+    repair_error_code: str | None = None
 
     def __post_init__(self) -> None:
         _positive(self.timeout_seconds, "timeout_seconds")
@@ -34,6 +36,21 @@ class LLMGatewayRequest:
             or not self.input_snapshot_hash
         ):
             raise DomainError(DomainErrorCode.INVARIANT_VIOLATION, "invalid LLM gateway request")
+        if self.repair_attempt < 0 or self.repair_attempt > 2:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "repair_attempt must be between zero and two",
+            )
+        if self.repair_attempt == 0 and self.repair_error_code is not None:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "initial LLM gateway requests must not contain a repair error",
+            )
+        if self.repair_attempt > 0 and not self.repair_error_code:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "repair LLM gateway requests require a sanitized repair error code",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +80,10 @@ class LLMGatewayPort(Protocol):
     async def complete(self, request: LLMGatewayRequest) -> LLMGatewayResponse: ...
 
 
+class LLMGatewayFailure(RuntimeError):
+    """Explicit, provider-neutral failure that callers may safely convert to a run outcome."""
+
+
 class SyntheticLLMGateway:
     """Test-only gateway: consumes predeclared outputs and never contacts a provider."""
 
@@ -73,5 +94,5 @@ class SyntheticLLMGateway:
     async def complete(self, request: LLMGatewayRequest) -> LLMGatewayResponse:
         self.requests.append(request)
         if not self._responses:
-            raise RuntimeError("synthetic gateway has no configured response")
+            raise LLMGatewayFailure("synthetic gateway has no configured response")
         return self._responses.popleft()

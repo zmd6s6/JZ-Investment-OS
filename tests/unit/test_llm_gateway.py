@@ -58,6 +58,26 @@ def test_gateway_request_rejects_unbounded_or_invalid_budgets(
         )
 
 
+@pytest.mark.parametrize(
+    ("repair_attempt", "repair_error_code"),
+    [(3, "AGENT_OPINION_INVALID"), (1, None), (0, "AGENT_OPINION_INVALID")],
+)
+def test_gateway_request_rejects_unbounded_or_ambiguous_repair_metadata(
+    repair_attempt: int, repair_error_code: str | None
+) -> None:
+    with pytest.raises(DomainError):
+        LLMGatewayRequest(
+            request_id=uuid4(),
+            role=AgentRole.EVENT,
+            prompt_bundle_hash="a" * 64,
+            input_snapshot_hash="b" * 64,
+            timeout_seconds=1,
+            max_output_tokens=1,
+            repair_attempt=repair_attempt,
+            repair_error_code=repair_error_code,
+        )
+
+
 async def test_synthetic_gateway_fails_explicitly_when_no_response_is_configured() -> None:
     with pytest.raises(RuntimeError, match="no configured response"):
         await SyntheticLLMGateway(()).complete(_request())
