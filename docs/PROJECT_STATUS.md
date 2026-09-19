@@ -6,11 +6,11 @@
 
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
-- Active roadmap stage: `PR-03 — DSA Adapter, Evidence & Feature Pipeline`
+- Active roadmap stage: `PR-04 — Thesis Engine & Shared Investment Memory`
 - Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
-- Last status update: `2026-09-18`
+- Last status update: `2026-09-19`
 
 ## Established
 
@@ -39,6 +39,7 @@
 - Remote GitHub Actions run `35295158962` passes quality, Compose smoke, and independent Gitleaks
   jobs for the current PR-02 review head `cfb707d4f463a37605d6cae503f5a1f42aaceea9`.
 - PR-02 is accepted and merged to `main` by PR #2 as `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e`.
+- PR-03 is accepted and merged to `main` by PR #3 as `5dc99027a460a7f29d9b4021a982af726f2363f2`.
 
 ## Not yet implemented or verified
 
@@ -52,9 +53,9 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-Human-review PR-03: DSA adapter boundary, immutable Evidence ingestion, deterministic quality and
-freshness handling, minimal Feature Pipeline, and data-lineage ingest API. PR-00 through PR-02 are
-accepted and merged to `main`.
+PR-04 is complete and ready for review: immutable Thesis create/version/diff, controlled Evidence
+impact, monitoring and invalidation conditions, time-travel reads, strict read APIs, and synthetic
+S5 regression coverage. PR-00 through PR-03 are accepted and merged to `main`.
 
 ## Human decisions currently required
 
@@ -69,8 +70,8 @@ owner; merging to `main` remains a separate human action.
 | PR-00 | ACCEPTED | Merged to `main` | Delivered and accepted with the merged foundational work |
 | PR-01 | ACCEPTED | Merged to `main` on 2026-09-17 | PR #1 merge commit `45b024109775e233049b8c7df1792b6190c67a58` |
 | PR-02 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #2 merge commit `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e` |
-| PR-03 | READY_FOR_REVIEW | Pending | DSA adapter, evidence, feature pipeline; local verification passes |
-| PR-04 | PLANNED | Pending | Thesis and shared memory |
+| PR-03 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #3 merge commit `5dc99027a460a7f29d9b4021a982af726f2363f2` |
+| PR-04 | READY_FOR_REVIEW | Pending | Thesis and shared memory; full local verification recorded |
 | PR-05 | PLANNED | Pending | Agent runtime and committee |
 | PR-06 | PLANNED | Pending | Portfolio, risk, sizing |
 | PR-07 | PLANNED | Pending | Decision, approval, journal |

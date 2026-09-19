@@ -100,7 +100,30 @@ class ThesisVersionRecord(AuditFieldsMixin, Base):
     )
     thesis_state: Mapped[str] = mapped_column(String(32), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
+    pillars_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    catalysts_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    risks_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    invalidation_conditions_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    monitoring_conditions_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    change_reason: Mapped[str] = mapped_column(String(64), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class ThesisVersionEvidenceRecord(Base):
+    """Normalized immutable provenance links for a ThesisVersion."""
+
+    __tablename__ = "thesis_version_evidence"
+
+    thesis_version_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("thesis_version.id"),
+        primary_key=True,
+    )
+    evidence_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("evidence.id"),
+        primary_key=True,
+    )
 
 
 class EvidenceRecord(AuditFieldsMixin, Base):

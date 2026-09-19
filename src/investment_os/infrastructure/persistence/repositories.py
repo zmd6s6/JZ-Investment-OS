@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
@@ -20,6 +20,8 @@ from investment_os.infrastructure.persistence.models import (
     PositionRecord,
     ResearchArtifactRecord,
     TaskRunRecord,
+    ThesisVersionEvidenceRecord,
+    ThesisVersionRecord,
 )
 
 
@@ -77,6 +79,12 @@ class ThesisRepository:
     async def get(self, record_id: UUID) -> InvestmentThesisRecord | None:
         return await self._session.get(InvestmentThesisRecord, record_id)
 
+    async def get_by_instrument(self, instrument_id: UUID) -> InvestmentThesisRecord | None:
+        statement = select(InvestmentThesisRecord).where(
+            InvestmentThesisRecord.instrument_id == instrument_id
+        )
+        return (await self._session.scalars(statement)).one_or_none()
+
     async def update_current_version(
         self,
         record_id: UUID,
@@ -102,6 +110,52 @@ class ThesisRepository:
         if updated is None:
             raise _concurrency_conflict("investment_thesis", record_id, expected_version)
         return updated
+
+
+class ThesisVersionRepository:
+    """Append-only ThesisVersion records with time-travel reads."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: ThesisVersionRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def get(self, record_id: UUID) -> ThesisVersionRecord | None:
+        return await self._session.get(ThesisVersionRecord, record_id)
+
+    async def link_evidence(self, thesis_version_id: UUID, evidence_ids: tuple[UUID, ...]) -> None:
+        self._session.add_all(
+            [
+                ThesisVersionEvidenceRecord(
+                    thesis_version_id=thesis_version_id,
+                    evidence_id=evidence_id,
+                )
+                for evidence_id in evidence_ids
+            ]
+        )
+        await self._session.flush()
+
+    async def list_for_thesis(self, thesis_id: UUID) -> list[ThesisVersionRecord]:
+        statement = (
+            select(ThesisVersionRecord)
+            .where(ThesisVersionRecord.thesis_id == thesis_id)
+            .order_by(ThesisVersionRecord.version)
+        )
+        return list((await self._session.scalars(statement)).all())
+
+    async def latest_as_of(self, thesis_id: UUID, *, as_of: datetime) -> ThesisVersionRecord | None:
+        statement = (
+            select(ThesisVersionRecord)
+            .where(
+                ThesisVersionRecord.thesis_id == thesis_id,
+                ThesisVersionRecord.created_at <= as_of,
+            )
+            .order_by(ThesisVersionRecord.created_at.desc(), ThesisVersionRecord.version.desc())
+            .limit(1)
+        )
+        return (await self._session.scalars(statement)).one_or_none()
 
 
 class DecisionRepository:
@@ -198,6 +252,25 @@ class EvidenceRepository:
     async def append(self, record: EvidenceRecord) -> None:
         self._session.add(record)
         await self._session.flush()
+
+    async def available_ids(
+        self,
+        evidence_ids: tuple[UUID, ...],
+        *,
+        instrument_id: UUID,
+        as_of: datetime,
+    ) -> frozenset[UUID]:
+        """Return only Evidence valid for this Thesis at the requested business time."""
+
+        statement = select(EvidenceRecord.id).where(
+            EvidenceRecord.id.in_(evidence_ids),
+            EvidenceRecord.available_at <= as_of,
+            or_(
+                EvidenceRecord.instrument_id.is_(None),
+                EvidenceRecord.instrument_id == instrument_id,
+            ),
+        )
+        return frozenset((await self._session.scalars(statement)).all())
 
 
 class ResearchArtifactRepository:
