@@ -1,15 +1,24 @@
 """Safe translation of completed Agent runs into append-only persistence records."""
 
 import json
+from collections.abc import Mapping
 from datetime import datetime
 from hashlib import sha256
 from uuid import UUID, uuid4
 
 from investment_os.application.agent_registry import PromptBundle
 from investment_os.application.agent_runtime import AgentRunResult
+from investment_os.application.analysis_context import AnalysisContext
+from investment_os.application.committee_runtime import CommitteeSessionResult
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.llm_gateway import LLMGatewayRequest
-from investment_os.infrastructure.persistence.models import AgentOpinionRecord, AgentRunRecord
+from investment_os.infrastructure.persistence.models import (
+    AgentOpinionRecord,
+    AgentRunRecord,
+    CommitteeMessageRecord,
+    CommitteeSessionRecord,
+    ConflictRecord,
+)
 
 
 def agent_run_record_from_result(
@@ -118,6 +127,139 @@ def agent_opinion_record_from_result(
         correlation_id=correlation_id,
         metadata_json={"agent_opinion_schema_version": opinion.schema_version},
     )
+
+
+def committee_session_record_from_result(
+    *,
+    session_id: UUID | None = None,
+    result: CommitteeSessionResult,
+    context: AnalysisContext,
+    started_at: datetime,
+    completed_at: datetime,
+    created_by: str,
+    correlation_id: UUID,
+) -> CommitteeSessionRecord:
+    """Map a finite committee result to one auditable, non-decision session row."""
+
+    round_two = result.rounds[1]
+    return CommitteeSessionRecord(
+        id=session_id or uuid4(),
+        instrument_id=context.instrument_id,
+        session_type="TWO_ROUND_RESEARCH",
+        round_count=len(result.rounds),
+        status="COMPLETED",
+        input_snapshot_hash=_session_input_hash(result=result, context=context),
+        started_at=started_at,
+        completed_at=completed_at,
+        created_by=created_by,
+        correlation_id=correlation_id,
+        metadata_json={
+            "committee_protocol_version": "v1",
+            "unresolved_conflict_count": len(round_two.plan.conflicts),
+        },
+    )
+
+
+def committee_message_records_from_result(
+    *,
+    session_id: UUID,
+    result: CommitteeSessionResult,
+    opinion_ids: Mapping[tuple[int, str], UUID],
+    created_by: str,
+    correlation_id: UUID,
+) -> tuple[CommitteeMessageRecord, ...]:
+    """Persist only validated structured outcomes, referenced by their opinion IDs."""
+
+    expected_keys = {
+        (round_result.plan.number, run_result.opinion.role.value)
+        for round_result in result.rounds
+        for run_result in round_result.results
+    }
+    if set(opinion_ids) != expected_keys:
+        raise ApplicationError(
+            ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+            "committee message mapping requires exactly one opinion ID per round and role",
+        )
+
+    return tuple(
+        CommitteeMessageRecord(
+            session_id=session_id,
+            round_number=round_result.plan.number,
+            agent_role=run_result.opinion.role.value,
+            message_type=(
+                "INDEPENDENT_OPINION" if round_result.plan.number == 1 else "TARGETED_REBUTTAL"
+            ),
+            opinion_id=opinion_ids[(round_result.plan.number, run_result.opinion.role.value)],
+            targets_opinion_id=None,
+            payload_json={
+                "agent_opinion_schema_version": run_result.opinion.schema_version,
+                "stance": run_result.opinion.stance.value,
+                "confidence": str(run_result.opinion.confidence.value),
+                "failure": run_result.failure.value if run_result.failure is not None else None,
+            },
+            created_by=created_by,
+            correlation_id=correlation_id,
+        )
+        for round_result in result.rounds
+        for run_result in round_result.results
+    )
+
+
+def conflict_records_from_result(
+    *,
+    session_id: UUID,
+    result: CommitteeSessionResult,
+    opinion_ids: Mapping[tuple[int, str], UUID],
+    created_by: str,
+    correlation_id: UUID,
+) -> tuple[ConflictRecord, ...]:
+    """Keep every unresolved deterministic conflict explicit after the final allowed round."""
+
+    round_two = result.rounds[1]
+    required_keys = {
+        (1, role.value) for conflict in round_two.plan.conflicts for role in conflict.roles
+    }
+    if not required_keys.issubset(opinion_ids):
+        raise ApplicationError(
+            ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+            "conflict mapping requires the conflicting round-one opinion IDs",
+        )
+    return tuple(
+        ConflictRecord(
+            session_id=session_id,
+            conflict_type=conflict.kind.value,
+            severity="MATERIAL",
+            opinion_ids=[str(opinion_ids[(1, role.value)]) for role in conflict.roles],
+            question="Resolve the deterministic stance disagreement through bounded review.",
+            resolution=None,
+            created_by=created_by,
+            correlation_id=correlation_id,
+            metadata_json={
+                "committee_protocol_version": "v1",
+                "stances": [
+                    {"role": role.value, "stance": stance.value}
+                    for role, stance in conflict.stances
+                ],
+            },
+        )
+        for conflict in round_two.plan.conflicts
+    )
+
+
+def _session_input_hash(*, result: CommitteeSessionResult, context: AnalysisContext) -> str:
+    """Return the original immutable AnalysisContext hash shared by every committee role."""
+
+    instrument_ids = {
+        run_result.opinion.instrument_id
+        for round_result in result.rounds
+        for run_result in round_result.results
+    }
+    if instrument_ids != {context.instrument_id}:
+        raise ApplicationError(
+            ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+            "committee session mapping requires one instrument across all results",
+        )
+    return context.input_snapshot_hash
 
 
 def _validate_provenance(

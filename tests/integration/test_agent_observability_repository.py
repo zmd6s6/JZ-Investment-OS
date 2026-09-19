@@ -14,6 +14,7 @@ from investment_os.infrastructure.persistence.models import (
     AgentRunRecord,
     CommitteeMessageRecord,
     CommitteeSessionRecord,
+    ConflictRecord,
 )
 from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 
@@ -52,6 +53,7 @@ async def test_agent_and_committee_observability_is_append_only_and_sanitized(
     run_id = uuid4()
     opinion_id = uuid4()
     message_id = uuid4()
+    conflict_id = uuid4()
     factory = _session_factory(database_engine)
 
     async with SqlAlchemyUnitOfWork(factory) as uow:
@@ -126,6 +128,20 @@ async def test_agent_and_committee_observability_is_append_only_and_sanitized(
                 correlation_id=correlation_id,
             )
         )
+        await uow.agent_observability.append_conflict(
+            ConflictRecord(
+                id=conflict_id,
+                session_id=session_id,
+                conflict_type="STANCE_SPREAD",
+                severity="MATERIAL",
+                opinion_ids=[str(opinion_id)],
+                question="Resolve the synthetic disagreement through bounded review.",
+                resolution=None,
+                created_by="pytest",
+                correlation_id=correlation_id,
+                metadata_json={"protocol_version": "v1"},
+            )
+        )
         await uow.commit()
 
     async with factory() as session:
@@ -135,11 +151,14 @@ async def test_agent_and_committee_observability_is_append_only_and_sanitized(
             .select_from(CommitteeMessageRecord)
             .where(CommitteeMessageRecord.session_id == session_id)
         )
+        conflict = await session.get(ConflictRecord, conflict_id)
 
     assert run is not None
     assert run.metadata_json["raw_output_hashes"] == ["b" * 64]
     assert "raw_output" not in run.metadata_json
     assert message_count == 1
+    assert conflict is not None
+    assert conflict.resolution is None
 
     for table_name, record_id in (("agent_run", run_id), ("committee_session", session_id)):
         with pytest.raises(DBAPIError):
@@ -148,3 +167,9 @@ async def test_agent_and_committee_observability_is_append_only_and_sanitized(
                     text(f"UPDATE {table_name} SET status = 'ALTERED' WHERE id = :id"),
                     {"id": record_id},
                 )
+    with pytest.raises(DBAPIError):
+        async with database_engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE conflict_record SET severity = 'ALTERED' WHERE id = :id"),
+                {"id": conflict_id},
+            )

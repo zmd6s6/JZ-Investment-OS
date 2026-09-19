@@ -242,6 +242,21 @@ class CommitteeMessageRecord(AuditFieldsMixin, Base):
     payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
 
 
+class ConflictRecord(AuditFieldsMixin, Base):
+    """An unresolved, deterministic committee disagreement kept append-only."""
+
+    __tablename__ = "conflict_record"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    # The migration owns the foreign key to the complete committee-session table.
+    session_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    conflict_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    severity: Mapped[str] = mapped_column(String(32), nullable=False)
+    opinion_ids: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    resolution: Mapped[str | None] = mapped_column(Text)
+
+
 class InvestmentDecisionRecord(AuditFieldsMixin, Base):
     __tablename__ = "investment_decision"
 

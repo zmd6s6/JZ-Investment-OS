@@ -14,6 +14,7 @@ from investment_os.infrastructure.persistence.models import (
     AuditLogRecord,
     CommitteeMessageRecord,
     CommitteeSessionRecord,
+    ConflictRecord,
     EventLogRecord,
     EvidenceRecord,
     FeatureSnapshotRecord,
@@ -256,6 +257,10 @@ class AgentObservabilityRepository:
         await self._session.flush()
 
     async def append_message(self, record: CommitteeMessageRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def append_conflict(self, record: ConflictRecord) -> None:
         self._session.add(record)
         await self._session.flush()
 

@@ -2,12 +2,27 @@
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
 from investment_os.application.agent_registry import PromptBundle
 from investment_os.application.agent_runtime import AgentRunAttempt, AgentRunFailure, AgentRunResult
+from investment_os.application.analysis_context import (
+    AnalysisContext,
+    AnalysisEvidence,
+    freeze_analysis_context,
+)
+from investment_os.application.committee import (
+    ROUND_ONE_ROLES,
+    detect_stance_conflicts,
+    plan_round_one,
+    plan_round_two,
+)
+from investment_os.application.committee_runtime import (
+    CommitteeRoundResult,
+    CommitteeSessionResult,
+)
 from investment_os.application.errors import ApplicationError
 from investment_os.application.llm_gateway import LLMGatewayRequest
 from investment_os.domain.agent import (
@@ -17,10 +32,13 @@ from investment_os.domain.agent import (
     EvidenceBackedObservation,
     OpinionStance,
 )
-from investment_os.domain.values import Weight
+from investment_os.domain.values import UtcTimestamp, Weight
 from investment_os.infrastructure.persistence.agent_observability import (
     agent_opinion_record_from_result,
     agent_run_record_from_result,
+    committee_message_records_from_result,
+    committee_session_record_from_result,
+    conflict_records_from_result,
 )
 
 NOW = datetime(2026, 9, 19, 0, 0, tzinfo=UTC)
@@ -142,6 +160,141 @@ def test_mapping_rejects_mismatched_prompt_provenance() -> None:
             result=_result(),
             started_at=NOW,
             ended_at=NOW,
+            created_by="pytest",
+            correlation_id=uuid4(),
+        )
+
+
+def _committee_context() -> tuple[AnalysisContext, UUID]:
+    evidence = AnalysisEvidence(
+        evidence_id=uuid4(),
+        content_hash="e" * 64,
+        available_at=UtcTimestamp(NOW),
+    )
+    context = freeze_analysis_context(uuid4(), as_of=NOW, evidence=(evidence,))
+    return context, evidence.evidence_id
+
+
+def _committee_run(
+    *, context: AnalysisContext, evidence_id: UUID, role: AgentRole, stance: OpinionStance
+) -> AgentRunResult:
+    return AgentRunResult(
+        opinion=AgentOpinion(
+            role=role,
+            instrument_id=context.instrument_id,
+            stance=stance,
+            confidence=Weight(Decimal("0.5")),
+            time_horizon="synthetic horizon",
+            observations=(EvidenceBackedObservation("Synthetic fact", (evidence_id,)),),
+            assumptions=(),
+            unknowns=(),
+            risks=(),
+        ),
+        repair_count=0,
+        raw_output_hashes=(),
+        attempts=(),
+    )
+
+
+def _committee_result(context: AnalysisContext, evidence_id: UUID) -> CommitteeSessionResult:
+    round_one_stances = {
+        AgentRole.MACRO: OpinionStance.POSITIVE,
+        AgentRole.INDUSTRY: OpinionStance.MIXED,
+        AgentRole.FUNDAMENTAL: OpinionStance.NEGATIVE,
+        AgentRole.MARKET_QUANT: OpinionStance.MIXED,
+        AgentRole.EVENT: OpinionStance.MIXED,
+    }
+    round_one_results = tuple(
+        _committee_run(
+            context=context,
+            evidence_id=evidence_id,
+            role=role,
+            stance=round_one_stances[role],
+        )
+        for role in ROUND_ONE_ROLES
+    )
+    conflicts = detect_stance_conflicts(tuple(run.opinion for run in round_one_results))
+    round_two_plan = plan_round_two(conflicts)
+    round_two_results = tuple(
+        _committee_run(
+            context=context,
+            evidence_id=evidence_id,
+            role=role,
+            stance=OpinionStance.MIXED,
+        )
+        for role in round_two_plan.roles
+    )
+    return CommitteeSessionResult(
+        rounds=(
+            CommitteeRoundResult(plan=plan_round_one(), results=round_one_results),
+            CommitteeRoundResult(plan=round_two_plan, results=round_two_results),
+        )
+    )
+
+
+def _opinion_ids(result: CommitteeSessionResult) -> dict[tuple[int, str], UUID]:
+    return {
+        (round_result.plan.number, run_result.opinion.role.value): uuid4()
+        for round_result in result.rounds
+        for run_result in round_result.results
+    }
+
+
+def test_committee_mappings_keep_finite_session_and_unresolved_conflict_auditable() -> None:
+    context, evidence_id = _committee_context()
+    result = _committee_result(context, evidence_id)
+    correlation_id = uuid4()
+    opinion_ids = _opinion_ids(result)
+
+    session_record = committee_session_record_from_result(
+        result=result,
+        context=context,
+        started_at=NOW,
+        completed_at=NOW,
+        created_by="pytest",
+        correlation_id=correlation_id,
+    )
+    messages = committee_message_records_from_result(
+        session_id=session_record.id,
+        result=result,
+        opinion_ids=opinion_ids,
+        created_by="pytest",
+        correlation_id=correlation_id,
+    )
+    conflicts = conflict_records_from_result(
+        session_id=session_record.id,
+        result=result,
+        opinion_ids=opinion_ids,
+        created_by="pytest",
+        correlation_id=correlation_id,
+    )
+
+    assert session_record.round_count == 2
+    assert session_record.input_snapshot_hash == context.input_snapshot_hash
+    assert session_record.metadata_json["unresolved_conflict_count"] == 1
+    assert len(messages) == sum(len(round_result.results) for round_result in result.rounds)
+    assert {message.message_type for message in messages} == {
+        "INDEPENDENT_OPINION",
+        "TARGETED_REBUTTAL",
+    }
+    assert len(conflicts) == 1
+    assert conflicts[0].resolution is None
+    assert conflicts[0].opinion_ids == [
+        str(opinion_ids[(1, role.value)]) for role in result.rounds[1].plan.conflicts[0].roles
+    ]
+
+
+def test_committee_message_mapping_rejects_missing_opinion_provenance() -> None:
+    context, evidence_id = _committee_context()
+    result = _committee_result(context, evidence_id)
+    opinion_ids = _opinion_ids(result)
+    opinion_ids.pop(next(iter(opinion_ids)))
+
+    with pytest.raises(ApplicationError, match="exactly one opinion ID"):
+        committee_message_records_from_result(
+            session_id=uuid4(),
+            result=result,
+            opinion_ids=opinion_ids,
             created_by="pytest",
             correlation_id=uuid4(),
         )
