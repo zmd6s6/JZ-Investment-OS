@@ -26,6 +26,13 @@ class AgentRole(StrEnum):
     REVIEW_LEARNING = "REVIEW_LEARNING"
 
 
+class AgentTool(StrEnum):
+    """Closed capabilities that a role may receive through its prompt bundle."""
+
+    RETRIEVE_EVIDENCE = "RETRIEVE_EVIDENCE"
+    READ_THESIS = "READ_THESIS"
+
+
 class OpinionStance(StrEnum):
     POSITIVE = "POSITIVE"
     NEGATIVE = "NEGATIVE"
