@@ -61,9 +61,14 @@ it must not introduce Decision, approval, execution, provider credentials, or li
 
 ## Human decisions currently required
 
-No investment-governance decision is required. The shipped Policy is `TEST_DEFAULT`; choosing real
-limits remains a future human decision. Stage-branch commits and pushes are now authorized by the
-owner; merging to `main` remains a separate human action.
+- **PR-05 scope reconciliation:** its acceptance list requires S1/S2 final `WATCH`/`AVOID` Actions,
+  while its out-of-scope list forbids a CIO Decision; the Master Spec assigns final recommendations
+  only to CIO. Human approval is required either to defer those final-action assertions to PR-07 or
+  to expand PR-05 explicitly. The remaining PR-05 research slice is preserved, but the stage cannot
+  be marked `READY_FOR_REVIEW` until this conflict is resolved.
+- The shipped Policy is `TEST_DEFAULT`; choosing real limits remains a future human decision.
+  Stage-branch commits and pushes are authorized by the owner; merging to `main` remains a separate
+  human action.
 
 ## Roadmap
 
