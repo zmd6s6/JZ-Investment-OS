@@ -11,6 +11,7 @@ from investment_os.application.agent_registry import AgentRoleRegistry
 from investment_os.application.analysis_context import AnalysisContext, require_context_evidence
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.llm_gateway import (
+    BoundedLLMGateway,
     LLMGatewayFailure,
     LLMGatewayPort,
     LLMGatewayRequest,
@@ -68,7 +69,7 @@ class AgentRuntime:
 
     def __init__(self, *, registry: AgentRoleRegistry, gateway: LLMGatewayPort) -> None:
         self._registry = registry
-        self._gateway = gateway
+        self._gateway = BoundedLLMGateway(gateway)
 
     async def run(self, *, request: LLMGatewayRequest, context: AnalysisContext) -> AgentRunResult:
         bundle = self._registry.require(request.role)

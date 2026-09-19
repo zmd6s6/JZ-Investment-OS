@@ -170,6 +170,29 @@ async def test_runtime_converts_explicit_gateway_failure_to_insufficient_data() 
     assert result.raw_output_hashes == ()
 
 
+async def test_runtime_converts_budget_exceeding_gateway_output_to_insufficient_data() -> None:
+    context, evidence_id = _context()
+    runtime, gateway = _runtime(
+        (
+            LLMGatewayResponse(
+                raw_output=_valid_payload(context, evidence_id),
+                provider="synthetic",
+                model_name="fixture-v1",
+                latency_ms=1,
+                input_tokens=1,
+                output_tokens=301,
+            ),
+        )
+    )
+    request = _request(context)
+
+    result = await runtime.run(request=request, context=context)
+
+    assert result.failure is AgentRunFailure.GATEWAY_FAILURE
+    assert result.opinion.stance is OpinionStance.INSUFFICIENT_DATA
+    assert gateway.requests == [request]
+
+
 async def test_runtime_rejects_a_request_with_unregistered_prompt_provenance() -> None:
     context, _ = _context()
     runtime, gateway = _runtime(())

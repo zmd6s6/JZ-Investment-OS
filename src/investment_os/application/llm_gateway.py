@@ -94,6 +94,21 @@ class LLMGatewayFailure(RuntimeError):
     """Explicit, provider-neutral failure that callers may safely convert to a run outcome."""
 
 
+class BoundedLLMGateway:
+    """Reject provider responses that exceed the immutable request's time or token budget."""
+
+    def __init__(self, delegate: LLMGatewayPort) -> None:
+        self._delegate = delegate
+
+    async def complete(self, request: LLMGatewayRequest) -> LLMGatewayResponse:
+        response = await self._delegate.complete(request)
+        if response.output_tokens > request.max_output_tokens:
+            raise LLMGatewayFailure("gateway response exceeded the requested output-token budget")
+        if response.latency_ms > request.timeout_seconds * 1000:
+            raise LLMGatewayFailure("gateway response exceeded the requested timeout budget")
+        return response
+
+
 class SyntheticLLMGateway:
     """Test-only gateway: consumes predeclared outputs and never contacts a provider."""
 

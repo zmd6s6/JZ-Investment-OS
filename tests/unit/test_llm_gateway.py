@@ -3,6 +3,8 @@ from uuid import uuid4
 import pytest
 
 from investment_os.application.llm_gateway import (
+    BoundedLLMGateway,
+    LLMGatewayFailure,
     LLMGatewayRequest,
     LLMGatewayResponse,
     SyntheticLLMGateway,
@@ -94,3 +96,37 @@ def test_gateway_request_rejects_non_sha256_committee_context_reference() -> Non
 async def test_synthetic_gateway_fails_explicitly_when_no_response_is_configured() -> None:
     with pytest.raises(RuntimeError, match="no configured response"):
         await SyntheticLLMGateway(()).complete(_request())
+
+
+@pytest.mark.parametrize(
+    ("output_tokens", "latency_ms", "error"),
+    [
+        (500, 30_000, None),
+        (501, 30_000, "output-token"),
+        (500, 30_001, "timeout"),
+    ],
+)
+async def test_bounded_gateway_enforces_the_request_token_and_timeout_limits(
+    output_tokens: int, latency_ms: int, error: str | None
+) -> None:
+    request = _request()
+    gateway = BoundedLLMGateway(
+        SyntheticLLMGateway(
+            (
+                LLMGatewayResponse(
+                    raw_output='{"schema_version":"v1"}',
+                    provider="synthetic",
+                    model_name="fixture-v1",
+                    latency_ms=latency_ms,
+                    input_tokens=10,
+                    output_tokens=output_tokens,
+                ),
+            )
+        )
+    )
+
+    if error is None:
+        assert (await gateway.complete(request)).output_tokens == output_tokens
+    else:
+        with pytest.raises(LLMGatewayFailure, match=error):
+            await gateway.complete(request)
