@@ -1,5 +1,6 @@
 """Provider-neutral, bounded LLM gateway protocol for synthetic PR-05 execution."""
 
+import asyncio
 from collections import deque
 from dataclasses import dataclass
 from typing import Protocol
@@ -101,7 +102,14 @@ class BoundedLLMGateway:
         self._delegate = delegate
 
     async def complete(self, request: LLMGatewayRequest) -> LLMGatewayResponse:
-        response = await self._delegate.complete(request)
+        try:
+            response = await asyncio.wait_for(
+                self._delegate.complete(request), timeout=request.timeout_seconds
+            )
+        except TimeoutError as exc:
+            raise LLMGatewayFailure(
+                "gateway request exceeded the requested timeout budget"
+            ) from exc
         if response.output_tokens > request.max_output_tokens:
             raise LLMGatewayFailure("gateway response exceeded the requested output-token budget")
         if response.latency_ms > request.timeout_seconds * 1000:

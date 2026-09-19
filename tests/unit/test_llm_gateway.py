@@ -1,3 +1,4 @@
+import asyncio
 from uuid import uuid4
 
 import pytest
@@ -130,3 +131,23 @@ async def test_bounded_gateway_enforces_the_request_token_and_timeout_limits(
     else:
         with pytest.raises(LLMGatewayFailure, match=error):
             await gateway.complete(request)
+
+
+class _NeverCompletesGateway:
+    async def complete(self, _: LLMGatewayRequest) -> LLMGatewayResponse:
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+
+async def test_bounded_gateway_cancels_a_provider_call_that_exceeds_the_timeout() -> None:
+    request = LLMGatewayRequest(
+        request_id=uuid4(),
+        role=AgentRole.MACRO,
+        prompt_bundle_hash="a" * 64,
+        input_snapshot_hash="b" * 64,
+        timeout_seconds=1,
+        max_output_tokens=1,
+    )
+
+    with pytest.raises(LLMGatewayFailure, match="timeout"):
+        await BoundedLLMGateway(_NeverCompletesGateway()).complete(request)
