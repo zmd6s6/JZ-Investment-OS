@@ -1,5 +1,6 @@
 """Integration coverage for append-only Agent and committee observability."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -13,15 +14,20 @@ from investment_os.application.agent_registry import AgentRoleRegistry, PromptBu
 from investment_os.application.agent_runtime import AgentRuntime
 from investment_os.application.analysis_context import AnalysisEvidence, freeze_analysis_context
 from investment_os.application.committee import ROUND_ONE_ROLES
-from investment_os.application.committee_runtime import CommitteeRoleInput, CommitteeRuntime
+from investment_os.application.committee_runtime import (
+    CommitteeRoleInput,
+    CommitteeRoundResult,
+    CommitteeRuntime,
+    CommitteeSessionResult,
+)
 from investment_os.application.errors import ApplicationError
 from investment_os.application.llm_gateway import (
     LLMGatewayRequest,
     LLMGatewayResponse,
     SyntheticLLMGateway,
 )
-from investment_os.domain.agent import AgentRole, AgentTool
-from investment_os.domain.values import UtcTimestamp
+from investment_os.domain.agent import AgentRole, AgentTool, EvidenceBackedObservation
+from investment_os.domain.values import UtcTimestamp, Weight
 from investment_os.infrastructure.agent_observability_writer import (
     SqlAlchemyCommitteeObservabilityWriter,
 )
@@ -306,4 +312,31 @@ async def test_completed_committee_runtime_persists_all_observability_atomically
             registry=registry,
             started_at=NOW,
             completed_at=NOW - timedelta(microseconds=1),
+        )
+
+    first_round = result.rounds[0]
+    invalid_opinion = replace(
+        first_round.results[0].opinion,
+        observations=(EvidenceBackedObservation("Unfrozen synthetic fact", (uuid4(),)),),
+        confidence=Weight(Decimal("0.5")),
+    )
+    invalid_result = replace(first_round.results[0], opinion=invalid_opinion)
+    invalid_session = CommitteeSessionResult(
+        rounds=(
+            CommitteeRoundResult(
+                plan=first_round.plan,
+                results=(invalid_result, *first_round.results[1:]),
+                requests=first_round.requests,
+            ),
+            result.rounds[1],
+        )
+    )
+    with pytest.raises(ApplicationError, match="frozen AnalysisContext"):
+        await SqlAlchemyCommitteeObservabilityWriter(
+            _session_factory(database_engine), now=lambda: NOW
+        ).persist(
+            result=invalid_session,
+            context=context,
+            registry=registry,
+            started_at=NOW,
         )

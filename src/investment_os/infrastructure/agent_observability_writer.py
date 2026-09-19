@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.agent_registry import AgentRoleRegistry
-from investment_os.application.analysis_context import AnalysisContext
+from investment_os.application.analysis_context import AnalysisContext, require_context_evidence
 from investment_os.application.committee_runtime import CommitteeSessionResult
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.infrastructure.persistence.agent_observability import (
@@ -90,6 +90,12 @@ class SqlAlchemyCommitteeObservabilityWriter:
             for request, run_result in zip(
                 round_result.requests, round_result.results, strict=True
             ):
+                if request.input_snapshot_hash != context.input_snapshot_hash:
+                    raise ApplicationError(
+                        ApplicationErrorCode.AGENT_RUNTIME_REQUEST_INVALID,
+                        "committee observability request does not match the frozen AnalysisContext",
+                    )
+                require_context_evidence(run_result.opinion, context)
                 bundle = registry.require(request.role)
                 run_record = agent_run_record_from_result(
                     request=request,
