@@ -144,6 +144,24 @@ async def test_round_result_rejects_missing_or_reordered_role_outcomes() -> None
     with pytest.raises(DomainError, match="planned role ordering"):
         CommitteeRoundResult(plan=result.plan, results=tuple(reversed(result.results)))
 
+    with pytest.raises(DomainError, match="round-one requests"):
+        CommitteeRoundResult(
+            plan=result.plan,
+            results=result.results,
+            requests=tuple(
+                LLMGatewayRequest(
+                    request_id=uuid4(),
+                    role=role,
+                    prompt_bundle_hash=PROMPT_HASH,
+                    input_snapshot_hash=context.input_snapshot_hash,
+                    timeout_seconds=30,
+                    max_output_tokens=300,
+                    committee_context_hash="d" * 64,
+                )
+                for role in result.plan.roles
+            ),
+        )
+
 
 async def test_session_executes_exactly_two_rounds_with_targeted_rebuttal_and_devils_advocate() -> (
     None
@@ -275,3 +293,5 @@ async def test_s9_no_conflict_still_ends_after_devils_advocate_round_two() -> No
         *ROUND_ONE_ROLES,
         AgentRole.DEVILS_ADVOCATE,
     )
+    assert all(request.committee_context_hash is None for request in result.rounds[0].requests)
+    assert len({request.committee_context_hash for request in result.rounds[1].requests}) == 1

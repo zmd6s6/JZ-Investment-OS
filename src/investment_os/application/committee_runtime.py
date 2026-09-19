@@ -100,6 +100,22 @@ class CommitteeRoundResult:
                 DomainErrorCode.INVARIANT_VIOLATION,
                 "committee round requests must retain planned role ordering",
             )
+        if (
+            self.requests
+            and self.plan.number == 1
+            and any(request.committee_context_hash is not None for request in self.requests)
+        ):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "independent round-one requests must not contain committee input",
+            )
+        if self.requests and self.plan.number == 2:
+            committee_input_hashes = {request.committee_context_hash for request in self.requests}
+            if None in committee_input_hashes or len(committee_input_hashes) != 1:
+                raise DomainError(
+                    DomainErrorCode.INVARIANT_VIOLATION,
+                    "round-two requests must share one structured committee input hash",
+                )
 
 
 @dataclass(frozen=True, slots=True)
