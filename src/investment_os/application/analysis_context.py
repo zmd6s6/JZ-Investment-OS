@@ -12,6 +12,10 @@ from investment_os.domain.agent import AgentOpinion
 from investment_os.domain.values import UtcTimestamp
 
 
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
 @dataclass(frozen=True, slots=True)
 class AnalysisEvidence:
     """Immutable evidence identity and availability metadata, without executable content."""
@@ -19,6 +23,13 @@ class AnalysisEvidence:
     evidence_id: UUID
     content_hash: str
     available_at: UtcTimestamp
+
+    def __post_init__(self) -> None:
+        if not _is_sha256(self.content_hash):
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_OPINION_EVIDENCE_UNAVAILABLE,
+                "AnalysisContext Evidence requires a lowercase SHA-256 content hash",
+            )
 
 
 @dataclass(frozen=True, slots=True)

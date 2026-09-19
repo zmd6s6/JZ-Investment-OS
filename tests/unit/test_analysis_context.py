@@ -56,6 +56,18 @@ def test_context_rejects_duplicate_visible_evidence_ids() -> None:
     assert error.value.code is ApplicationErrorCode.AGENT_OPINION_EVIDENCE_UNAVAILABLE
 
 
+@pytest.mark.parametrize("content_hash", ("not-a-hash", "A" * 64, "a" * 63))
+def test_context_rejects_evidence_without_a_canonical_content_hash(content_hash: str) -> None:
+    with pytest.raises(ApplicationError) as error:
+        AnalysisEvidence(
+            evidence_id=uuid4(),
+            content_hash=content_hash,
+            available_at=UtcTimestamp(NOW),
+        )
+
+    assert error.value.code is ApplicationErrorCode.AGENT_OPINION_EVIDENCE_UNAVAILABLE
+
+
 def test_opinion_must_reference_evidence_visible_in_its_frozen_context() -> None:
     visible = _evidence()
     context = freeze_analysis_context(uuid4(), as_of=NOW, evidence=(visible,))
