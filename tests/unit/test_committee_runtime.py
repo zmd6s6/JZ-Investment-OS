@@ -243,3 +243,35 @@ async def test_session_rejects_request_factory_that_drops_structured_rebuttal_in
 
     with pytest.raises(DomainError, match="structured committee input hash"):
         await runtime.run_session(context=context, request_factory=dropping_factory)
+
+
+async def test_s9_no_conflict_still_ends_after_devils_advocate_round_two() -> None:
+    context, evidence_id = _context()
+    registry = AgentRoleRegistry(
+        tuple(
+            PromptBundle(
+                role=role,
+                version="v1",
+                content_hash=PROMPT_HASH,
+                allowed_tools=(AgentTool.RETRIEVE_EVIDENCE,),
+            )
+            for role in (*ROUND_ONE_ROLES, AgentRole.DEVILS_ADVOCATE)
+        )
+    )
+    gateway = SyntheticLLMGateway(
+        tuple(
+            _response(role=role, stance="MIXED", context=context, evidence_id=evidence_id)
+            for role in (*ROUND_ONE_ROLES, AgentRole.DEVILS_ADVOCATE)
+        )
+    )
+    runtime = CommitteeRuntime(agent_runtime=AgentRuntime(registry=registry, gateway=gateway))
+
+    result = await runtime.run_session(context=context, request_factory=_request_factory)
+
+    assert tuple(round_result.plan.number for round_result in result.rounds) == (1, 2)
+    assert result.rounds[1].plan.roles == (AgentRole.DEVILS_ADVOCATE,)
+    assert result.rounds[1].plan.conflicts == ()
+    assert tuple(request.role for request in gateway.requests) == (
+        *ROUND_ONE_ROLES,
+        AgentRole.DEVILS_ADVOCATE,
+    )
