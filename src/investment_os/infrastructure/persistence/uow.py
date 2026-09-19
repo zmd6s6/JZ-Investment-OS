@@ -5,6 +5,7 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.infrastructure.persistence.repositories import (
+    AgentObservabilityRepository,
     AuditRepository,
     DecisionRepository,
     EventRepository,
@@ -29,6 +30,7 @@ class SqlAlchemyUnitOfWork:
         self.decisions = DecisionRepository(self.session)
         self.policies = PolicyRepository(self.session)
         self.audit = AuditRepository(self.session)
+        self.agent_observability = AgentObservabilityRepository(self.session)
         self.evidence = EvidenceRepository(self.session)
         self.feature_snapshots = FeatureSnapshotRepository(self.session)
         self.research_artifacts = ResearchArtifactRepository(self.session)

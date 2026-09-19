@@ -98,10 +98,14 @@ async def test_audit_and_event_history_are_database_enforced_append_only(
         trigger_count = await connection.scalar(
             text(
                 "SELECT count(*) FROM pg_trigger "
-                "WHERE tgname IN ('trg_audit_log_append_only', 'trg_event_log_append_only')"
+                "WHERE tgname IN ("
+                "'trg_agent_run_append_only', 'trg_audit_log_append_only', "
+                "'trg_committee_message_append_only', 'trg_committee_session_append_only', "
+                "'trg_conflict_record_append_only', 'trg_event_log_append_only'"
+                ")"
             )
         )
-    assert trigger_count == 2
+    assert trigger_count == 6
 
 
 @pytest.mark.integration

@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.infrastructure.persistence.models import (
+    AgentOpinionRecord,
+    AgentRunRecord,
     AuditLogRecord,
+    CommitteeMessageRecord,
+    CommitteeSessionRecord,
     EventLogRecord,
     EvidenceRecord,
     FeatureSnapshotRecord,
@@ -229,6 +233,29 @@ class AuditRepository:
         self._session = session
 
     async def append(self, record: AuditLogRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class AgentObservabilityRepository:
+    """Append completed committee artifacts only; updates and deletes are database-rejected."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append_session(self, record: CommitteeSessionRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def append_run(self, record: AgentRunRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def append_opinion(self, record: AgentOpinionRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def append_message(self, record: CommitteeMessageRecord) -> None:
         self._session.add(record)
         await self._session.flush()
 
