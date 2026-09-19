@@ -79,6 +79,7 @@ class CommitteeRoundResult:
 
     plan: CommitteeRound
     results: tuple[AgentRunResult, ...]
+    requests: tuple[LLMGatewayRequest, ...] = ()
 
     def __post_init__(self) -> None:
         if len(self.results) != len(self.plan.roles):
@@ -90,6 +91,14 @@ class CommitteeRoundResult:
             raise DomainError(
                 DomainErrorCode.INVARIANT_VIOLATION,
                 "committee round outcomes must retain planned role ordering",
+            )
+        if self.requests and (
+            len(self.requests) != len(self.plan.roles)
+            or tuple(request.role for request in self.requests) != self.plan.roles
+        ):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "committee round requests must retain planned role ordering",
             )
 
 
@@ -176,4 +185,4 @@ class CommitteeRuntime:
         results = await asyncio.gather(
             *(self._agent_runtime.run(request=request, context=context) for request in requests)
         )
-        return CommitteeRoundResult(plan=plan, results=tuple(results))
+        return CommitteeRoundResult(plan=plan, results=tuple(results), requests=requests)

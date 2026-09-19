@@ -1,6 +1,6 @@
 """Integration coverage for append-only Agent and committee observability."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -9,6 +9,22 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from investment_os.application.agent_registry import AgentRoleRegistry, PromptBundle
+from investment_os.application.agent_runtime import AgentRuntime
+from investment_os.application.analysis_context import AnalysisEvidence, freeze_analysis_context
+from investment_os.application.committee import ROUND_ONE_ROLES
+from investment_os.application.committee_runtime import CommitteeRoleInput, CommitteeRuntime
+from investment_os.application.errors import ApplicationError
+from investment_os.application.llm_gateway import (
+    LLMGatewayRequest,
+    LLMGatewayResponse,
+    SyntheticLLMGateway,
+)
+from investment_os.domain.agent import AgentRole, AgentTool
+from investment_os.domain.values import UtcTimestamp
+from investment_os.infrastructure.agent_observability_writer import (
+    SqlAlchemyCommitteeObservabilityWriter,
+)
 from investment_os.infrastructure.persistence.models import (
     AgentOpinionRecord,
     AgentRunRecord,
@@ -173,3 +189,121 @@ async def test_agent_and_committee_observability_is_append_only_and_sanitized(
                 text("UPDATE conflict_record SET severity = 'ALTERED' WHERE id = :id"),
                 {"id": conflict_id},
             )
+
+
+def _response(*, role: AgentRole, instrument_id: UUID, evidence_id: UUID) -> LLMGatewayResponse:
+    return LLMGatewayResponse(
+        raw_output=(
+            "{"
+            '"schema_version":"v1",'
+            f'"role":"{role.value}",'
+            f'"instrument_id":"{instrument_id}",'
+            '"stance":"MIXED",'
+            '"confidence":"0.5",'
+            '"time_horizon":"synthetic horizon",'
+            '"observations":[{'
+            '"statement":"Synthetic evidence-backed fact",'
+            f'"evidence_ids":["{evidence_id}"]'
+            "}],"
+            '"assumptions":[],"unknowns":[],"risks":[]'
+            "}"
+        ),
+        provider="synthetic",
+        model_name="fixture-v1",
+        latency_ms=1,
+        input_tokens=1,
+        output_tokens=1,
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_completed_committee_runtime_persists_all_observability_atomically(
+    database_engine: AsyncEngine,
+) -> None:
+    instrument_id = await _seed_instrument(database_engine)
+    evidence = AnalysisEvidence(
+        evidence_id=uuid4(), content_hash="d" * 64, available_at=UtcTimestamp(NOW)
+    )
+    context = freeze_analysis_context(instrument_id, as_of=NOW, evidence=(evidence,))
+    roles = (*ROUND_ONE_ROLES, AgentRole.DEVILS_ADVOCATE)
+    registry = AgentRoleRegistry(
+        tuple(
+            PromptBundle(
+                role=role,
+                version="v1",
+                content_hash=HASH,
+                allowed_tools=(AgentTool.RETRIEVE_EVIDENCE,),
+            )
+            for role in roles
+        )
+    )
+    gateway = SyntheticLLMGateway(
+        tuple(
+            _response(role=role, instrument_id=instrument_id, evidence_id=evidence.evidence_id)
+            for role in roles
+        )
+    )
+    runtime = CommitteeRuntime(agent_runtime=AgentRuntime(registry=registry, gateway=gateway))
+
+    def request_factory(role: AgentRole, role_input: CommitteeRoleInput) -> LLMGatewayRequest:
+        return LLMGatewayRequest(
+            request_id=uuid4(),
+            role=role,
+            prompt_bundle_hash=HASH,
+            input_snapshot_hash=role_input.context.input_snapshot_hash,
+            timeout_seconds=30,
+            max_output_tokens=300,
+            committee_context_hash=role_input.content_hash,
+        )
+
+    result = await runtime.run_session(context=context, request_factory=request_factory)
+    write_result = await SqlAlchemyCommitteeObservabilityWriter(
+        _session_factory(database_engine), now=lambda: NOW
+    ).persist(
+        result=result,
+        context=context,
+        registry=registry,
+        started_at=NOW,
+        correlation_id=uuid4(),
+    )
+
+    async with _session_factory(database_engine)() as session:
+        run_count = await session.scalar(
+            select(func.count())
+            .select_from(AgentRunRecord)
+            .where(AgentRunRecord.id.in_(write_result.run_ids))
+        )
+        opinion_count = await session.scalar(
+            select(func.count())
+            .select_from(AgentOpinionRecord)
+            .where(AgentOpinionRecord.id.in_(write_result.opinion_ids))
+        )
+        message_count = await session.scalar(
+            select(func.count())
+            .select_from(CommitteeMessageRecord)
+            .where(CommitteeMessageRecord.session_id == write_result.session_id)
+        )
+        run_records = list(
+            (
+                await session.scalars(
+                    select(AgentRunRecord).where(AgentRunRecord.id.in_(write_result.run_ids))
+                )
+            ).all()
+        )
+
+    assert len(result.rounds) == 2
+    assert run_count == 6
+    assert opinion_count == 6
+    assert message_count == 6
+    assert all("raw_output" not in record.metadata_json for record in run_records)
+    with pytest.raises(ApplicationError, match="completion cannot precede"):
+        await SqlAlchemyCommitteeObservabilityWriter(
+            _session_factory(database_engine), now=lambda: NOW
+        ).persist(
+            result=result,
+            context=context,
+            registry=registry,
+            started_at=NOW,
+            completed_at=NOW - timedelta(microseconds=1),
+        )
