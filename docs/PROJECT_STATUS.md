@@ -6,7 +6,7 @@
 
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
-- Active roadmap stage: `PR-05 — Agent Runtime & Two-Round Committee`
+- Active roadmap stage: `PR-06 — Portfolio, Risk & Deterministic Position Sizing`
 - Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
@@ -41,6 +41,7 @@
 - PR-02 is accepted and merged to `main` by PR #2 as `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e`.
 - PR-03 is accepted and merged to `main` by PR #3 as `5dc99027a460a7f29d9b4021a982af726f2363f2`.
 - PR-04 is accepted and merged to `main` by PR #4 as `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`.
+- PR-05 is accepted and merged to `main` by PR #5 as `b141be8ada55f44b2840e692c6b838c3df0913ca`.
 
 ## Not yet implemented or verified
 
@@ -54,10 +55,10 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-PR-05 is `READY_FOR_REVIEW` on `codex/pr-05-agent-runtime-committee`, based on the merged PR-04
-commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`. It delivers strict AgentOpinion schemas, an LLM
-gateway boundary, frozen analysis context, and the bounded two-round committee; it introduces no
-Decision, approval, execution, provider credentials, or live trading.
+PR-06 is `READY_FOR_REVIEW` on `codex/pr-06-portfolio-risk-sizing`, based on the merged PR-05
+commit `b141be8ada55f44b2840e692c6b838c3df0913ca`. Full local verification is recorded in
+`docs/stages/PR-06.md`; publication may now push this branch for remote CI and PR review. It must
+not create a Decision, approval, execution, provider credential, or live-trading path.
 
 ## Recorded scope decisions
 
@@ -77,8 +78,8 @@ Decision, approval, execution, provider credentials, or live trading.
 | PR-02 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #2 merge commit `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e` |
 | PR-03 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #3 merge commit `5dc99027a460a7f29d9b4021a982af726f2363f2` |
 | PR-04 | ACCEPTED | Merged to `main` on 2026-09-19 | PR #4 merge commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f` |
-| PR-05 | READY_FOR_REVIEW | Pending | Agent runtime and bounded two-round committee |
-| PR-06 | PLANNED | Pending | Portfolio, risk, sizing |
+| PR-05 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #5 merge commit `b141be8ada55f44b2840e692c6b838c3df0913ca` |
+| PR-06 | READY_FOR_REVIEW | Pending | Portfolio, risk, sizing; full local verification recorded |
 | PR-07 | PLANNED | Pending | Decision, approval, journal |
 | PR-08 | PLANNED | Pending | Scheduler, reports, UI |
 | PR-09 | PLANNED | Pending | Outcome, learning, hardening, release |

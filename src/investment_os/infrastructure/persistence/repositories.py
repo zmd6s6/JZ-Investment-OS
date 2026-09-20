@@ -22,8 +22,13 @@ from investment_os.infrastructure.persistence.models import (
     InvestmentPolicyRecord,
     InvestmentThesisRecord,
     OutboxEventRecord,
+    PortfolioSnapshotRecord,
+    PositionLotRecord,
     PositionRecord,
+    PositionSizingRunRecord,
     ResearchArtifactRecord,
+    RiskAssessmentEvidenceRecord,
+    RiskAssessmentRecord,
     TaskRunRecord,
     ThesisVersionEvidenceRecord,
     ThesisVersionRecord,
@@ -71,6 +76,62 @@ class PositionRepository:
         if updated is None:
             raise _concurrency_conflict("position", record_id, expected_version)
         return updated
+
+
+class PortfolioSnapshotRepository:
+    """Append-only portfolio snapshots used to reproduce sizing inputs."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: PortfolioSnapshotRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class PositionLotRepository:
+    """Append Core and Tactical cost lots without netting their buckets."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: PositionLotRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class RiskAssessmentRepository:
+    """Append immutable risk assessments and their normalized Evidence provenance."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: RiskAssessmentRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def link_evidence(self, risk_assessment_id: UUID, evidence_ids: tuple[UUID, ...]) -> None:
+        self._session.add_all(
+            [
+                RiskAssessmentEvidenceRecord(
+                    risk_assessment_id=risk_assessment_id,
+                    evidence_id=evidence_id,
+                )
+                for evidence_id in evidence_ids
+            ]
+        )
+        await self._session.flush()
+
+
+class PositionSizingRunRepository:
+    """Persist an immutable calculation before any later approval workflow can use it."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: PositionSizingRunRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
 
 
 class ThesisRepository:
