@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Response, status
+from fastapi import FastAPI, HTTPException, Query, Response, status
 from pydantic import AwareDatetime
 
 from investment_os.application.health import AsyncClosable, ReadinessProbe
@@ -20,6 +20,7 @@ from investment_os.infrastructure.decision_journal import (
     SqlAlchemyDecisionJournalReader,
 )
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
+from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
@@ -29,6 +30,7 @@ from .schemas import (
     ReadinessResponse,
     ResearchIngestRequest,
     ResearchIngestResponse,
+    TaskRunResponse,
     ThesisHistoryResponse,
     ThesisVersionResponse,
 )
@@ -124,6 +126,7 @@ def create_app(
     evidence_ingestor: SqlAlchemyEvidenceIngestor | None = None,
     thesis_reader: SqlAlchemyThesisReader | None = None,
     decision_journal_reader: SqlAlchemyDecisionJournalReader | None = None,
+    task_run_reader: SqlAlchemyTaskRunReader | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -132,13 +135,20 @@ def create_app(
     reader_engine = None
     selected_thesis_reader = thesis_reader
     selected_decision_journal_reader = decision_journal_reader
-    if selected_thesis_reader is None or selected_decision_journal_reader is None:
+    selected_task_run_reader = task_run_reader
+    if (
+        selected_thesis_reader is None
+        or selected_decision_journal_reader is None
+        or selected_task_run_reader is None
+    ):
         reader_engine = create_database_engine(settings.database_url)
         session_factory = create_session_factory(reader_engine)
         if selected_thesis_reader is None:
             selected_thesis_reader = SqlAlchemyThesisReader(session_factory)
         if selected_decision_journal_reader is None:
             selected_decision_journal_reader = SqlAlchemyDecisionJournalReader(session_factory)
+        if selected_task_run_reader is None:
+            selected_task_run_reader = SqlAlchemyTaskRunReader(session_factory)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -240,6 +250,14 @@ def create_app(
         if journal is None:
             raise HTTPException(status_code=404, detail="decision_not_found")
         return _decision_journal_response(journal)
+
+    @application.get("/api/v1/task-runs", response_model=list[TaskRunResponse], tags=["jobs"])
+    async def list_task_runs(limit: int = Query(default=50, ge=1, le=100)) -> list[TaskRunResponse]:
+        try:
+            runs = await selected_task_run_reader.list_recent(limit=limit)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return [TaskRunResponse.model_validate(run, from_attributes=True) for run in runs]
 
     return application
 

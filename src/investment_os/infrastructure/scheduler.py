@@ -6,8 +6,12 @@ from re import fullmatch
 from typing import Protocol
 from uuid import UUID
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from investment_os.application.schedule import ScheduledJob
 from investment_os.infrastructure.persistence.jobs import JobExecutionResult, JobHandler
+from investment_os.infrastructure.persistence.models import TaskRunRecord
 
 
 class ReliableExecutionPort(Protocol):
@@ -69,4 +73,50 @@ class ScheduledJobDispatcher:
             task_run_id=result.task_run_id,
             attempt=result.attempt,
             reused=result.reused,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class TaskRunRead:
+    id: UUID
+    task_name: str
+    scheduled_for: datetime
+    status: str
+    attempt: int
+    idempotency_key: str
+    started_at: datetime
+    finished_at: datetime | None
+    error: dict[str, str] | None
+
+
+class SqlAlchemyTaskRunReader:
+    """Read-only, bounded operational visibility for durable job outcomes."""
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def list_recent(self, *, limit: int) -> tuple[TaskRunRead, ...]:
+        if not 1 <= limit <= 100:
+            raise ValueError("task-run limit must be between 1 and 100")
+        async with self._session_factory() as session:
+            records = (
+                await session.scalars(
+                    select(TaskRunRecord)
+                    .order_by(TaskRunRecord.scheduled_for.desc(), TaskRunRecord.id.desc())
+                    .limit(limit)
+                )
+            ).all()
+        return tuple(
+            TaskRunRead(
+                id=record.id,
+                task_name=record.task_name,
+                scheduled_for=record.scheduled_for,
+                status=record.status,
+                attempt=record.attempt,
+                idempotency_key=record.idempotency_key,
+                started_at=record.started_at,
+                finished_at=record.finished_at,
+                error=record.error_json,
+            )
+            for record in records
         )

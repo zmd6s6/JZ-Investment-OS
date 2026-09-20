@@ -29,6 +29,18 @@ class ReadinessResponse(StrictResponse):
     checks: dict[str, str]
 
 
+class TaskRunResponse(StrictResponse):
+    id: UUID
+    task_name: str
+    scheduled_for: datetime
+    status: str
+    attempt: int
+    idempotency_key: str
+    started_at: datetime
+    finished_at: datetime | None
+    error: dict[str, str] | None
+
+
 class ResearchIngestRequest(StrictResponse):
     provider: str
     provider_ref: str
