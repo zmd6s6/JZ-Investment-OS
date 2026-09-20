@@ -6,11 +6,11 @@
 
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
-- Active roadmap stage: `PR-04 — Thesis Engine & Shared Investment Memory`
+- Active roadmap stage: `PR-05 — Agent Runtime & Two-Round Committee`
 - Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
-- Last status update: `2026-09-19`
+- Last status update: `2026-09-20`
 
 ## Established
 
@@ -40,11 +40,12 @@
   jobs for the current PR-02 review head `cfb707d4f463a37605d6cae503f5a1f42aaceea9`.
 - PR-02 is accepted and merged to `main` by PR #2 as `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e`.
 - PR-03 is accepted and merged to `main` by PR #3 as `5dc99027a460a7f29d9b4021a982af726f2363f2`.
+- PR-04 is accepted and merged to `main` by PR #4 as `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`.
 
 ## Not yet implemented or verified
 
 - React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
-- runtime Agent, scheduler cadence, UI, or Learning workflow functionality;
+- scheduler cadence, UI, or Learning workflow functionality;
 - business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
 - auditable Decision rejection actors and deterministic approval-expiry TTL guards, scheduled for PR-07;
 - any complete end-to-end acceptance scenario S1–S15; PR-01 verifies only its domain-gate slices.
@@ -53,15 +54,19 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-PR-04 is complete and ready for review: immutable Thesis create/version/diff, controlled Evidence
-impact, monitoring and invalidation conditions, time-travel reads, strict read APIs, and synthetic
-S5 regression coverage. PR-00 through PR-03 are accepted and merged to `main`.
+PR-05 is `READY_FOR_REVIEW` on `codex/pr-05-agent-runtime-committee`, based on the merged PR-04
+commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`. It delivers strict AgentOpinion schemas, an LLM
+gateway boundary, frozen analysis context, and the bounded two-round committee; it introduces no
+Decision, approval, execution, provider credentials, or live trading.
 
-## Human decisions currently required
+## Recorded scope decisions
 
-No investment-governance decision is required. The shipped Policy is `TEST_DEFAULT`; choosing real
-limits remains a future human decision. Stage-branch commits and pushes are now authorized by the
-owner; merging to `main` remains a separate human action.
+- **PR-05 scope reconciliation (approved 2026-09-20):** defer S1/S2 final `WATCH`/`AVOID` Action
+  assertions to PR-07, where the CIO/Decision path is in scope. PR-05 retains synthetic research
+  and committee fixtures for the scenarios' antecedent inputs, and must not create a CIO Decision.
+- The shipped Policy is `TEST_DEFAULT`; choosing real limits remains a future human decision.
+  Stage-branch commits and pushes are authorized by the owner; merging to `main` remains a separate
+  human action.
 
 ## Roadmap
 
@@ -71,8 +76,8 @@ owner; merging to `main` remains a separate human action.
 | PR-01 | ACCEPTED | Merged to `main` on 2026-09-17 | PR #1 merge commit `45b024109775e233049b8c7df1792b6190c67a58` |
 | PR-02 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #2 merge commit `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e` |
 | PR-03 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #3 merge commit `5dc99027a460a7f29d9b4021a982af726f2363f2` |
-| PR-04 | READY_FOR_REVIEW | Pending | Thesis and shared memory; full local verification recorded |
-| PR-05 | PLANNED | Pending | Agent runtime and committee |
+| PR-04 | ACCEPTED | Merged to `main` on 2026-09-19 | PR #4 merge commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f` |
+| PR-05 | READY_FOR_REVIEW | Pending | Agent runtime and bounded two-round committee |
 | PR-06 | PLANNED | Pending | Portfolio, risk, sizing |
 | PR-07 | PLANNED | Pending | Decision, approval, journal |
 | PR-08 | PLANNED | Pending | Scheduler, reports, UI |

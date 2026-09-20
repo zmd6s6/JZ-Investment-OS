@@ -173,6 +173,90 @@ class FeatureSnapshotRecord(AuditFieldsMixin, Base):
     input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class AgentRunRecord(AuditFieldsMixin, Base):
+    """Completed, immutable provenance for one bounded model execution."""
+
+    __tablename__ = "agent_run"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    agent_role: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_provider: Mapped[str] = mapped_column(String(255), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_snapshot_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    token_usage_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(255))
+
+
+class AgentOpinionRecord(AuditFieldsMixin, Base):
+    """Persisted structured opinion with payload and Evidence links kept separately immutable."""
+
+    __tablename__ = "agent_opinion"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    # The migration owns foreign keys to tables not yet mapped by this focused ORM surface.
+    agent_run_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    stance: Mapped[str] = mapped_column(String(64), nullable=False)
+    confidence: Mapped[Decimal] = mapped_column(Numeric(20, 12), nullable=False)
+    time_horizon: Mapped[str] = mapped_column(String(32), nullable=False)
+    observations_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    thesis_impacts_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    assumptions_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    risks_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    invalidation_conditions_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    unknowns_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class CommitteeSessionRecord(AuditFieldsMixin, Base):
+    """A complete immutable record of a committee's finite two-round lifecycle."""
+
+    __tablename__ = "committee_session"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    session_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    round_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    input_snapshot_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CommitteeMessageRecord(AuditFieldsMixin, Base):
+    """Append-only structured committee communication; raw provider text is not stored here."""
+
+    __tablename__ = "committee_message"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    round_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    agent_role: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    opinion_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    targets_opinion_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+
+
+class ConflictRecord(AuditFieldsMixin, Base):
+    """An unresolved, deterministic committee disagreement kept append-only."""
+
+    __tablename__ = "conflict_record"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    # The migration owns the foreign key to the complete committee-session table.
+    session_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    conflict_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    severity: Mapped[str] = mapped_column(String(32), nullable=False)
+    opinion_ids: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    resolution: Mapped[str | None] = mapped_column(Text)
+
+
 class InvestmentDecisionRecord(AuditFieldsMixin, Base):
     __tablename__ = "investment_decision"
 
