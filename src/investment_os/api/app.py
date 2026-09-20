@@ -281,6 +281,16 @@ def create_app(
             raise HTTPException(status_code=404, detail="daily_report_not_found")
         return DailyReportResponse.model_validate(report, from_attributes=True)
 
+    @application.get("/api/v1/reports/daily", response_model=DailyReportResponse, tags=["reports"])
+    async def daily_report_as_of(as_of: AwareDatetime) -> DailyReportResponse:
+        try:
+            report = await selected_daily_report_reader.as_of(as_of)
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail="daily_report_unavailable") from exc
+        if report is None:
+            raise HTTPException(status_code=404, detail="daily_report_not_found")
+        return DailyReportResponse.model_validate(report, from_attributes=True)
+
     frontend_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
     if frontend_dist.is_dir():
         application.mount(

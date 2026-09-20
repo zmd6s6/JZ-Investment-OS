@@ -35,13 +35,20 @@ class SqlAlchemyDailyReportReader:
         self._session_factory = session_factory
 
     async def latest(self) -> DailyReportRead | None:
+        return await self.as_of(None)
+
+    async def as_of(self, as_of: datetime | None) -> DailyReportRead | None:
+        if as_of is not None and as_of.tzinfo is None:
+            raise ValueError("daily report as_of must be timezone-aware")
+        statement = select(EventLogRecord).where(EventLogRecord.event_type == DAILY_REPORT_CREATED)
+        if as_of is not None:
+            statement = statement.where(EventLogRecord.occurred_at <= as_of)
         async with self._session_factory() as session:
             event = (
                 await session.scalars(
-                    select(EventLogRecord)
-                    .where(EventLogRecord.event_type == DAILY_REPORT_CREATED)
-                    .order_by(EventLogRecord.occurred_at.desc(), EventLogRecord.id.desc())
-                    .limit(1)
+                    statement.order_by(
+                        EventLogRecord.occurred_at.desc(), EventLogRecord.id.desc()
+                    ).limit(1)
                 )
             ).one_or_none()
         if event is None:

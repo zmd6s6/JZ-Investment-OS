@@ -11,11 +11,16 @@ class StubDailyReportReader:
     def __init__(self, report: DailyReportRead | None, error: Exception | None = None) -> None:
         self._report = report
         self._error = error
+        self.requested_as_of: datetime | None = None
 
     async def latest(self) -> DailyReportRead | None:
         if self._error is not None:
             raise self._error
         return self._report
+
+    async def as_of(self, as_of: datetime) -> DailyReportRead | None:
+        self.requested_as_of = as_of
+        return await self.latest()
 
 
 def _report() -> DailyReportRead:
@@ -56,3 +61,17 @@ async def test_latest_daily_report_fails_closed_when_absent_or_malformed() -> No
     assert missing_response.json()["detail"] == "daily_report_not_found"
     assert malformed_response.status_code == 503
     assert malformed_response.json()["detail"] == "daily_report_unavailable"
+
+
+async def test_daily_report_as_of_replays_only_the_requested_business_time() -> None:
+    reader = StubDailyReportReader(_report())
+    app = create_app(daily_report_reader=reader)  # type: ignore[arg-type]
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(
+            "/api/v1/reports/daily", params={"as_of": "2026-09-20T20:00:00Z"}
+        )
+
+    assert response.status_code == 200
+    assert reader.requested_as_of == datetime(2026, 9, 20, 20, 0, tzinfo=UTC)
+    assert response.json()["as_of"] == "2026-09-20T20:00:00Z"

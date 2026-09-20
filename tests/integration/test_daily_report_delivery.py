@@ -148,3 +148,27 @@ async def test_daily_report_reader_replays_verified_snapshot_and_rejects_tamperi
 
     with pytest.raises(ValueError, match="malformed"):
         await SqlAlchemyDailyReportReader(factory).latest()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_daily_report_reader_replays_only_snapshot_available_at_requested_as_of(
+    database_engine: AsyncEngine,
+) -> None:
+    factory = _factory(database_engine)
+    first = _report()
+    second = DailyOperatingReport(
+        as_of=NOW.replace(hour=21),
+        sections=first.sections,
+    )
+    async with SqlAlchemyUnitOfWork(factory) as uow:
+        await daily_report_handler(first, uuid4())(uow)
+        await daily_report_handler(second, uuid4())(uow)
+        await uow.commit()
+
+    replayed = await SqlAlchemyDailyReportReader(factory).as_of(NOW)
+    missing = await SqlAlchemyDailyReportReader(factory).as_of(NOW.replace(hour=19))
+
+    assert replayed is not None
+    assert replayed.id == first.id
+    assert missing is None
