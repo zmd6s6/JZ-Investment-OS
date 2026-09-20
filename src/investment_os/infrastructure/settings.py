@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     )
     worker_poll_seconds: float = Field(default=10.0, gt=0.0, le=300.0)
     worker_ready_file: Path = Path(".runtime/investment-os-worker-ready")
+    worker_schedule_calendar_path: Path | None = None
+    worker_scheduler_max_replay_sessions: int = Field(default=1, ge=1, le=31)
 
 
 @lru_cache(maxsize=1)

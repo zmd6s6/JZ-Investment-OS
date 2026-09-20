@@ -23,6 +23,7 @@ RUN pip install --no-cache-dir "uv==0.12.9" \
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
+COPY config ./config
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY --from=web-build /web/dist ./web/dist

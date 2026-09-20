@@ -10,7 +10,7 @@
 - Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
-- Last status update: `2026-09-20`
+- Last status update: `2026-09-21`
 
 ## Established
 
@@ -45,7 +45,10 @@
 - PR-04 is accepted and merged to `main` by PR #4 as `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`.
 - PR-05 is accepted and merged to `main` by PR #5 as `b141be8ada55f44b2840e692c6b838c3df0913ca`.
 - PR-06 is accepted and merged to `main` by PR #6 as `3009b2b52289b6a6552dac5e3676e41f7ce8bb53`.
-- PR-07 is accepted and merged to `main` by PR #7 as `2838301f4b4b648f010fa4f0d06cfe03a2e0f64e`.
+- PR-07 is accepted and merged to `main` by PR #7 as `2838301827fd386f38dba5f58ab49a88db26d912`.
+- PR-08 review blockers are remediated: the worker runtime can dispatch only an explicitly
+  configured synthetic calendar with bounded replay, durable TaskRuns, transactional outbox, and
+  simulation-only reports; the default Compose environment leaves the calendar unset.
 
 ## Not yet implemented or verified
 
@@ -59,7 +62,7 @@ Nothing above may be inferred complete from the Master Spec alone.
 ## Next authorized work
 
 PR-08 is `READY_FOR_REVIEW` on `codex/pr-08-scheduler-reports-ui`, created from the GitHub- and
-`origin/main`-confirmed PR #7 merge commit `2838301f4b4b648f010fa4f0d06cfe03a2e0f64e`.
+`origin/main`-confirmed PR #7 merge commit `2838301827fd386f38dba5f58ab49a88db26d912`.
 It may implement only synthetic scheduler/replay, reporting, and personal read-only UI contracts.
 Live brokerage execution, credentials, real Portfolio data, and real investment-policy choices
 remain forbidden.
@@ -87,7 +90,7 @@ remain forbidden.
 | PR-04 | ACCEPTED | Merged to `main` on 2026-09-19 | PR #4 merge commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f` |
 | PR-05 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #5 merge commit `b141be8ada55f44b2840e692c6b838c3df0913ca` |
 | PR-06 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #6 merge commit `3009b2b52289b6a6552dac5e3676e41f7ce8bb53` |
-| PR-07 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #7 merge commit `2838301f4b4b648f010fa4f0d06cfe03a2e0f64e` |
+| PR-07 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #7 merge commit `2838301827fd386f38dba5f58ab49a88db26d912` |
 | PR-08 | READY_FOR_REVIEW | Pending | Scheduler, reports, UI; full local verification recorded |
 | PR-09 | PLANNED | Pending | Outcome, learning, hardening, release |
 

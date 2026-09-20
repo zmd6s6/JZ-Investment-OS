@@ -2,10 +2,13 @@
 
 Personal AI Investment OS is an evidence-first, long-lived investment research and portfolio decision system. It is independent from DSA: DSA supplies research/data through an adapter, while this project owns Thesis, Portfolio, Risk, Decision, Approval, Journal, and Review state.
 
-The repository contains the **PR-02 persistence foundation**: the PR-01 domain kernel plus a complete
-PostgreSQL core schema, Alembic migrations, optimistic concurrency repositories, append-only audit
-and event history, transactional outbox primitives, and advisory-locked idempotent jobs. It does
-not provide investment advice, runtime investment agents, approval APIs, or trade execution.
+The repository currently includes PR-01 through PR-08 development work: a pure domain kernel,
+PostgreSQL persistence/audit/outbox primitives, synthetic DSA/Evidence/Thesis/Committee/Risk/Decision
+workflows, explicit approval and disabled-live-execution gates, and a read-only personal UI. The
+worker can dispatch only a schema-validated, explicitly supplied synthetic calendar; it does not
+infer market sessions or connect to a real market-data provider. The project includes only a
+synthetic Agent Runtime and gateway contract; real model-provider configuration, real data-provider
+configuration, portfolio import, and live brokerage execution are not provided.
 
 ## Safety status
 
@@ -102,6 +105,10 @@ Expected services:
 - API on `http://localhost:${API_PORT:-8100}`
 - Read-only personal UI on `http://localhost:${API_PORT:-8100}/`
 - Worker with a database-backed readiness marker
+- Optional synthetic calendar dispatch when `INVESTMENT_OS_WORKER_SCHEDULE_CALENDAR_PATH` is set;
+  it writes durable TaskRuns and a simulation-only Daily report, never an approval or execution
+  action. `config/synthetic-runtime-calendar.json` is a development-only example and is not
+  enabled by default.
 
 Inspect or stop the stack:
 

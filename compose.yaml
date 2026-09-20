@@ -57,6 +57,8 @@ services:
       INVESTMENT_OS_DATABASE_URL: ${INVESTMENT_OS_DATABASE_URL:-postgresql+asyncpg://investment_os:local-development-only@postgres:5432/investment_os}
       INVESTMENT_OS_WORKER_POLL_SECONDS: ${INVESTMENT_OS_WORKER_POLL_SECONDS:-10}
       INVESTMENT_OS_WORKER_READY_FILE: ${INVESTMENT_OS_WORKER_READY_FILE:-/tmp/investment-os-worker-ready}
+      INVESTMENT_OS_WORKER_SCHEDULE_CALENDAR_PATH:
+      INVESTMENT_OS_WORKER_SCHEDULER_MAX_REPLAY_SESSIONS:
     depends_on:
       investment-migrate:
         condition: service_completed_successfully
