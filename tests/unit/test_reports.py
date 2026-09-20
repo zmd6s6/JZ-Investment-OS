@@ -134,3 +134,11 @@ def test_daily_operating_report_rejects_missing_or_duplicate_sections() -> None:
                 section,
             ),
         )
+
+
+def test_daily_operating_report_rejects_noncanonical_section_order() -> None:
+    sections = list(DailyReportSection(kind, ()) for kind in DailyReportSectionKind)
+    sections[0], sections[1] = sections[1], sections[0]
+
+    with pytest.raises(ValueError, match="canonical operating order"):
+        DailyOperatingReport(as_of=datetime(2026, 9, 20, tzinfo=UTC), sections=tuple(sections))

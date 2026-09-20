@@ -108,6 +108,8 @@ class DailyOperatingReport:
         missing = set(DailyReportSectionKind) - kinds
         if missing:
             raise ValueError("daily report must include every operating section")
+        if tuple(section.kind for section in self.sections) != tuple(DailyReportSectionKind):
+            raise ValueError("daily report sections must use the canonical operating order")
 
     def render_markdown(self) -> str:
         lines = [
