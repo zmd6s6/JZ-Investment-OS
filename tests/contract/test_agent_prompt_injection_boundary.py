@@ -76,14 +76,16 @@ async def test_s15_injected_evidence_is_content_addressed_data_not_agent_authori
             LLMGatewayResponse(
                 raw_output=(
                     "{"
-                    '"schema_version":"v1",'
-                    '"role":"MACRO",'
+                    '"schema_version":"1.0",'
+                    '"agent_role":"MACRO",'
                     f'"instrument_id":"{instrument_id}",'
+                    f'"as_of":"{NOW.isoformat()}",'
                     '"stance":"INSUFFICIENT_DATA",'
                     '"confidence":"0",'
-                    '"time_horizon":"synthetic horizon",'
-                    '"observations":[],"assumptions":[],"unknowns":["INSUFFICIENT_EVIDENCE"],'
-                    '"risks":[]'
+                    '"time_horizon":"DAYS",'
+                    '"observations":[],"thesis_impacts":[],"assumptions":[],"risks":[],'
+                    '"invalidation_conditions":[],"unknowns":["INSUFFICIENT_EVIDENCE"],'
+                    '"requested_followups":[]'
                     "}"
                 ),
                 provider="synthetic",

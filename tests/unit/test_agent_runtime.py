@@ -65,17 +65,18 @@ def _response(raw_output: str) -> LLMGatewayResponse:
 def _valid_payload(context: object, evidence_id: object) -> str:
     return (
         "{"
-        '"schema_version":"v1",'
-        '"role":"MACRO",'
+        '"schema_version":"1.0",'
+        '"agent_role":"MACRO",'
         f'"instrument_id":"{context.instrument_id}",'  # type: ignore[union-attr]
+        f'"as_of":"{context.as_of.value.isoformat()}",'  # type: ignore[union-attr]
         '"stance":"POSITIVE",'
         '"confidence":"0.5",'
-        '"time_horizon":"synthetic horizon",'
+        '"time_horizon":"DAYS",'
         '"observations":[{'
-        '"statement":"Synthetic evidence-backed fact",'
-        f'"evidence_ids":["{evidence_id}"]'
+        '"claim":"Synthetic evidence-backed fact",'
+        f'"evidence_ids":["{evidence_id}"],"materiality":"MEDIUM"'
         "}],"
-        '"assumptions":[],"unknowns":[],"risks":[]'
+        '"thesis_impacts":[],"assumptions":[],"risks":[],"invalidation_conditions":[],"unknowns":[],"requested_followups":[]'
         "}"
     )
 

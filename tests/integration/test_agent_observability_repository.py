@@ -201,17 +201,19 @@ def _response(*, role: AgentRole, instrument_id: UUID, evidence_id: UUID) -> LLM
     return LLMGatewayResponse(
         raw_output=(
             "{"
-            '"schema_version":"v1",'
-            f'"role":"{role.value}",'
+            '"schema_version":"1.0",'
+            f'"agent_role":"{role.value}",'
             f'"instrument_id":"{instrument_id}",'
-            '"stance":"MIXED",'
+            f'"as_of":"{NOW.isoformat()}",'
+            '"stance":"NEUTRAL",'
             '"confidence":"0.5",'
-            '"time_horizon":"synthetic horizon",'
+            '"time_horizon":"DAYS",'
             '"observations":[{'
-            '"statement":"Synthetic evidence-backed fact",'
-            f'"evidence_ids":["{evidence_id}"]'
+            '"claim":"Synthetic evidence-backed fact",'
+            f'"evidence_ids":["{evidence_id}"],"materiality":"MEDIUM"'
             "}],"
-            '"assumptions":[],"unknowns":[],"risks":[]'
+            '"thesis_impacts":[],"assumptions":[],"risks":[],'
+            '"invalidation_conditions":[],"unknowns":[],"requested_followups":[]'
             "}"
         ),
         provider="synthetic",

@@ -49,17 +49,19 @@ def _response(
     return LLMGatewayResponse(
         raw_output=(
             "{"
-            '"schema_version":"v1",'
-            f'"role":"{role.value}",'
+            '"schema_version":"1.0",'
+            f'"agent_role":"{role.value}",'
             f'"instrument_id":"{context.instrument_id}",'
+            f'"as_of":"{context.as_of.value.isoformat()}",'
             f'"stance":"{stance}",'
             '"confidence":"0.5",'
-            '"time_horizon":"synthetic horizon",'
+            '"time_horizon":"DAYS",'
             '"observations":[{'
-            '"statement":"Synthetic evidence-backed fact",'
-            f'"evidence_ids":["{evidence_id}"]'
+            '"claim":"Synthetic evidence-backed fact",'
+            f'"evidence_ids":["{evidence_id}"],"materiality":"MEDIUM"'
             "}],"
-            '"assumptions":[],"unknowns":[],"risks":[]'
+            '"thesis_impacts":[],"assumptions":[],"risks":[],'
+            '"invalidation_conditions":[],"unknowns":[],"requested_followups":[]'
             "}"
         ),
         provider="synthetic",
@@ -86,7 +88,7 @@ def _runtime(
     )
     gateway = SyntheticLLMGateway(
         tuple(
-            _response(role=role, stance="MIXED", context=context, evidence_id=evidence_id)
+            _response(role=role, stance="NEUTRAL", context=context, evidence_id=evidence_id)
             for role in ROUND_ONE_ROLES
         )
     )
@@ -169,10 +171,10 @@ async def test_session_executes_exactly_two_rounds_with_targeted_rebuttal_and_de
     context, evidence_id = _context()
     round_one_stances = {
         AgentRole.MACRO: "POSITIVE",
-        AgentRole.INDUSTRY: "MIXED",
+        AgentRole.INDUSTRY: "NEUTRAL",
         AgentRole.FUNDAMENTAL: "NEGATIVE",
-        AgentRole.MARKET_QUANT: "MIXED",
-        AgentRole.EVENT: "MIXED",
+        AgentRole.MARKET_QUANT: "NEUTRAL",
+        AgentRole.EVENT: "NEUTRAL",
     }
     registry = AgentRoleRegistry(
         tuple(
@@ -197,7 +199,7 @@ async def test_session_executes_exactly_two_rounds_with_targeted_rebuttal_and_de
             for role in ROUND_ONE_ROLES
         )
         + tuple(
-            _response(role=role, stance="MIXED", context=context, evidence_id=evidence_id)
+            _response(role=role, stance="NEUTRAL", context=context, evidence_id=evidence_id)
             for role in second_round_roles
         )
     )
@@ -240,7 +242,7 @@ async def test_session_rejects_request_factory_that_drops_structured_rebuttal_in
     )
     gateway = SyntheticLLMGateway(
         tuple(
-            _response(role=role, stance="MIXED", context=context, evidence_id=evidence_id)
+            _response(role=role, stance="NEUTRAL", context=context, evidence_id=evidence_id)
             for role in ROUND_ONE_ROLES
         )
     )
@@ -278,7 +280,7 @@ async def test_s9_no_conflict_still_ends_after_devils_advocate_round_two() -> No
     )
     gateway = SyntheticLLMGateway(
         tuple(
-            _response(role=role, stance="MIXED", context=context, evidence_id=evidence_id)
+            _response(role=role, stance="NEUTRAL", context=context, evidence_id=evidence_id)
             for role in (*ROUND_ONE_ROLES, AgentRole.DEVILS_ADVOCATE)
         )
     )

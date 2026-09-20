@@ -10,7 +10,7 @@ from enum import StrEnum
 from uuid import UUID
 
 from investment_os.domain.errors import DomainError, DomainErrorCode
-from investment_os.domain.values import Weight
+from investment_os.domain.values import UtcTimestamp, Weight
 
 
 class AgentRole(StrEnum):
@@ -19,11 +19,14 @@ class AgentRole(StrEnum):
     FUNDAMENTAL = "FUNDAMENTAL"
     MARKET_QUANT = "MARKET_QUANT"
     EVENT = "EVENT"
-    PORTFOLIO_MANAGER = "PORTFOLIO_MANAGER"
-    RISK_MANAGER = "RISK_MANAGER"
+    PORTFOLIO = "PORTFOLIO"
+    PORTFOLIO_MANAGER = "PORTFOLIO"
+    RISK = "RISK"
+    RISK_MANAGER = "RISK"
     DEVILS_ADVOCATE = "DEVILS_ADVOCATE"
     CIO = "CIO"
-    REVIEW_LEARNING = "REVIEW_LEARNING"
+    REVIEW = "REVIEW"
+    REVIEW_LEARNING = "REVIEW"
 
 
 class AgentTool(StrEnum):
@@ -34,10 +37,34 @@ class AgentTool(StrEnum):
 
 
 class OpinionStance(StrEnum):
-    POSITIVE = "POSITIVE"
+    STRONGLY_NEGATIVE = "STRONGLY_NEGATIVE"
     NEGATIVE = "NEGATIVE"
-    MIXED = "MIXED"
+    NEUTRAL = "NEUTRAL"
+    POSITIVE = "POSITIVE"
+    STRONGLY_POSITIVE = "STRONGLY_POSITIVE"
     INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+    # Backward-compatible internal spelling; the strict wire protocol accepts only NEUTRAL.
+    MIXED = "NEUTRAL"
+
+
+class ObservationMateriality(StrEnum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
+class ThesisImpactKind(StrEnum):
+    STRENGTHEN = "STRENGTHEN"
+    WEAKEN = "WEAKEN"
+    BREAK = "BREAK"
+    NONE = "NONE"
+
+
+class RiskSeverity(StrEnum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
 
 
 def _require_text(value: str, field: str) -> str:
@@ -60,11 +87,10 @@ class EvidenceBackedObservation:
 
     statement: str
     evidence_ids: tuple[UUID, ...]
+    materiality: ObservationMateriality = ObservationMateriality.MEDIUM
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "statement", _require_text(self.statement, "observation statement")
-        )
+        object.__setattr__(self, "statement", _require_text(self.statement, "observation claim"))
         if not self.evidence_ids:
             raise DomainError(
                 DomainErrorCode.INVARIANT_VIOLATION,
@@ -75,6 +101,58 @@ class EvidenceBackedObservation:
                 DomainErrorCode.INVARIANT_VIOLATION,
                 "a factual observation must not repeat an Evidence reference",
             )
+
+    @property
+    def claim(self) -> str:
+        """Compatibility accessor; the versioned wire field is `claim`."""
+
+        return self.statement
+
+
+@dataclass(frozen=True, slots=True)
+class ThesisImpact:
+    pillar_key: str
+    impact: ThesisImpactKind
+    reason: str
+    evidence_ids: tuple[UUID, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "pillar_key", _require_text(self.pillar_key, "pillar key"))
+        object.__setattr__(self, "reason", _require_text(self.reason, "thesis impact reason"))
+        if not self.evidence_ids or len(set(self.evidence_ids)) != len(self.evidence_ids):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "a thesis impact requires unique Evidence references",
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class AgentRisk:
+    code: str
+    severity: RiskSeverity
+    evidence_ids: tuple[UUID, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "code", _require_text(self.code, "risk code"))
+        if not self.evidence_ids or len(set(self.evidence_ids)) != len(self.evidence_ids):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "an Agent risk requires unique Evidence references",
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationCondition:
+    condition: str
+    observable: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "condition", _require_text(self.condition, "invalidation condition")
+        )
+        object.__setattr__(
+            self, "observable", _require_text(self.observable, "invalidation observable")
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,8 +167,12 @@ class AgentOpinion:
     observations: tuple[EvidenceBackedObservation, ...]
     assumptions: tuple[str, ...]
     unknowns: tuple[str, ...]
-    risks: tuple[str, ...]
-    schema_version: str = "v1"
+    risks: tuple[AgentRisk, ...]
+    as_of: UtcTimestamp | None = None
+    thesis_impacts: tuple[ThesisImpact, ...] = ()
+    invalidation_conditions: tuple[InvalidationCondition, ...] = ()
+    requested_followups: tuple[str, ...] = ()
+    schema_version: str = "1.0"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "time_horizon", _require_text(self.time_horizon, "time horizon"))
@@ -101,11 +183,15 @@ class AgentOpinion:
             self, "assumptions", _normalize_text_items(self.assumptions, "assumption")
         )
         object.__setattr__(self, "unknowns", _normalize_text_items(self.unknowns, "unknown"))
-        object.__setattr__(self, "risks", _normalize_text_items(self.risks, "risk"))
-        if self.schema_version != "v1":
+        object.__setattr__(
+            self,
+            "requested_followups",
+            _normalize_text_items(self.requested_followups, "requested followup"),
+        )
+        if self.schema_version != "1.0":
             raise DomainError(
                 DomainErrorCode.INVARIANT_VIOLATION,
-                "AgentOpinion requires the supported v1 schema",
+                "AgentOpinion requires the supported 1.0 schema",
             )
         if self.stance is OpinionStance.INSUFFICIENT_DATA:
             if self.observations:

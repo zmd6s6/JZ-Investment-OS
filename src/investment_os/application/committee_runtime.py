@@ -41,7 +41,7 @@ class CommitteeRoleInput:
                     "confidence": str(result.opinion.confidence.value),
                     "observations": [
                         {
-                            "statement": observation.statement,
+                            "claim": observation.claim,
                             "evidence_ids": [
                                 str(evidence_id) for evidence_id in observation.evidence_ids
                             ],
@@ -50,7 +50,14 @@ class CommitteeRoleInput:
                     ],
                     "assumptions": list(result.opinion.assumptions),
                     "unknowns": list(result.opinion.unknowns),
-                    "risks": list(result.opinion.risks),
+                    "risks": [
+                        {
+                            "code": risk.code,
+                            "severity": risk.severity.value,
+                            "evidence_ids": [str(evidence_id) for evidence_id in risk.evidence_ids],
+                        }
+                        for risk in result.opinion.risks
+                    ],
                 }
                 for result in self.visible_opinions
             ],

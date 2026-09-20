@@ -6,6 +6,7 @@ import pytest
 
 from investment_os.application.analysis_context import (
     AnalysisEvidence,
+    EvidenceSourceTier,
     freeze_analysis_context,
     require_context_evidence,
 )
@@ -87,3 +88,50 @@ def test_opinion_must_reference_evidence_visible_in_its_frozen_context() -> None
         require_context_evidence(opinion, context)
 
     assert error.value.code is ApplicationErrorCode.AGENT_OPINION_EVIDENCE_UNAVAILABLE
+
+
+@pytest.mark.parametrize(
+    ("tiers", "keys", "confidence", "allowed"),
+    (
+        ((EvidenceSourceTier.OTHER,), ("one",), Decimal("0.71"), False),
+        (
+            (EvidenceSourceTier.REPUTABLE_SECONDARY, EvidenceSourceTier.OTHER),
+            ("one", "two"),
+            Decimal("0.71"),
+            True,
+        ),
+        ((EvidenceSourceTier.PRIMARY,), ("one",), Decimal("0.71"), True),
+        ((EvidenceSourceTier.OTHER,), ("one",), Decimal("0.70"), True),
+    ),
+)
+def test_high_confidence_requires_primary_or_two_independent_sources(
+    tiers: tuple[EvidenceSourceTier, ...],
+    keys: tuple[str, ...],
+    confidence: Decimal,
+    allowed: bool,
+) -> None:
+    evidence = tuple(
+        AnalysisEvidence(uuid4(), f"{index:x}" * 64, UtcTimestamp(NOW), tier, key)
+        for index, (tier, key) in enumerate(zip(tiers, keys, strict=True), start=1)
+    )
+    context = freeze_analysis_context(uuid4(), as_of=NOW, evidence=evidence)
+    opinion = AgentOpinion(
+        role=AgentRole.MACRO,
+        instrument_id=context.instrument_id,
+        stance=OpinionStance.POSITIVE,
+        confidence=Weight(confidence),
+        time_horizon="DAYS",
+        observations=(
+            EvidenceBackedObservation(
+                "Synthetic fact", tuple(item.evidence_id for item in evidence)
+            ),
+        ),
+        assumptions=(),
+        unknowns=(),
+        risks=(),
+    )
+    if allowed:
+        require_context_evidence(opinion, context)
+    else:
+        with pytest.raises(ApplicationError, match="independent Evidence"):
+            require_context_evidence(opinion, context)

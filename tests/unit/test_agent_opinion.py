@@ -5,9 +5,14 @@ import pytest
 
 from investment_os.domain.agent import (
     AgentOpinion,
+    AgentRisk,
     AgentRole,
     EvidenceBackedObservation,
+    InvalidationCondition,
     OpinionStance,
+    RiskSeverity,
+    ThesisImpact,
+    ThesisImpactKind,
 )
 from investment_os.domain.errors import DomainError, DomainErrorCode
 from investment_os.domain.values import Weight
@@ -33,7 +38,7 @@ def test_agent_opinion_preserves_evidence_backed_facts_and_separate_unknowns() -
         risks=("Competition could increase further.",),
     )
 
-    assert opinion.schema_version == "v1"
+    assert opinion.schema_version == "1.0"
     assert opinion.observations[0].evidence_ids
     assert opinion.unknowns == ("The next quarter has not been reported.",)
 
@@ -72,6 +77,59 @@ def test_observation_rejects_empty_or_repeated_evidence_references() -> None:
     with pytest.raises(DomainError, match="must not repeat"):
         EvidenceBackedObservation(
             statement="Synthetic fact", evidence_ids=(evidence_id, evidence_id)
+        )
+
+
+def test_structured_thesis_risk_and_invalidation_records_require_auditable_values() -> None:
+    evidence_id = uuid4()
+    impact = ThesisImpact(
+        pillar_key="revenue_growth",
+        impact=ThesisImpactKind.WEAKEN,
+        reason="Synthetic revenue growth decelerated.",
+        evidence_ids=(evidence_id,),
+    )
+    risk = AgentRisk(
+        code="SYNTHETIC_COMPETITION",
+        severity=RiskSeverity.HIGH,
+        evidence_ids=(evidence_id,),
+    )
+    invalidation = InvalidationCondition(
+        condition="Synthetic revenue growth reaccelerates.",
+        observable="A future synthetic filing shows acceleration.",
+    )
+
+    assert impact.evidence_ids == (evidence_id,)
+    assert risk.severity is RiskSeverity.HIGH
+    assert invalidation.observable.startswith("A future")
+
+    with pytest.raises(DomainError, match="pillar key must not be blank"):
+        ThesisImpact(" ", ThesisImpactKind.NONE, "reason", (evidence_id,))
+    with pytest.raises(DomainError, match="thesis impact requires unique Evidence"):
+        ThesisImpact(
+            "revenue_growth",
+            ThesisImpactKind.NONE,
+            "reason",
+            (evidence_id, evidence_id),
+        )
+    with pytest.raises(DomainError, match="Agent risk requires unique Evidence"):
+        AgentRisk("SYNTHETIC", RiskSeverity.LOW, ())
+    with pytest.raises(DomainError, match="invalidation condition must not be blank"):
+        InvalidationCondition(" ", "observable")
+
+
+def test_agent_opinion_rejects_an_unsupported_wire_schema_version() -> None:
+    with pytest.raises(DomainError, match=r"supported 1\.0 schema"):
+        AgentOpinion(
+            role=AgentRole.MACRO,
+            instrument_id=uuid4(),
+            stance=OpinionStance.NEUTRAL,
+            confidence=Weight(Decimal("0.5")),
+            time_horizon="DAYS",
+            observations=(_observation(),),
+            assumptions=(),
+            unknowns=(),
+            risks=(),
+            schema_version="0.9",
         )
 
 

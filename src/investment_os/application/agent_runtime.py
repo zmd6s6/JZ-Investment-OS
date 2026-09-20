@@ -200,9 +200,10 @@ class AgentRuntime:
             opinion=AgentOpinion(
                 role=request.role,
                 instrument_id=context.instrument_id,
+                as_of=context.as_of,
                 stance=OpinionStance.INSUFFICIENT_DATA,
                 confidence=Weight(Decimal("0")),
-                time_horizon="runtime failure window",
+                time_horizon="DAYS",
                 observations=(),
                 assumptions=(),
                 unknowns=(failure.value,),
@@ -242,7 +243,11 @@ def _validated_opinion(
             "LLM gateway response was not a JSON AgentOpinion payload",
         ) from exc
     opinion = parse_agent_opinion(payload)
-    if opinion.role is not request.role or opinion.instrument_id != context.instrument_id:
+    if (
+        opinion.role is not request.role
+        or opinion.instrument_id != context.instrument_id
+        or opinion.as_of != context.as_of
+    ):
         raise ApplicationError(
             ApplicationErrorCode.AGENT_OPINION_INVALID,
             "AgentOpinion role or instrument does not match the requested frozen analysis",

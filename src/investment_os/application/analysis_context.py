@@ -4,6 +4,8 @@ import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
+from enum import StrEnum
 from hashlib import sha256
 from uuid import UUID
 
@@ -16,6 +18,12 @@ def _is_sha256(value: str) -> bool:
     return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
+class EvidenceSourceTier(StrEnum):
+    PRIMARY = "PRIMARY"
+    REPUTABLE_SECONDARY = "REPUTABLE_SECONDARY"
+    OTHER = "OTHER"
+
+
 @dataclass(frozen=True, slots=True)
 class AnalysisEvidence:
     """Immutable evidence identity and availability metadata, without executable content."""
@@ -23,12 +31,19 @@ class AnalysisEvidence:
     evidence_id: UUID
     content_hash: str
     available_at: UtcTimestamp
+    source_tier: EvidenceSourceTier = EvidenceSourceTier.OTHER
+    independence_key: str = "unknown"
 
     def __post_init__(self) -> None:
         if not _is_sha256(self.content_hash):
             raise ApplicationError(
                 ApplicationErrorCode.AGENT_OPINION_EVIDENCE_UNAVAILABLE,
                 "AnalysisContext Evidence requires a lowercase SHA-256 content hash",
+            )
+        if not self.independence_key.strip():
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_OPINION_EVIDENCE_UNAVAILABLE,
+                "AnalysisContext Evidence requires a non-blank independence key",
             )
 
 
@@ -70,6 +85,8 @@ def freeze_analysis_context(
                 "evidence_id": str(item.evidence_id),
                 "content_hash": item.content_hash,
                 "available_at": item.available_at.value.isoformat(),
+                "source_tier": item.source_tier.value,
+                "independence_key": item.independence_key,
             }
             for item in visible
         ],
@@ -98,3 +115,12 @@ def require_context_evidence(opinion: AgentOpinion, context: AnalysisContext) ->
             "AgentOpinion references Evidence unavailable in the frozen AnalysisContext",
             details={"evidence_ids": sorted(str(evidence_id) for evidence_id in unavailable)},
         )
+    if opinion.confidence.value > Decimal("0.70"):
+        cited = tuple(item for item in context.evidence if item.evidence_id in referenced)
+        has_primary = any(item.source_tier is EvidenceSourceTier.PRIMARY for item in cited)
+        independent_sources = {item.independence_key for item in cited}
+        if not has_primary and len(independent_sources) < 2:
+            raise ApplicationError(
+                ApplicationErrorCode.AGENT_OPINION_EVIDENCE_UNAVAILABLE,
+                "confidence above 0.70 requires one PRIMARY or two independent Evidence sources",
+            )

@@ -88,21 +88,44 @@ def agent_opinion_record_from_result(
     opinion = result.opinion
     payload = {
         "schema_version": opinion.schema_version,
-        "role": opinion.role.value,
+        "agent_role": opinion.role.value,
         "instrument_id": str(opinion.instrument_id),
+        "as_of": opinion.as_of.value.isoformat() if opinion.as_of is not None else None,
         "stance": opinion.stance.value,
         "confidence": str(opinion.confidence.value),
         "time_horizon": opinion.time_horizon,
         "observations": [
             {
-                "statement": observation.statement,
+                "claim": observation.claim,
                 "evidence_ids": [str(evidence_id) for evidence_id in observation.evidence_ids],
+                "materiality": observation.materiality.value,
             }
             for observation in opinion.observations
         ],
+        "thesis_impacts": [
+            {
+                "pillar_key": item.pillar_key,
+                "impact": item.impact.value,
+                "reason": item.reason,
+                "evidence_ids": [str(evidence_id) for evidence_id in item.evidence_ids],
+            }
+            for item in opinion.thesis_impacts
+        ],
         "assumptions": list(opinion.assumptions),
         "unknowns": list(opinion.unknowns),
-        "risks": list(opinion.risks),
+        "risks": [
+            {
+                "code": item.code,
+                "severity": item.severity.value,
+                "evidence_ids": [str(evidence_id) for evidence_id in item.evidence_ids],
+            }
+            for item in opinion.risks
+        ],
+        "invalidation_conditions": [
+            {"condition": item.condition, "observable": item.observable}
+            for item in opinion.invalidation_conditions
+        ],
+        "requested_followups": list(opinion.requested_followups),
     }
     content_hash = sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
@@ -117,10 +140,10 @@ def agent_opinion_record_from_result(
         confidence=opinion.confidence.value,
         time_horizon=opinion.time_horizon,
         observations_json=payload["observations"],
-        thesis_impacts_json=[],
+        thesis_impacts_json=payload["thesis_impacts"],
         assumptions_json=payload["assumptions"],
         risks_json=payload["risks"],
-        invalidation_conditions_json=[],
+        invalidation_conditions_json=payload["invalidation_conditions"],
         unknowns_json=payload["unknowns"],
         content_hash=content_hash,
         created_by=created_by,
