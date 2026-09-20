@@ -5,10 +5,12 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
 from investment_os.domain.enums import Action, PositionBucket, RiskIntent, ThesisState
+from investment_os.domain.errors import DomainError
 from investment_os.domain.policy import PositionPolicy
 from investment_os.domain.portfolio import PortfolioCapacityInputs
 from investment_os.domain.risk import RiskAssessment, RiskFlag, RiskFlagKind, RiskSeverity
@@ -71,6 +73,7 @@ def _request(
     sector: Decimal = Decimal("0.10"),
     bucket: PositionBucket = PositionBucket.CORE,
     thesis_state: ThesisState = ThesisState.VALID,
+    lot_size: Decimal = Decimal("1"),
 ) -> SizingRequest:
     return SizingRequest(
         action,
@@ -80,7 +83,7 @@ def _request(
         Quantity(Decimal("2")),
         Decimal("1000"),
         Decimal("10"),
-        Quantity(Decimal("1")),
+        Quantity(lot_size),
         Decimal("0.20"),
         PortfolioCapacityInputs(
             Weight(Decimal("0.02")),
@@ -142,6 +145,20 @@ def test_formula_configuration_and_risk_assessment_are_replay_inputs() -> None:
     assert constrained.input_hash != baseline.input_hash
     assert constrained.delta_weight < baseline.delta_weight
     assert vetoed.input_hash != baseline.input_hash
+
+
+def test_lot_rounding_reports_pre_and_post_risk_without_increasing_exposure() -> None:
+    result = size_position(_formula(), _request(Action.BUY, lot_size=Decimal("2")))
+
+    assert result.pre_rounding_target_weight == Weight(Decimal("0.05"))
+    assert result.target_weight == Weight(Decimal("0.04"))
+    assert result.delta_weight == Decimal("0.02")
+    assert result.delta_weight < result.pre_rounding_delta_weight
+
+
+def test_sizing_rejects_quantity_that_does_not_reconcile_to_weight() -> None:
+    with pytest.raises(DomainError, match="must reconcile"):
+        replace(_request(Action.BUY), current_bucket_quantity=Quantity(Decimal("3")))
 
 
 @given(sector=st.decimals(min_value=Decimal("0"), max_value=Decimal("1"), places=4))

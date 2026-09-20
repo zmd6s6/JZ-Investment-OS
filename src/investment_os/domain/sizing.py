@@ -83,12 +83,20 @@ class SizingRequest:
         )
         if self.lot_size.value <= 0:
             raise DomainError(DomainErrorCode.OUT_OF_RANGE, "lot size must be positive")
+        expected_quantity = self.current_bucket_weight.value * self.nav / self.reference_price
+        if self.current_bucket_quantity.value != expected_quantity:
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "current bucket quantity must reconcile to current bucket weight",
+            )
 
 
 @dataclass(frozen=True, slots=True)
 class PositionSizingResult:
     formula_version: str
     input_hash: str
+    pre_rounding_target_weight: Weight
+    pre_rounding_delta_weight: Decimal
     target_weight: Weight
     delta_weight: Decimal
     target_quantity: Quantity
@@ -215,11 +223,14 @@ def size_position(formula: SizingFormula, request: SizingRequest) -> PositionSiz
         raw_delta_quantity, request.lot_size.value, request.current_bucket_quantity.value
     )
     target_quantity = Quantity(request.current_bucket_quantity.value + rounded_delta)
+    post_rounding_delta_weight = rounded_delta * request.reference_price / request.nav
     return PositionSizingResult(
         formula_version=formula.version,
         input_hash=_input_hash(formula, request),
-        target_weight=Weight(target),
-        delta_weight=delta_weight,
+        pre_rounding_target_weight=Weight(target),
+        pre_rounding_delta_weight=delta_weight,
+        target_weight=Weight(current + post_rounding_delta_weight),
+        delta_weight=post_rounding_delta_weight,
         target_quantity=target_quantity,
         delta_quantity=rounded_delta,
         pre_rounding_delta_quantity=raw_delta_quantity,
