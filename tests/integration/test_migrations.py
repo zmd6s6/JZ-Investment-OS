@@ -64,6 +64,12 @@ async def test_empty_database_downgrade_and_upgrade_create_all_core_tables(
         task_unique = await connection.run_sync(
             lambda sync: inspect(sync).get_unique_constraints("task_run")
         )
+        decision_columns = {
+            str(column["name"])
+            for column in await connection.run_sync(
+                lambda sync: inspect(sync).get_columns("investment_decision")
+            )
+        }
 
     assert table_names >= EXPECTED_CORE_TABLES
     assert frozenset({"source_name", "source_locator", "content_hash"}) in {
@@ -72,6 +78,15 @@ async def test_empty_database_downgrade_and_upgrade_create_all_core_tables(
     assert frozenset({"idempotency_key"}) in {
         frozenset(item["column_names"]) for item in task_unique
     }
+    assert {
+        "position_before_json",
+        "position_after_proposed_json",
+        "unknowns_json",
+        "dissent_json",
+        "prompt_bundle_version",
+        "formula_version",
+        "content_hash",
+    } <= decision_columns
 
 
 @pytest.mark.integration

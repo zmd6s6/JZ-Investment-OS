@@ -20,6 +20,7 @@ from investment_os.infrastructure.persistence.models import (
     EventLogRecord,
     EvidenceRecord,
     FeatureSnapshotRecord,
+    InvestmentDecisionEvidenceRecord,
     InvestmentDecisionRecord,
     InvestmentPolicyRecord,
     InvestmentThesisRecord,
@@ -232,6 +233,22 @@ class DecisionRepository:
 
     async def get(self, record_id: UUID) -> InvestmentDecisionRecord | None:
         return await self._session.get(InvestmentDecisionRecord, record_id)
+
+    async def append(self, record: InvestmentDecisionRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def link_evidence(self, decision_id: UUID, evidence_ids: tuple[UUID, ...]) -> None:
+        self._session.add_all(
+            [
+                InvestmentDecisionEvidenceRecord(
+                    investment_decision_id=decision_id,
+                    evidence_id=evidence_id,
+                )
+                for evidence_id in evidence_ids
+            ]
+        )
+        await self._session.flush()
 
     async def update_state(
         self,
