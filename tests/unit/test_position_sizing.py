@@ -42,10 +42,10 @@ def _policy() -> PositionPolicy:
     )
 
 
-def _assessment(hard: bool = False) -> RiskAssessment:
+def _assessment(hard: bool = False, unevaluated: bool = False) -> RiskAssessment:
     flags = (
         ()
-        if not hard
+        if unevaluated
         else (
             RiskFlag(
                 "SYNTHETIC_HARD_RISK",
@@ -53,6 +53,16 @@ def _assessment(hard: bool = False) -> RiskAssessment:
                 RiskSeverity.HIGH,
                 (UUID("00000000-0000-0000-0000-000000000001"),),
                 "Synthetic review clears risk.",
+            ),
+        )
+        if hard
+        else (
+            RiskFlag(
+                "SYNTHETIC_SOFT_RISK",
+                RiskFlagKind.SOFT,
+                RiskSeverity.LOW,
+                (UUID("00000000-0000-0000-0000-000000000003"),),
+                "Synthetic monitoring condition clears risk.",
             ),
         )
     )
@@ -75,6 +85,7 @@ def _request(
     thesis_state: ThesisState = ThesisState.VALID,
     lot_size: Decimal = Decimal("1"),
     as_of: UtcTimestamp | None = None,
+    unevaluated: bool = False,
 ) -> SizingRequest:
     requested_at = as_of or UtcTimestamp(datetime(2026, 9, 20, tzinfo=UTC))
     return SizingRequest(
@@ -98,7 +109,7 @@ def _request(
             Weight(Decimal("1")),
         ),
         _policy(),
-        _assessment(hard),
+        _assessment(hard, unevaluated),
         thesis_state,
         requested_at,
     )
@@ -128,6 +139,18 @@ def test_expired_risk_assessment_cannot_increase_exposure() -> None:
 
     assert result.delta_quantity == 0
     assert "RISK_ASSESSMENT_EXPIRED" in result.reason_codes
+
+
+def test_unevaluated_risk_blocks_buy_and_add_but_not_reductions() -> None:
+    for action in (Action.BUY, Action.ADD):
+        result = size_position(_formula(), _request(action, unevaluated=True))
+        assert result.delta_quantity == 0
+        assert "RISK_ASSESSMENT_UNKNOWN" in result.reason_codes
+
+    assert size_position(_formula(), _request(Action.REDUCE, unevaluated=True)).delta_quantity < 0
+    assert size_position(
+        _formula(), _request(Action.EXIT, unevaluated=True)
+    ).target_quantity == Quantity(Decimal("0"))
 
 
 def test_s4_core_hold_and_tactical_reduce_keep_actions_separate() -> None:

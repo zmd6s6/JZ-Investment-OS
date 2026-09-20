@@ -81,6 +81,8 @@ class RiskAssessment:
 
     @property
     def gate(self) -> RiskGateState:
+        if not self.flags:
+            return RiskGateState.UNKNOWN
         if any(flag.kind is RiskFlagKind.HARD for flag in self.flags):
             return RiskGateState.VETO
         return RiskGateState.PASS

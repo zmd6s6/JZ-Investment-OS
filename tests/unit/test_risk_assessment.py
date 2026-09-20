@@ -46,6 +46,16 @@ def test_hard_risk_flag_vetoes_buy_and_add_but_not_reduce_or_exit() -> None:
     assert assessment.permits_action(Action.EXIT)
 
 
+def test_empty_assessment_is_unknown_and_cannot_authorize_increases() -> None:
+    assessment = _assessment()
+
+    assert assessment.gate is RiskGateState.UNKNOWN
+    assert not assessment.permits_action(Action.BUY)
+    assert not assessment.permits_action(Action.ADD)
+    assert assessment.permits_action(Action.REDUCE)
+    assert assessment.permits_action(Action.EXIT)
+
+
 def test_soft_flags_preserve_pass_with_evidence_and_release_conditions() -> None:
     evidence_id = uuid4()
     assessment = _assessment(

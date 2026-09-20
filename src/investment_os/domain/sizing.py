@@ -7,7 +7,13 @@ from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from hashlib import sha256
 from types import MappingProxyType
 
-from investment_os.domain.enums import Action, PositionBucket, RiskIntent, ThesisState
+from investment_os.domain.enums import (
+    Action,
+    PositionBucket,
+    RiskGateState,
+    RiskIntent,
+    ThesisState,
+)
 from investment_os.domain.errors import DomainError, DomainErrorCode
 from investment_os.domain.policy import PositionPolicy
 from investment_os.domain.portfolio import (
@@ -189,6 +195,9 @@ def size_position(formula: SizingFormula, request: SizingRequest) -> PositionSiz
         if not request.risk_assessment.is_active_at(request.as_of):
             target = current
             reasons.append("RISK_ASSESSMENT_EXPIRED")
+        elif request.risk_assessment.gate is RiskGateState.UNKNOWN:
+            target = current
+            reasons.append("RISK_ASSESSMENT_UNKNOWN")
         elif not request.risk_assessment.permits_action(request.action):
             target = current
             reasons.append("RISK_VETO")
