@@ -76,6 +76,49 @@ def test_approval_rejects_invalid_audit_records() -> None:
         )
 
 
+def test_approval_rejects_expiry_comment_and_history_boundary_failures() -> None:
+    decision_id = uuid4()
+    with pytest.raises(DomainError, match="must follow"):
+        DecisionApproval(
+            decision_id=decision_id,
+            actor_id="synthetic-owner",
+            action=ApprovalAction.APPROVE,
+            occurred_at=NOW,
+            expires_at=NOW,
+        )
+    with pytest.raises(DomainError, match="only an approval"):
+        DecisionApproval(
+            decision_id=decision_id,
+            actor_id="synthetic-owner",
+            action=ApprovalAction.REJECT,
+            occurred_at=NOW,
+            expires_at=UtcTimestamp(NOW.value + timedelta(hours=1)),
+        )
+    with pytest.raises(DomainError, match="comment"):
+        DecisionApproval(
+            decision_id=decision_id,
+            actor_id="synthetic-owner",
+            action=ApprovalAction.REJECT,
+            occurred_at=NOW,
+            comment=" ",
+        )
+    with pytest.raises(DomainError, match="requires at least"):
+        DecisionApprovalHistory(decision_id=decision_id, records=())
+
+
+def test_approval_history_rejects_mixed_or_unordered_records_and_has_no_prior_fact() -> None:
+    decision_id = uuid4()
+    later = _approval(decision_id=decision_id, occurred_at=UtcTimestamp(NOW.value + timedelta(1)))
+    earlier = _approval(decision_id=decision_id)
+    with pytest.raises(DomainError, match="ordered"):
+        DecisionApprovalHistory(decision_id=decision_id, records=(later, earlier))
+    with pytest.raises(DomainError, match="must belong"):
+        DecisionApprovalHistory(decision_id=decision_id, records=(_approval(),))
+
+    history = DecisionApprovalHistory(decision_id=decision_id, records=(earlier,))
+    assert history.latest_record_at(UtcTimestamp(NOW.value - timedelta(seconds=1))) is None
+
+
 async def test_disabled_live_adapter_rejects_order_even_with_typed_approval() -> None:
     request = LiveExecutionRequest(
         decision_id=uuid4(),
