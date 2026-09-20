@@ -125,6 +125,9 @@ def size_position(formula: SizingFormula, request: SizingRequest) -> PositionSiz
 
     current = request.current_bucket_weight.value
     reasons: list[str] = []
+    capacity = evaluate_portfolio_capacity(
+        request.policy, request.capacity_inputs, Weight(Decimal("0"))
+    )
     if request.action in {Action.BUY, Action.ADD}:
         if not request.risk_assessment.permits_action(request.action):
             target = current
@@ -157,10 +160,6 @@ def size_position(formula: SizingFormula, request: SizingRequest) -> PositionSiz
         reasons.append("NO_EXPOSURE_CHANGE")
 
     delta_weight = target - current
-    requested_for_capacity = Weight(max(Decimal("0"), delta_weight))
-    capacity = evaluate_portfolio_capacity(
-        request.policy, request.capacity_inputs, requested_for_capacity
-    )
     raw_delta_quantity = delta_weight * request.nav / request.reference_price
     rounded_delta = _round_delta(
         raw_delta_quantity, request.lot_size.value, request.current_bucket_quantity.value

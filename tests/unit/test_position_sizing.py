@@ -103,5 +103,9 @@ def test_s6_sector_capacity_blocks_buy_and_s7_equal_inputs_are_bit_identical() -
     blocked = size_position(_formula(), _request(Action.BUY, sector=Decimal("0.25")))
     first = size_position(_formula(), _request(Action.BUY))
     second = size_position(_formula(), _request(Action.BUY))
-    assert blocked.delta_quantity == 0 and "SECTOR_CAP" in blocked.reason_codes
+    assert (
+        blocked.delta_quantity == 0
+        and "SECTOR_CAP" in blocked.reason_codes
+        and blocked.capacity.requested_increase == Weight(Decimal("0.03"))
+    )
     assert first == second and first.input_hash == second.input_hash
