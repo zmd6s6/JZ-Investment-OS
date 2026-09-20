@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from investment_os.infrastructure.persistence.repositories import (
     AgentObservabilityRepository,
     AuditRepository,
+    DecisionApprovalRepository,
+    DecisionExecutionRepository,
     DecisionRepository,
     EventRepository,
     EvidenceRepository,
@@ -36,6 +38,8 @@ class SqlAlchemyUnitOfWork:
         self.theses = ThesisRepository(self.session)
         self.thesis_versions = ThesisVersionRepository(self.session)
         self.decisions = DecisionRepository(self.session)
+        self.decision_approvals = DecisionApprovalRepository(self.session)
+        self.decision_executions = DecisionExecutionRepository(self.session)
         self.policies = PolicyRepository(self.session)
         self.audit = AuditRepository(self.session)
         self.agent_observability = AgentObservabilityRepository(self.session)

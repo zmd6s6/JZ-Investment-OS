@@ -342,6 +342,35 @@ class InvestmentDecisionRecord(AuditFieldsMixin, Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
+class DecisionApprovalRecord(AuditFieldsMixin, Base):
+    """Append-only, attributed human action against one persisted Decision."""
+
+    __tablename__ = "decision_approval"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    decision_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    actor_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DecisionExecutionRecord(AuditFieldsMixin, Base):
+    """Append-only paper/manual execution receipt; it never represents a broker order."""
+
+    __tablename__ = "decision_execution"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    decision_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    approval_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    execution_mode: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    requested_quantity: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    filled_quantity: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    avg_price: Mapped[Decimal | None] = mapped_column(Numeric(38, 18))
+    external_refs_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+
+
 class TaskRunRecord(AuditFieldsMixin, Base):
     __tablename__ = "task_run"
 
