@@ -74,7 +74,9 @@ def _request(
     bucket: PositionBucket = PositionBucket.CORE,
     thesis_state: ThesisState = ThesisState.VALID,
     lot_size: Decimal = Decimal("1"),
+    as_of: UtcTimestamp | None = None,
 ) -> SizingRequest:
+    requested_at = as_of or UtcTimestamp(datetime(2026, 9, 20, tzinfo=UTC))
     return SizingRequest(
         action,
         bucket,
@@ -98,6 +100,7 @@ def _request(
         _policy(),
         _assessment(hard),
         thesis_state,
+        requested_at,
     )
 
 
@@ -117,10 +120,30 @@ def test_broken_thesis_cannot_increase_exposure() -> None:
     assert "THESIS_BROKEN" in result.reason_codes
 
 
+def test_expired_risk_assessment_cannot_increase_exposure() -> None:
+    result = size_position(
+        _formula(),
+        _request(Action.BUY, as_of=UtcTimestamp(datetime(2026, 9, 21, tzinfo=UTC))),
+    )
+
+    assert result.delta_quantity == 0
+    assert "RISK_ASSESSMENT_EXPIRED" in result.reason_codes
+
+
 def test_s4_core_hold_and_tactical_reduce_keep_actions_separate() -> None:
     core = size_position(_formula(), _request(Action.HOLD, bucket=PositionBucket.CORE))
     tactical = size_position(_formula(), _request(Action.REDUCE, bucket=PositionBucket.TACTICAL))
     assert core.delta_quantity == 0 and tactical.delta_quantity < 0
+
+
+def test_exit_remains_available_when_risk_assessment_is_expired() -> None:
+    result = size_position(
+        _formula(),
+        _request(Action.EXIT, as_of=UtcTimestamp(datetime(2026, 9, 21, tzinfo=UTC))),
+    )
+
+    assert result.target_quantity == Quantity(Decimal("0"))
+    assert "EXIT" in result.reason_codes
 
 
 def test_s6_sector_capacity_blocks_buy_and_s7_equal_inputs_are_bit_identical() -> None:

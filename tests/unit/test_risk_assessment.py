@@ -61,6 +61,8 @@ def test_soft_flags_preserve_pass_with_evidence_and_release_conditions() -> None
     assert assessment.gate is RiskGateState.PASS
     assert assessment.permits_action(Action.BUY)
     assert assessment.evidence_ids == (evidence_id,)
+    assert assessment.is_active_at(NOW)
+    assert not assessment.is_active_at(UtcTimestamp(NOW.value + timedelta(days=1)))
 
 
 def test_risk_assessment_rejects_unauditable_flags_and_expired_versions() -> None:

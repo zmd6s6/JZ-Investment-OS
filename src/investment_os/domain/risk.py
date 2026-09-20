@@ -91,3 +91,8 @@ class RiskAssessment:
         """A VETO blocks only risk-increasing actions; reducing risk remains available."""
 
         return self.gate is RiskGateState.PASS or action in {Action.REDUCE, Action.EXIT}
+
+    def is_active_at(self, as_of: UtcTimestamp) -> bool:
+        """An assessment expires before it can authorize risk at its expiry instant."""
+
+        return as_of.value < self.expires_at.value

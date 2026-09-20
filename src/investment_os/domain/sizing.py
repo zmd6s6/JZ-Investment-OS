@@ -16,7 +16,7 @@ from investment_os.domain.portfolio import (
     evaluate_portfolio_capacity,
 )
 from investment_os.domain.risk import RiskAssessment
-from investment_os.domain.values import Quantity, Weight, exact_decimal
+from investment_os.domain.values import Quantity, UtcTimestamp, Weight, exact_decimal
 
 
 def _positive(value: Decimal | int | str, field: str) -> Decimal:
@@ -72,6 +72,7 @@ class SizingRequest:
     policy: PositionPolicy
     risk_assessment: RiskAssessment
     thesis_state: ThesisState
+    as_of: UtcTimestamp
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "nav", _positive(self.nav, "NAV"))
@@ -130,6 +131,7 @@ def _input_hash(formula: SizingFormula, request: SizingRequest) -> str:
         "bucket": request.bucket.value,
         "risk_intent": request.risk_intent.value,
         "thesis_state": request.thesis_state.value,
+        "as_of": request.as_of.value.isoformat(),
         "current_bucket_weight": str(request.current_bucket_weight.value),
         "current_bucket_quantity": str(request.current_bucket_quantity.value),
         "nav": str(request.nav),
@@ -184,7 +186,10 @@ def size_position(formula: SizingFormula, request: SizingRequest) -> PositionSiz
         request.policy, request.capacity_inputs, Weight(Decimal("0"))
     )
     if request.action in {Action.BUY, Action.ADD}:
-        if not request.risk_assessment.permits_action(request.action):
+        if not request.risk_assessment.is_active_at(request.as_of):
+            target = current
+            reasons.append("RISK_ASSESSMENT_EXPIRED")
+        elif not request.risk_assessment.permits_action(request.action):
             target = current
             reasons.append("RISK_VETO")
         elif request.thesis_state is ThesisState.BROKEN:
