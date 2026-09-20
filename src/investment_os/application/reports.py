@@ -21,6 +21,14 @@ class ReportStatementKind(StrEnum):
     OPERATIONAL_EXCEPTION = "OPERATIONAL_EXCEPTION"
 
 
+class DailyReportSectionKind(StrEnum):
+    ACTION_REQUIRED = "ACTION_REQUIRED"
+    CONTINUE_HOLDING = "CONTINUE_HOLDING"
+    WATCH = "WATCH"
+    NEW_DISCOVERIES = "NEW_DISCOVERIES"
+    DATA_AND_OPERATIONAL_EXCEPTIONS = "DATA_AND_OPERATIONAL_EXCEPTIONS"
+
+
 @dataclass(frozen=True, slots=True)
 class ReportStatement:
     """One labelled statement with the minimum provenance appropriate to its category."""
@@ -73,4 +81,45 @@ class HumanReport:
         lines.extend(
             f"- **{statement.kind.value}**: {statement.content}" for statement in self.statements
         )
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class DailyReportSection:
+    kind: DailyReportSectionKind
+    statements: tuple[ReportStatement, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DailyOperatingReport:
+    """The required one-page Daily operating loop, including explicit empty sections."""
+
+    as_of: datetime
+    sections: tuple[DailyReportSection, ...]
+
+    def __post_init__(self) -> None:
+        if self.as_of.tzinfo is None:
+            raise ValueError("daily report as_of must be timezone-aware")
+        kinds = {section.kind for section in self.sections}
+        if len(kinds) != len(self.sections):
+            raise ValueError("daily report sections must not be duplicated")
+        missing = set(DailyReportSectionKind) - kinds
+        if missing:
+            raise ValueError("daily report must include every operating section")
+
+    def render_markdown(self) -> str:
+        lines = [
+            "# Daily Report",
+            "",
+            "> **SIMULATION / NO AUTO TRADE** — recommendations are not execution instructions.",
+            f"> Data as-of: `{self.as_of.astimezone(UTC).isoformat()}`",
+        ]
+        for section in self.sections:
+            lines.extend(("", f"## {section.kind.value.replace('_', ' ').title()}"))
+            lines.extend(
+                f"- **{statement.kind.value}**: {statement.content}"
+                for statement in section.statements
+            )
+            if not section.statements:
+                lines.append("- None recorded.")
         return "\n".join(lines)

@@ -4,6 +4,9 @@ from uuid import uuid4
 import pytest
 
 from investment_os.application.reports import (
+    DailyOperatingReport,
+    DailyReportSection,
+    DailyReportSectionKind,
     HumanReport,
     ReportKind,
     ReportStatement,
@@ -88,3 +91,46 @@ def test_report_rejects_naive_as_of_and_empty_content() -> None:
         )
     with pytest.raises(ValueError, match="blank"):
         ReportStatement(ReportStatementKind.ASSUMPTION, " ")
+
+
+def test_daily_operating_report_keeps_all_required_sections_and_labels() -> None:
+    sections = tuple(
+        DailyReportSection(
+            kind=kind,
+            statements=(
+                ReportStatement(
+                    kind=ReportStatementKind.OPERATIONAL_EXCEPTION,
+                    content="Synthetic scheduler status is unavailable.",
+                ),
+            )
+            if kind is DailyReportSectionKind.DATA_AND_OPERATIONAL_EXCEPTIONS
+            else (),
+        )
+        for kind in DailyReportSectionKind
+    )
+
+    rendered = DailyOperatingReport(
+        as_of=datetime(2026, 9, 20, 20, 0, tzinfo=UTC), sections=sections
+    ).render_markdown()
+
+    assert "SIMULATION / NO AUTO TRADE" in rendered
+    assert "## Action Required" in rendered
+    assert "## Continue Holding" in rendered
+    assert "## Data And Operational Exceptions" in rendered
+    assert "**OPERATIONAL_EXCEPTION**" in rendered
+    assert rendered.count("None recorded.") == 4
+
+
+def test_daily_operating_report_rejects_missing_or_duplicate_sections() -> None:
+    section = DailyReportSection(DailyReportSectionKind.ACTION_REQUIRED, ())
+
+    with pytest.raises(ValueError, match="every operating section"):
+        DailyOperatingReport(as_of=datetime(2026, 9, 20, tzinfo=UTC), sections=(section,))
+    with pytest.raises(ValueError, match="duplicated"):
+        DailyOperatingReport(
+            as_of=datetime(2026, 9, 20, tzinfo=UTC),
+            sections=(
+                *tuple(DailyReportSection(kind, ()) for kind in DailyReportSectionKind),
+                section,
+            ),
+        )
