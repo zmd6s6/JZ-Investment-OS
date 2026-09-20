@@ -59,13 +59,11 @@ commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`. It will deliver strict AgentO
 schemas, an LLM gateway boundary, frozen analysis context, and the bounded two-round committee;
 it must not introduce Decision, approval, execution, provider credentials, or live trading.
 
-## Human decisions currently required
+## Recorded scope decisions
 
-- **PR-05 scope reconciliation:** its acceptance list requires S1/S2 final `WATCH`/`AVOID` Actions,
-  while its out-of-scope list forbids a CIO Decision; the Master Spec assigns final recommendations
-  only to CIO. Human approval is required either to defer those final-action assertions to PR-07 or
-  to expand PR-05 explicitly. The remaining PR-05 research slice is preserved, but the stage cannot
-  be marked `READY_FOR_REVIEW` until this conflict is resolved.
+- **PR-05 scope reconciliation (approved 2026-09-20):** defer S1/S2 final `WATCH`/`AVOID` Action
+  assertions to PR-07, where the CIO/Decision path is in scope. PR-05 retains synthetic research
+  and committee fixtures for the scenarios' antecedent inputs, and must not create a CIO Decision.
 - The shipped Policy is `TEST_DEFAULT`; choosing real limits remains a future human decision.
   Stage-branch commits and pushes are authorized by the owner; merging to `main` remains a separate
   human action.
