@@ -27,9 +27,13 @@ class ReliableJobExecutor:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         now: Callable[[], datetime] | None = None,
+        max_attempts: int = 3,
     ) -> None:
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be at least one")
         self._session_factory = session_factory
         self._now = now or (lambda: datetime.now(UTC))
+        self._max_attempts = max_attempts
 
     def _uow(self) -> SqlAlchemyUnitOfWork:
         return SqlAlchemyUnitOfWork(self._session_factory)
@@ -68,6 +72,22 @@ class ReliableJobExecutor:
                     )
                 if existing is not None and existing.status == "SUCCEEDED":
                     return JobExecutionResult(existing.id, existing.attempt, reused=True)
+                if existing is not None and existing.attempt >= self._max_attempts:
+                    await uow.task_runs.fail(
+                        existing,
+                        finished_at=self._now(),
+                        error_code="JOB_RETRY_LIMIT_EXHAUSTED",
+                        error_type="RetryLimitExceeded",
+                    )
+                    await uow.commit()
+                    raise ApplicationError(
+                        ApplicationErrorCode.JOB_RETRY_LIMIT_EXHAUSTED,
+                        "logical job retry limit is exhausted",
+                        details={
+                            "idempotency_key": idempotency_key,
+                            "max_attempts": self._max_attempts,
+                        },
+                    )
 
                 task_run = await uow.task_runs.start_or_retry(
                     task_name=task_name,

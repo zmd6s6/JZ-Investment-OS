@@ -363,6 +363,53 @@ async def test_failed_job_rolls_back_business_and_outbox_but_records_sanitized_f
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+async def test_failed_job_recovery_is_bounded_and_records_retry_exhaustion(
+    database_engine: AsyncEngine,
+) -> None:
+    factory = _session_factory(database_engine)
+    executor = ReliableJobExecutor(factory, now=lambda: NOW, max_attempts=3)
+    invocations = 0
+
+    async def handler(_: SqlAlchemyUnitOfWork) -> None:
+        nonlocal invocations
+        invocations += 1
+        raise RuntimeError("synthetic retry fixture")
+
+    for _ in range(3):
+        with pytest.raises(RuntimeError, match="synthetic retry"):
+            await executor.execute(
+                task_name="bounded",
+                scheduled_for=NOW,
+                idempotency_key="bounded:failure",
+                input_hash=HASH,
+                handler=handler,
+            )
+
+    with pytest.raises(ApplicationError) as exhausted:
+        await executor.execute(
+            task_name="bounded",
+            scheduled_for=NOW,
+            idempotency_key="bounded:failure",
+            input_hash=HASH,
+            handler=handler,
+        )
+
+    async with factory() as session:
+        task = (
+            await session.scalars(
+                select(TaskRunRecord).where(TaskRunRecord.idempotency_key == "bounded:failure")
+            )
+        ).one()
+
+    assert exhausted.value.code is ApplicationErrorCode.JOB_RETRY_LIMIT_EXHAUSTED
+    assert invocations == 3
+    assert task.status == "FAILED"
+    assert task.attempt == 3
+    assert task.error_json == {"code": "JOB_RETRY_LIMIT_EXHAUSTED", "type": "RetryLimitExceeded"}
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
 async def test_transaction_advisory_lock_rejects_concurrent_logical_job(
     database_engine: AsyncEngine,
 ) -> None:
