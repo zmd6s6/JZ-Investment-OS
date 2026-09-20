@@ -1,25 +1,25 @@
 import { useEffect, useState } from "react";
 
-type Page = "Portfolio" | "Opportunities" | "Watchlist" | "Decision Journal";
+type Page = "资产组合" | "机会池" | "观察清单" | "决策日志";
 
-const pages: readonly Page[] = ["Portfolio", "Opportunities", "Watchlist", "Decision Journal"];
+const pages: readonly Page[] = ["资产组合", "机会池", "观察清单", "决策日志"];
 
 const pageCopy: Record<Page, { heading: string; detail: string }> = {
-  Portfolio: {
-    heading: "Portfolio",
-    detail: "Core/Tactical positions, risk status, and pending human approvals appear here.",
+  资产组合: {
+    heading: "资产组合",
+    detail: "这里展示 Core/Tactical 持仓、风险状态与待人工审批事项。",
   },
-  Opportunities: {
-    heading: "Opportunities",
-    detail: "Synthetic DISCOVER, WATCH, SETUP, and BUYABLE funnel changes appear here.",
+  机会池: {
+    heading: "机会池",
+    detail: "这里展示合成 DISCOVER、WATCH、SETUP 与 BUYABLE 漏斗变化。",
   },
-  Watchlist: {
-    heading: "Watchlist",
-    detail: "Thesis status, missing conditions, and triggers appear here.",
+  观察清单: {
+    heading: "观察清单",
+    detail: "这里展示 Thesis 状态、缺失条件与触发器。",
   },
-  "Decision Journal": {
-    heading: "Decision Journal",
-    detail: "Evidence, versions, approvals, executions, and later reviews remain traceable here.",
+  决策日志: {
+    heading: "决策日志",
+    detail: "这里保留 Evidence、版本、审批、执行记录与后续复盘的可追溯链路。",
   },
 };
 
@@ -30,16 +30,16 @@ const maxDailyReportCharacters = 12_000;
 
 function operationalStatus(runs: unknown): string {
   if (!Array.isArray(runs) || runs.length === 0) {
-    return "No completed scheduler run is available";
+    return "暂无已完成的调度任务";
   }
   const status = (runs[0] as TaskRun).status;
   if (status === "SUCCEEDED") {
-    return "Latest task run succeeded";
+    return "最近一次任务运行成功";
   }
   if (status === "FAILED") {
-    return "Latest task run failed — review the sanitized TaskRun record";
+    return "最近一次任务运行失败——请查看已脱敏的 TaskRun 记录";
   }
-  return "Latest task run is incomplete or has an unknown status";
+  return "最近一次任务尚未完成或状态未知";
 }
 
 function dailyReportPreview(report: unknown): DailyReportPreview | null {
@@ -62,50 +62,50 @@ function dailyReportPreview(report: unknown): DailyReportPreview | null {
 }
 
 export function App() {
-  const [page, setPage] = useState<Page>("Portfolio");
-  const [operation, setOperation] = useState("Loading scheduler status");
-  const [reportAsOf, setReportAsOf] = useState("Loading Daily report as-of");
-  const [reportPreview, setReportPreview] = useState("Loading Daily report snapshot");
+  const [page, setPage] = useState<Page>("资产组合");
+  const [operation, setOperation] = useState("正在加载调度状态");
+  const [reportAsOf, setReportAsOf] = useState("正在加载日报截至时间");
+  const [reportPreview, setReportPreview] = useState("正在加载日报快照");
   const current = pageCopy[page];
 
   useEffect(() => {
     void fetch("/api/v1/task-runs?limit=1")
       .then(async (response) => (response.ok ? response.json() : Promise.reject(new Error("unavailable"))))
       .then((runs: unknown) => setOperation(operationalStatus(runs)))
-      .catch(() => setOperation("Scheduler status is unavailable — no action was submitted"));
+      .catch(() => setOperation("调度状态不可用——未提交任何操作"));
     void fetch("/api/v1/reports/daily/latest")
       .then(async (response) => (response.ok ? response.json() : Promise.reject(new Error("unavailable"))))
       .then((report: unknown) => {
         const preview = dailyReportPreview(report);
         if (preview === null) {
-          setReportAsOf("Daily report is invalid — retain stale-data safeguards");
-          setReportPreview("Daily report preview is unavailable — no action was submitted");
+          setReportAsOf("日报无效——继续保留数据陈旧保护");
+          setReportPreview("日报预览不可用——未提交任何操作");
           return;
         }
-        setReportAsOf(`Synthetic Daily report as-of: ${preview.asOf}`);
+        setReportAsOf(`合成日报截至：${preview.asOf}`);
         setReportPreview(preview.markdown);
       })
       .catch(() => {
-        setReportAsOf("Daily report is unavailable — retain stale-data safeguards");
-        setReportPreview("Daily report preview is unavailable — no action was submitted");
+        setReportAsOf("日报不可用——继续保留数据陈旧保护");
+        setReportPreview("日报预览不可用——未提交任何操作");
       });
   }, []);
 
   return (
     <main>
       <header>
-        <p className="safety-banner">SIMULATION / NO AUTO TRADE</p>
-        <h1>Personal AI Investment OS</h1>
-        <p>Read-only personal operating view. Recommendations are never executed by this interface.</p>
+        <p className="safety-banner">模拟运行 / 禁止自动交易（SIMULATION / NO AUTO TRADE）</p>
+        <h1>个人 AI 投资操作系统</h1>
+        <p>只读个人运营视图；本界面中的建议绝不会被直接执行。</p>
       </header>
-      <section aria-label="Safety and data status" className="status-grid">
-        <Status label="Data as-of" value={reportAsOf} warning />
-        <Status label="Evidence freshness" value="STALE — refresh required" warning />
-        <Status label="Risk Veto" value="ACTIVE — increased exposure blocked" warning />
-        <Status label="Human approvals" value="1 pending; no order submitted" />
-        <Status label="Operational exception" value={operation} warning />
+      <section aria-label="安全与数据状态" className="status-grid">
+        <Status label="数据截至时间" value={reportAsOf} warning />
+        <Status label="证据新鲜度" value="已过期——需要刷新" warning />
+        <Status label="风险否决" value="已生效——禁止增加风险暴露" warning />
+        <Status label="人工审批" value="1 项待审批；未提交订单" />
+        <Status label="运行异常" value={operation} warning />
       </section>
-      <nav aria-label="Primary">
+      <nav aria-label="主导航">
         {pages.map((candidate) => (
           <button
             aria-current={candidate === page ? "page" : undefined}
@@ -121,11 +121,11 @@ export function App() {
       <article>
         <h2>{current.heading}</h2>
         <p>{current.detail}</p>
-        <section aria-label="Daily report snapshot">
-          <h3>Daily report snapshot</h3>
+        <section aria-label="日报快照">
+          <h3>日报快照</h3>
           <pre>{reportPreview}</pre>
         </section>
-        <p className="placeholder">No production portfolio, brokerage credential, or live order is used.</p>
+        <p className="placeholder">未使用真实组合、券商凭据或实盘订单。</p>
       </article>
     </main>
   );

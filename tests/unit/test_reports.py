@@ -49,13 +49,13 @@ def test_report_renders_provenance_labels_and_simulation_warning() -> None:
     rendered = report.render_markdown()
 
     assert "SIMULATION / NO AUTO TRADE" in rendered
-    assert "recommendations are not execution instructions" in rendered
+    assert "建议不是执行指令" in rendered
     for kind in (
-        "FACT",
-        "CALCULATION",
-        "AGENT_JUDGMENT",
-        "ASSUMPTION",
-        "HUMAN_DECISION",
+        "事实",
+        "确定性计算",
+        "Agent 判断",
+        "假设",
+        "人工决定",
     ):
         assert f"**{kind}**" in rendered
 
@@ -114,11 +114,11 @@ def test_daily_operating_report_keeps_all_required_sections_and_labels() -> None
     ).render_markdown()
 
     assert "SIMULATION / NO AUTO TRADE" in rendered
-    assert "## Action Required" in rendered
-    assert "## Continue Holding" in rendered
-    assert "## Data And Operational Exceptions" in rendered
-    assert "**OPERATIONAL_EXCEPTION**" in rendered
-    assert rendered.count("None recorded.") == 4
+    assert "## 需要处理" in rendered
+    assert "## 继续持有" in rendered
+    assert "## 数据与运行异常" in rendered
+    assert "**运行异常**" in rendered
+    assert rendered.count("暂无记录。") == 4
 
 
 def test_daily_operating_report_rejects_missing_or_duplicate_sections() -> None:

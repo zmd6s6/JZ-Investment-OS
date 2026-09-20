@@ -25,20 +25,20 @@ describe("App", () => {
     );
     render(<App />);
 
-    expect(screen.getByText("SIMULATION / NO AUTO TRADE")).toBeVisible();
-    expect(screen.getByText("ACTIVE — increased exposure blocked")).toBeVisible();
-    expect(screen.getByText("1 pending; no order submitted")).toBeVisible();
+    expect(screen.getByText(/模拟运行 \/ 禁止自动交易/)).toBeVisible();
+    expect(screen.getByText("已生效——禁止增加风险暴露")).toBeVisible();
+    expect(screen.getByText("1 项待审批；未提交订单")).toBeVisible();
     await waitFor(() =>
-      expect(screen.getByText("Latest task run failed — review the sanitized TaskRun record")).toBeVisible(),
+      expect(screen.getByText("最近一次任务运行失败——请查看已脱敏的 TaskRun 记录")).toBeVisible(),
     );
-    expect(screen.getByText("Daily report is invalid — retain stale-data safeguards")).toBeVisible();
-    expect(screen.getByText("Daily report preview is unavailable — no action was submitted")).toBeVisible();
+    expect(screen.getByText("日报无效——继续保留数据陈旧保护")).toBeVisible();
+    expect(screen.getByText("日报预览不可用——未提交任何操作")).toBeVisible();
 
-    for (const page of ["Opportunities", "Watchlist", "Decision Journal"]) {
+    for (const page of ["机会池", "观察清单", "决策日志"]) {
       fireEvent.click(screen.getByRole("button", { name: page }));
       expect(screen.getByRole("heading", { name: page })).toBeVisible();
       expect(screen.getByRole("button", { name: page })).toHaveAttribute("aria-current", "page");
-      expect(screen.getByText("SIMULATION / NO AUTO TRADE")).toBeVisible();
+      expect(screen.getByText(/模拟运行 \/ 禁止自动交易/)).toBeVisible();
     }
   });
 
@@ -47,7 +47,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByText("Scheduler status is unavailable — no action was submitted")).toBeVisible(),
+      expect(screen.getByText("调度状态不可用——未提交任何操作")).toBeVisible(),
     );
   });
 
@@ -72,9 +72,9 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByText("Daily report is invalid — retain stale-data safeguards")).toBeVisible(),
+      expect(screen.getByText("日报无效——继续保留数据陈旧保护")).toBeVisible(),
     );
-    expect(screen.getByText("ACTIVE — increased exposure blocked")).toBeVisible();
+    expect(screen.getByText("已生效——禁止增加风险暴露")).toBeVisible();
   });
 
   it("shows a bounded, plain-text Daily report snapshot from the read-only API", async () => {
@@ -98,9 +98,9 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByText("Synthetic Daily report as-of: 2026-09-20T20:00:00Z")).toBeVisible(),
+      expect(screen.getByText("合成日报截至：2026-09-20T20:00:00Z")).toBeVisible(),
     );
     expect(screen.getByText(/ASSUMPTION.*synthetic/)).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Daily report snapshot" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "日报快照" })).toBeVisible();
   });
 });

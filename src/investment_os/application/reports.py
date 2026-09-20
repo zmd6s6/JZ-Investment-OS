@@ -30,6 +30,28 @@ class DailyReportSectionKind(StrEnum):
     DATA_AND_OPERATIONAL_EXCEPTIONS = "DATA_AND_OPERATIONAL_EXCEPTIONS"
 
 
+REPORT_KIND_TITLES = {
+    ReportKind.DAILY: "日报",
+    ReportKind.WEEKLY: "周报",
+    ReportKind.MONTHLY: "月报",
+}
+STATEMENT_KIND_TITLES = {
+    ReportStatementKind.FACT: "事实",
+    ReportStatementKind.CALCULATION: "确定性计算",
+    ReportStatementKind.AGENT_JUDGMENT: "Agent 判断",
+    ReportStatementKind.ASSUMPTION: "假设",
+    ReportStatementKind.HUMAN_DECISION: "人工决定",
+    ReportStatementKind.OPERATIONAL_EXCEPTION: "运行异常",
+}
+DAILY_SECTION_TITLES = {
+    DailyReportSectionKind.ACTION_REQUIRED: "需要处理",
+    DailyReportSectionKind.CONTINUE_HOLDING: "继续持有",
+    DailyReportSectionKind.WATCH: "观察",
+    DailyReportSectionKind.NEW_DISCOVERIES: "新增发现",
+    DailyReportSectionKind.DATA_AND_OPERATIONAL_EXCEPTIONS: "数据与运行异常",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class ReportStatement:
     """One labelled statement with the minimum provenance appropriate to its category."""
@@ -73,14 +95,15 @@ class HumanReport:
         """Render presentation only; it does not create or submit any execution instruction."""
 
         lines = [
-            f"# {self.kind.value.title()} Report",
+            f"# {REPORT_KIND_TITLES[self.kind]}",
             "",
-            "> **SIMULATION / NO AUTO TRADE** — recommendations are not execution instructions.",
-            f"> Data as-of: `{self.as_of.astimezone(UTC).isoformat()}`",
+            "> **模拟运行 / 禁止自动交易 (SIMULATION / NO AUTO TRADE)** — 建议不是执行指令。",
+            f"> 数据截至: `{self.as_of.astimezone(UTC).isoformat()}`",
             "",
         ]
         lines.extend(
-            f"- **{statement.kind.value}**: {statement.content}" for statement in self.statements
+            f"- **{STATEMENT_KIND_TITLES[statement.kind]}**: {statement.content}"
+            for statement in self.statements
         )
         return "\n".join(lines)
 
@@ -113,19 +136,19 @@ class DailyOperatingReport:
 
     def render_markdown(self) -> str:
         lines = [
-            "# Daily Report",
+            "# 日报",
             "",
-            "> **SIMULATION / NO AUTO TRADE** — recommendations are not execution instructions.",
-            f"> Data as-of: `{self.as_of.astimezone(UTC).isoformat()}`",
+            "> **模拟运行 / 禁止自动交易 (SIMULATION / NO AUTO TRADE)** — 建议不是执行指令。",
+            f"> 数据截至: `{self.as_of.astimezone(UTC).isoformat()}`",
         ]
         for section in self.sections:
-            lines.extend(("", f"## {section.kind.value.replace('_', ' ').title()}"))
+            lines.extend(("", f"## {DAILY_SECTION_TITLES[section.kind]}"))
             lines.extend(
-                f"- **{statement.kind.value}**: {statement.content}"
+                f"- **{STATEMENT_KIND_TITLES[statement.kind]}**: {statement.content}"
                 for statement in section.statements
             )
             if not section.statements:
-                lines.append("- None recorded.")
+                lines.append("- 暂无记录。")
         return "\n".join(lines)
 
     def content_hash(self) -> str:
