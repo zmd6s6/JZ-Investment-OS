@@ -7,7 +7,7 @@
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
 - Active roadmap stage: `PR-08 — Scheduler, Reports & Personal UI`
-- Stage state: `IN_PROGRESS`
+- Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
 - Last status update: `2026-09-20`
@@ -49,18 +49,16 @@
 
 ## Not yet implemented or verified
 
-- React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
-- scheduler cadence, UI, or Learning workflow functionality;
 - business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
-- scheduler cadence, reports, and UI workflow functionality;
 - acceptance-scenario coverage beyond the implemented PR-07 S10 and the focused PR-01/PR-05
-  domain-gate slices.
+  domain-gate slices, except for PR-08 S12 scheduler replay and idempotency coverage;
+- Learning workflow functionality, outcome review, release hardening, and recovery drills (PR-09).
 
 Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-PR-08 is `IN_PROGRESS` on `codex/pr-08-scheduler-reports-ui`, created from the GitHub- and
+PR-08 is `READY_FOR_REVIEW` on `codex/pr-08-scheduler-reports-ui`, created from the GitHub- and
 `origin/main`-confirmed PR #7 merge commit `2838301f4b4b648f010fa4f0d06cfe03a2e0f64e`.
 It may implement only synthetic scheduler/replay, reporting, and personal read-only UI contracts.
 Live brokerage execution, credentials, real Portfolio data, and real investment-policy choices
@@ -90,7 +88,7 @@ remain forbidden.
 | PR-05 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #5 merge commit `b141be8ada55f44b2840e692c6b838c3df0913ca` |
 | PR-06 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #6 merge commit `3009b2b52289b6a6552dac5e3676e41f7ce8bb53` |
 | PR-07 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #7 merge commit `2838301f4b4b648f010fa4f0d06cfe03a2e0f64e` |
-| PR-08 | IN_PROGRESS | Pending | Scheduler, reports, UI |
+| PR-08 | READY_FOR_REVIEW | Pending | Scheduler, reports, UI; full local verification recorded |
 | PR-09 | PLANNED | Pending | Outcome, learning, hardening, release |
 
 ## Status update rules

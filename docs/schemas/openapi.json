@@ -1,6 +1,43 @@
 {
   "components": {
     "schemas": {
+      "DailyReportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "rendered_markdown": {
+            "title": "Rendered Markdown",
+            "type": "string"
+          },
+          "simulation_only": {
+            "const": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "as_of",
+          "content_hash",
+          "rendered_markdown",
+          "simulation_only"
+        ],
+        "title": "DailyReportResponse",
+        "type": "object"
+      },
       "DecisionApprovalResponse": {
         "additionalProperties": false,
         "properties": {
@@ -710,6 +747,81 @@
         "title": "ResearchIngestResponse",
         "type": "object"
       },
+      "TaskRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "title": "Scheduled For",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_name": {
+            "title": "Task Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "task_name",
+          "scheduled_for",
+          "status",
+          "attempt",
+          "idempotency_key",
+          "started_at",
+          "finished_at",
+          "error"
+        ],
+        "title": "TaskRunResponse",
+        "type": "object"
+      },
       "ThesisHistoryResponse": {
         "additionalProperties": false,
         "properties": {
@@ -993,6 +1105,70 @@
         ]
       }
     },
+    "/api/v1/reports/daily": {
+      "get": {
+        "operationId": "daily_report_as_of_api_v1_reports_daily_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "As Of",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Daily Report As Of",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/daily/latest": {
+      "get": {
+        "operationId": "latest_daily_report_api_v1_reports_daily_latest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Latest Daily Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/research/ingest": {
       "post": {
         "operationId": "ingest_api_v1_research_ingest_post",
@@ -1031,6 +1207,55 @@
         "summary": "Ingest",
         "tags": [
           "research"
+        ]
+      }
+    },
+    "/api/v1/task-runs": {
+      "get": {
+        "operationId": "list_task_runs_api_v1_task_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskRunResponse"
+                  },
+                  "title": "Response List Task Runs Api V1 Task Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Task Runs",
+        "tags": [
+          "jobs"
         ]
       }
     },
