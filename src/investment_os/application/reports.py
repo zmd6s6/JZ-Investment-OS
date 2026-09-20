@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from hashlib import sha256
 from uuid import UUID, uuid4
 
 
@@ -96,6 +97,7 @@ class DailyOperatingReport:
 
     as_of: datetime
     sections: tuple[DailyReportSection, ...]
+    id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self) -> None:
         if self.as_of.tzinfo is None:
@@ -123,3 +125,8 @@ class DailyOperatingReport:
             if not section.statements:
                 lines.append("- None recorded.")
         return "\n".join(lines)
+
+    def content_hash(self) -> str:
+        """Return the immutable content address of this presentation artifact."""
+
+        return sha256(self.render_markdown().encode("utf-8")).hexdigest()
