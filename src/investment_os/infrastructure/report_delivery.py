@@ -16,6 +16,7 @@ from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 
 DAILY_REPORT_CREATED = "daily_report.created"
 DAILY_REPORT_TOPIC = "reports.daily.created"
+MAX_RENDERED_DAILY_REPORT_CHARACTERS = 12_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +54,8 @@ class SqlAlchemyDailyReportReader:
             not isinstance(as_of, str)
             or not isinstance(content_hash, str)
             or not isinstance(rendered_markdown, str)
+            or not rendered_markdown.strip()
+            or len(rendered_markdown) > MAX_RENDERED_DAILY_REPORT_CHARACTERS
             or payload.get("simulation_only") is not True
             or fullmatch(r"[0-9a-f]{64}", content_hash) is None
             or sha256(rendered_markdown.encode("utf-8")).hexdigest() != content_hash

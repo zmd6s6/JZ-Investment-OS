@@ -31,7 +31,8 @@ describe("App", () => {
     await waitFor(() =>
       expect(screen.getByText("Latest task run failed — review the sanitized TaskRun record")).toBeVisible(),
     );
-    expect(screen.getByText("Synthetic Daily report as-of: 2026-09-20T20:00:00Z")).toBeVisible();
+    expect(screen.getByText("Daily report is invalid — retain stale-data safeguards")).toBeVisible();
+    expect(screen.getByText("Daily report preview is unavailable — no action was submitted")).toBeVisible();
 
     for (const page of ["Opportunities", "Watchlist", "Decision Journal"]) {
       fireEvent.click(screen.getByRole("button", { name: page }));
@@ -58,7 +59,13 @@ describe("App", () => {
           return Promise.resolve(new Response(JSON.stringify([{ status: "SUCCEEDED" }])));
         }
         return Promise.resolve(
-          new Response(JSON.stringify({ as_of: "not-a-time", simulation_only: false })),
+          new Response(
+            JSON.stringify({
+              as_of: "not-a-time",
+              rendered_markdown: "# Daily\nSIMULATION / NO AUTO TRADE",
+              simulation_only: false,
+            }),
+          ),
         );
       }),
     );
@@ -68,5 +75,32 @@ describe("App", () => {
       expect(screen.getByText("Daily report is invalid — retain stale-data safeguards")).toBeVisible(),
     );
     expect(screen.getByText("ACTIVE — increased exposure blocked")).toBeVisible();
+  });
+
+  it("shows a bounded, plain-text Daily report snapshot from the read-only API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/v1/task-runs?limit=1") {
+          return Promise.resolve(new Response(JSON.stringify([{ status: "SUCCEEDED" }])));
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              as_of: "2026-09-20T20:00:00Z",
+              rendered_markdown: "# Daily Report\nSIMULATION / NO AUTO TRADE\n- **ASSUMPTION**: synthetic",
+              simulation_only: true,
+            }),
+          ),
+        );
+      }),
+    );
+    render(<App />);
+
+    await waitFor(() =>
+      expect(screen.getByText("Synthetic Daily report as-of: 2026-09-20T20:00:00Z")).toBeVisible(),
+    );
+    expect(screen.getByText(/ASSUMPTION.*synthetic/)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Daily report snapshot" })).toBeVisible();
   });
 });

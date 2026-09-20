@@ -24,7 +24,9 @@ const pageCopy: Record<Page, { heading: string; detail: string }> = {
 };
 
 type TaskRun = { status?: unknown };
-type DailyReport = { as_of?: unknown; simulation_only?: unknown };
+type DailyReport = { as_of?: unknown; rendered_markdown?: unknown; simulation_only?: unknown };
+type DailyReportPreview = { asOf: string; markdown: string };
+const maxDailyReportCharacters = 12_000;
 
 function operationalStatus(runs: unknown): string {
   if (!Array.isArray(runs) || runs.length === 0) {
@@ -40,21 +42,30 @@ function operationalStatus(runs: unknown): string {
   return "Latest task run is incomplete or has an unknown status";
 }
 
-function reportAsOfStatus(report: unknown): string {
+function dailyReportPreview(report: unknown): DailyReportPreview | null {
   if (typeof report !== "object" || report === null) {
-    return "Daily report is unavailable — retain stale-data safeguards";
+    return null;
   }
-  const { as_of: asOf, simulation_only: simulationOnly } = report as DailyReport;
-  if (simulationOnly !== true || typeof asOf !== "string" || Number.isNaN(Date.parse(asOf))) {
-    return "Daily report is invalid — retain stale-data safeguards";
+  const { as_of: asOf, rendered_markdown: markdown, simulation_only: simulationOnly } = report as DailyReport;
+  if (
+    simulationOnly !== true ||
+    typeof asOf !== "string" ||
+    Number.isNaN(Date.parse(asOf)) ||
+    typeof markdown !== "string" ||
+    !markdown.trim() ||
+    markdown.length > maxDailyReportCharacters ||
+    !markdown.includes("SIMULATION / NO AUTO TRADE")
+  ) {
+    return null;
   }
-  return `Synthetic Daily report as-of: ${asOf}`;
+  return { asOf, markdown };
 }
 
 export function App() {
   const [page, setPage] = useState<Page>("Portfolio");
   const [operation, setOperation] = useState("Loading scheduler status");
   const [reportAsOf, setReportAsOf] = useState("Loading Daily report as-of");
+  const [reportPreview, setReportPreview] = useState("Loading Daily report snapshot");
   const current = pageCopy[page];
 
   useEffect(() => {
@@ -64,8 +75,20 @@ export function App() {
       .catch(() => setOperation("Scheduler status is unavailable — no action was submitted"));
     void fetch("/api/v1/reports/daily/latest")
       .then(async (response) => (response.ok ? response.json() : Promise.reject(new Error("unavailable"))))
-      .then((report: unknown) => setReportAsOf(reportAsOfStatus(report)))
-      .catch(() => setReportAsOf("Daily report is unavailable — retain stale-data safeguards"));
+      .then((report: unknown) => {
+        const preview = dailyReportPreview(report);
+        if (preview === null) {
+          setReportAsOf("Daily report is invalid — retain stale-data safeguards");
+          setReportPreview("Daily report preview is unavailable — no action was submitted");
+          return;
+        }
+        setReportAsOf(`Synthetic Daily report as-of: ${preview.asOf}`);
+        setReportPreview(preview.markdown);
+      })
+      .catch(() => {
+        setReportAsOf("Daily report is unavailable — retain stale-data safeguards");
+        setReportPreview("Daily report preview is unavailable — no action was submitted");
+      });
   }, []);
 
   return (
@@ -98,6 +121,10 @@ export function App() {
       <article>
         <h2>{current.heading}</h2>
         <p>{current.detail}</p>
+        <section aria-label="Daily report snapshot">
+          <h3>Daily report snapshot</h3>
+          <pre>{reportPreview}</pre>
+        </section>
         <p className="placeholder">No production portfolio, brokerage credential, or live order is used.</p>
       </article>
     </main>
