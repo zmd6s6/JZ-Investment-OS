@@ -7,7 +7,7 @@
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
 - Active roadmap stage: `PR-06 — Portfolio, Risk & Deterministic Position Sizing`
-- Stage state: `IN_PROGRESS`
+- Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
 - Last status update: `2026-09-20`
@@ -55,10 +55,10 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-PR-06 is `IN_PROGRESS` on `codex/pr-06-portfolio-risk-sizing`, based on the merged PR-05 commit
-`b141be8ada55f44b2840e692c6b838c3df0913ca`. It will deliver deterministic Portfolio, Risk, and
-PositionSizing behavior with synthetic inputs only; it must not create a Decision, approval,
-execution, provider credential, or live-trading path.
+PR-06 is `READY_FOR_REVIEW` on `codex/pr-06-portfolio-risk-sizing`, based on the merged PR-05
+commit `b141be8ada55f44b2840e692c6b838c3df0913ca`. Full local verification is recorded in
+`docs/stages/PR-06.md`; publication may now push this branch for remote CI and PR review. It must
+not create a Decision, approval, execution, provider credential, or live-trading path.
 
 ## Recorded scope decisions
 
@@ -79,7 +79,7 @@ execution, provider credential, or live-trading path.
 | PR-03 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #3 merge commit `5dc99027a460a7f29d9b4021a982af726f2363f2` |
 | PR-04 | ACCEPTED | Merged to `main` on 2026-09-19 | PR #4 merge commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f` |
 | PR-05 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #5 merge commit `b141be8ada55f44b2840e692c6b838c3df0913ca` |
-| PR-06 | IN_PROGRESS | Pending | Portfolio, risk, sizing |
+| PR-06 | READY_FOR_REVIEW | Pending | Portfolio, risk, sizing; full local verification recorded |
 | PR-07 | PLANNED | Pending | Decision, approval, journal |
 | PR-08 | PLANNED | Pending | Scheduler, reports, UI |
 | PR-09 | PLANNED | Pending | Outcome, learning, hardening, release |
