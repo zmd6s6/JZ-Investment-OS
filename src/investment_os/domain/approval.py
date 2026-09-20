@@ -89,10 +89,15 @@ class DecisionApprovalHistory:
     def active_approval_at(self, as_of: UtcTimestamp) -> DecisionApproval | None:
         """Return the latest valid approval, unless a later human action superseded it."""
 
+        latest = self.latest_record_at(as_of)
+        return latest if latest is not None and latest.is_valid_at(as_of) else None
+
+    def latest_record_at(self, as_of: UtcTimestamp) -> DecisionApproval | None:
+        """Return the last immutable action visible at the requested business time."""
+
         prior_records = tuple(
             record for record in self.records if record.occurred_at.value <= as_of.value
         )
         if not prior_records:
             return None
-        latest = prior_records[-1]
-        return latest if latest.is_valid_at(as_of) else None
+        return prior_records[-1]

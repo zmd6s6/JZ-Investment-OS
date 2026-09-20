@@ -227,6 +227,8 @@ class DecisionTransitionContext:
     approval_recorded: bool = False
     approval_unexpired: bool = False
     approval_revoked: bool = False
+    approval_rejected: bool = False
+    approval_expired: bool = False
     input_snapshot_matches: bool = False
     price_within_tolerance: bool = False
     execution_recorded: bool = False
@@ -276,6 +278,18 @@ def transition_decision(
         _guard(
             valid_human,
             "a valid, unexpired human approval is required",
+            code=DomainErrorCode.APPROVAL_INVALID,
+        )
+    elif (current, target) == (DecisionState.PENDING_APPROVAL, DecisionState.REJECTED):
+        _guard(
+            context.approval_rejected,
+            "Decision rejection requires an immutable human rejection record",
+            code=DomainErrorCode.APPROVAL_INVALID,
+        )
+    elif (current, target) == (DecisionState.PENDING_APPROVAL, DecisionState.EXPIRED):
+        _guard(
+            context.approval_expired,
+            "Decision expiry requires an expired approval record",
             code=DomainErrorCode.APPROVAL_INVALID,
         )
     elif current is DecisionState.APPROVED and target is DecisionState.EXECUTION_PENDING:
