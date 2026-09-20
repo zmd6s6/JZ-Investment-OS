@@ -29,6 +29,8 @@
 - Core/Tactical, Risk Veto, human approval, and Learning authority invariants fail closed.
 - Decision Risk Gate is explicit (`UNKNOWN|PASS|VETO`); missing assessment cannot be interpreted as PASS.
 - ADR-0011 records the pure-domain and strict Policy-boundary implementation decision.
+- ADR-0012 records explicit synthetic calendar semantics for U.S., Shanghai, and Shenzhen venues;
+  A-share real data/provider and trading authorization remain unapproved.
 - Alembic revision `20260917_0001` creates all Master-Spec core tables plus normalized Evidence
   reference tables with UUID, numeric, timestamptz, constraint, and index contracts.
 - Policy, Position, Thesis, and Decision persistence uses optimistic version checks.
@@ -70,6 +72,9 @@ remain forbidden.
   assertions to PR-07, where the CIO/Decision path is in scope. PR-05 retains synthetic research
   and committee fixtures for the scenarios' antecedent inputs, and must not create a CIO Decision.
 - The shipped Policy is `TEST_DEFAULT`; choosing real limits remains a future human decision.
+- **A-share scope (approved 2026-09-20):** include SSE/SZSE calendar semantics and synthetic
+  research/simulation fixtures. This does not approve a data provider, real A-share portfolio data,
+  A-share policy limits, brokerage execution, or live trading.
   Stage-branch commits and pushes are authorized by the owner; merging to `main` remains a separate
   human action.
 

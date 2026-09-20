@@ -4,8 +4,10 @@ import pytest
 
 from investment_os.application.schedule import (
     NEW_YORK,
+    SHANGHAI,
     ExplicitTradingCalendar,
     JobCadence,
+    MarketVenue,
     TradingSession,
     daily_job_for_session,
     jobs_for_session,
@@ -17,7 +19,9 @@ def test_calendar_requires_explicit_session_and_daily_job_has_utc_idempotency_ke
     calendar = ExplicitTradingCalendar((session,))
     as_of = datetime(2026, 11, 27, 12, 30, tzinfo=NEW_YORK)
 
-    job = daily_job_for_session(name="daily-report", session=session, as_of=as_of)
+    job = daily_job_for_session(
+        calendar=calendar, name="daily-report", session=session, as_of=as_of
+    )
 
     assert calendar.session_for(date(2026, 11, 27)) == session
     assert calendar.session_for(date(2026, 11, 26)) is None
@@ -37,13 +41,17 @@ def test_daily_job_rejects_cross_session_as_of_and_naive_time() -> None:
 
     with pytest.raises(ValueError, match="business date"):
         daily_job_for_session(
+            calendar=ExplicitTradingCalendar((session,)),
             name="daily-report",
             session=session,
             as_of=datetime(2026, 11, 28, 12, 30, tzinfo=NEW_YORK),
         )
     with pytest.raises(ValueError, match="timezone-aware"):
         daily_job_for_session(
-            name="daily-report", session=session, as_of=datetime(2026, 11, 27, 12, 30)
+            calendar=ExplicitTradingCalendar((session,)),
+            name="daily-report",
+            session=session,
+            as_of=datetime(2026, 11, 27, 12, 30),
         )
 
 
@@ -76,3 +84,17 @@ def test_planner_rejects_session_absent_from_calendar() -> None:
             calendar=calendar,
             session=TradingSession(date(2026, 10, 1), time(16, 0)),
         )
+
+
+def test_a_share_calendars_use_explicit_shanghai_business_time() -> None:
+    session = TradingSession(date(2026, 10, 9), time(15, 0))
+    calendar = ExplicitTradingCalendar((session,), venue=MarketVenue.SSE)
+    as_of = datetime(2026, 10, 9, 14, 30, tzinfo=SHANGHAI)
+
+    job = daily_job_for_session(
+        calendar=calendar, name="daily-a-share", session=session, as_of=as_of
+    )
+
+    assert calendar.timezone == SHANGHAI
+    assert job.scheduled_for == datetime(2026, 10, 9, 7, 0, tzinfo=UTC)
+    assert job.idempotency_key == "daily-a-share:2026-10-09T06:30:00+00:00"

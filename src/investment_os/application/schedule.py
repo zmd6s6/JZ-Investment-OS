@@ -6,6 +6,21 @@ from enum import StrEnum
 from zoneinfo import ZoneInfo
 
 NEW_YORK = ZoneInfo("America/New_York")
+SHANGHAI = ZoneInfo("Asia/Shanghai")
+
+
+class MarketVenue(StrEnum):
+    """Supported synthetic calendar venues; exchange dates are always caller-supplied."""
+
+    US_EQUITIES = "US_EQUITIES"
+    SSE = "SSE"
+    SZSE = "SZSE"
+
+    @property
+    def timezone(self) -> ZoneInfo:
+        if self is MarketVenue.US_EQUITIES:
+            return NEW_YORK
+        return SHANGHAI
 
 
 class JobCadence(StrEnum):
@@ -40,8 +55,10 @@ class TradingSession:
     business_date: date
     close_at: time
 
-    def scheduled_for(self) -> datetime:
-        return datetime.combine(self.business_date, self.close_at, tzinfo=NEW_YORK).astimezone(UTC)
+    def scheduled_for(self, *, market_timezone: ZoneInfo) -> datetime:
+        return datetime.combine(
+            self.business_date, self.close_at, tzinfo=market_timezone
+        ).astimezone(UTC)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +66,7 @@ class ExplicitTradingCalendar:
     """Calendar data with no implicit weekday or server-time assumptions."""
 
     sessions: tuple[TradingSession, ...]
+    venue: MarketVenue = MarketVenue.US_EQUITIES
 
     def __post_init__(self) -> None:
         dates = [session.business_date for session in self.sessions]
@@ -61,6 +79,10 @@ class ExplicitTradingCalendar:
         return next(
             (session for session in self.sessions if session.business_date == business_date), None
         )
+
+    @property
+    def timezone(self) -> ZoneInfo:
+        return self.venue.timezone
 
     def contains(self, session: TradingSession) -> bool:
         return self.session_for(session.business_date) == session
@@ -112,23 +134,34 @@ class ScheduledJob:
         return f"{self.name}:{self.as_of.astimezone(UTC).isoformat()}"
 
 
-def daily_job_for_session(*, name: str, session: TradingSession, as_of: datetime) -> ScheduledJob:
+def daily_job_for_session(
+    *, calendar: ExplicitTradingCalendar, name: str, session: TradingSession, as_of: datetime
+) -> ScheduledJob:
     """Create a Daily invocation only from a known session and business as-of instant."""
 
     return _job_for_session(
-        definition=JobDefinition(name=name, cadence=JobCadence.DAILY), session=session, as_of=as_of
+        definition=JobDefinition(name=name, cadence=JobCadence.DAILY),
+        calendar=calendar,
+        session=session,
+        as_of=as_of,
     )
 
 
 def _job_for_session(
-    *, definition: JobDefinition, session: TradingSession, as_of: datetime
+    *,
+    definition: JobDefinition,
+    calendar: ExplicitTradingCalendar,
+    session: TradingSession,
+    as_of: datetime,
 ) -> ScheduledJob:
     """Bind a named cadence to a market session after validating business-time boundaries."""
 
     if as_of.tzinfo is None:
         raise ValueError("as_of must be timezone-aware")
-    scheduled_for = session.scheduled_for()
-    if as_of.astimezone(NEW_YORK).date() != session.business_date:
+    if not calendar.contains(session):
+        raise ValueError("session must be present in the explicit trading calendar")
+    scheduled_for = session.scheduled_for(market_timezone=calendar.timezone)
+    if as_of.astimezone(calendar.timezone).date() != session.business_date:
         raise ValueError("as_of must belong to the supplied market business date")
     return ScheduledJob(
         name=definition.name,
@@ -145,7 +178,7 @@ def jobs_for_session(
 
     if not calendar.contains(session):
         raise ValueError("session must be present in the explicit trading calendar")
-    as_of = session.scheduled_for()
+    as_of = session.scheduled_for(market_timezone=calendar.timezone)
     definitions = [DAILY_JOB]
     if calendar.is_final_session_of_week(session):
         definitions.append(WEEKLY_JOB)
@@ -154,6 +187,6 @@ def jobs_for_session(
     if calendar.is_final_session_of_quarter(session):
         definitions.append(QUARTERLY_JOB)
     return tuple(
-        _job_for_session(definition=definition, session=session, as_of=as_of)
+        _job_for_session(definition=definition, calendar=calendar, session=session, as_of=as_of)
         for definition in definitions
     )
