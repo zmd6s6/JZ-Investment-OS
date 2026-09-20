@@ -41,6 +41,14 @@ class TaskRunResponse(StrictResponse):
     error: dict[str, str] | None
 
 
+class DailyReportResponse(StrictResponse):
+    id: UUID
+    as_of: datetime
+    content_hash: str
+    rendered_markdown: str
+    simulation_only: Literal[True]
+
+
 class ResearchIngestRequest(StrictResponse):
     provider: str
     provider_ref: str

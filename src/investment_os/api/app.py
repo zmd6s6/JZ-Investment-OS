@@ -23,11 +23,13 @@ from investment_os.infrastructure.decision_journal import (
     SqlAlchemyDecisionJournalReader,
 )
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
+from investment_os.infrastructure.report_delivery import SqlAlchemyDailyReportReader
 from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
 from .schemas import (
+    DailyReportResponse,
     DecisionJournalResponse,
     LivenessResponse,
     ReadinessResponse,
@@ -130,6 +132,7 @@ def create_app(
     thesis_reader: SqlAlchemyThesisReader | None = None,
     decision_journal_reader: SqlAlchemyDecisionJournalReader | None = None,
     task_run_reader: SqlAlchemyTaskRunReader | None = None,
+    daily_report_reader: SqlAlchemyDailyReportReader | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -139,10 +142,12 @@ def create_app(
     selected_thesis_reader = thesis_reader
     selected_decision_journal_reader = decision_journal_reader
     selected_task_run_reader = task_run_reader
+    selected_daily_report_reader = daily_report_reader
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
         or selected_task_run_reader is None
+        or selected_daily_report_reader is None
     ):
         reader_engine = create_database_engine(settings.database_url)
         session_factory = create_session_factory(reader_engine)
@@ -152,6 +157,8 @@ def create_app(
             selected_decision_journal_reader = SqlAlchemyDecisionJournalReader(session_factory)
         if selected_task_run_reader is None:
             selected_task_run_reader = SqlAlchemyTaskRunReader(session_factory)
+        if selected_daily_report_reader is None:
+            selected_daily_report_reader = SqlAlchemyDailyReportReader(session_factory)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -261,6 +268,18 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return [TaskRunResponse.model_validate(run, from_attributes=True) for run in runs]
+
+    @application.get(
+        "/api/v1/reports/daily/latest", response_model=DailyReportResponse, tags=["reports"]
+    )
+    async def latest_daily_report() -> DailyReportResponse:
+        try:
+            report = await selected_daily_report_reader.latest()
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail="daily_report_unavailable") from exc
+        if report is None:
+            raise HTTPException(status_code=404, detail="daily_report_not_found")
+        return DailyReportResponse.model_validate(report, from_attributes=True)
 
     frontend_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
     if frontend_dist.is_dir():
