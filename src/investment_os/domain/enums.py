@@ -78,6 +78,17 @@ class ApprovalAction(StrEnum):
     REVOKE = "REVOKE"
 
 
+class BucketAction(StrEnum):
+    """Separate Core/Tactical action recorded by a Decision Journal entry."""
+
+    NONE = "NONE"
+    BUY = "BUY"
+    ADD = "ADD"
+    HOLD = "HOLD"
+    REDUCE = "REDUCE"
+    EXIT = "EXIT"
+
+
 class StrategyProposalState(StrEnum):
     DRAFT = "DRAFT"
     BACKTEST_PENDING = "BACKTEST_PENDING"
