@@ -13,8 +13,11 @@ from investment_os.infrastructure.persistence.repositories import (
     FeatureSnapshotRepository,
     OutboxRepository,
     PolicyRepository,
+    PortfolioSnapshotRepository,
     PositionRepository,
+    PositionSizingRunRepository,
     ResearchArtifactRepository,
+    RiskAssessmentRepository,
     TaskRunRepository,
     ThesisRepository,
     ThesisVersionRepository,
@@ -25,6 +28,9 @@ class SqlAlchemyUnitOfWork:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.session = session_factory()
         self.positions = PositionRepository(self.session)
+        self.portfolio_snapshots = PortfolioSnapshotRepository(self.session)
+        self.risk_assessments = RiskAssessmentRepository(self.session)
+        self.position_sizing_runs = PositionSizingRunRepository(self.session)
         self.theses = ThesisRepository(self.session)
         self.thesis_versions = ThesisVersionRepository(self.session)
         self.decisions = DecisionRepository(self.session)

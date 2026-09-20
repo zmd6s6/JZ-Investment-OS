@@ -76,6 +76,23 @@ class PositionRecord(AuditFieldsMixin, Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
+class PortfolioSnapshotRecord(AuditFieldsMixin, Base):
+    """Immutable, content-addressed Portfolio state at one business time."""
+
+    __tablename__ = "portfolio_snapshot"
+    __table_args__ = (UniqueConstraint("portfolio_id", "as_of", "content_hash"),)
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    portfolio_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    cash: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    nav: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    gross_exposure: Mapped[Decimal] = mapped_column(Numeric(20, 12), nullable=False)
+    net_exposure: Mapped[Decimal] = mapped_column(Numeric(20, 12), nullable=False)
+    source: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class InvestmentThesisRecord(AuditFieldsMixin, Base):
     __tablename__ = "investment_thesis"
 
@@ -225,6 +242,48 @@ class CommitteeSessionRecord(AuditFieldsMixin, Base):
     input_snapshot_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RiskAssessmentRecord(AuditFieldsMixin, Base):
+    """Append-only evidence-backed hard/soft risk assessment."""
+
+    __tablename__ = "risk_assessment"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    veto: Mapped[bool] = mapped_column(nullable=False)
+    veto_codes: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    hard_flags_json: Mapped[list[JSON]] = mapped_column(JSONB, nullable=False)
+    soft_flags_json: Mapped[list[JSON]] = mapped_column(JSONB, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class RiskAssessmentEvidenceRecord(Base):
+    __tablename__ = "risk_assessment_evidence"
+
+    risk_assessment_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("risk_assessment.id"), primary_key=True
+    )
+    evidence_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("evidence.id"), primary_key=True
+    )
+
+
+class PositionSizingRunRecord(AuditFieldsMixin, Base):
+    """Append-only canonical PositionSizing request and deterministic output."""
+
+    __tablename__ = "position_sizing_run"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    portfolio_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    decision_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    policy_version_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    input_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    formula_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    output_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
 class CommitteeMessageRecord(AuditFieldsMixin, Base):
