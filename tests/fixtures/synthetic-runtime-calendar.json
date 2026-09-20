@@ -1,0 +1,9 @@
+{
+  "venue": "US_EQUITIES",
+  "sessions": [
+    {
+      "business_date": "2026-12-31",
+      "close_at": "16:00:00"
+    }
+  ]
+}

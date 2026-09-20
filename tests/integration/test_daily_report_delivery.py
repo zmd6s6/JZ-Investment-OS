@@ -1,0 +1,174 @@
+from datetime import UTC, datetime
+from uuid import uuid4
+
+import pytest
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+
+from investment_os.application.reports import (
+    DailyOperatingReport,
+    DailyReportSection,
+    DailyReportSectionKind,
+    ReportStatement,
+    ReportStatementKind,
+)
+from investment_os.infrastructure.persistence.jobs import ReliableJobExecutor
+from investment_os.infrastructure.persistence.models import EventLogRecord, OutboxEventRecord
+from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
+from investment_os.infrastructure.report_delivery import (
+    DAILY_REPORT_CREATED,
+    DAILY_REPORT_TOPIC,
+    SqlAlchemyDailyReportReader,
+    daily_report_handler,
+)
+
+NOW = datetime(2026, 9, 20, 20, 0, tzinfo=UTC)
+HASH = "b" * 64
+
+
+def _factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(engine, expire_on_commit=False)
+
+
+def _report() -> DailyOperatingReport:
+    return DailyOperatingReport(
+        as_of=NOW,
+        sections=tuple(
+            DailyReportSection(
+                kind=kind,
+                statements=(
+                    ReportStatement(
+                        kind=ReportStatementKind.ASSUMPTION,
+                        content="Synthetic report fixture; no action was submitted.",
+                    ),
+                )
+                if kind is DailyReportSectionKind.ACTION_REQUIRED
+                else (),
+            )
+            for kind in DailyReportSectionKind
+        ),
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_daily_report_job_creates_one_immutable_event_and_outbox_record(
+    database_engine: AsyncEngine,
+) -> None:
+    report = _report()
+    correlation_id = uuid4()
+    executor = ReliableJobExecutor(_factory(database_engine), now=lambda: NOW)
+    handler = daily_report_handler(report, correlation_id)
+
+    first = await executor.execute(
+        task_name="daily-report",
+        scheduled_for=NOW,
+        idempotency_key="daily-report:2026-09-20",
+        input_hash=HASH,
+        handler=handler,
+        correlation_id=correlation_id,
+    )
+    repeated = await executor.execute(
+        task_name="daily-report",
+        scheduled_for=NOW,
+        idempotency_key="daily-report:2026-09-20",
+        input_hash=HASH,
+        handler=handler,
+        correlation_id=correlation_id,
+    )
+
+    async with _factory(database_engine)() as session:
+        event = (
+            await session.scalars(
+                select(EventLogRecord).where(EventLogRecord.aggregate_id == report.id)
+            )
+        ).one()
+        outbox = (
+            await session.scalars(
+                select(OutboxEventRecord).where(OutboxEventRecord.event_id == event.id)
+            )
+        ).one()
+        event_count = await session.scalar(select(func.count()).select_from(EventLogRecord))
+        outbox_count = await session.scalar(select(func.count()).select_from(OutboxEventRecord))
+
+    assert first.reused is False
+    assert repeated.reused is True
+    assert repeated.task_run_id == first.task_run_id
+    assert event_count == 1
+    assert outbox_count == 1
+    assert event.event_type == DAILY_REPORT_CREATED
+    assert event.payload_json["content_hash"] == report.content_hash()
+    assert event.payload_json["simulation_only"] is True
+    assert "SIMULATION / NO AUTO TRADE" in event.payload_json["rendered_markdown"]
+    assert outbox.topic == DAILY_REPORT_TOPIC
+    assert outbox.payload_json["report_id"] == str(report.id)
+    assert outbox.payload_json["content_hash"] == report.content_hash()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_daily_report_reader_replays_verified_snapshot_and_rejects_tampering(
+    database_engine: AsyncEngine,
+) -> None:
+    factory = _factory(database_engine)
+    report = _report()
+    correlation_id = uuid4()
+    async with SqlAlchemyUnitOfWork(factory) as uow:
+        await daily_report_handler(report, correlation_id)(uow)
+        await uow.commit()
+
+    replayed = await SqlAlchemyDailyReportReader(factory).latest()
+
+    assert replayed is not None
+    assert replayed.id == report.id
+    assert replayed.as_of == report.as_of
+    assert replayed.content_hash == report.content_hash()
+    assert replayed.rendered_markdown == report.render_markdown()
+
+    async with SqlAlchemyUnitOfWork(factory) as uow:
+        tampered = EventLogRecord(
+            event_type=DAILY_REPORT_CREATED,
+            aggregate_type="daily_report",
+            aggregate_id=uuid4(),
+            payload_json={
+                "as_of": NOW.isoformat(),
+                "content_hash": "a" * 64,
+                "rendered_markdown": "# altered snapshot\nSIMULATION / NO AUTO TRADE",
+                "simulation_only": True,
+            },
+            occurred_at=NOW + datetime.resolution,
+            correlation_id=uuid4(),
+            causation_id=None,
+            schema_version="1.0",
+            metadata_json={"report_kind": "DAILY"},
+            created_by="pytest",
+        )
+        await uow.events.append(tampered)
+        await uow.commit()
+
+    with pytest.raises(ValueError, match="malformed"):
+        await SqlAlchemyDailyReportReader(factory).latest()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_daily_report_reader_replays_only_snapshot_available_at_requested_as_of(
+    database_engine: AsyncEngine,
+) -> None:
+    factory = _factory(database_engine)
+    first = _report()
+    second = DailyOperatingReport(
+        as_of=NOW.replace(hour=21),
+        sections=first.sections,
+    )
+    async with SqlAlchemyUnitOfWork(factory) as uow:
+        await daily_report_handler(first, uuid4())(uow)
+        await daily_report_handler(second, uuid4())(uow)
+        await uow.commit()
+
+    replayed = await SqlAlchemyDailyReportReader(factory).as_of(NOW)
+    missing = await SqlAlchemyDailyReportReader(factory).as_of(NOW.replace(hour=19))
+
+    assert replayed is not None
+    assert replayed.id == first.id
+    assert missing is None

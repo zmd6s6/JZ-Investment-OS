@@ -1,3 +1,12 @@
+FROM node:24-alpine AS web-build
+
+WORKDIR /web
+
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web ./
+RUN npm run build
+
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -14,8 +23,10 @@ RUN pip install --no-cache-dir "uv==0.12.9" \
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
+COPY config ./config
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY --from=web-build /web/dist ./web/dist
 
 RUN uv sync --frozen --no-dev \
     && chown -R investment-os:investment-os /app

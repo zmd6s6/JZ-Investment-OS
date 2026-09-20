@@ -6,11 +6,11 @@
 
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
-- Active roadmap stage: `PR-07 — Decision Engine, Approval Gate & Journal`
+- Active roadmap stage: `PR-08 — Scheduler, Reports & Personal UI`
 - Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
-- Last status update: `2026-09-20`
+- Last status update: `2026-09-21`
 
 ## Established
 
@@ -29,6 +29,8 @@
 - Core/Tactical, Risk Veto, human approval, and Learning authority invariants fail closed.
 - Decision Risk Gate is explicit (`UNKNOWN|PASS|VETO`); missing assessment cannot be interpreted as PASS.
 - ADR-0011 records the pure-domain and strict Policy-boundary implementation decision.
+- ADR-0012 records explicit synthetic calendar semantics for U.S., Shanghai, and Shenzhen venues;
+  A-share real data/provider and trading authorization remain unapproved.
 - Alembic revision `20260917_0001` creates all Master-Spec core tables plus normalized Evidence
   reference tables with UUID, numeric, timestamptz, constraint, and index contracts.
 - Policy, Position, Thesis, and Decision persistence uses optimistic version checks.
@@ -43,27 +45,27 @@
 - PR-04 is accepted and merged to `main` by PR #4 as `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`.
 - PR-05 is accepted and merged to `main` by PR #5 as `b141be8ada55f44b2840e692c6b838c3df0913ca`.
 - PR-06 is accepted and merged to `main` by PR #6 as `3009b2b52289b6a6552dac5e3676e41f7ce8bb53`.
+- PR-07 is accepted and merged to `main` by PR #7 as `2838301827fd386f38dba5f58ab49a88db26d912`.
+- PR-08 review blockers are remediated: the worker runtime can dispatch only an explicitly
+  configured synthetic calendar with bounded replay, durable TaskRuns, transactional outbox, and
+  simulation-only reports; the default Compose environment leaves the calendar unset.
 
 ## Not yet implemented or verified
 
-- React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
-- scheduler cadence, UI, or Learning workflow functionality;
 - business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
-- remote PR-07 CI, review, and human acceptance; PR-07 has established CIO aggregation, immutable
-  Decision persistence/read API, approval TTL records, paper/manual execution receipts, a disabled
-  live adapter, synthetic S10 audit-chain coverage, and recorded full local verification;
 - acceptance-scenario coverage beyond the implemented PR-07 S10 and the focused PR-01/PR-05
-  domain-gate slices.
+  domain-gate slices, except for PR-08 S12 scheduler replay and idempotency coverage;
+- Learning workflow functionality, outcome review, release hardening, and recovery drills (PR-09).
 
 Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-PR-07 is `READY_FOR_REVIEW` on `codex/pr-07-decision-approval-journal`, created from the GitHub- and
-`origin/main`-confirmed PR #6 merge commit `3009b2b52289b6a6552dac5e3676e41f7ce8bb53`.
-It may implement only the Master-Spec Decision, human approval, paper/manual execution-record, and
-Decision Journal contract using synthetic data. Live brokerage execution, credentials, real
-Portfolio data, and real investment-policy choices remain forbidden.
+PR-08 is `READY_FOR_REVIEW` on `codex/pr-08-scheduler-reports-ui`, created from the GitHub- and
+`origin/main`-confirmed PR #7 merge commit `2838301827fd386f38dba5f58ab49a88db26d912`.
+It may implement only synthetic scheduler/replay, reporting, and personal read-only UI contracts.
+Live brokerage execution, credentials, real Portfolio data, and real investment-policy choices
+remain forbidden.
 
 ## Recorded scope decisions
 
@@ -71,6 +73,9 @@ Portfolio data, and real investment-policy choices remain forbidden.
   assertions to PR-07, where the CIO/Decision path is in scope. PR-05 retains synthetic research
   and committee fixtures for the scenarios' antecedent inputs, and must not create a CIO Decision.
 - The shipped Policy is `TEST_DEFAULT`; choosing real limits remains a future human decision.
+- **A-share scope (approved 2026-09-20):** include SSE/SZSE calendar semantics and synthetic
+  research/simulation fixtures. This does not approve a data provider, real A-share portfolio data,
+  A-share policy limits, brokerage execution, or live trading.
   Stage-branch commits and pushes are authorized by the owner; merging to `main` remains a separate
   human action.
 
@@ -85,8 +90,8 @@ Portfolio data, and real investment-policy choices remain forbidden.
 | PR-04 | ACCEPTED | Merged to `main` on 2026-09-19 | PR #4 merge commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f` |
 | PR-05 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #5 merge commit `b141be8ada55f44b2840e692c6b838c3df0913ca` |
 | PR-06 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #6 merge commit `3009b2b52289b6a6552dac5e3676e41f7ce8bb53` |
-| PR-07 | READY_FOR_REVIEW | Pending | Decision, approval, journal; local verification recorded |
-| PR-08 | PLANNED | Pending | Scheduler, reports, UI |
+| PR-07 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #7 merge commit `2838301827fd386f38dba5f58ab49a88db26d912` |
+| PR-08 | READY_FOR_REVIEW | Pending | Scheduler, reports, UI; full local verification recorded |
 | PR-09 | PLANNED | Pending | Outcome, learning, hardening, release |
 
 ## Status update rules
