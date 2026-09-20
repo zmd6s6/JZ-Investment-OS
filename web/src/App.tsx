@@ -24,6 +24,7 @@ const pageCopy: Record<Page, { heading: string; detail: string }> = {
 };
 
 type TaskRun = { status?: unknown };
+type DailyReport = { as_of?: unknown; simulation_only?: unknown };
 
 function operationalStatus(runs: unknown): string {
   if (!Array.isArray(runs) || runs.length === 0) {
@@ -39,9 +40,21 @@ function operationalStatus(runs: unknown): string {
   return "Latest task run is incomplete or has an unknown status";
 }
 
+function reportAsOfStatus(report: unknown): string {
+  if (typeof report !== "object" || report === null) {
+    return "Daily report is unavailable — retain stale-data safeguards";
+  }
+  const { as_of: asOf, simulation_only: simulationOnly } = report as DailyReport;
+  if (simulationOnly !== true || typeof asOf !== "string" || Number.isNaN(Date.parse(asOf))) {
+    return "Daily report is invalid — retain stale-data safeguards";
+  }
+  return `Synthetic Daily report as-of: ${asOf}`;
+}
+
 export function App() {
   const [page, setPage] = useState<Page>("Portfolio");
   const [operation, setOperation] = useState("Loading scheduler status");
+  const [reportAsOf, setReportAsOf] = useState("Loading Daily report as-of");
   const current = pageCopy[page];
 
   useEffect(() => {
@@ -49,6 +62,10 @@ export function App() {
       .then(async (response) => (response.ok ? response.json() : Promise.reject(new Error("unavailable"))))
       .then((runs: unknown) => setOperation(operationalStatus(runs)))
       .catch(() => setOperation("Scheduler status is unavailable — no action was submitted"));
+    void fetch("/api/v1/reports/daily/latest")
+      .then(async (response) => (response.ok ? response.json() : Promise.reject(new Error("unavailable"))))
+      .then((report: unknown) => setReportAsOf(reportAsOfStatus(report)))
+      .catch(() => setReportAsOf("Daily report is unavailable — retain stale-data safeguards"));
   }, []);
 
   return (
@@ -59,7 +76,7 @@ export function App() {
         <p>Read-only personal operating view. Recommendations are never executed by this interface.</p>
       </header>
       <section aria-label="Safety and data status" className="status-grid">
-        <Status label="Data as-of" value="Synthetic fixture — 2026-09-20T20:00:00Z" />
+        <Status label="Data as-of" value={reportAsOf} warning />
         <Status label="Evidence freshness" value="STALE — refresh required" warning />
         <Status label="Risk Veto" value="ACTIVE — increased exposure blocked" warning />
         <Status label="Human approvals" value="1 pending; no order submitted" />
