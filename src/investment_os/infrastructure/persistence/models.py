@@ -76,6 +76,20 @@ class PositionRecord(AuditFieldsMixin, Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
+class PositionLotRecord(AuditFieldsMixin, Base):
+    """Immutable Core or Tactical cost lot; totals are never stored as a net-only lot."""
+
+    __tablename__ = "position_lot"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    position_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    bucket: Mapped[str] = mapped_column(String(16), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class PortfolioSnapshotRecord(AuditFieldsMixin, Base):
     """Immutable, content-addressed Portfolio state at one business time."""
 

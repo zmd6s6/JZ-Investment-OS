@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from investment_os.infrastructure.persistence.models import (
     PortfolioSnapshotRecord,
+    PositionLotRecord,
     PositionSizingRunRecord,
     RiskAssessmentRecord,
 )
@@ -30,6 +31,7 @@ async def _seed_dependencies(engine: AsyncEngine) -> dict[str, UUID]:
         "policy": uuid4(),
         "policy_version": uuid4(),
         "portfolio": uuid4(),
+        "position": uuid4(),
         "committee_session": uuid4(),
         "evidence": uuid4(),
     }
@@ -98,6 +100,21 @@ async def _seed_dependencies(engine: AsyncEngine) -> dict[str, UUID]:
         )
         await connection.execute(
             text(
+                "INSERT INTO position "
+                "(id, portfolio_id, instrument_id, core_quantity, tactical_quantity, avg_cost, "
+                "realized_pnl, version, created_by, correlation_id) "
+                "VALUES (:id, :portfolio_id, :instrument_id, 10, 2, 100, 0, 1, 'pytest', "
+                ":correlation_id)"
+            ),
+            {
+                "id": ids["position"],
+                "portfolio_id": ids["portfolio"],
+                "instrument_id": ids["instrument"],
+                "correlation_id": correlation_id,
+            },
+        )
+        await connection.execute(
+            text(
                 "INSERT INTO evidence "
                 "(id, instrument_id, evidence_type, source_name, source_locator, source_tier, "
                 "observed_at, effective_at, available_at, ingested_at, quality_score, "
@@ -130,6 +147,8 @@ async def test_pr06_artifacts_persist_immutably_before_any_decision(
     snapshot_id = uuid4()
     risk_id = uuid4()
     sizing_id = uuid4()
+    core_lot_id = uuid4()
+    tactical_lot_id = uuid4()
 
     async with SqlAlchemyUnitOfWork(_session_factory(database_engine)) as uow:
         await uow.portfolio_snapshots.append(
@@ -143,6 +162,34 @@ async def test_pr06_artifacts_persist_immutably_before_any_decision(
                 net_exposure=Decimal("0.5"),
                 source="SYNTHETIC_TEST",
                 content_hash="b" * 64,
+                created_by="pytest",
+                correlation_id=correlation_id,
+                metadata_json={},
+            )
+        )
+        await uow.position_lots.append(
+            PositionLotRecord(
+                id=core_lot_id,
+                position_id=ids["position"],
+                bucket="CORE",
+                quantity=Decimal("10"),
+                cost=Decimal("100"),
+                opened_at=NOW,
+                closed_at=None,
+                created_by="pytest",
+                correlation_id=correlation_id,
+                metadata_json={},
+            )
+        )
+        await uow.position_lots.append(
+            PositionLotRecord(
+                id=tactical_lot_id,
+                position_id=ids["position"],
+                bucket="TACTICAL",
+                quantity=Decimal("2"),
+                cost=Decimal("120"),
+                opened_at=NOW,
+                closed_at=None,
                 created_by="pytest",
                 correlation_id=correlation_id,
                 metadata_json={},
@@ -192,6 +239,15 @@ async def test_pr06_artifacts_persist_immutably_before_any_decision(
         snapshot = await session.get(PortfolioSnapshotRecord, snapshot_id)
         assessment = await session.get(RiskAssessmentRecord, risk_id)
         sizing = await session.get(PositionSizingRunRecord, sizing_id)
+        lots = list(
+            (
+                await session.scalars(
+                    select(PositionLotRecord)
+                    .where(PositionLotRecord.position_id == ids["position"])
+                    .order_by(PositionLotRecord.bucket)
+                )
+            ).all()
+        )
         evidence_links = await session.scalar(
             select(text("count(*)"))
             .select_from(text("risk_assessment_evidence"))
@@ -206,6 +262,9 @@ async def test_pr06_artifacts_persist_immutably_before_any_decision(
     assert sizing is not None and sizing.decision_id is None
     assert sizing.input_json["pending_capacity"]["gross_exposure"] == "0.01"
     assert evidence_links == 1
+    assert [lot.bucket for lot in lots] == ["CORE", "TACTICAL"]
+    assert sum(lot.quantity for lot in lots) == Decimal("12")
+    assert lots[0].cost != lots[1].cost
 
     for table_name, record_id in (
         ("portfolio_snapshot", snapshot_id),
@@ -218,3 +277,8 @@ async def test_pr06_artifacts_persist_immutably_before_any_decision(
                     text(f"UPDATE {table_name} SET content_hash = :content_hash WHERE id = :id"),
                     {"id": record_id, "content_hash": "e" * 64},
                 )
+    with pytest.raises(DBAPIError):
+        async with database_engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE position_lot SET quantity = 11 WHERE id = :id"), {"id": core_lot_id}
+            )

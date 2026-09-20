@@ -23,6 +23,7 @@ from investment_os.infrastructure.persistence.models import (
     InvestmentThesisRecord,
     OutboxEventRecord,
     PortfolioSnapshotRecord,
+    PositionLotRecord,
     PositionRecord,
     PositionSizingRunRecord,
     ResearchArtifactRecord,
@@ -84,6 +85,17 @@ class PortfolioSnapshotRepository:
         self._session = session
 
     async def append(self, record: PortfolioSnapshotRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class PositionLotRepository:
+    """Append Core and Tactical cost lots without netting their buckets."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: PositionLotRecord) -> None:
         self._session.add(record)
         await self._session.flush()
 
