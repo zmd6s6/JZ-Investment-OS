@@ -24,6 +24,7 @@ node_modules/
 .npm/
 .pnpm-store/
 coverage/
+*.tsbuildinfo
 
 # IDE and operating system
 .idea/

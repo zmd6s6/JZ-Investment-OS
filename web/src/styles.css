@@ -1,0 +1,17 @@
+:root {
+  color: #17212b;
+  background: #f4f6f8;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+body { margin: 0; }
+main { margin: 0 auto; max-width: 960px; padding: 2rem; }
+header, article, .status { background: #fff; border-radius: 0.5rem; padding: 1rem; }
+.safety-banner { background: #8b1e1e; color: #fff; font-weight: 800; padding: 0.75rem; text-align: center; }
+.status-grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 1rem 0; }
+.status { border-left: 0.35rem solid #287a4b; display: grid; gap: 0.35rem; }
+.status.warning { border-left-color: #a85f00; }
+nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+button { background: #e6ebf0; border: 1px solid #9eabb8; border-radius: 0.3rem; cursor: pointer; padding: 0.6rem 0.8rem; }
+button.selected { background: #123c5a; color: #fff; }
+.placeholder { color: #6a2530; font-weight: 600; }
