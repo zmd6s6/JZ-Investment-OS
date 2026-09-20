@@ -5,10 +5,13 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from investment_os.api.app import create_app
+from investment_os.infrastructure.decision_journal import SqlAlchemyDecisionJournalReader
 from investment_os.infrastructure.persistence.models import (
     DecisionApprovalRecord,
     DecisionExecutionRecord,
@@ -171,3 +174,69 @@ async def test_approval_and_paper_execution_are_append_only_and_linked(
                 await connection.execute(
                     text(f"UPDATE {table_name} SET {assignment} WHERE id = :id"), {"id": record_id}
                 )
+
+
+@pytest.mark.integration
+async def test_decision_journal_api_reconstructs_immutable_approval_and_execution_chain(
+    database_engine: AsyncEngine,
+) -> None:
+    ids = await _seed_decision(database_engine)
+    approval_id = uuid4()
+    execution_id = uuid4()
+    async with SqlAlchemyUnitOfWork(_factory(database_engine)) as uow:
+        await uow.decision_approvals.append(
+            DecisionApprovalRecord(
+                id=approval_id,
+                decision_id=ids["decision"],
+                actor_id="synthetic-owner",
+                action="APPROVE",
+                comment="Synthetic explicit approval.",
+                expires_at=NOW + timedelta(hours=24),
+                created_by="pytest",
+                correlation_id=uuid4(),
+                metadata_json={},
+            )
+        )
+        await uow.decision_executions.append(
+            DecisionExecutionRecord(
+                id=execution_id,
+                decision_id=ids["decision"],
+                approval_id=approval_id,
+                execution_mode="PAPER",
+                status="FILLED",
+                requested_quantity=Decimal("4"),
+                filled_quantity=Decimal("4"),
+                avg_price=Decimal("12.50"),
+                external_refs_json=[],
+                created_by="pytest",
+                correlation_id=uuid4(),
+                metadata_json={},
+            )
+        )
+        await uow.commit()
+
+    app = create_app(
+        decision_journal_reader=SqlAlchemyDecisionJournalReader(_factory(database_engine))
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(f"/api/v1/decisions/{ids['decision']}")
+        missing = await client.get(f"/api/v1/decisions/{uuid4()}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["decision_id"] == str(ids["decision"])
+    assert payload["content_hash"] == "0" * 64
+    assert payload["approvals"] == [
+        {
+            "id": str(approval_id),
+            "actor_id": "synthetic-owner",
+            "action": "APPROVE",
+            "comment": "Synthetic explicit approval.",
+            "expires_at": (NOW + timedelta(hours=24)).isoformat().replace("+00:00", "Z"),
+            "occurred_at": payload["approvals"][0]["occurred_at"],
+        }
+    ]
+    assert payload["executions"][0]["id"] == str(execution_id)
+    assert payload["executions"][0]["execution_mode"] == "PAPER"
+    assert Decimal(payload["executions"][0]["filled_quantity"]) == Decimal("4")
+    assert missing.status_code == 404

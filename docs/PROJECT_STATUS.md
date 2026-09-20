@@ -49,8 +49,9 @@
 - React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
 - scheduler cadence, UI, or Learning workflow functionality;
 - business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
-- CIO aggregation, Decision persistence/API, paper/manual execution records, and a complete Decision
-  Journal; PR-07 has started with immutable approval TTL records and a disabled live adapter;
+- a complete Decision Journal and synthetic S10 end-to-end audit-chain coverage; PR-07 has
+  established CIO aggregation, immutable Decision persistence/read API, approval TTL records,
+  paper/manual execution receipts, and a disabled live adapter;
 - any complete end-to-end acceptance scenario S1–S15; PR-01 verifies only its domain-gate slices.
 
 Nothing above may be inferred complete from the Master Spec alone.
