@@ -7,10 +7,10 @@
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
 - Active roadmap stage: `PR-05 — Agent Runtime & Two-Round Committee`
-- Stage state: `IN_PROGRESS`
+- Stage state: `READY_FOR_REVIEW`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
-- Last status update: `2026-09-19`
+- Last status update: `2026-09-20`
 
 ## Established
 
@@ -45,7 +45,7 @@
 ## Not yet implemented or verified
 
 - React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
-- runtime Agent, scheduler cadence, UI, or Learning workflow functionality;
+- scheduler cadence, UI, or Learning workflow functionality;
 - business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
 - auditable Decision rejection actors and deterministic approval-expiry TTL guards, scheduled for PR-07;
 - any complete end-to-end acceptance scenario S1–S15; PR-01 verifies only its domain-gate slices.
@@ -54,10 +54,10 @@ Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-PR-05 is in progress on `codex/pr-05-agent-runtime-committee`, based on the merged PR-04
-commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`. It will deliver strict AgentOpinion
-schemas, an LLM gateway boundary, frozen analysis context, and the bounded two-round committee;
-it must not introduce Decision, approval, execution, provider credentials, or live trading.
+PR-05 is `READY_FOR_REVIEW` on `codex/pr-05-agent-runtime-committee`, based on the merged PR-04
+commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`. It delivers strict AgentOpinion schemas, an LLM
+gateway boundary, frozen analysis context, and the bounded two-round committee; it introduces no
+Decision, approval, execution, provider credentials, or live trading.
 
 ## Recorded scope decisions
 
@@ -77,7 +77,7 @@ it must not introduce Decision, approval, execution, provider credentials, or li
 | PR-02 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #2 merge commit `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e` |
 | PR-03 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #3 merge commit `5dc99027a460a7f29d9b4021a982af726f2363f2` |
 | PR-04 | ACCEPTED | Merged to `main` on 2026-09-19 | PR #4 merge commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f` |
-| PR-05 | IN_PROGRESS | Pending | Agent runtime and bounded two-round committee |
+| PR-05 | READY_FOR_REVIEW | Pending | Agent runtime and bounded two-round committee |
 | PR-06 | PLANNED | Pending | Portfolio, risk, sizing |
 | PR-07 | PLANNED | Pending | Decision, approval, journal |
 | PR-08 | PLANNED | Pending | Scheduler, reports, UI |
