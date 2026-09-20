@@ -1,9 +1,11 @@
 """Pure, versioned Decimal position sizing with conservative lot rounding."""
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from hashlib import sha256
+from types import MappingProxyType
 
 from investment_os.domain.enums import Action, PositionBucket, RiskIntent
 from investment_os.domain.errors import DomainError, DomainErrorCode
@@ -27,7 +29,7 @@ def _positive(value: Decimal | int | str, field: str) -> Decimal:
 @dataclass(frozen=True, slots=True)
 class SizingFormula:
     version: str
-    intent_weights: dict[RiskIntent, Weight]
+    intent_weights: Mapping[RiskIntent, Weight]
     target_volatility: Decimal
     volatility_floor: Decimal
     volatility_scale_min: Decimal
@@ -35,7 +37,8 @@ class SizingFormula:
     reduce_fraction: Weight
 
     def __post_init__(self) -> None:
-        if not self.version.strip() or set(self.intent_weights) != set(RiskIntent):
+        intent_weights = dict(self.intent_weights)
+        if not self.version.strip() or set(intent_weights) != set(RiskIntent):
             raise DomainError(
                 DomainErrorCode.INVARIANT_VIOLATION, "formula must define every intent"
             )
@@ -51,6 +54,7 @@ class SizingFormula:
         object.__setattr__(self, "volatility_floor", volatility_floor)
         object.__setattr__(self, "volatility_scale_min", scale_min)
         object.__setattr__(self, "volatility_scale_max", scale_max)
+        object.__setattr__(self, "intent_weights", MappingProxyType(intent_weights))
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +106,17 @@ def _round_delta(delta: Decimal, lot_size: Decimal, current: Decimal) -> Decimal
 
 def _input_hash(formula: SizingFormula, request: SizingRequest) -> str:
     payload = {
-        "formula_version": formula.version,
+        "formula": {
+            "version": formula.version,
+            "target_volatility": str(formula.target_volatility),
+            "volatility_floor": str(formula.volatility_floor),
+            "volatility_scale_min": str(formula.volatility_scale_min),
+            "volatility_scale_max": str(formula.volatility_scale_max),
+            "reduce_fraction": str(formula.reduce_fraction.value),
+            "intent_weights": {
+                key.value: str(value.value) for key, value in formula.intent_weights.items()
+            },
+        },
         "action": request.action.value,
         "bucket": request.bucket.value,
         "risk_intent": request.risk_intent.value,
@@ -112,7 +126,23 @@ def _input_hash(formula: SizingFormula, request: SizingRequest) -> str:
         "reference_price": str(request.reference_price),
         "lot_size": str(request.lot_size.value),
         "instrument_volatility": str(request.instrument_volatility),
-        "risk_gate": request.risk_assessment.gate.value,
+        "risk_assessment": {
+            "id": str(request.risk_assessment.id),
+            "version": request.risk_assessment.version,
+            "as_of": request.risk_assessment.as_of.value.isoformat(),
+            "expires_at": request.risk_assessment.expires_at.value.isoformat(),
+            "gate": request.risk_assessment.gate.value,
+            "flags": [
+                {
+                    "code": flag.code,
+                    "kind": flag.kind.value,
+                    "severity": flag.severity.value,
+                    "evidence_ids": sorted(str(evidence_id) for evidence_id in flag.evidence_ids),
+                    "release_condition": flag.release_condition,
+                }
+                for flag in sorted(request.risk_assessment.flags, key=lambda flag: flag.code)
+            ],
+        },
         "capacity_inputs": {
             "instrument_weight": str(request.capacity_inputs.instrument_weight.value),
             "sector_weight": str(request.capacity_inputs.sector_weight.value),
@@ -128,9 +158,6 @@ def _input_hash(formula: SizingFormula, request: SizingRequest) -> str:
             "sector_max": str(request.policy.sector_max.value),
             "gross_exposure_max": str(request.policy.gross_exposure_max.value),
             "minimum_cash": str(request.policy.minimum_cash.value),
-        },
-        "intent_weights": {
-            key.value: str(value.value) for key, value in formula.intent_weights.items()
         },
     }
     return sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()

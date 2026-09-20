@@ -1,8 +1,9 @@
 """S3/S4/S6/S7 unit regressions for deterministic sizing."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -48,13 +49,19 @@ def _assessment(hard: bool = False) -> RiskAssessment:
                 "SYNTHETIC_HARD_RISK",
                 RiskFlagKind.HARD,
                 RiskSeverity.HIGH,
-                (uuid4(),),
+                (UUID("00000000-0000-0000-0000-000000000001"),),
                 "Synthetic review clears risk.",
             ),
         )
     )
     now = UtcTimestamp(datetime(2026, 9, 20, tzinfo=UTC))
-    return RiskAssessment(uuid4(), 1, now, UtcTimestamp(now.value + timedelta(days=1)), flags)
+    return RiskAssessment(
+        UUID("00000000-0000-0000-0000-000000000002"),
+        1,
+        now,
+        UtcTimestamp(now.value + timedelta(days=1)),
+        flags,
+    )
 
 
 def _request(
@@ -113,6 +120,17 @@ def test_s6_sector_capacity_blocks_buy_and_s7_equal_inputs_are_bit_identical() -
     )
     assert first == second and first.input_hash == second.input_hash
     assert blocked.input_hash != first.input_hash
+
+
+def test_formula_configuration_and_risk_assessment_are_replay_inputs() -> None:
+    request = _request(Action.BUY)
+    baseline = size_position(_formula(), request)
+    constrained = size_position(replace(_formula(), volatility_scale_max=Decimal("0.75")), request)
+    vetoed = size_position(_formula(), _request(Action.BUY, hard=True))
+
+    assert constrained.input_hash != baseline.input_hash
+    assert constrained.delta_weight < baseline.delta_weight
+    assert vetoed.input_hash != baseline.input_hash
 
 
 @given(sector=st.decimals(min_value=Decimal("0"), max_value=Decimal("1"), places=4))
