@@ -113,6 +113,22 @@ def _input_hash(formula: SizingFormula, request: SizingRequest) -> str:
         "lot_size": str(request.lot_size.value),
         "instrument_volatility": str(request.instrument_volatility),
         "risk_gate": request.risk_assessment.gate.value,
+        "capacity_inputs": {
+            "instrument_weight": str(request.capacity_inputs.instrument_weight.value),
+            "sector_weight": str(request.capacity_inputs.sector_weight.value),
+            "gross_exposure": str(request.capacity_inputs.gross_exposure.value),
+            "pending_instrument_weight": str(
+                request.capacity_inputs.pending_instrument_weight.value
+            ),
+            "pending_sector_weight": str(request.capacity_inputs.pending_sector_weight.value),
+            "pending_gross_exposure": str(request.capacity_inputs.pending_gross_exposure.value),
+        },
+        "position_policy": {
+            "single_instrument_max": str(request.policy.single_instrument_max.value),
+            "sector_max": str(request.policy.sector_max.value),
+            "gross_exposure_max": str(request.policy.gross_exposure_max.value),
+            "minimum_cash": str(request.policy.minimum_cash.value),
+        },
         "intent_weights": {
             key.value: str(value.value) for key, value in formula.intent_weights.items()
         },

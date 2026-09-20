@@ -4,6 +4,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 from investment_os.domain.enums import Action, PositionBucket, RiskIntent
 from investment_os.domain.policy import PositionPolicy
 from investment_os.domain.portfolio import PortfolioCapacityInputs
@@ -109,3 +112,14 @@ def test_s6_sector_capacity_blocks_buy_and_s7_equal_inputs_are_bit_identical() -
         and blocked.capacity.requested_increase == Weight(Decimal("0.03"))
     )
     assert first == second and first.input_hash == second.input_hash
+    assert blocked.input_hash != first.input_hash
+
+
+@given(sector=st.decimals(min_value=Decimal("0"), max_value=Decimal("1"), places=4))
+def test_buy_never_exceeds_requested_capacity_or_increases_risk_through_rounding(
+    sector: Decimal,
+) -> None:
+    result = size_position(_formula(), _request(Action.BUY, sector=sector))
+
+    assert result.delta_weight <= result.capacity.requested_increase.value
+    assert result.delta_quantity <= result.pre_rounding_delta_quantity
