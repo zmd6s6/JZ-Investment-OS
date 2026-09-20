@@ -6,8 +6,8 @@
 
 - Project: Personal AI Investment OS
 - Current mode: `DEVELOPMENT`
-- Active roadmap stage: `PR-06 — Portfolio, Risk & Deterministic Position Sizing`
-- Stage state: `READY_FOR_REVIEW`
+- Active roadmap stage: `PR-07 — Decision Engine, Approval Gate & Journal`
+- Stage state: `IN_PROGRESS`
 - Live trading: `FORBIDDEN`
 - Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
 - Last status update: `2026-09-20`
@@ -42,23 +42,26 @@
 - PR-03 is accepted and merged to `main` by PR #3 as `5dc99027a460a7f29d9b4021a982af726f2363f2`.
 - PR-04 is accepted and merged to `main` by PR #4 as `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`.
 - PR-05 is accepted and merged to `main` by PR #5 as `b141be8ada55f44b2840e692c6b838c3df0913ca`.
+- PR-06 is accepted and merged to `main` by PR #6 as `3009b2b52289b6a6552dac5e3676e41f7ce8bb53`.
 
 ## Not yet implemented or verified
 
 - React/Node workspace, intentionally deferred to PR-08 by ADR-0001;
 - scheduler cadence, UI, or Learning workflow functionality;
 - business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
-- auditable Decision rejection actors and deterministic approval-expiry TTL guards, scheduled for PR-07;
+- CIO aggregation, Decision persistence/API, paper/manual execution records, and a complete Decision
+  Journal; PR-07 has started with immutable approval TTL records and a disabled live adapter;
 - any complete end-to-end acceptance scenario S1–S15; PR-01 verifies only its domain-gate slices.
 
 Nothing above may be inferred complete from the Master Spec alone.
 
 ## Next authorized work
 
-PR-06 is `READY_FOR_REVIEW` on `codex/pr-06-portfolio-risk-sizing`, based on the merged PR-05
-commit `b141be8ada55f44b2840e692c6b838c3df0913ca`. Full local verification is recorded in
-`docs/stages/PR-06.md`; publication may now push this branch for remote CI and PR review. It must
-not create a Decision, approval, execution, provider credential, or live-trading path.
+PR-07 is `IN_PROGRESS` on `codex/pr-07-decision-approval-journal`, created from the GitHub- and
+`origin/main`-confirmed PR #6 merge commit `3009b2b52289b6a6552dac5e3676e41f7ce8bb53`.
+It may implement only the Master-Spec Decision, human approval, paper/manual execution-record, and
+Decision Journal contract using synthetic data. Live brokerage execution, credentials, real
+Portfolio data, and real investment-policy choices remain forbidden.
 
 ## Recorded scope decisions
 
@@ -79,8 +82,8 @@ not create a Decision, approval, execution, provider credential, or live-trading
 | PR-03 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #3 merge commit `5dc99027a460a7f29d9b4021a982af726f2363f2` |
 | PR-04 | ACCEPTED | Merged to `main` on 2026-09-19 | PR #4 merge commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f` |
 | PR-05 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #5 merge commit `b141be8ada55f44b2840e692c6b838c3df0913ca` |
-| PR-06 | READY_FOR_REVIEW | Pending | Portfolio, risk, sizing; full local verification recorded |
-| PR-07 | PLANNED | Pending | Decision, approval, journal |
+| PR-06 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #6 merge commit `3009b2b52289b6a6552dac5e3676e41f7ce8bb53` |
+| PR-07 | IN_PROGRESS | Pending | Decision, approval, journal |
 | PR-08 | PLANNED | Pending | Scheduler, reports, UI |
 | PR-09 | PLANNED | Pending | Outcome, learning, hardening, release |
 

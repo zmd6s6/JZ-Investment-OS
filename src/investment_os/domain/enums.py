@@ -70,6 +70,14 @@ class DecisionState(StrEnum):
     REVIEWED = "REVIEWED"
 
 
+class ApprovalAction(StrEnum):
+    """Immutable human actions recorded against a Decision approval gate."""
+
+    APPROVE = "APPROVE"
+    REJECT = "REJECT"
+    REVOKE = "REVOKE"
+
+
 class StrategyProposalState(StrEnum):
     DRAFT = "DRAFT"
     BACKTEST_PENDING = "BACKTEST_PENDING"
