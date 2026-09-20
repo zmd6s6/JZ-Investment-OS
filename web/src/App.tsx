@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Page = "Portfolio" | "Opportunities" | "Watchlist" | "Decision Journal";
 
@@ -23,9 +23,33 @@ const pageCopy: Record<Page, { heading: string; detail: string }> = {
   },
 };
 
+type TaskRun = { status?: unknown };
+
+function operationalStatus(runs: unknown): string {
+  if (!Array.isArray(runs) || runs.length === 0) {
+    return "No completed scheduler run is available";
+  }
+  const status = (runs[0] as TaskRun).status;
+  if (status === "SUCCEEDED") {
+    return "Latest task run succeeded";
+  }
+  if (status === "FAILED") {
+    return "Latest task run failed — review the sanitized TaskRun record";
+  }
+  return "Latest task run is incomplete or has an unknown status";
+}
+
 export function App() {
   const [page, setPage] = useState<Page>("Portfolio");
+  const [operation, setOperation] = useState("Loading scheduler status");
   const current = pageCopy[page];
+
+  useEffect(() => {
+    void fetch("/api/v1/task-runs?limit=1")
+      .then(async (response) => (response.ok ? response.json() : Promise.reject(new Error("unavailable"))))
+      .then((runs: unknown) => setOperation(operationalStatus(runs)))
+      .catch(() => setOperation("Scheduler status is unavailable — no action was submitted"));
+  }, []);
 
   return (
     <main>
@@ -39,7 +63,7 @@ export function App() {
         <Status label="Evidence freshness" value="STALE — refresh required" warning />
         <Status label="Risk Veto" value="ACTIVE — increased exposure blocked" warning />
         <Status label="Human approvals" value="1 pending; no order submitted" />
-        <Status label="Operational exception" value="Daily report job not yet completed" warning />
+        <Status label="Operational exception" value={operation} warning />
       </section>
       <nav aria-label="Primary">
         {pages.map((candidate) => (
