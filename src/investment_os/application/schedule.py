@@ -16,6 +16,24 @@ class JobCadence(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class JobDefinition:
+    """A named workflow that is eligible at a specific market-session boundary."""
+
+    name: str
+    cadence: JobCadence
+
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise ValueError("job name must not be blank")
+
+
+DAILY_JOB = JobDefinition("daily", JobCadence.DAILY)
+WEEKLY_JOB = JobDefinition("weekly", JobCadence.WEEKLY)
+MONTHLY_JOB = JobDefinition("monthly", JobCadence.MONTHLY)
+QUARTERLY_JOB = JobDefinition("quarterly", JobCadence.QUARTERLY)
+
+
+@dataclass(frozen=True, slots=True)
 class TradingSession:
     """A known market session; callers must supply every tradable date explicitly."""
 
@@ -44,6 +62,33 @@ class ExplicitTradingCalendar:
             (session for session in self.sessions if session.business_date == business_date), None
         )
 
+    def contains(self, session: TradingSession) -> bool:
+        return self.session_for(session.business_date) == session
+
+    def is_final_session_of_week(self, session: TradingSession) -> bool:
+        return not any(
+            candidate.business_date.isocalendar()[:2] == session.business_date.isocalendar()[:2]
+            and candidate.business_date > session.business_date
+            for candidate in self.sessions
+        )
+
+    def is_final_session_of_month(self, session: TradingSession) -> bool:
+        return not any(
+            candidate.business_date.year == session.business_date.year
+            and candidate.business_date.month == session.business_date.month
+            and candidate.business_date > session.business_date
+            for candidate in self.sessions
+        )
+
+    def is_final_session_of_quarter(self, session: TradingSession) -> bool:
+        quarter = (session.business_date.month - 1) // 3
+        return not any(
+            candidate.business_date.year == session.business_date.year
+            and (candidate.business_date.month - 1) // 3 == quarter
+            and candidate.business_date > session.business_date
+            for candidate in self.sessions
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class ScheduledJob:
@@ -70,14 +115,45 @@ class ScheduledJob:
 def daily_job_for_session(*, name: str, session: TradingSession, as_of: datetime) -> ScheduledJob:
     """Create a Daily invocation only from a known session and business as-of instant."""
 
+    return _job_for_session(
+        definition=JobDefinition(name=name, cadence=JobCadence.DAILY), session=session, as_of=as_of
+    )
+
+
+def _job_for_session(
+    *, definition: JobDefinition, session: TradingSession, as_of: datetime
+) -> ScheduledJob:
+    """Bind a named cadence to a market session after validating business-time boundaries."""
+
     if as_of.tzinfo is None:
         raise ValueError("as_of must be timezone-aware")
     scheduled_for = session.scheduled_for()
     if as_of.astimezone(NEW_YORK).date() != session.business_date:
         raise ValueError("as_of must belong to the supplied market business date")
     return ScheduledJob(
-        name=name,
-        cadence=JobCadence.DAILY,
+        name=definition.name,
+        cadence=definition.cadence,
         as_of=as_of.astimezone(UTC),
         scheduled_for=scheduled_for,
+    )
+
+
+def jobs_for_session(
+    *, calendar: ExplicitTradingCalendar, session: TradingSession
+) -> tuple[ScheduledJob, ...]:
+    """Plan Daily through Quarterly jobs at explicit final market-session boundaries only."""
+
+    if not calendar.contains(session):
+        raise ValueError("session must be present in the explicit trading calendar")
+    as_of = session.scheduled_for()
+    definitions = [DAILY_JOB]
+    if calendar.is_final_session_of_week(session):
+        definitions.append(WEEKLY_JOB)
+    if calendar.is_final_session_of_month(session):
+        definitions.append(MONTHLY_JOB)
+    if calendar.is_final_session_of_quarter(session):
+        definitions.append(QUARTERLY_JOB)
+    return tuple(
+        _job_for_session(definition=definition, session=session, as_of=as_of)
+        for definition in definitions
     )
