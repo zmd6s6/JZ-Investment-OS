@@ -8,7 +8,7 @@ from uuid import UUID
 from hypothesis import given
 from hypothesis import strategies as st
 
-from investment_os.domain.enums import Action, PositionBucket, RiskIntent
+from investment_os.domain.enums import Action, PositionBucket, RiskIntent, ThesisState
 from investment_os.domain.policy import PositionPolicy
 from investment_os.domain.portfolio import PortfolioCapacityInputs
 from investment_os.domain.risk import RiskAssessment, RiskFlag, RiskFlagKind, RiskSeverity
@@ -70,6 +70,7 @@ def _request(
     hard: bool = False,
     sector: Decimal = Decimal("0.10"),
     bucket: PositionBucket = PositionBucket.CORE,
+    thesis_state: ThesisState = ThesisState.VALID,
 ) -> SizingRequest:
     return SizingRequest(
         action,
@@ -88,9 +89,12 @@ def _request(
             Weight(Decimal("0")),
             Weight(Decimal("0")),
             Weight(Decimal("0")),
+            Weight(Decimal("1")),
+            Weight(Decimal("1")),
         ),
         _policy(),
         _assessment(hard),
+        thesis_state,
     )
 
 
@@ -101,6 +105,13 @@ def test_s3_veto_forces_buy_delta_to_zero() -> None:
         and result.delta_quantity == 0
         and "RISK_VETO" in result.reason_codes
     )
+
+
+def test_broken_thesis_cannot_increase_exposure() -> None:
+    result = size_position(_formula(), _request(Action.ADD, thesis_state=ThesisState.BROKEN))
+
+    assert result.delta_quantity == 0
+    assert "THESIS_BROKEN" in result.reason_codes
 
 
 def test_s4_core_hold_and_tactical_reduce_keep_actions_separate() -> None:

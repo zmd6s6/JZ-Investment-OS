@@ -7,7 +7,7 @@ from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from hashlib import sha256
 from types import MappingProxyType
 
-from investment_os.domain.enums import Action, PositionBucket, RiskIntent
+from investment_os.domain.enums import Action, PositionBucket, RiskIntent, ThesisState
 from investment_os.domain.errors import DomainError, DomainErrorCode
 from investment_os.domain.policy import PositionPolicy
 from investment_os.domain.portfolio import (
@@ -71,6 +71,7 @@ class SizingRequest:
     capacity_inputs: PortfolioCapacityInputs
     policy: PositionPolicy
     risk_assessment: RiskAssessment
+    thesis_state: ThesisState
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "nav", _positive(self.nav, "NAV"))
@@ -120,6 +121,7 @@ def _input_hash(formula: SizingFormula, request: SizingRequest) -> str:
         "action": request.action.value,
         "bucket": request.bucket.value,
         "risk_intent": request.risk_intent.value,
+        "thesis_state": request.thesis_state.value,
         "current_bucket_weight": str(request.current_bucket_weight.value),
         "current_bucket_quantity": str(request.current_bucket_quantity.value),
         "nav": str(request.nav),
@@ -152,6 +154,8 @@ def _input_hash(formula: SizingFormula, request: SizingRequest) -> str:
             ),
             "pending_sector_weight": str(request.capacity_inputs.pending_sector_weight.value),
             "pending_gross_exposure": str(request.capacity_inputs.pending_gross_exposure.value),
+            "risk_budget_capacity": str(request.capacity_inputs.risk_budget_capacity.value),
+            "liquidity_capacity": str(request.capacity_inputs.liquidity_capacity.value),
         },
         "position_policy": {
             "single_instrument_max": str(request.policy.single_instrument_max.value),
@@ -175,6 +179,9 @@ def size_position(formula: SizingFormula, request: SizingRequest) -> PositionSiz
         if not request.risk_assessment.permits_action(request.action):
             target = current
             reasons.append("RISK_VETO")
+        elif request.thesis_state is ThesisState.BROKEN:
+            target = current
+            reasons.append("THESIS_BROKEN")
         else:
             scale = formula.target_volatility / max(
                 request.instrument_volatility, formula.volatility_floor

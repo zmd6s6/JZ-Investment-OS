@@ -36,6 +36,8 @@ def _inputs(**overrides: Weight) -> PortfolioCapacityInputs:
         "pending_instrument_weight": Weight(Decimal("0")),
         "pending_sector_weight": Weight(Decimal("0")),
         "pending_gross_exposure": Weight(Decimal("0")),
+        "risk_budget_capacity": Weight(Decimal("1")),
+        "liquidity_capacity": Weight(Decimal("1")),
     }
     values.update(overrides)
     return PortfolioCapacityInputs(**values)
@@ -63,6 +65,20 @@ def test_capacity_blocks_an_increase_when_the_sector_cap_is_exhausted() -> None:
 
     assert result.allowed_increase == Weight(Decimal("0"))
     assert not result.has_requested_capacity
+
+
+def test_capacity_applies_risk_budget_and_liquidity_caps() -> None:
+    result = evaluate_portfolio_capacity(
+        _policy(),
+        _inputs(
+            risk_budget_capacity=Weight(Decimal("0.02")),
+            liquidity_capacity=Weight(Decimal("0.01")),
+        ),
+        Weight(Decimal("0.05")),
+    )
+
+    assert result.allowed_increase == Weight(Decimal("0.01"))
+    assert [limit.code for limit in result.limits[-2:]] == ["RISK_BUDGET_CAP", "LIQUIDITY_CAP"]
 
 
 def test_portfolio_snapshot_rejects_duplicate_instruments_and_preserves_core_tactical_buckets() -> (

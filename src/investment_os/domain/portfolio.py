@@ -63,6 +63,8 @@ class PortfolioCapacityInputs:
     pending_instrument_weight: Weight
     pending_sector_weight: Weight
     pending_gross_exposure: Weight
+    risk_budget_capacity: Weight
+    liquidity_capacity: Weight
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +126,8 @@ def evaluate_portfolio_capacity(
                 inputs.pending_gross_exposure,
             ),
         ),
+        CapacityLimit("RISK_BUDGET_CAP", inputs.risk_budget_capacity),
+        CapacityLimit("LIQUIDITY_CAP", inputs.liquidity_capacity),
     )
     allowed = min((limit.available.value for limit in limits), default=Decimal("0"))
     return PortfolioCapacity(
