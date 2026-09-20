@@ -21,8 +21,11 @@ not provide investment advice, runtime investment agents, approval APIs, or trad
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
 - Docker Desktop or Docker Engine with Compose
+- Node.js 24+ for the PR-08 personal UI workspace
 
-Node.js is not required in PR-00. ADR-0001 defers the React workspace until PR-08, when the UI contract exists.
+The PR-08 React workspace is in `web/`. Its development-only commands are `npm install`, `npm test`,
+and `npm run build` from that directory. The API image builds the static UI and serves it from its
+own origin, so its read-only `/api/v1/task-runs` request does not require a browser CORS exception.
 
 ## Local development setup
 
@@ -97,6 +100,7 @@ Expected services:
 - PostgreSQL on `${POSTGRES_PORT:-5432}`
 - One-shot Alembic migration to the recorded head revision
 - API on `http://localhost:${API_PORT:-8100}`
+- Read-only personal UI on `http://localhost:${API_PORT:-8100}/`
 - Worker with a database-backed readiness marker
 
 Inspect or stop the stack:

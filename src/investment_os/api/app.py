@@ -2,9 +2,12 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query, Response, status
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 
 from investment_os.application.health import AsyncClosable, ReadinessProbe
@@ -258,6 +261,16 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return [TaskRunResponse.model_validate(run, from_attributes=True) for run in runs]
+
+    frontend_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
+    if frontend_dist.is_dir():
+        application.mount(
+            "/assets", StaticFiles(directory=frontend_dist / "assets"), name="web-assets"
+        )
+
+        @application.get("/", include_in_schema=False)
+        async def personal_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
 
     return application
 
