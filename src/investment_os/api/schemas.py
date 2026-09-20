@@ -1,6 +1,7 @@
 """Versioned bootstrap health response schemas."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -92,3 +93,63 @@ class ThesisHistoryResponse(StrictResponse):
     schema_version: Literal["1.0"] = "1.0"
     instrument_id: UUID
     versions: list[ThesisVersionResponse]
+
+
+class DecisionApprovalResponse(StrictResponse):
+    id: UUID
+    actor_id: str
+    action: Literal["APPROVE", "REJECT", "REVOKE"]
+    comment: str | None
+    expires_at: datetime | None
+    occurred_at: datetime
+
+
+class DecisionExecutionResponse(StrictResponse):
+    id: UUID
+    approval_id: UUID
+    execution_mode: Literal["PAPER", "MANUAL"]
+    status: Literal["PENDING", "PARTIAL", "FILLED", "CANCELLED"]
+    requested_quantity: Decimal
+    filled_quantity: Decimal
+    avg_price: Decimal | None
+    external_refs: list[str]
+    occurred_at: datetime
+
+
+class DecisionJournalResponse(StrictResponse):
+    """Read-only, versioned reconstruction of one immutable Decision Journal entry."""
+
+    schema_version: Literal["1.0"] = "1.0"
+    decision_id: UUID
+    instrument_id: UUID
+    portfolio_id: UUID
+    committee_session_id: UUID | None
+    thesis_version_id: UUID | None
+    policy_version_id: UUID
+    strategy_version_id: UUID
+    risk_assessment_id: UUID | None
+    position_sizing_run_id: UUID | None
+    action: Literal["WATCH", "BUY", "ADD", "HOLD", "REDUCE", "EXIT", "AVOID"]
+    confidence: Decimal
+    risk_intent: Literal["NONE", "TINY", "SMALL", "NORMAL", "HIGH", "EXIT"]
+    core_action: Literal["NONE", "BUY", "ADD", "HOLD", "REDUCE", "EXIT"]
+    tactical_action: Literal["NONE", "BUY", "ADD", "HOLD", "REDUCE", "EXIT"]
+    state: str
+    reasons: list[dict[str, object]]
+    risks: list[dict[str, object]]
+    watch_conditions: list[str]
+    invalidation_conditions: list[str]
+    position_before: dict[str, object]
+    position_after_proposed: dict[str, object]
+    unknowns: list[str]
+    dissent: list[str]
+    next_review_at: datetime
+    input_snapshot_hash: str
+    prompt_bundle_version: str
+    formula_version: str
+    content_hash: str
+    version: int
+    evidence_ids: list[UUID]
+    approvals: list[DecisionApprovalResponse]
+    executions: list[DecisionExecutionResponse]
+    created_at: datetime

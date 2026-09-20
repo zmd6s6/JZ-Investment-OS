@@ -15,9 +15,12 @@ from investment_os.infrastructure.persistence.models import (
     CommitteeMessageRecord,
     CommitteeSessionRecord,
     ConflictRecord,
+    DecisionApprovalRecord,
+    DecisionExecutionRecord,
     EventLogRecord,
     EvidenceRecord,
     FeatureSnapshotRecord,
+    InvestmentDecisionEvidenceRecord,
     InvestmentDecisionRecord,
     InvestmentPolicyRecord,
     InvestmentThesisRecord,
@@ -231,6 +234,22 @@ class DecisionRepository:
     async def get(self, record_id: UUID) -> InvestmentDecisionRecord | None:
         return await self._session.get(InvestmentDecisionRecord, record_id)
 
+    async def append(self, record: InvestmentDecisionRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+    async def link_evidence(self, decision_id: UUID, evidence_ids: tuple[UUID, ...]) -> None:
+        self._session.add_all(
+            [
+                InvestmentDecisionEvidenceRecord(
+                    investment_decision_id=decision_id,
+                    evidence_id=evidence_id,
+                )
+                for evidence_id in evidence_ids
+            ]
+        )
+        await self._session.flush()
+
     async def update_state(
         self,
         record_id: UUID,
@@ -251,6 +270,28 @@ class DecisionRepository:
         if updated is None:
             raise _concurrency_conflict("investment_decision", record_id, expected_version)
         return updated
+
+
+class DecisionApprovalRepository:
+    """Append immutable human approval actions; mutation is database-rejected."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: DecisionApprovalRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
+
+
+class DecisionExecutionRepository:
+    """Append immutable paper/manual receipts; mutation is database-rejected."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, record: DecisionExecutionRecord) -> None:
+        self._session.add(record)
+        await self._session.flush()
 
 
 class PolicyRepository:

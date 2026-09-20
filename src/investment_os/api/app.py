@@ -15,11 +15,16 @@ from investment_os.infrastructure.database import (
     create_database_engine,
     create_session_factory,
 )
+from investment_os.infrastructure.decision_journal import (
+    DecisionJournalRead,
+    SqlAlchemyDecisionJournalReader,
+)
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
 from .schemas import (
+    DecisionJournalResponse,
     LivenessResponse,
     ReadinessResponse,
     ResearchIngestRequest,
@@ -51,10 +56,74 @@ def _thesis_response(version: ThesisVersionRead) -> ThesisVersionResponse:
     )
 
 
+def _decision_journal_response(journal: DecisionJournalRead) -> DecisionJournalResponse:
+    return DecisionJournalResponse.model_validate(
+        {
+            "decision_id": journal.decision_id,
+            "instrument_id": journal.instrument_id,
+            "portfolio_id": journal.portfolio_id,
+            "committee_session_id": journal.committee_session_id,
+            "thesis_version_id": journal.thesis_version_id,
+            "policy_version_id": journal.policy_version_id,
+            "strategy_version_id": journal.strategy_version_id,
+            "risk_assessment_id": journal.risk_assessment_id,
+            "position_sizing_run_id": journal.position_sizing_run_id,
+            "action": journal.action,
+            "confidence": journal.confidence,
+            "risk_intent": journal.risk_intent,
+            "core_action": journal.core_action,
+            "tactical_action": journal.tactical_action,
+            "state": journal.state,
+            "reasons": journal.reasons,
+            "risks": journal.risks,
+            "watch_conditions": journal.watch_conditions,
+            "invalidation_conditions": journal.invalidation_conditions,
+            "position_before": journal.position_before,
+            "position_after_proposed": journal.position_after_proposed,
+            "unknowns": journal.unknowns,
+            "dissent": journal.dissent,
+            "next_review_at": journal.next_review_at,
+            "input_snapshot_hash": journal.input_snapshot_hash,
+            "prompt_bundle_version": journal.prompt_bundle_version,
+            "formula_version": journal.formula_version,
+            "content_hash": journal.content_hash,
+            "version": journal.version,
+            "evidence_ids": journal.evidence_ids,
+            "approvals": [
+                {
+                    "id": approval.id,
+                    "actor_id": approval.actor_id,
+                    "action": approval.action,
+                    "comment": approval.comment,
+                    "expires_at": approval.expires_at,
+                    "occurred_at": approval.occurred_at,
+                }
+                for approval in journal.approvals
+            ],
+            "executions": [
+                {
+                    "id": execution.id,
+                    "approval_id": execution.approval_id,
+                    "execution_mode": execution.execution_mode,
+                    "status": execution.status,
+                    "requested_quantity": execution.requested_quantity,
+                    "filled_quantity": execution.filled_quantity,
+                    "avg_price": execution.avg_price,
+                    "external_refs": execution.external_refs,
+                    "occurred_at": execution.occurred_at,
+                }
+                for execution in journal.executions
+            ],
+            "created_at": journal.created_at,
+        }
+    )
+
+
 def create_app(
     readiness_probe: ReadinessProbe | None = None,
     evidence_ingestor: SqlAlchemyEvidenceIngestor | None = None,
     thesis_reader: SqlAlchemyThesisReader | None = None,
+    decision_journal_reader: SqlAlchemyDecisionJournalReader | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -62,9 +131,14 @@ def create_app(
     selected_probe = readiness_probe or DatabaseReadinessProbe(settings.database_url)
     reader_engine = None
     selected_thesis_reader = thesis_reader
-    if selected_thesis_reader is None:
+    selected_decision_journal_reader = decision_journal_reader
+    if selected_thesis_reader is None or selected_decision_journal_reader is None:
         reader_engine = create_database_engine(settings.database_url)
-        selected_thesis_reader = SqlAlchemyThesisReader(create_session_factory(reader_engine))
+        session_factory = create_session_factory(reader_engine)
+        if selected_thesis_reader is None:
+            selected_thesis_reader = SqlAlchemyThesisReader(session_factory)
+        if selected_decision_journal_reader is None:
+            selected_decision_journal_reader = SqlAlchemyDecisionJournalReader(session_factory)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -77,8 +151,8 @@ def create_app(
     application = FastAPI(
         title="Personal AI Investment OS",
         version="0.1.0",
-        description="Evidence-backed research ingestion and immutable Thesis read API; "
-        "no execution.",
+        description="Evidence-backed research ingestion plus immutable Thesis and Decision Journal "
+        "read APIs; no execution.",
         lifespan=lifespan,
     )
 
@@ -155,6 +229,17 @@ def create_app(
             instrument_id=instrument_id,
             versions=[_thesis_response(version) for version in versions],
         )
+
+    @application.get(
+        "/api/v1/decisions/{decision_id}",
+        response_model=DecisionJournalResponse,
+        tags=["decisions"],
+    )
+    async def read_decision_journal(decision_id: UUID) -> DecisionJournalResponse:
+        journal = await selected_decision_journal_reader.get(decision_id)
+        if journal is None:
+            raise HTTPException(status_code=404, detail="decision_not_found")
+        return _decision_journal_response(journal)
 
     return application
 

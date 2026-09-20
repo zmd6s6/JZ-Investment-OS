@@ -336,10 +336,70 @@ class InvestmentDecisionRecord(AuditFieldsMixin, Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
     portfolio_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    committee_session_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    thesis_version_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    policy_version_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    strategy_version_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    risk_assessment_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    position_sizing_run_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
     action: Mapped[str] = mapped_column(String(32), nullable=False)
+    confidence: Mapped[Decimal] = mapped_column(Numeric(20, 12), nullable=False)
+    risk_intent: Mapped[str] = mapped_column(String(32), nullable=False)
+    core_action: Mapped[str] = mapped_column(String(32), nullable=False)
+    tactical_action: Mapped[str] = mapped_column(String(32), nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
+    reasons_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    risks_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    watch_conditions_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    invalidation_conditions_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    next_review_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     input_snapshot_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    position_before_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    position_after_proposed_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    unknowns_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    dissent_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    prompt_bundle_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    formula_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class InvestmentDecisionEvidenceRecord(Base):
+    """Normalized immutable Evidence links for a Decision's audit snapshot."""
+
+    __tablename__ = "investment_decision_evidence"
+
+    investment_decision_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    evidence_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+
+
+class DecisionApprovalRecord(AuditFieldsMixin, Base):
+    """Append-only, attributed human action against one persisted Decision."""
+
+    __tablename__ = "decision_approval"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    decision_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    actor_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DecisionExecutionRecord(AuditFieldsMixin, Base):
+    """Append-only paper/manual execution receipt; it never represents a broker order."""
+
+    __tablename__ = "decision_execution"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    decision_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    approval_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    execution_mode: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    requested_quantity: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    filled_quantity: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    avg_price: Mapped[Decimal | None] = mapped_column(Numeric(38, 18))
+    external_refs_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
 
 
 class TaskRunRecord(AuditFieldsMixin, Base):

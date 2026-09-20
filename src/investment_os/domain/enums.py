@@ -70,6 +70,39 @@ class DecisionState(StrEnum):
     REVIEWED = "REVIEWED"
 
 
+class ApprovalAction(StrEnum):
+    """Immutable human actions recorded against a Decision approval gate."""
+
+    APPROVE = "APPROVE"
+    REJECT = "REJECT"
+    REVOKE = "REVOKE"
+
+
+class BucketAction(StrEnum):
+    """Separate Core/Tactical action recorded by a Decision Journal entry."""
+
+    NONE = "NONE"
+    BUY = "BUY"
+    ADD = "ADD"
+    HOLD = "HOLD"
+    REDUCE = "REDUCE"
+    EXIT = "EXIT"
+
+
+class ExecutionMode(StrEnum):
+    """V1 execution records deliberately exclude any broker/live mode."""
+
+    PAPER = "PAPER"
+    MANUAL = "MANUAL"
+
+
+class ExecutionStatus(StrEnum):
+    PENDING = "PENDING"
+    PARTIAL = "PARTIAL"
+    FILLED = "FILLED"
+    CANCELLED = "CANCELLED"
+
+
 class StrategyProposalState(StrEnum):
     DRAFT = "DRAFT"
     BACKTEST_PENDING = "BACKTEST_PENDING"
