@@ -103,3 +103,35 @@ def test_portfolio_snapshot_rejects_duplicate_instruments_and_preserves_core_tac
             nav=Decimal("100"),
             positions=(position, position),
         )
+
+
+def test_snapshot_content_hash_is_order_independent_and_changes_with_cash() -> None:
+    first_position = PortfolioPosition(
+        uuid4(),
+        PositionBuckets(Quantity(Decimal("1")), Quantity(Decimal("0")), Quantity(Decimal("1"))),
+        Decimal("10"),
+        Decimal("0"),
+    )
+    second_position = PortfolioPosition(
+        uuid4(),
+        PositionBuckets(Quantity(Decimal("2")), Quantity(Decimal("0")), Quantity(Decimal("2"))),
+        Decimal("20"),
+        Decimal("0"),
+    )
+    common = {
+        "portfolio_id": uuid4(),
+        "as_of": UtcTimestamp(datetime(2026, 9, 20, tzinfo=UTC)),
+        "nav": Decimal("100"),
+    }
+    first = PortfolioSnapshot(
+        cash=Decimal("50"), positions=(first_position, second_position), **common
+    )
+    reordered = PortfolioSnapshot(
+        cash=Decimal("50"), positions=(second_position, first_position), **common
+    )
+    changed = PortfolioSnapshot(
+        cash=Decimal("49"), positions=(first_position, second_position), **common
+    )
+
+    assert first.content_hash == reordered.content_hash
+    assert first.content_hash != changed.content_hash

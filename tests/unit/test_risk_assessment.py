@@ -63,6 +63,18 @@ def test_soft_flags_preserve_pass_with_evidence_and_release_conditions() -> None
     assert assessment.evidence_ids == (evidence_id,)
     assert assessment.is_active_at(NOW)
     assert not assessment.is_active_at(UtcTimestamp(NOW.value + timedelta(days=1)))
+    assert (
+        assessment.content_hash
+        == _assessment(
+            RiskFlag(
+                code="SYNTHETIC_VALUATION_RISK",
+                kind=RiskFlagKind.SOFT,
+                severity=RiskSeverity.MEDIUM,
+                evidence_ids=(evidence_id,),
+                release_condition="Synthetic valuation returns to its monitored range.",
+            )
+        ).content_hash
+    )
 
 
 def test_risk_assessment_rejects_unauditable_flags_and_expired_versions() -> None:

@@ -1,7 +1,9 @@
 """Pure portfolio positions and conservative capacity calculations for PR-06."""
 
+import json
 from dataclasses import dataclass
 from decimal import Decimal
+from hashlib import sha256
 from uuid import UUID
 
 from investment_os.domain.errors import DomainError, DomainErrorCode
@@ -51,6 +53,33 @@ class PortfolioSnapshot:
                 DomainErrorCode.INVARIANT_VIOLATION,
                 "a portfolio snapshot must not repeat an instrument position",
             )
+
+    @property
+    def content_hash(self) -> str:
+        """Canonical immutable snapshot identity, independent of input position ordering."""
+
+        payload = {
+            "portfolio_id": str(self.portfolio_id),
+            "as_of": self.as_of.value.isoformat(),
+            "cash": str(self.cash),
+            "nav": str(self.nav),
+            "positions": [
+                {
+                    "instrument_id": str(position.instrument_id),
+                    "core_quantity": str(position.buckets.core.value),
+                    "tactical_quantity": str(position.buckets.tactical.value),
+                    "total_quantity": str(position.buckets.total.value),
+                    "average_cost": str(position.average_cost),
+                    "realized_pnl": str(position.realized_pnl),
+                }
+                for position in sorted(
+                    self.positions, key=lambda position: str(position.instrument_id)
+                )
+            ],
+        }
+        return sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)

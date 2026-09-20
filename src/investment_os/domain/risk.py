@@ -1,7 +1,9 @@
 """Immutable, evidence-backed Risk assessments that cannot be overridden by Agents."""
 
+import json
 from dataclasses import dataclass
 from enum import StrEnum
+from hashlib import sha256
 from uuid import UUID
 
 from investment_os.domain.enums import Action, RiskGateState
@@ -96,3 +98,26 @@ class RiskAssessment:
         """An assessment expires before it can authorize risk at its expiry instant."""
 
         return as_of.value < self.expires_at.value
+
+    @property
+    def content_hash(self) -> str:
+        """Canonical identity of an immutable assessment and its evidence-backed flags."""
+
+        payload = {
+            "version": self.version,
+            "as_of": self.as_of.value.isoformat(),
+            "expires_at": self.expires_at.value.isoformat(),
+            "flags": [
+                {
+                    "code": flag.code,
+                    "kind": flag.kind.value,
+                    "severity": flag.severity.value,
+                    "evidence_ids": sorted(str(evidence_id) for evidence_id in flag.evidence_ids),
+                    "release_condition": flag.release_condition,
+                }
+                for flag in sorted(self.flags, key=lambda flag: flag.code)
+            ],
+        }
+        return sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
