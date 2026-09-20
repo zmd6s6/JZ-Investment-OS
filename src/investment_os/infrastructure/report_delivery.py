@@ -3,6 +3,7 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
+from hashlib import sha256
 from re import fullmatch
 from uuid import UUID
 
@@ -54,6 +55,8 @@ class SqlAlchemyDailyReportReader:
             or not isinstance(rendered_markdown, str)
             or payload.get("simulation_only") is not True
             or fullmatch(r"[0-9a-f]{64}", content_hash) is None
+            or sha256(rendered_markdown.encode("utf-8")).hexdigest() != content_hash
+            or "SIMULATION / NO AUTO TRADE" not in rendered_markdown
         ):
             raise ValueError("latest daily report event is malformed")
         try:

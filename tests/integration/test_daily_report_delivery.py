@@ -14,9 +14,11 @@ from investment_os.application.reports import (
 )
 from investment_os.infrastructure.persistence.jobs import ReliableJobExecutor
 from investment_os.infrastructure.persistence.models import EventLogRecord, OutboxEventRecord
+from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 from investment_os.infrastructure.report_delivery import (
     DAILY_REPORT_CREATED,
     DAILY_REPORT_TOPIC,
+    SqlAlchemyDailyReportReader,
     daily_report_handler,
 )
 
@@ -101,3 +103,48 @@ async def test_daily_report_job_creates_one_immutable_event_and_outbox_record(
     assert outbox.topic == DAILY_REPORT_TOPIC
     assert outbox.payload_json["report_id"] == str(report.id)
     assert outbox.payload_json["content_hash"] == report.content_hash()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_daily_report_reader_replays_verified_snapshot_and_rejects_tampering(
+    database_engine: AsyncEngine,
+) -> None:
+    factory = _factory(database_engine)
+    report = _report()
+    correlation_id = uuid4()
+    async with SqlAlchemyUnitOfWork(factory) as uow:
+        await daily_report_handler(report, correlation_id)(uow)
+        await uow.commit()
+
+    replayed = await SqlAlchemyDailyReportReader(factory).latest()
+
+    assert replayed is not None
+    assert replayed.id == report.id
+    assert replayed.as_of == report.as_of
+    assert replayed.content_hash == report.content_hash()
+    assert replayed.rendered_markdown == report.render_markdown()
+
+    async with SqlAlchemyUnitOfWork(factory) as uow:
+        tampered = EventLogRecord(
+            event_type=DAILY_REPORT_CREATED,
+            aggregate_type="daily_report",
+            aggregate_id=uuid4(),
+            payload_json={
+                "as_of": NOW.isoformat(),
+                "content_hash": "a" * 64,
+                "rendered_markdown": "# altered snapshot\nSIMULATION / NO AUTO TRADE",
+                "simulation_only": True,
+            },
+            occurred_at=NOW + datetime.resolution,
+            correlation_id=uuid4(),
+            causation_id=None,
+            schema_version="1.0",
+            metadata_json={"report_kind": "DAILY"},
+            created_by="pytest",
+        )
+        await uow.events.append(tampered)
+        await uow.commit()
+
+    with pytest.raises(ValueError, match="malformed"):
+        await SqlAlchemyDailyReportReader(factory).latest()
