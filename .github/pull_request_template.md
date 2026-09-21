@@ -1,32 +1,32 @@
-## Scope completed
+## 已完成范围
 
-## Master Spec clauses implemented
+## 已实现的主规范条款
 
-## Stage acceptance criteria
+## 阶段验收标准
 
-- [ ] Deliverables complete
-- [ ] Acceptance criteria demonstrated
-- [ ] Documentation/status updated
+- [ ] 交付物完整
+- [ ] 已演示验收标准
+- [ ] 文档/状态已更新
 
-## Files, migrations, schemas, and APIs changed
+## 已变更的文件、迁移、Schema 和 API
 
-## Verification executed and results
+## 实际执行的验证及结果
 
-List exact commands and results. Use `NOT VERIFIED` for anything not run.
+列出精确命令和结果。未运行的项目使用 `NOT VERIFIED`。
 
-## Acceptance scenarios demonstrated
+## 已演示的验收场景
 
-## Security, data, and investment-governance review
+## 安全、数据和投资治理审查
 
-- [ ] No secrets or unauthorized personal/production data
-- [ ] No DSA private coupling
-- [ ] Evidence/immutability/Risk Veto/sizing/approval invariants preserved
-- [ ] No live-trading path enabled
+- [ ] 没有密钥或未经授权的个人/生产数据
+- [ ] 没有 DSA 私有耦合
+- [ ] 证据/不可变性/Risk Veto/仓位/批准不变量得到保留
+- [ ] 未启用实盘交易路径
 
-## Risks and known limitations
+## 风险和已知限制
 
-## Human decisions required
+## 需要的人类决定
 
-## Rollback / recovery
+## 回滚 / 恢复
 
-## Recommended next stage
+## 建议的下一阶段
