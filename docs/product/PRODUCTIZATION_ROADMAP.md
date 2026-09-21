@@ -12,8 +12,9 @@
 
 ## 1. 产品目标
 
-仅因领域模块、API、测试或 UI 占位项存在，项目并不视为“可正常使用”。首个可用 Beta 的标准是用户可从
-Web UI 完成以下工作流：
+仅因领域模块、API、测试或 UI 占位项存在，项目并不视为**可正常使用**。
+
+只有当用户可从 Web UI 完成以下工作流时，产品才达到首个可用 Beta：
 
 ```text
 首次启动
@@ -25,33 +26,52 @@ Web UI 完成以下工作流：
 → 审阅/确认 Investment Policy 设置
 → 运行 Initial Analysis
 → 获得含 Evidence / Thesis / Agent opinions / Risk / 仓位规模计算的完整 Decision
-→ 审阅 Decision Center
-→ 在需要时明确批准或拒绝
-→ 仅手工执行，并记录执行结果
-→ 每日获得 AI 团队的报告、异常和复核提醒
+→ Approve 或 Reject
+→ 可选地记录一笔 MANUAL 执行
 ```
 
-产品必须保持下列底线：
+完成引导后，正常日常工作流是：
 
-- Evidence-first、不可变历史、明确业务时间和可审计性；
-- `auto_trade=false`，没有有效人工批准绝不提交实盘订单；
-- Risk Veto 阻止 BUY、ADD 和任何增加敞口，CIO/批准不得覆盖；
-- Portfolio Manager 输出 `risk_intent`，确定性代码负责仓位规模计算、上限、手数取整和最终数量；
-- Learning 只能提出/测试建议，不得激活策略、政策、提示词、阈值、权重或代码变更；
-- 模型、网页、新闻、供应商输出和 DSA 输出都是不可信数据，绝不是指令。
+```text
+已授权市场/研究数据
+→ Evidence
+→ 确定性 Features
+→ Thesis 更新
+→ 专家 Agent 第一轮
+→ 冲突检测 / 有界第二轮
+→ Portfolio Manager
+→ Risk Manager
+→ 确定性仓位规模计算
+→ CIO Decision
+→ Decision Center / Daily Report
+→ 人工 Approve / Reject
+→ 可选的 MANUAL 执行记录
+→ 后续 Outcome / Review
+```
+
+普通使用中，任何用户都不应需要操作 Python、SQL、原始 JSON、curl 或内部数据库表。
 
 ## 2. 产品完成术语
 
 ### 工程完成（Engineering Done）
 
-代码、测试、迁移、契约和基础设施满足一个工程阶段的验收条件，但用户可能仍无法完成真实的安全工作流。
+一个组件已实现、经过测试、尊重架构边界并通过必需 CI。
 
 ### 产品完成（Product Done）
 
-典型非开发者可以在受支持环境中完成真实但受治理约束的任务；UI 如实展示配置状态、数据来源、失败和
-不可用能力，不要求内部脚本或直接数据库操作。
+组件已接入运行中的产品，并可通过受支持的用户工作流访问。
 
-工程完成不等于产品完成。每个产品阶段都必须记录两者的证据和剩余人工决定。
+一个未接入运行时的 class、adapter、API 或 React 界面**不是产品完成**。
+
+示例：
+
+- 没有运行中 worker 触发的 Scheduler classes：仅工程完成。
+- 没有导入/引导的 Portfolio domain objects：仅工程完成。
+- 没有真实可配置供应商的 model gateway interfaces：仅工程完成。
+- 由硬编码合成数据支持的 UI cards：仅工程完成。
+- 没有批准交互界面的 approval domain objects：仅工程完成。
+
+Beta 门槛要求端到端工作流达到产品完成。
 
 ## 3. 目标产品界面
 
@@ -738,19 +758,40 @@ PR-09 在可用 Beta 之后执行，完成：
 
 ## 18. 产品化所需工程纪律
 
-每个阶段须遵循 Master Spec、ADR、活动阶段契约和 `AGENTS.md`：行为需要正常/失败/边界测试；模式和
-OpenAPI 漂移必须检查；迁移需升级与恢复方案；数据、密钥和日志需安全审查；不可变历史、Evidence、
-Risk Veto、人工批准与确定性仓位规模计算必须有具名不变量测试。产品 UI 不是绕过应用端口或领域规则的
-便利层。
+从 P1 起：
+
+- 不得只实现一个 class；应将其接入运行时。
+- 不得只实现一个 API；应连接受支持的 UI 流。
+- 不得只实现一个 UI；除明确 demo 状态外，应由真实应用 API 支撑。
+- 不得使用硬编码合成卡片来声称产品工作流完成。
+- 每项修改均须有正常/失败/边界测试。
+- 关键工作流要求 E2E 覆盖。
+- 真实个人数据不得进入仓库夹具。
+- 供应商密钥不得进入日志和 API 响应。
+- 保留失败闭合的 Risk 和批准语义。
+- 保留 `auto_trade=false`。
+- 不得为了加快产品化而削弱 Master Spec。
 
 ## 19. 仍在 Codex 权限之外的人工治理决定
 
-真实 Investment Policy 限制、供应商/数据许可和授权、市场/资产范围、模型/预算、数据保留、真实
-Portfolio、经纪商集成、实盘执行、策略激活以及任何降低风险/证据/批准/不可变性要求的变化，均需明确
-人工决定与适当 ADR。Codex 可以实现已授权边界，不能替所有者作出这些决定。
+Codex 可以实现可配置机制，但不得自行选择以下真实值：
+
+- 真实 Investment Policy 限制；
+- 实际供应商/许可授权；
+- 保留/隐私/成本边界；
+- 真实批准主体和 TTL；
+- 影响所有者支出的模型供应商预算限制；
+- 真实数据源优先级；
+- 经纪商集成；
+- 启用实盘执行；
+- StrategyProposal 激活。
+
+当其中一个决定仅阻塞某个子功能时，Codex 应继续全部独立的安全工作。
 
 ## 20. 产品化成功声明
 
-当首个 Beta 的用户可在不接触内部实现细节的前提下安全完成研究、Portfolio、分析、Decision、人工批准、
-手工执行记录、报告和复核闭环，且每一步均保持 Evidence、不可变历史、确定性风险/仓位规模计算和
-`auto_trade=false` 时，产品化才算成功。
+首个 Beta 在所有者能够如实声明以下内容时才成功：
+
+> 我可以启动栈、打开浏览器、配置我已授权的模型和数据供应商、导入我的 Portfolio、管理 Watchlist、运行或接收定时分析、检查 Evidence/Thesis/Agent/Risk/仓位规模计算、接收 CIO Decision、Approve 或 Reject，并记录一笔手工执行——而无需接触源代码、SQL、原始 JSON 或内部工具。
+
+在该声明可被证明为真之前，即使单个工程阶段均为绿色，项目仍处于产品化阶段。
