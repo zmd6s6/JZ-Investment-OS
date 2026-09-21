@@ -1,16 +1,21 @@
 # Personal AI Investment OS — Beta 验收门槛
 
-> 状态：Beta 发布前的强制验收契约
+> 目的：定义项目在可以被称为“所有者可正常使用”前所需的最低证据。
 >
-> 权威：从属于 `INVESTMENT_OS_MASTER_SPEC.md`、已接受 ADR、活动阶段契约和产品化路线图
->
-> 安全基线：`auto_trade=false`；V1 禁止实盘经纪商订单提交
+> 约束权威仍为 `INVESTMENT_OS_MASTER_SPEC.md`。
 
 ## 1. Beta 定义
 
-Beta 并不是“演示可运行”。只有典型非开发者能在受支持环境中完成新安装、配置已授权供应商、建立个人
-Portfolio 与 Watchlist、运行分析、审阅完整 Decision、进行明确人工批准或拒绝、记录手工执行、接收
-报告和处理失败时，才能进入 Beta。任何未实现能力必须如实显示；合成测试和真实产品数据/凭证必须隔离。
+Beta 表示所有者无需接触源代码、SQL、原始 JSON、curl 或仅供内部开发者使用的工具，即可完成正常投资助手工作流。
+
+Beta 不表示：
+
+- 实盘经纪商自动化；
+- 保证投资表现；
+- Strategy 自主激活；
+- 移除人工批准。
+
+V1/Beta 保持 `auto_trade=false`。
 
 ## 2. 新安装验收
 
