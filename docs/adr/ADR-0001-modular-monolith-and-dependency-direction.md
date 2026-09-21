@@ -1,49 +1,49 @@
-# ADR-0001 — Modular monolith and dependency direction
+# ADR-0001 — 模块化单体与依赖方向
 
-- Status: Accepted
-- Date: 2026-09-17
-- Deciders: Human-approved Master Spec; implemented by Codex
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-00
+- 状态：Accepted
+- 日期：2026-09-17
+- 决策者：经人类批准的主规范；由 Codex 实现
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-00
 
-## Context
+## 背景
 
-The system has many domain concepts but is a single-user V1. Independent microservices would add deployment, consistency, tracing, and failure complexity before the domain is proven. The Master Spec requires inward dependencies and separate API/worker deployment units.
+系统有许多领域概念，但 V1 仅服务单一用户。在领域获得验证前，独立微服务会增加部署、一致性、追踪和失败复杂度。主规范要求依赖向内，以及独立的 API/Worker 部署单元。
 
-## Decision
+## 决策
 
-Use one Python package as a modular monolith, deployed as `investment-api` and `investment-worker` processes from the same immutable image. Dependencies point `api/infrastructure/worker → application → domain`; domain code cannot import frameworks or adapters. PostgreSQL is the only required state service in V1.
+使用一个 Python 包作为模块化单体，从同一不可变镜像部署 `investment-api` 和 `investment-worker` 进程。依赖指向 `api/infrastructure/worker → application → domain`；领域代码不得导入框架或适配器。PostgreSQL 是 V1 唯一必需的状态服务。
 
-Reserve the `web/` boundary, but defer React/Node metadata and lockfiles to PR-08. PR-00 has no stable UI contract beyond HTTP health, so an empty frontend would create maintenance without testing product behavior.
+保留 `web/` 边界，但将 React/Node 元数据和锁文件延后至 PR-08。PR-00 除 HTTP 健康检查外没有稳定 UI 契约；空前端只会增加维护而不能测试产品行为。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### Microservices per engine
+### 每个引擎使用微服务
 
-Rejected because distributed transactions and operations would dominate a personal-system V1.
+未选择，因为分布式事务和运维会主导个人系统 V1。
 
-### One undifferentiated application module
+### 一个未分层的应用模块
 
-Rejected because it would make DSA, persistence, API, and LLM concerns leak into domain rules.
+未选择，因为它会让 DSA、持久化、API 和 LLM 关注点泄漏进领域规则。
 
-### Bootstrap React immediately
+### 立即引导 React
 
-Rejected until PR-08 because there is no approved interaction contract to implement or test in PR-00.
+未选择，延后至 PR-08，因为 PR-00 没有可实现或测试的已批准交互契约。
 
-## Consequences
+## 后果
 
-Deployment stays simple and domain boundaries remain testable. API and worker can scale separately later. Developers must enforce boundaries with contract tests because Python packages do not provide hard module isolation.
+部署保持简单，领域边界仍可测试。API 和 Worker 以后可分别扩展。由于 Python 包不提供强模块隔离，开发者必须用契约测试强制边界。
 
-## Security and operational impact
+## 安全与运维影响
 
-Fewer network surfaces reduce exposure. API and worker share dependencies, so a vulnerable dependency affects both and must be scanned centrally.
+较少的网络暴露面可降低风险。API 与 Worker 共享依赖，因此脆弱依赖会同时影响二者，必须集中扫描。
 
-## Migration and rollback
+## 迁移与回滚
 
-Extract a module only through a superseding ADR after measuring a real scaling or isolation need. Reverting PR-00 removes only bootstrap code and containers; there is no domain migration.
+只有在测量到真实扩展或隔离需求后，才可通过替代 ADR 拆分模块。回滚 PR-00 只移除引导代码和容器；不存在领域迁移。
 
-## References
+## 引用
 
-- Master Spec sections 3.2, 3.3, and PR-00
+- 主规范第 3.2、3.3 节和 PR-00
 - `tests/contract/test_architecture_boundaries.py`

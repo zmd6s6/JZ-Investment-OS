@@ -1,58 +1,45 @@
-# ADR-0012 — Explicit multi-venue calendar semantics
+# ADR-0012 — 显式多市场日历语义
 
-- Status: Accepted
-- Date: 2026-09-20
-- Deciders: Human owner; implemented by Codex
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-08
+- 状态：Accepted
+- 日期：2026-09-20
+- 决策者：人类所有者；由 Codex 实现
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-08
 
-## Context
+## 背景
 
-The owner has added A shares to the V1 research/simulation scope. Scheduler business time must not
-silently use a U.S. timezone for Shanghai or Shenzhen sessions, and it must not infer exchange
-holidays from weekdays. The Master Spec requires explicit business time, idempotent replay, and
-synthetic or authorized data only.
+所有者已将 A 股加入 V1 研究/模拟范围。调度器业务时间不得为上海或深圳时段静默使用美国时区，也不得从工作日推断交易所假日。主规范要求显式业务时间、幂等重放及仅使用合成或授权数据。
 
-## Decision
+## 决策
 
-Support synthetic explicit calendars for `US_EQUITIES`, `SSE`, and `SZSE`. U.S. sessions use
-`America/New_York`; SSE/SZSE sessions use `Asia/Shanghai`. Each session date and close time remains
-caller-supplied; there is no implicit weekday, holiday, or external calendar provider. A Daily job
-receives its calendar explicitly and validates that its `as_of` has the calendar's business date.
+支持 `US_EQUITIES`、`SSE` 和 `SZSE` 的合成显式日历。美国时段使用 `America/New_York`；SSE/SZSE 时段使用 `Asia/Shanghai`。每个时段日期和收盘时间都由调用方提供；不存在隐式工作日、假日或外部日历提供方。Daily 任务显式接收日历，并校验其 `as_of` 具有日历业务日期。
 
-This ADR authorizes only calendar semantics for synthetic development. It does not authorize an A
-share data provider, real portfolio import, A-share policy limits, brokerage connectivity, or live
-trading.
+本 ADR 仅授权合成开发的日历语义；不授权 A 股数据提供方、真实组合导入、A 股 Policy 限额、券商连接或实盘交易。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### Continue using a global New York timezone
+### 继续使用全局纽约时区
 
-Rejected because it produces incorrect A-share business dates and UTC close instants.
+未选择，因为会产生错误的 A 股业务日期和 UTC 收盘时刻。
 
-### Infer Chinese trading dates from weekdays
+### 从工作日推断中国交易日期
 
-Rejected because mainland exchange holidays and exceptional closures must be explicit and auditable.
+未选择，因为大陆交易所假日和异常休市必须显式且可审计。
 
-## Consequences
+## 后果
 
-Calendar callers must select a venue and supply authoritative or synthetic session records. U.S.
-callers retain the explicit `US_EQUITIES` default for compatibility. Future authorized calendar
-providers can populate the same contract without changing job semantics.
+日历调用方必须选择市场并提供权威或合成时段记录。美国调用方保留显式 `US_EQUITIES` 默认值以保持兼容。未来经授权的日历提供方可填充同一契约，无需改变任务语义。
 
-## Security and operational impact
+## 安全与运维影响
 
-The venue enum rejects arbitrary timezone strings. External calendar inputs remain untrusted data
-and must be validated before creating a session. No credential, order, or execution capability is
-added.
+市场 enum 拒绝任意时区字符串。外部日历输入仍是不可信数据，创建 session 前必须校验。未新增凭据、订单或执行能力。
 
-## Migration and rollback
+## 迁移与回滚
 
-No database migration is required. Existing U.S. synthetic calendars retain their default venue.
-Rollback is a code revert; any future provider integration requires a separate ADR and authorization.
+不需要数据库迁移。现有美国合成日历保留默认市场。回滚是代码回退；未来提供方集成需要单独 ADR 和授权。
 
-## References
+## 引用
 
-- Master Spec sections 1.2, 2.3, 14, 17.2, 18.2, and Appendix B
-- ADR-0003 and ADR-0008
+- 主规范第 1.2、2.3、14、17.2、18.2 节及附录 B
+- ADR-0003 和 ADR-0008

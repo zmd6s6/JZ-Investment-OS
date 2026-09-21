@@ -1,79 +1,80 @@
-# Personal AI Investment OS — Beta Acceptance Gate
+# Personal AI Investment OS — Beta 验收门槛
 
-> Purpose: define the minimum evidence required before the project may be described as normally usable by the owner.  
-> Governing authority remains `INVESTMENT_OS_MASTER_SPEC.md`.
-
----
-
-## 1. Beta definition
-
-Beta means the owner can complete the normal investment-assistant workflow without touching source code, SQL, raw JSON, curl, or internal developer-only tools.
-
-Beta does **not** mean:
-
-- live brokerage automation
-- guaranteed investment performance
-- autonomous Strategy activation
-- removal of human approval
-
-V1/Beta keeps `auto_trade=false`.
+> 目的：定义项目可被描述为所有者可正常使用前所需的最低证据。
+>
+> 约束权威仍为 `INVESTMENT_OS_MASTER_SPEC.md`。
 
 ---
 
-## 2. Fresh-install acceptance
+## 1. Beta 定义
 
-From a clean supported machine:
+Beta 表示所有者无需接触源代码、SQL、原始 JSON、curl 或仅供内部开发者使用的工具，即可完成正常的投资助手工作流。
+
+Beta 不表示：
+
+- 实盘经纪商自动化
+- 保证投资表现
+- Strategy 自主激活
+- 移除人工批准
+
+V1/Beta 保持 `auto_trade=false`。
+
+---
+
+## 2. 新安装验收
+
+在干净的受支持机器上：
 
 ```text
 git clone
 docker compose up -d
 ```
 
-The user must be able to open the Web UI and reach the Setup Wizard.
+用户必须能够打开 Web UI 并进入 Setup Wizard。
 
-Pass conditions:
+通过条件：
 
-- database migration succeeds
-- API is healthy
-- worker is healthy
-- Web UI is reachable
-- no manual database bootstrap is required
-- no hidden one-off developer script is required for ordinary onboarding
-
----
-
-## 3. Model-provider acceptance
-
-Through UI only, user can:
-
-- create an OpenAI-compatible provider profile
-- enter base URL, model and secret
-- test connection
-- see a sanitized success/failure result
-- assign a default model
-- run one schema-valid Agent call
-
-Security checks:
-
-- secret is never returned in plaintext
-- secret does not appear in logs
-- AgentRun records actual provider/model
-- timeout fails closed
-- invalid structured output follows bounded repair policy
-- model failure cannot default into BUY/ADD
+- 数据库迁移成功
+- API 健康
+- worker 健康
+- Web UI 可访问
+- 不需要手动初始化数据库
+- 普通引导不需要隐藏的一次性开发者脚本
 
 ---
 
-## 4. Data-provider acceptance
+## 3. 模型供应商验收
 
-Through UI only, user can:
+仅通过 UI，用户可以：
 
-- configure one authorized research/data provider
-- test connection
-- see provider health/freshness
-- sync at least one real authorized instrument
+- 创建 OpenAI-compatible 供应商配置文件
+- 输入 base URL、模型和密钥
+- 测试连接
+- 查看经清洗的成功/失败结果
+- 分配默认模型
+- 运行一次模式有效的 Agent 调用
 
-Traceability checks:
+安全检查：
+
+- 密钥绝不以明文返回
+- 密钥不出现在日志中
+- AgentRun 记录实际供应商/模型
+- 超时失败闭合
+- 无效结构化输出遵循有限修复策略
+- 模型失败不能默认变成 BUY/ADD
+
+---
+
+## 4. 数据供应商验收
+
+仅通过 UI，用户可以：
+
+- 配置一个已授权研究/数据供应商
+- 测试连接
+- 查看供应商健康/新鲜度
+- 同步至少一个真实且已授权标的
+
+可追溯性检查：
 
 ```text
 Provider payload
@@ -81,24 +82,24 @@ Provider payload
 → Evidence
 ```
 
-Pass conditions:
+通过条件：
 
-- source/locator/timestamps retained
-- schema validation active
-- no DSA private DB/internal coupling
-- stale/malformed/unavailable data is explicit
-- prompt-like external content remains untrusted data
+- 保留 source/locator/timestamps
+- schema validation 处于启用状态
+- 不与 DSA 私有 DB/internal 实现耦合
+- stale/malformed/unavailable 数据是明确状态
+- 类提示词外部内容保持不可信数据
 
 ---
 
-## 5. Portfolio acceptance
+## 5. Portfolio 验收
 
-Through UI only, user can create a Portfolio and populate it using:
+仅通过 UI，用户可以创建 Portfolio，并通过以下方式填充：
 
-- manual entry
-- CSV import preview + confirm
+- 手工录入
+- CSV 导入预览 + 确认
 
-Required fields supported:
+支持的必填字段：
 
 - market
 - symbol
@@ -109,40 +110,40 @@ Required fields supported:
 - average cost
 - Core/Tactical bucket
 
-Pass conditions:
+通过条件：
 
-- import preview makes no mutation
-- invalid rows are clearly reported
-- symbol normalization is visible
-- user explicitly confirms before commit
-- committed positions reconcile
-- Portfolio page reflects imported positions
-- real personal holdings never appear in test fixtures/repository artifacts
-
----
-
-## 6. Watchlist acceptance
-
-Through UI only, user can:
-
-- search/add an instrument
-- remove an instrument
-- view lifecycle state
-- view Thesis state
-- view data freshness
-- view next monitoring condition
+- 导入预览不产生修改
+- 无效行得到清晰报告
+- symbol normalization 可见
+- 用户在提交前明确确认
+- 已提交的 positions 可对账
+- Portfolio 页面反映导入 positions
+- 真实个人持仓绝不出现在测试夹具/仓库工件中
 
 ---
 
-## 7. Initial-analysis acceptance
+## 6. Watchlist 验收
 
-The user clicks:
+仅通过 UI，用户可以：
+
+- 搜索/添加一个 instrument
+- 移除一个 instrument
+- 查看 lifecycle state
+- 查看 Thesis state
+- 查看 data freshness
+- 查看下一 monitoring condition
+
+---
+
+## 7. Initial-analysis 验收
+
+用户点击：
 
 ```text
 Run Initial Analysis
 ```
 
-For at least one authorized real/shadow instrument, the system must persist and display a complete chain:
+对于至少一个已授权真实/影子 instrument，系统必须持久化并展示完整链路：
 
 ```text
 Evidence
@@ -158,20 +159,20 @@ Evidence
 → InvestmentDecision
 ```
 
-Pass conditions:
+通过条件：
 
-- AnalysisRun progress is visible
-- failure is explicit and bounded
-- correlation/provenance is reconstructable
-- no missing Risk assessment is interpreted as PASS
-- no LLM-generated arbitrary final percentage is accepted
-- Decision references exact versions/snapshots
+- AnalysisRun progress 可见
+- failure 明确且有界
+- correlation/provenance 可重建
+- 缺失 Risk assessment 不得解释为 PASS
+- 不接受 LLM 生成的任意最终百分比
+- Decision 引用准确 versions/snapshots
 
 ---
 
-## 8. Decision Center acceptance
+## 8. Decision Center 验收
 
-The Decision detail page must display:
+Decision 详情页必须展示：
 
 - Action
 - confidence
@@ -189,56 +190,56 @@ The Decision detail page must display:
 - next review
 - relevant historical versions
 
-The user must be able to drill down to supporting Evidence and Agent opinions.
+用户必须能够下钻到支撑 Evidence 和 Agent opinions。
 
 ---
 
-## 9. Human-approval acceptance
+## 9. 人工批准验收
 
-For an eligible Decision, the UI supports:
+对于合资格 Decision，UI 支持：
 
 - APPROVE
 - REJECT
-- REVOKE where legally valid in the state machine
+- 在状态机中法律有效时的 REVOKE
 
-Pass conditions:
+通过条件：
 
-- append-only human action
-- actor/time recorded
-- TTL enforced
-- expired approval cannot execute
-- revoked approval cannot execute
-- Risk Veto cannot be overridden
-- approval does not equal execution
+- 仅追加的人工动作
+- 记录 actor/time
+- TTL 得到强制执行
+- 过期批准不能执行
+- 撤销批准不能执行
+- Risk Veto 不能被覆盖
+- 批准不等于执行
 
 ---
 
-## 10. Manual-execution acceptance
+## 10. 手工执行验收
 
-After externally placing a trade, user can record a MANUAL execution.
+在外部完成交易后，用户可以记录一笔 MANUAL execution。
 
-Required inputs:
+必填输入：
 
 - quantity
 - price
-- fees where relevant
+- 适用时的 fees
 - execution timestamp
-- sanitized external reference/note
+- 经清洗的 external reference/note
 
-Pass conditions:
+通过条件：
 
-- valid approval linkage required where applicable
-- fill state is coherent
-- no broker order is submitted by the application
-- record is immutable/auditable
+- 适用时要求有效 approval linkage
+- fill state 一致
+- 应用不提交经纪商订单
+- 记录不可变且可审计
 
 ---
 
-## 11. Runtime scheduler acceptance
+## 11. 运行时调度器验收
 
-The running worker, not a test harness, must evaluate due work.
+正在运行的 worker（而非 test harness）必须评估到期工作。
 
-For at least one explicit synthetic/authorized market session:
+对于至少一个明确的合成/已授权市场会话：
 
 ```text
 worker
@@ -252,43 +253,43 @@ worker
 → Report/Analysis effect
 ```
 
-Pass conditions:
+通过条件：
 
-- no direct dispatcher call is used as the only E2E proof
-- retry is idempotent
-- duplicate concurrent invocation has one business effect
-- failures are durable and visible
-- as-of replay works
-- server local timezone is not used as business time
-
----
-
-## 12. Daily-use acceptance
-
-On the next due session after onboarding, without manual CLI invocation, the system must:
-
-- synchronize authorized data
-- evaluate Portfolio/Watchlist changes
-- create/update relevant analysis
-- produce Decisions where warranted
-- produce a Daily Report
-- surface operational/data/risk exceptions
-
-Dashboard must clearly answer:
-
-- what needs action
-- what can continue to hold
-- what is only being watched
-- what new opportunities appeared
-- what Risk Vetoes exist
-- what approvals are pending
-- whether data/jobs are degraded
+- 不得将 direct dispatcher call 作为唯一 E2E 证明
+- retry 具幂等性
+- 重复并发调用只有一次业务效果
+- failures 可持久化且可见
+- as-of replay 可用
+- 不得使用 server local timezone 作为业务时间
 
 ---
 
-## 13. Weekly opportunity acceptance
+## 12. 日常使用验收
 
-A weekly run must demonstrate:
+引导后的下一个到期会话，无需手工 CLI 调用，系统必须：
+
+- 同步已授权数据
+- 评估 Portfolio/Watchlist 变化
+- 创建/更新相关 analysis
+- 在适当时产生 Decisions
+- 生成 Daily Report
+- 展示 operational/data/risk exceptions
+
+Dashboard 必须清晰回答：
+
+- 什么需要动作
+- 什么可以继续持有
+- 什么仅在观察
+- 出现了哪些新机会
+- 存在哪些 Risk Veto
+- 哪些 approvals 待处理
+- data/jobs 是否降级
+
+---
+
+## 13. 每周机会验收
+
+每周运行必须演示：
 
 ```text
 market universe
@@ -298,19 +299,19 @@ market universe
 → Opportunities UI
 ```
 
-Pass conditions:
+通过条件：
 
-- no indiscriminate whole-market strong-model fan-out
-- candidate reason is visible
-- missing Evidence is visible
-- lifecycle state is visible
-- no candidate is automatically traded
+- 不得对整个 market universe 无差别扇出 strong-model
+- candidate reason 可见
+- 缺失 Evidence 可见
+- lifecycle state 可见
+- 没有 candidate 被自动交易
 
 ---
 
-## 14. Failure-mode acceptance
+## 14. 失败模式验收
 
-Beta must explicitly verify at least:
+Beta 至少必须明确验证：
 
 - model provider unavailable
 - invalid model schema output
@@ -327,28 +328,28 @@ Beta must explicitly verify at least:
 - report unavailable
 - partial AnalysisRun failure
 
-For every case, the system must degrade safely and visibly.
+对于每一种情况，系统必须安全且可见地降级。
 
 ---
 
-## 15. Security/privacy acceptance
+## 15. 安全/隐私验收
 
-Verify:
+验证：
 
-- no real API key in repository
-- no secret in browser/API read response
-- no secret in logs
-- no real portfolio fixture committed
-- no provider raw credential in audit payload
-- no unrestricted live execution adapter
-- no external content treated as instructions
-- dependency/security scans remain green
+- 仓库中没有真实 API key
+- browser/API read response 中没有 secret
+- 日志中没有 secret
+- 没有提交真实 portfolio fixture
+- 审计 payload 中没有 provider raw credential
+- 没有不受限制的 live execution adapter
+- 没有将 external content 当作 instructions
+- dependency/security scans 保持通过
 
 ---
 
-## 16. Usability acceptance
+## 16. 可用性验收
 
-A person familiar with investing but not the repository internals must be able to complete:
+熟悉投资但不了解仓库内部实现的人员必须能够完成：
 
 ```text
 configure provider
@@ -360,22 +361,22 @@ configure provider
 → record manual execution
 ```
 
-using UI guidance alone.
+且仅靠 UI guidance 完成。
 
-Developer documentation may exist, but ordinary use must not depend on it.
+开发者文档可以存在，但普通使用不得依赖它。
 
 ---
 
-## 17. Release evidence required
+## 17. 所需发布证据
 
-Before declaring Beta ready, attach or record:
+在宣布 Beta 就绪前，附加或记录：
 
-- exact commit SHA
+- 准确 commit SHA
 - CI run
 - E2E run evidence
 - fresh-install evidence
-- provider test evidence with secrets redacted
-- Portfolio import test using de-identified/synthetic sample
+- 已脱敏 secrets 的 provider test evidence
+- 使用去标识化/合成 sample 的 Portfolio import test
 - complete analysis trace
 - scheduler runtime trace
 - approval/manual-execution trace
@@ -384,14 +385,14 @@ Before declaring Beta ready, attach or record:
 
 ---
 
-## 18. Beta verdict
+## 18. Beta 结论
 
-Beta passes only when every mandatory section above is PASS or explicitly marked NOT APPLICABLE by a human-approved scope decision.
+只有当上述每个 mandatory section 均为 PASS，或由 human-approved scope decision 明确标记为 NOT APPLICABLE 时，Beta 才通过。
 
-A green unit-test suite alone is insufficient.
+仅有绿色 unit-test suite 不足够。
 
-A working UI backed only by synthetic hard-coded cards is insufficient.
+仅有由 synthetic hard-coded cards 支撑的可运行 UI 不足够。
 
-A working backend without user-operable UI is insufficient.
+没有 user-operable UI 的可运行 backend 不足够。
 
-A complete domain model without runtime orchestration is insufficient.
+没有 runtime orchestration 的完整 domain model 不足够。

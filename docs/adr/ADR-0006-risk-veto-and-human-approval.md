@@ -1,44 +1,44 @@
-# ADR-0006 — Risk Veto and human approval
+# ADR-0006 — Risk Veto 与人工批准
 
-- Status: Accepted
-- Date: 2026-09-17
-- Deciders: Human-approved Master Spec; implemented by Codex
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-06 / PR-07
+- 状态：Accepted
+- 日期：2026-09-17
+- 决策者：经人类批准的主规范；由 Codex 实现
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-06 / PR-07
 
-## Context
+## 背景
 
-Optimistic research must not override hard risk constraints, and model recommendations must not become real orders without human authority. Approval and execution have different meanings and failure states.
+乐观研究不得覆盖硬风险约束，模型建议也不得在没有人类权力时成为真实订单。批准和执行具有不同含义和失败状态。
 
-## Decision
+## 决策
 
-Risk Manager issues versioned hard Veto or soft flags with reason codes, Evidence, expiry, and release conditions. A hard Veto blocks BUY, ADD, and increased exposure; it cannot block risk-reducing REDUCE/EXIT. CIO cannot override a Veto.
+Risk Manager 给出带原因代码、Evidence、到期时间和解除条件的版本化硬 Veto 或软标记。硬 Veto 阻止 BUY、ADD 和增加暴露；不得阻止降低风险的 REDUCE/EXIT。CIO 不得覆盖 Veto。
 
-All executable Decisions stop at `PENDING_APPROVAL`. A named human must approve within TTL. Rejection, revocation, expiry, material price/input drift, partial execution, and cancellation are distinct states. V1 binds live execution to `DisabledLiveExecutionAdapter`; paper and externally performed manual trades still preserve approval and execution records.
+所有可执行 Decision 均停在 `PENDING_APPROVAL`。具名人类必须在 TTL 内批准。拒绝、撤销、过期、价格/输入实质漂移、部分执行和取消是不同状态。V1 将实盘执行绑定到 `DisabledLiveExecutionAdapter`；模拟交易和外部完成的手工交易仍保留批准与执行记录。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### CIO override with explanation
+### CIO 附理由覆盖
 
-Rejected because it makes a safety gate advisory.
+未选择，因为会使安全闸门仅具建议性。
 
-### Approval implied by viewing or scheduling
+### 通过查看或调度暗示批准
 
-Rejected because consent would be ambiguous and unauditable.
+未选择，因为同意将变得模糊且不可审计。
 
-## Consequences
+## 后果
 
-Some opportunities will be missed or require rerun after new Evidence. This is an accepted safety trade-off.
+某些机会会错过，或需在新 Evidence 后重跑。这是已接受的安全权衡。
 
-## Security and operational impact
+## 安全与运维影响
 
-Approval endpoints require strong authorization, audit, idempotency, CSRF protection where applicable, and immutable actor/time records. No secret or model output can simulate an approver.
+批准端点需要强授权、审计、幂等性、适用时的 CSRF 防护及不可变的 actor/时间记录。密钥或模型输出不得模拟批准人。
 
-## Migration and rollback
+## 迁移与回滚
 
-PR-06 implements Veto; PR-07 implements approval and disabled execution. Enabling broker execution requires a superseding/new ADR, threat model, recovery test, and explicit human authorization.
+PR-06 实现 Veto；PR-07 实现批准和禁用执行。启用券商执行需要替代/新 ADR、威胁模型、恢复测试和人类明确授权。
 
-## References
+## 引用
 
-- Master Spec sections 2.5, 8.3, 12, S3, S10
+- 主规范第 2.5、8.3、12 节以及 S3、S10

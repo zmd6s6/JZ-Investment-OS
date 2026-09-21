@@ -1,16 +1,12 @@
-# Database migration and recovery runbook
+# 数据库迁移与恢复运行手册
 
-## Scope and safety
+## 范围与安全
 
-PR-02 introduces revision `20260917_0001`. It creates the core schema, evidence-reference join
-tables, append-only guards, optimistic-lock columns, and reliability tables. It does not activate a
-Policy, import personal portfolio data, or enable execution.
+PR-02 引入修订版 `20260917_0001`。它创建核心 Schema、Evidence 引用关联表、只追加保护、乐观锁列和可靠性表；不会激活 Policy、导入个人组合数据或启用执行。
 
-Use only synthetic data in development. Never run a downgrade against a populated or production-like
-database. The downgrade is an empty-database verification and local reset mechanism, not a data
-preservation strategy.
+开发环境只能使用合成数据。绝不对已填充或类似生产的数据库执行降级。降级仅用于空数据库验证和本地重置，不是数据保全策略。
 
-## Upgrade
+## 升级
 
 ```text
 docker compose up --detach --wait postgres
@@ -18,10 +14,9 @@ uv run alembic upgrade head
 uv run alembic current
 ```
 
-Compose normally performs the upgrade through the one-shot `investment-migrate` service before API
-and worker startup.
+Compose 通常会在 API 和 Worker 启动前，借由一次性 `investment-migrate` 服务完成升级。
 
-## Empty-database round trip
+## 空数据库往返验证
 
 ```text
 uv run alembic downgrade base
@@ -29,25 +24,22 @@ uv run alembic upgrade head
 uv run pytest -m integration --no-cov
 ```
 
-This destroys all rows in the PR-02 schema. It is permitted only for a disposable database.
+这会销毁 PR-02 Schema 中的所有行，仅允许对可丢弃的数据库执行。
 
-## Populated-database recovery
+## 已填充数据库恢复
 
-1. Stop API and worker writers.
-2. Record `alembic current` and the application commit.
-3. Take and verify a PostgreSQL backup before migration.
-4. Apply `alembic upgrade head` once through the migration service.
-5. Run migration and application smoke checks.
-6. If an upgrade fails, retain the database and logs, restore the verified backup into a separate
-   database, and issue a reviewed forward-fix migration. Do not edit an accepted migration or delete
-   audit history.
+1. 停止 API 和 Worker 写入端。
+2. 记录 `alembic current` 和应用提交。
+3. 迁移前创建并验证 PostgreSQL 备份。
+4. 通过迁移服务执行一次 `alembic upgrade head`。
+5. 运行迁移和应用 smoke 检查。
+6. 升级失败时，保留数据库和日志，将已验证备份恢复到单独数据库，并发布经审查的前向修复迁移。不得编辑已接受迁移或删除审计历史。
 
-The initial revision is transactional on PostgreSQL. A failed DDL transaction leaves the prior
-schema intact. Application writes and outbox writes likewise share one explicit Unit of Work.
+初始修订在 PostgreSQL 上是事务性的。失败的 DDL 事务会保留原 Schema。应用写入和 Outbox 写入同样共享一个显式 Unit of Work。
 
-## Verification queries
+## 验证查询
 
-Confirm the migration head and reliable-job constraints:
+确认迁移 head 和可靠任务约束：
 
 ```sql
 SELECT version_num FROM alembic_version;

@@ -1,21 +1,21 @@
-# Architecture Decision Records
+# 架构决策记录
 
-ADRs capture consequential decisions that the Master Spec leaves to implementation. They explain decisions; they cannot weaken the Master Spec.
+ADR 记录主规范留给实现层决定的重要选择。它们解释决策，但不得削弱主规范。
 
-## Numbering and filenames
+## 编号与文件名
 
-Use `ADR-NNNN-short-kebab-title.md`. Reserve ADR-0001 through ADR-0010 for the decisions required by the Master Spec. Never reuse a number.
+使用 `ADR-NNNN-short-kebab-title.md`。ADR-0001 至 ADR-0010 保留给主规范要求的决策；不得复用编号。
 
-## Status
+## 状态
 
-- `Proposed`: under review; not authoritative.
-- `Accepted`: active and authoritative within its scope.
-- `Rejected`: considered and not selected.
-- `Superseded by ADR-NNNN`: replaced; retained for history.
-- `Deprecated`: no longer recommended but not yet replaced.
+- `Proposed`：待审查，尚无权威性。
+- `Accepted`：在其范围内生效且具权威性。
+- `Rejected`：已考虑但未选择。
+- `Superseded by ADR-NNNN`：已被替代，仍保留历史。
+- `Deprecated`：不再推荐但尚未被替代。
 
-Only a human-approved governance decision may accept an ADR that changes investment behavior, risk, approval, live execution, strategy activation, or data authorization. Codex may accept routine implementation ADRs when fully bounded by the Master Spec, but must surface material trade-offs in the stage report.
+改变投资行为、风险、批准、实盘执行、策略激活或数据授权的 ADR，只有经人类批准的治理决定才可接受。对于已被主规范完全限定的常规实现 ADR，Codex 可接受，但必须在阶段报告中呈现实质权衡。
 
-## Required structure
+## 必需结构
 
-Copy `ADR-0000-template.md`. Each ADR must contain Context, Decision, Alternatives, Consequences, Security/Operational Impact, Migration/Rollback, and References. Accepted ADRs are immutable; supersede rather than rewrite the decision.
+复制 `ADR-0000-template.md`。每份 ADR 必须有背景、决策、替代方案、后果、安全与运维影响、迁移与回滚以及引用。已接受 ADR 不可变；应以替代而非重写方式变更。

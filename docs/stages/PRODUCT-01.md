@@ -94,7 +94,7 @@ E2E 必须从干净的本地开发数据库/应用状态运行；测试会验证
 - `uv run ruff format --check .`：通过。
 - `uv run ruff check .`：通过。
 - `uv run mypy src`：通过（64 个源文件）。
-- `uv run pytest -q`：通过（309 项）。
+- `uv run pytest -q`：通过（312 项）。
 - `uv run pytest -m integration --no-cov`：通过；其中迁移与引导状态集成测试验证了状态、事件和 Outbox。
 - `uv run python scripts/check_domain_coverage.py`：领域行覆盖率 97.96%，分支覆盖率 86.75%。
 - `uv run python scripts/export_openapi.py --check` 与 `uv run python scripts/export_policy_schema.py --check`：通过。
@@ -110,6 +110,7 @@ E2E 必须从干净的本地开发数据库/应用状态运行；测试会验证
 - 缺失引导用例时 API 返回 `503 onboarding_unavailable`，不会以临时内存状态或自由文本降级。
 - 模型与数据提供方能力现在为 `NOT_IMPLEMENTED`；前端、API/OpenAPI 契约和单元测试均已同步。
 - Vitest 显式仅收集 `src` 单元测试，Playwright E2E 保持由 `npm run test:e2e` 单独运行，避免互相错误加载。
+- 合并 `origin/main` 的 PR #11 全中文文档后，README、项目状态和本阶段契约均保留中文的当前事实，不再引用已删除的本地化索引。
 
 ## 下一阶段
 

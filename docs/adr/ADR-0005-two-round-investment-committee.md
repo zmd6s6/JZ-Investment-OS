@@ -1,44 +1,44 @@
-# ADR-0005 — Two-round investment committee protocol
+# ADR-0005 — 两轮投资委员会协议
 
-- Status: Accepted
-- Date: 2026-09-17
-- Deciders: Human-approved Master Spec; implemented by Codex
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-05
+- 状态：Accepted
+- 日期：2026-09-17
+- 决策者：经人类批准的主规范；由 Codex 实现
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-05
 
-## Context
+## 背景
 
-Independent specialist views reduce blind spots, but unbounded multi-agent debate creates anchoring, cost, latency, and non-termination. Simple voting hides substantive disagreements.
+独立专家观点可减少盲点，但无边界多 Agent 辩论会造成锚定、成本、延迟和无法终止。简单投票会掩盖实质分歧。
 
-## Decision
+## 决策
 
-Round 1 runs Macro, Industry, Fundamental, Market/Quant, and Event independently against one frozen AnalysisContext. A deterministic-first Conflict Detector identifies material disagreement. Round 2 is targeted only at those conflicts and always includes Devil's Advocate review. The committee ends after Round 2 and records unresolved conflict.
+第一轮让 Macro、Industry、Fundamental、Market/Quant 和 Event 基于一个冻结的 AnalysisContext 独立运行。确定性优先的 Conflict Detector 识别重要分歧。第二轮只针对这些冲突，且始终包括 Devil's Advocate 复核。委员会在第二轮后结束并记录未解决冲突。
 
-Portfolio Manager then outputs portfolio fit and `risk_intent`; Risk Manager applies PASS/VETO; deterministic gates and sizing run; CIO produces the allowed final recommendation. Voting or average scores cannot replace this sequence.
+之后 Portfolio Manager 输出组合适配和 `risk_intent`；Risk Manager 应用 PASS/VETO；确定性闸门和仓位规模计算运行；CIO 给出允许的最终建议。投票或平均分不得替代此顺序。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### Single synthesizer prompt
+### 单一综合 Prompt
 
-Rejected because it removes independent evidence lanes and makes omissions hard to detect.
+未选择，因为它移除独立证据路径，且遗漏难以发现。
 
-### Unlimited debate until consensus
+### 无限辩论直至共识
 
-Rejected because consensus can be artificial and execution becomes unbounded.
+未选择，因为共识可能是人为形成的，执行也会无边界。
 
-## Consequences
+## 后果
 
-The protocol has predictable maximum cost and preserves dissent. Some conflicts will remain unresolved and must be exposed to the human.
+协议有可预测的最大成本并保留异议。一些冲突仍会未解决，必须向人类展示。
 
-## Security and operational impact
+## 安全与运维影响
 
-Each role has a fixed tool allowlist, timeout, and token budget. Failed roles are explicit; one Agent cannot impersonate another.
+每个角色有固定工具白名单、超时和 token 预算。失败角色必须显式呈现；一个 Agent 不得冒充另一个。
 
-## Migration and rollback
+## 迁移与回滚
 
-PR-05 implements versioned sessions and messages. Protocol changes require a new committee protocol version and ADR.
+PR-05 实现带版本的 session 和 message。协议变化需要新的委员会协议版本和 ADR。
 
-## References
+## 引用
 
-- Master Spec sections 4, 9, S9
+- 主规范第 4、9 节和 S9

@@ -1,84 +1,81 @@
-# Personal AI Investment OS — Productization Roadmap
+# Personal AI Investment OS — 产品化路线图
 
-> Status: PROPOSED EXECUTION PLAN  
-> Authority: subordinate to `INVESTMENT_OS_MASTER_SPEC.md`, accepted ADRs, and active stage contracts  
-> Purpose: convert the existing Investment OS kernel into a product that the owner can use without writing code, SQL, JSON, or curl commands  
-> Safety baseline: `auto_trade=false`; no live brokerage order submission in V1
+> 状态：拟议执行计划
+>
+> 权威：从属于 `INVESTMENT_OS_MASTER_SPEC.md`、已接受 ADR 和活动阶段契约
+>
+> 目的：将既有 Investment OS 内核转化为所有者无需编写代码、SQL、JSON 或 curl 命令即可使用的产品
+>
+> 安全基线：`auto_trade=false`；V1 不提交实盘经纪商订单
 
 ---
 
-## 1. Product goal
+## 1. 产品目标
 
-The project is not considered **normally usable** merely because domain modules, APIs, tests, or UI placeholders exist.
+仅因领域模块、API、测试或 UI 占位项存在，项目并不视为**可正常使用**。
 
-The product reaches the first usable Beta only when a user can complete this workflow from the Web UI:
+只有当用户可从 Web UI 完成以下工作流时，产品才达到首个可用 Beta：
 
 ```text
-First launch
-→ configure market scope
-→ configure an authorized model provider
-→ configure an authorized data/research provider
-→ import or manually enter the real personal Portfolio
-→ create a Watchlist
-→ review/confirm Investment Policy settings
-→ run Initial Analysis
-→ receive a complete Decision with Evidence / Thesis / Agent opinions / Risk / Sizing
-→ Approve or Reject
-→ optionally record a MANUAL execution
+首次启动
+→ 配置市场范围
+→ 配置已授权模型供应商
+→ 配置已授权数据/研究供应商
+→ 导入或手工录入真实个人 Portfolio
+→ 创建 Watchlist
+→ 审阅/确认 Investment Policy 设置
+→ 运行 Initial Analysis
+→ 获得含 Evidence / Thesis / Agent opinions / Risk / 仓位规模计算的完整 Decision
+→ Approve 或 Reject
+→ 可选地记录一笔 MANUAL 执行
 ```
 
-After onboarding, the normal daily workflow is:
+完成引导后，正常日常工作流是：
 
 ```text
-Authorized market/research data
+已授权市场/研究数据
 → Evidence
-→ deterministic Features
-→ Thesis update
-→ specialist Agent Round 1
-→ conflict detection / bounded Round 2
+→ 确定性 Features
+→ Thesis 更新
+→ 专家 Agent 第一轮
+→ 冲突检测 / 有界第二轮
 → Portfolio Manager
 → Risk Manager
-→ deterministic Position Sizing
+→ 确定性仓位规模计算
 → CIO Decision
 → Decision Center / Daily Report
-→ Human Approve / Reject
-→ optional MANUAL execution record
-→ later Outcome / Review
+→ 人工 Approve / Reject
+→ 可选的 MANUAL 执行记录
+→ 后续 Outcome / Review
 ```
 
-No user should need to operate Python, SQL, raw JSON, curl, or internal database tables for ordinary use.
+普通使用中，任何用户都不应需要操作 Python、SQL、原始 JSON、curl 或内部数据库表。
 
----
+## 2. 产品完成术语
 
-## 2. Product completion terminology
+### 工程完成（Engineering Done）
 
-Two completion levels are mandatory:
+一个组件已实现、经过测试、尊重架构边界并通过必需 CI。
 
-### Engineering Done
+### 产品完成（Product Done）
 
-A component is implemented, tested, respects architecture boundaries, and passes required CI.
+组件已接入运行中的产品，并可通过受支持的用户工作流访问。
 
-### Product Done
+一个未接入运行时的 class、adapter、API 或 React 界面**不是产品完成**。
 
-The component is wired into the running product and is accessible through a supported user workflow.
+示例：
 
-A class, adapter, API, or React screen that is not connected to the runtime is **not Product Done**.
+- 没有运行中 worker 触发的 Scheduler classes：仅工程完成。
+- 没有导入/引导的 Portfolio domain objects：仅工程完成。
+- 没有真实可配置供应商的 model gateway interfaces：仅工程完成。
+- 由硬编码合成数据支持的 UI cards：仅工程完成。
+- 没有批准交互界面的 approval domain objects：仅工程完成。
 
-Examples:
+Beta 门槛要求端到端工作流达到产品完成。
 
-- Scheduler classes without a running worker trigger: Engineering Done only.
-- Portfolio domain objects without import/onboarding: Engineering Done only.
-- Model gateway interfaces without a real configurable provider: Engineering Done only.
-- UI cards backed by hard-coded synthetic data: Engineering Done only.
-- Approval domain objects without an approval interaction surface: Engineering Done only.
+## 3. 目标产品界面
 
-The Beta gate requires Product Done for the end-to-end workflow.
-
----
-
-## 3. Target product surfaces
-
-The Web application must ultimately expose these user-facing areas:
+Web 应用最终必须提供以下面向用户的区域：
 
 1. **Setup Wizard**
 2. **Dashboard**
@@ -90,29 +87,27 @@ The Web application must ultimately expose these user-facing areas:
 8. **Reports**
 9. **Settings / Providers / System Health**
 
-The existing four PR-08 read-only views are a presentation foundation, not the final product contract.
+既有四个 PR-08 只读视图只是展示基础，并非最终产品契约。
 
----
+## 4. 首次运行 Setup Wizard
 
-## 4. First-run Setup Wizard
+新安装必须检测引导尚未完成，并打开 Setup Wizard。
 
-A fresh installation must detect that onboarding is incomplete and open the Setup Wizard.
+### 第 1 步 — 市场和资产范围
 
-### Step 1 — Market and asset scope
+初始支持范围应可配置；V1 预计支持以下产品结构所需范围：
 
-Initial supported scope should be configurable, with V1 expected to support the product structures needed for:
+- A 股股票；
+- 香港股票 / ETF；
+- 在存在适当已授权数据源时人工管理的基金持仓。
 
-- A-share equities
-- Hong Kong equities / ETFs
-- manually managed fund positions where a suitable authorized data source exists
+用户选择市场范围和市场时区/日历配置文件。
 
-The user selects market scope and market timezone/calendar profiles.
+### 第 2 步 — 模型供应商
 
-### Step 2 — Model provider
+用户配置一个或多个模型配置文件。
 
-The user configures one or more model profiles.
-
-Minimum fields:
+最低字段：
 
 ```text
 name
@@ -125,22 +120,22 @@ max_tokens
 enabled
 ```
 
-V1 implementation should provide an **OpenAI-compatible adapter** behind the existing `LLMGatewayPort`.
+V1 实现应在既有 `LLMGatewayPort` 后提供一个 **OpenAI-compatible adapter**。
 
-This must allow compatible providers without coupling domain code to vendor SDKs.
+这必须支持兼容供应商，且不将领域代码耦合至供应商 SDK。
 
-Required UX:
+必需 UX：
 
-- create/edit/disable profile
-- masked secret display
-- Test Connection
-- structured-output capability check
-- latency/error result
-- no secret returned to the browser after storage
+- 创建/编辑/禁用配置文件；
+- 掩码密钥展示；
+- Test Connection；
+- 结构化输出能力检查；
+- 延迟/错误结果；
+- 存储后绝不向浏览器返回密钥。
 
-### Step 3 — Agent/model assignment
+### 第 3 步 — Agent/模型分配
 
-Support:
+支持：
 
 ```text
 Default Model
@@ -156,15 +151,15 @@ CIO
 Review
 ```
 
-V1 may assign every role to one default model, but the schema must support role-level assignment.
+V1 可以将每个角色分配给一个默认模型，但模式必须支持角色级分配。
 
-Every AgentRun must retain the actual provider/model used.
+每个 AgentRun 必须保留实际使用的供应商/模型。
 
-### Step 4 — Data / research provider
+### 第 4 步 — 数据 / 研究供应商
 
-Configure an authorized provider through application ports.
+通过应用端口配置一个已授权供应商。
 
-Preferred first integration:
+首选的第一项集成：
 
 ```text
 ResearchProviderPort
@@ -172,29 +167,29 @@ ResearchProviderPort
      DSAAdapter
 ```
 
-UI must support:
+UI 必须支持：
 
-- provider endpoint/config
-- credential reference where required
-- Test Connection
-- capability display
-- last successful synchronization
-- data freshness/health
+- 供应商端点/配置；
+- 必要时的凭据引用；
+- Test Connection；
+- 能力展示；
+- 上次成功同步；
+- 数据新鲜度/健康状态。
 
-Provider authorization/licensing remains a human governance decision. No provider is silently enabled.
+供应商授权/许可仍是人工治理决定。不得静默启用任何供应商。
 
-### Step 5 — Portfolio onboarding
+### 第 5 步 — Portfolio 引导
 
-The user must be able to:
+用户必须可以：
 
-- manually add a position
-- import CSV
-- import Excel if implementation cost is reasonable for the same stage
-- preview and validate before commit
+- 手工添加持仓；
+- 导入 CSV；
+- 如果同阶段实现成本合理，导入 Excel；
+- 在提交前预览和验证。
 
-Broker auto-sync is not required for the first Beta.
+首个 Beta 不要求经纪商自动同步。
 
-Required import flow:
+所需导入流：
 
 ```text
 Upload
@@ -208,9 +203,9 @@ Upload
 → Audit
 ```
 
-An upload must never mutate the Portfolio before explicit confirmation.
+上传在明确确认前绝不修改 Portfolio。
 
-Suggested import fields:
+建议导入字段：
 
 ```text
 account
@@ -224,39 +219,37 @@ avg_cost
 bucket
 ```
 
-No real personal portfolio data may be committed to repository fixtures, logs, screenshots, or tests.
+不得将任何真实个人 portfolio 数据提交至仓库夹具、日志、截图或测试。
 
-### Step 6 — Watchlist
+### 第 6 步 — Watchlist
 
-User can search/add/remove instruments and inspect lifecycle state:
+用户可以搜索/添加/移除标的，并检查生命周期状态：
 
 ```text
 DISCOVER → WATCH → SETUP → BUYABLE → HOLD
 ```
 
-### Step 7 — Investment Policy review
+### 第 7 步 — Investment Policy 审阅
 
-The user reviews all currently active values.
+用户审阅所有当前生效值。
 
-Until the owner explicitly approves real values, the product must label `TEST_DEFAULT` prominently and must not present them as real investment policy.
+在所有者明确批准真实值前，产品必须显著标记 `TEST_DEFAULT`，且不得将它们呈现为真实投资 policy。
 
-Real policy choices remain governed by the Master Spec.
+真实 policy 选择仍受 Master Spec 治理。
 
-### Step 8 — Initial Analysis
+### 第 8 步 — Initial Analysis
 
-A single supported action starts the first complete shadow analysis.
+一项受支持动作启动第一次完整影子分析。
 
 ```text
 Run Initial Analysis
 ```
 
-This does not execute a trade.
+该动作不执行交易。
 
----
+## 5. 模型集成契约
 
-## 5. Model integration contract
-
-### 5.1 Architecture
+### 5.1 架构
 
 ```text
 AgentRuntime
@@ -268,105 +261,99 @@ OpenAICompatibleLLMGateway
 Configured provider
 ```
 
-Domain code must not import model SDKs.
+领域代码不得导入模型 SDK。
 
-### 5.2 Mandatory runtime behavior
+### 5.2 强制运行时行为
 
-Preserve existing AgentOpinion and model-governance requirements:
+保留既有 AgentOpinion 和模型治理要求：
 
-- strict Pydantic/JSON schema
-- factual observations require Evidence
-- max two schema-repair attempts
-- failures become explicit failure / INSUFFICIENT_DATA
-- no free-text fallback into a valid opinion
-- timeouts are bounded
-- provider/model/prompt/schema/input hash/output metadata recorded
-- external model output is untrusted
+- 严格 Pydantic/JSON schema；
+- 事实观察要求 Evidence；
+- 最多两次 schema 修复尝试；
+- 失败成为明确 failure / INSUFFICIENT_DATA；
+- 不得将自由文本回退为有效 opinion；
+- 超时有界；
+- 记录 provider/model/prompt/schema/input hash/output 元数据；
+- 外部模型输出不可信。
 
-### 5.3 Failover
+### 5.3 故障转移
 
-Optional for first Beta, but data model should support explicit fallback later.
+首个 Beta 可选，但数据模型应支持以后显式回退。
 
-Any fallback must:
+任何回退必须：
 
-- be visible in AgentRun
-- never be silent
-- preserve schema/invariants
-- never convert unavailable analysis into BUY/ADD by default
+- 在 AgentRun 中可见；
+- 绝不静默；
+- 保留 schema/invariants；
+- 绝不默认将不可用分析转换为 BUY/ADD。
 
-### 5.4 Cost controls
+### 5.4 成本控制
 
-Expose or enforce:
+展示或强制执行：
 
-- per-call token ceiling
-- role-level timeout
-- daily token/cost budget where provider data permits
-- explicit degradation behavior when budget is exceeded
+- 单次调用 token 上限；
+- 角色级超时；
+- 在供应商数据允许时的每日 token/成本预算；
+- 预算超出时的明确降级行为。
 
----
+## 6. 密钥处理
 
-## 6. Secret handling
+API keys 和供应商 tokens 不得以普通明文设置存储或返回。
 
-API keys and provider tokens must not be stored or returned as ordinary plaintext settings.
+引入 `SecretStore` 抽象。
 
-Introduce a `SecretStore` abstraction.
+最低 V1 要求：
 
-Minimum V1 requirements:
+- 本地静态加密密钥存储或其他经过审查的本地密钥机制；
+- 数据库/配置仅存储 `credential_ref`；
+- 在日志、审计负载、API 响应、截图、测试和导出报告中排除密钥；
+- UI 只显示掩码值；
+- 修改密钥创建可审计配置事件，但不存储旧明文值。
 
-- local encrypted-at-rest secret storage or another reviewed local secret mechanism
-- database/config stores only `credential_ref`
-- secrets excluded from logs, audit payloads, API responses, screenshots, tests, and exported reports
-- UI shows masked value only
-- changing a secret creates an auditable configuration event without storing the old plaintext value
+个人/本地 V1 不要求生产级云密钥管理器。
 
-A production-grade cloud secret manager is not required for the personal/local V1.
+## 7. Portfolio 产品契约
 
----
+Portfolio 必须成为用户拥有的运营对象，而不只是领域模型。
 
-## 7. Portfolio product contract
+必需能力：
 
-Portfolio must become a user-owned operational object, not only a domain model.
+- Portfolio 摘要；
+- 现金；
+- NAV；
+- 货币；
+- 持仓；
+- Core/Tactical 拆分；
+- 平均成本；
+- 当前权重；
+- 行业/主题敞口；
+- 风险容量；
+- 最新 Decision；
+- 最新 Thesis 状态；
+- 对账状态。
 
-Required capabilities:
+每次导入/更新均保留可审计性和业务时间。
 
-- Portfolio summary
-- cash
-- NAV
-- currency
-- positions
-- Core/Tactical split
-- average cost
-- current weight
-- sector/theme exposure
-- risk capacity
-- latest Decision
-- latest Thesis state
-- reconciliation state
+不得静默推断缺失成本/数量。
 
-For every import/update, preserve auditability and business time.
-
-Do not infer missing cost/quantity silently.
-
----
-
-## 8. Watchlist and opportunity discovery
+## 8. Watchlist 和机会发现
 
 ### Watchlist
 
-User-owned monitoring list with:
+用户拥有的监控清单，包含：
 
-- current lifecycle state
-- Thesis state
-- data freshness
-- next monitoring condition
-- latest Decision
-- reason for entering/leaving the list
+- 当前生命周期状态；
+- Thesis 状态；
+- 数据新鲜度；
+- 下一监控条件；
+- 最新 Decision；
+- 进入/离开清单的原因。
 
 ### Opportunities
 
-The system must support the owner’s requirement to periodically discover candidates.
+系统必须支持所有者定期发现候选项的要求。
 
-Weekly workflow:
+每周工作流：
 
 ```text
 market universe
@@ -378,27 +365,25 @@ market universe
 → AI deep research only for candidates
 ```
 
-Never run expensive strong-model analysis indiscriminately over the entire market universe.
+不得对整个市场范围无差别运行高成本强模型分析。
 
-Opportunity UI must show:
+Opportunity UI 必须展示：
 
-- why the instrument entered the funnel
-- which Evidence is available/missing
-- current lifecycle state
-- what condition is required to advance
-- whether Portfolio capacity exists
+- 标的为何进入漏斗；
+- 哪些 Evidence 可用/缺失；
+- 当前生命周期状态；
+- 推进所需条件；
+- 是否存在 Portfolio 容量。
 
----
+## 9. 运行时 Analysis Orchestrator
 
-## 9. Runtime Analysis Orchestrator
-
-Create an application-level orchestration use case such as:
+创建一个应用层编排用例，例如：
 
 ```text
 InvestmentAnalysisOrchestrator
 ```
 
-Input contract should include:
+输入契约应包含：
 
 ```text
 portfolio_id
@@ -408,9 +393,9 @@ trigger
 correlation_id
 ```
 
-The orchestrator is responsible for wiring already-governed components, not replacing them.
+编排器负责连接已受治理的组件，而非替换它们。
 
-Expected flow:
+预期流程：
 
 ```text
 authorized data sync
@@ -430,15 +415,13 @@ authorized data sync
 → report/update event
 ```
 
-All existing fail-closed Risk, Evidence, sizing, approval, and immutability constraints remain authoritative.
-
----
+既有失败闭合的 Risk、Evidence、仓位规模计算、批准和不可变性约束仍具权威性。
 
 ## 10. AnalysisRun
 
-Long-running analysis requires a durable user-visible run object.
+长时间分析需要持久、用户可见的运行对象。
 
-Suggested states:
+建议状态：
 
 ```text
 QUEUED
@@ -449,54 +432,50 @@ FAILED
 CANCELLED
 ```
 
-Required visibility:
+必需可见性：
 
-- trigger
-- as_of
-- started/finished
-- current stage
-- degraded/failed components
-- correlation id
-- no secret/raw sensitive payload leakage
+- trigger；
+- as_of；
+- started/finished；
+- current stage；
+- 降级/失败组件；
+- correlation id；
+- 不泄露密钥/原始敏感负载。
 
-API/UI must provide a supported **Run Analysis Now** action.
+API/UI 必须提供受支持的 **Run Analysis Now** 动作。
 
-This action runs analysis only. It never creates a live brokerage order.
+该动作只运行分析，绝不创建实盘经纪商订单。
 
----
+## 11. 决策中心（Decision Center）
 
-## 11. Decision Center
+Decision Center 是主要的日常交互界面。
 
-The Decision Center is the primary daily interaction surface.
+每个 Decision 展示：
 
-For each Decision show:
+- instrument；
+- Action；
+- confidence；
+- Core action；
+- Tactical action；
+- current weight；
+- proposed target weight；
+- proposed delta quantity；
+- Thesis state；
+- Risk gate；
+- major risk flags；
+- Evidence freshness；
+- top reasons；
+- unknowns；
+- dissent；
+- watch/invalidation conditions；
+- next review；
+- 精确的 Decision/Thesis/Policy/Strategy/Prompt/Formula versions。
 
-- instrument
-- Action
-- confidence
-- Core action
-- Tactical action
-- current weight
-- proposed target weight
-- proposed delta quantity
-- Thesis state
-- Risk gate
-- major risk flags
-- Evidence freshness
-- top reasons
-- unknowns
-- dissent
-- watch/invalidation conditions
-- next review
-- exact Decision/Thesis/Policy/Strategy/Prompt/Formula versions
+Agent opinions 必须作为可下钻详情，而不是受治理 Decision 的替代物。
 
-Agent opinions must be drill-down details, not a substitute for the governed Decision.
+## 12. 人工批准和手工执行
 
----
-
-## 12. Human approval and manual execution
-
-Provide supported user actions:
+提供受支持用户动作：
 
 ```text
 APPROVE
@@ -504,35 +483,33 @@ REJECT
 REVOKE
 ```
 
-Approval must use the existing immutable/fail-closed domain semantics.
+批准必须使用既有不可变/失败闭合领域语义。
 
-V1 remains:
+V1 保持：
 
 ```text
 auto_trade=false
 ```
 
-No broker order endpoint is included in the Beta requirement.
+Beta 要求中不包含任何经纪商订单端点。
 
-After the user performs a trade externally, the UI may record a `MANUAL` execution:
+用户在外部完成交易后，UI 可以记录一笔 `MANUAL` 执行：
 
-- quantity
-- price
-- fees
-- executed_at
-- sanitized external reference / note
+- quantity；
+- price；
+- fees；
+- executed_at；
+- 经清洗的外部引用 / 备注。
 
-Approval is not execution.
+批准不是执行。
 
-A Risk Veto can never be overridden by the UI.
+Risk Veto 永远不能被 UI 覆盖。
 
----
+## 13. 调度器和 worker 运行时
 
-## 13. Scheduler and worker runtime
+只有正在运行的 worker 实际评估到期任务并进行分派时，调度器才算 Product Done。
 
-Scheduler is Product Done only when the running worker actually evaluates due jobs and dispatches them.
-
-Required runtime chain:
+必需运行时链：
 
 ```text
 investment-worker
@@ -546,59 +523,53 @@ investment-worker
 → Report/Decision effects
 ```
 
-Required cadences:
+必需节奏：
 
-- Daily
-- Weekly
-- Monthly
-- Quarterly
+- Daily；
+- Weekly；
+- Monthly；
+- Quarterly。
 
-Scheduling must preserve explicit market timezone, business `as_of`, retry/replay, idempotency, bounded failure, and no server-local-time assumptions.
+调度必须保留明确市场时区、业务 `as_of`、重试/重放、幂等性、有界失败，且不得假设服务器本地时间。
 
-Integration/E2E verification must prove runtime dispatch; tests that directly call a dispatcher are insufficient as the only proof.
+集成/E2E 验证必须证明运行时分派；直接调用 dispatcher 的测试不能作为唯一证明。
 
----
+## 14. Dashboard 契约
 
-## 14. Dashboard contract
+Dashboard 应回答：
 
-The Dashboard should answer:
+1. 今天什么需要动作？
+2. 我的 Portfolio 发生了什么变化？
+3. 是否存在活跃 Risk Veto？
+4. 哪些 Decisions 等待批准？
+5. 哪些 Evidence/Data 已陈旧？
+6. 出现了哪些新机会？
+7. 定时任务是否成功？
+8. 什么需要人工关注？
 
-1. What requires action today?
-2. What changed in my Portfolio?
-3. Are there active Risk Vetoes?
-4. Which Decisions await approval?
-5. Which Evidence/Data is stale?
-6. What new opportunities appeared?
-7. Did scheduled jobs succeed?
-8. What needs manual attention?
+不得将 Dashboard 做成通用市场新闻流。
 
-Do not make the Dashboard a generic market-news feed.
+## 15. 报告
 
----
+日/周/月报告应从已验证内部对象生成，并清晰区分：
 
-## 15. Reports
+- 事实；
+- 确定性计算；
+- Agent 判断；
+- 假设/未知项；
+- 人工决定。
 
-Daily/weekly/monthly reports should be generated from validated internal objects and clearly separate:
+每日报告至少应包含：
 
-- facts
-- deterministic calculations
-- Agent judgments
-- assumptions/unknowns
-- human decisions
+- 需要动作；
+- 继续持有；
+- 观察；
+- 新发现；
+- 风险/数据/运行异常。
 
-Daily report should include at minimum:
+## 16. Beta 所需 API 表面
 
-- action required
-- continue holding
-- watch
-- new discoveries
-- risk/data/operational exceptions
-
----
-
-## 16. API surface expected for Beta
-
-Exact URI naming can change through reviewed API design, but the product must expose equivalent capabilities.
+精确 URI 命名可以通过审查过的 API 设计改变，但产品必须提供等价能力。
 
 ### Providers / Settings
 
@@ -648,188 +619,178 @@ GET reports/monthly/latest
 GET task-runs
 ```
 
-Every mutation requires validation, audit, idempotency where applicable, and authorization appropriate to the personal deployment model.
+每项修改均要求验证、审计、适用时的幂等性，以及适合个人部署模型的授权。
 
----
+## 17. 产品化交付阶段
 
-## 17. Productization delivery phases
+### P0 — 正确完成当前 PR-08
 
-### P0 — Finish current PR-08 correctly
+在开始新产品化阶段前，必须完成：
 
-Before starting new productization stages:
+- 将调度器接入实际 worker/运行时；
+- 通过集成/E2E 证明运行时分派；
+- 更正 PR-07 合并 SHA 文档；
+- 更新过期 README 的当前能力/限制；
+- 保留当前 PR-08 阶段的合成/只读约束。
 
-- wire scheduler into actual worker/runtime
-- prove runtime dispatch through integration/E2E
-- correct PR-07 merge SHA documentation
-- update stale README current capabilities/limitations
-- retain synthetic/read-only constraints of the current PR-08 stage
+PR-08 必须审查并合并后才能实施 P1。
 
-PR-08 must be reviewed and merged before P1 implementation.
+### P1 — 产品化契约与引导骨架
 
-### P1 — Productization Contract & Onboarding Skeleton
+交付：
 
-Deliver:
+- 本产品化契约被接受并纳入仓库；
+- Setup Wizard 外壳；
+- 引导状态；
+- Settings 导航；
+- 明确的 Beta 验收引用；
+- 尚不接入真实密钥/供应商。
 
-- this productization contract accepted into the repository
-- Setup Wizard shell
-- onboarding state
-- Settings navigation
-- explicit Beta acceptance reference
-- no real secrets/providers yet
+验收：新安装进入确定性引导工作流，而非无法解释的合成仪表盘。
 
-Acceptance: fresh install reaches a deterministic onboarding workflow instead of an unexplained synthetic dashboard.
+### P2 — 设置、Secret Store 与供应商配置文件
 
-### P2 — Settings, Secret Store & Provider Profiles
+交付：
 
-Deliver:
+- SystemSettings；
+- ModelProviderProfile；
+- DataProviderProfile；
+- RoleModelAssignment；
+- SecretStore；
+- 供应商 CRUD/测试 API；
+- Settings UI。
 
-- SystemSettings
-- ModelProviderProfile
-- DataProviderProfile
-- RoleModelAssignment
-- SecretStore
-- provider CRUD/test APIs
-- Settings UI
+验收：供应商密钥可以安全配置，连接测试可见且可审计。
 
-Acceptance: provider secrets can be configured safely and connection tests are visible/auditable.
+### P3 — 真实模型运行时
 
-### P3 — Real Model Runtime
+交付：
 
-Deliver:
+- OpenAI-compatible LLM adapter；
+- 通过既有 `LLMGatewayPort` 的真实可配置模型路径；
+- 角色分配；
+- 超时/预算/错误处理；
+- AgentRun 中的供应商/模型元数据。
 
-- OpenAI-compatible LLM adapter
-- real configurable model path through existing `LLMGatewayPort`
-- role assignment
-- timeout/budget/error handling
-- provider/model metadata in AgentRun
+验收：合成 Evidence 夹具可以经完整 AgentOpinion 模式路径运行已授权真实模型，且不削弱失败闭合行为。
 
-Acceptance: a synthetic Evidence fixture can run the real authorized model through the complete AgentOpinion schema path without weakening fail-closed behavior.
+### P4 — 已授权数据供应商运行时
 
-### P4 — Authorized Data Provider Runtime
+交付：
 
-Deliver:
+- 可运行的 DSAAdapter 或其他明确已授权供应商；
+- 供应商健康/新鲜度；
+- 规范化 Evidence 摄取；
+- 真实/影子数据边界。
 
-- operational DSAAdapter or another explicitly authorized provider
-- provider health/freshness
-- normalized Evidence ingestion
-- real/shadow data boundaries
+验收：一个已授权真实标的可以产生可追溯 Evidence，且不直接耦合 DSA/私有数据库。
 
-Acceptance: one authorized real instrument can produce traceable Evidence without direct DSA/private DB coupling.
+### P5 — Portfolio 与 Watchlist 产品
 
-### P5 — Portfolio & Watchlist Product
+交付：
 
-Deliver:
+- Portfolio UI/API；
+- 手工持仓录入；
+- CSV 导入预览/确认；
+- 对账；
+- Watchlist CRUD；
+- 标的搜索/规范化。
 
-- Portfolio UI/API
-- manual position entry
-- CSV import preview/confirm
-- reconciliation
-- Watchlist CRUD
-- Instrument search/normalization
+验收：所有者无需接触 SQL/JSON/代码即可载入个人 Portfolio；真实 portfolio 数据不会进入仓库资产。
 
-Acceptance: owner can load a personal Portfolio without touching SQL/JSON/code; no real portfolio data enters repository assets.
+### P6 — 端到端 Analysis Orchestration
 
-### P6 — End-to-End Analysis Orchestration
+交付：
 
-Deliver:
+- AnalysisRun；
+- InvestmentAnalysisOrchestrator；
+- 立即运行分析；
+- 进度/失败可见性；
+- 完整 Evidence → Decision 持久化。
 
-- AnalysisRun
-- InvestmentAnalysisOrchestrator
-- Run Analysis Now
-- progress/failure visibility
-- complete Evidence → Decision persistence
+验收：一个选定标的可使用已配置模型/数据供应商完成完整影子投资周期。
 
-Acceptance: one selected instrument can complete a full shadow investment cycle using configured model/data providers.
+### P7 — 交互式决策与批准
 
-### P7 — Interactive Decision & Approval
+交付：
 
-Deliver:
+- 由真实 API 支撑的 Decision 列表/详情；
+- Evidence/Thesis/Agent/Risk/仓位规模计算下钻；
+- Approve/Reject/Revoke；
+- 手工执行记录。
 
-- Decision list/detail backed by real API
-- Evidence/Thesis/Agent/Risk/Sizing drill-down
-- Approve/Reject/Revoke
-- manual execution record
+验收：所有者可完全通过 UI 处理 Decision；不可能产生任何实盘经纪商订单。
 
-Acceptance: owner can process a Decision entirely through UI; no live broker order is possible.
+### P8 — 每日 AI 团队运行时
 
-### P8 — Daily AI Team Runtime
+交付：
 
-Deliver:
+- 定时数据同步；
+- Portfolio/Watchlist Evidence diff；
+- 自动分析触发；
+- 每日报告；
+- 每周机会筛选；
+- 每月 Portfolio 复核；
+- 明确失败/降级状态。
 
-- scheduled data sync
-- Portfolio/Watchlist Evidence diff
-- automatic analysis triggering
-- daily report
-- weekly opportunity screening
-- monthly portfolio review
-- explicit failure/degraded states
+验收：到期市场会话使正在运行的 worker 在无需手工 CLI 调用时产生预期的持久分析/报告效果。
 
-Acceptance: a due market session causes the running worker to produce the expected durable analysis/report effects without manual CLI invocation.
+### P9 — Beta 验收
 
-### P9 — Beta Acceptance
+运行 `docs/product/BETA_ACCEPTANCE.md` 中完整验收门槛。未通过 P9，不得声称产品可正常使用。
 
-Run the complete acceptance gate in `docs/product/BETA_ACCEPTANCE.md`.
+### PR-09 — Outcome、Review/Learning、加固与发布
 
-No P9 pass means no claim that the product is normally usable.
+PR-09 在可用 Beta 之后执行，完成：
 
-### PR-09 — Outcome, Review/Learning, Hardening & Release
+- Outcome；
+- Review/Attribution；
+- Agent 性能评估；
+- StrategyProposal；
+- Backtest；
+- Shadow 验证；
+- 人工治理的激活；
+- 备份/恢复；
+- 安全/性能加固；
+- 可追溯性矩阵；
+- 发布检查清单。
 
-PR-09 follows a usable Beta and then completes:
+## 18. 产品化所需工程纪律
 
-- Outcome
-- Review/Attribution
-- Agent performance evaluation
-- StrategyProposal
-- Backtest
-- Shadow validation
-- human-governed activation
-- backup/restore
-- security/performance hardening
-- traceability matrix
-- release checklist
+从 P1 起：
 
----
+- 不得只实现一个 class；应将其接入运行时。
+- 不得只实现一个 API；应连接受支持的 UI 流。
+- 不得只实现一个 UI；除明确 demo 状态外，应由真实应用 API 支撑。
+- 不得使用硬编码合成卡片来声称产品工作流完成。
+- 每项修改均须有正常/失败/边界测试。
+- 关键工作流要求 E2E 覆盖。
+- 真实个人数据不得进入仓库夹具。
+- 供应商密钥不得进入日志和 API 响应。
+- 保留失败闭合的 Risk 和批准语义。
+- 保留 `auto_trade=false`。
+- 不得为了加快产品化而削弱 Master Spec。
 
-## 18. Required engineering discipline for productization
+## 19. 仍在 Codex 权限之外的人工治理决定
 
-From P1 onward:
+Codex 可以实现可配置机制，但不得自行选择以下真实值：
 
-- Do not implement only a class; wire it into runtime.
-- Do not implement only an API; connect the supported UI flow.
-- Do not implement only a UI; back it with real application APIs except explicit demo states.
-- Do not use hard-coded synthetic cards to claim a product workflow is complete.
-- Every mutation must have normal/failure/boundary tests.
-- Critical workflows require E2E coverage.
-- Keep real personal data out of repository fixtures.
-- Keep provider secrets out of logs and API responses.
-- Preserve fail-closed Risk and approval semantics.
-- Preserve `auto_trade=false`.
-- Do not weaken the Master Spec to accelerate productization.
+- 真实 Investment Policy 限制；
+- 实际供应商/许可授权；
+- 保留/隐私/成本边界；
+- 真实批准主体和 TTL；
+- 影响所有者支出的模型供应商预算限制；
+- 真实数据源优先级；
+- 经纪商集成；
+- 启用实盘执行；
+- StrategyProposal 激活。
 
----
+当其中一个决定仅阻塞某个子功能时，Codex 应继续全部独立的安全工作。
 
-## 19. Human-governance decisions that remain outside Codex authority
+## 20. 产品化成功声明
 
-Codex may implement configurable mechanisms but must not choose these real values on its own:
+首个 Beta 在所有者能够如实声明以下内容时才成功：
 
-- real Investment Policy limits
-- actual provider/license authorization
-- retention/privacy/cost boundaries
-- real approval actor and TTL
-- model-provider budget limits where they affect owner spending
-- real data-source precedence
-- brokerage integration
-- enabling live execution
-- StrategyProposal activation
+> 我可以启动栈、打开浏览器、配置我已授权的模型和数据供应商、导入我的 Portfolio、管理 Watchlist、运行或接收定时分析、检查 Evidence/Thesis/Agent/Risk/仓位规模计算、接收 CIO Decision、Approve 或 Reject，并记录一笔手工执行——而无需接触源代码、SQL、原始 JSON 或内部工具。
 
-When one of these decisions blocks only a subfeature, Codex should continue all independent safe work.
-
----
-
-## 20. Productization success statement
-
-The first Beta is successful when the owner can truthfully say:
-
-> I can start the stack, open the browser, configure my authorized model and data provider, import my Portfolio, manage a Watchlist, run or receive scheduled analysis, inspect Evidence/Thesis/Agent/Risk/Sizing, receive a CIO Decision, Approve or Reject it, and record a manual execution — without touching source code, SQL, raw JSON, or internal tooling.
-
-Until this statement is demonstrably true, the project remains in productization even if individual engineering stages are green.
+在该声明可被证明为真之前，即使单个工程阶段均为绿色，项目仍处于产品化阶段。

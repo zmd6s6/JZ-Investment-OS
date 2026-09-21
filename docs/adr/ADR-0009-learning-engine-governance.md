@@ -1,44 +1,44 @@
-# ADR-0009 — Learning Engine governance
+# ADR-0009 — Learning Engine 治理
 
-- Status: Accepted
-- Date: 2026-09-17
-- Deciders: Human-approved Master Spec; implemented by Codex
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-09
+- 状态：Accepted
+- 日期：2026-09-17
+- 决策者：经人类批准的主规范；由 Codex 实现
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-09
 
-## Context
+## 背景
 
-Decision outcomes can reveal systematic errors, but automatic self-modification creates uncontrolled strategy drift, overfitting, and authority escalation.
+Decision 结果可揭示系统性错误，但自动自我修改会造成不受控的策略漂移、过拟合和权限升级。
 
-## Decision
+## 决策
 
-Learning Engine may evaluate mature Decisions, identify patterns, and create versioned StrategyProposals containing Evidence, hypothesis, diff, expected mechanism, side effects, evaluation windows, backtest, shadow results, rollback conditions, and human-review state.
+Learning Engine 可评估成熟 Decision、识别模式，并创建带版本的 StrategyProposal，其中包括 Evidence、假设、diff、预期机制、副作用、评估窗口、回测、影子结果、回滚条件和人工审查状态。
 
-It has no permission or code path to approve, merge, deploy, or activate Policy, Strategy, Prompt, threshold, weight, schema, or code changes. Activation requires explicit human approval after out-of-sample backtest and shadow evaluation.
+它没有批准、合并、部署或激活 Policy、Strategy、Prompt、阈值、权重、Schema 或代码变更的权限或代码路径。激活必须在样本外回测和影子评估后获得明确人类批准。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### Automatic prompt or rule optimization
+### 自动优化 Prompt 或规则
 
-Rejected because short-term outcomes and correlated samples would cause silent strategy drift.
+未选择，因为短期结果和相关样本会导致静默策略漂移。
 
-### No learning loop
+### 没有学习闭环
 
-Rejected because it would leave Decision Journal outcomes unused.
+未选择，因为会让 Decision Journal 的结果未被使用。
 
-## Consequences
+## 后果
 
-Improvement is slower but reviewable and reversible. Poor or rejected proposals remain available for audit.
+改进更慢，但可审查且可回滚。差或被拒绝的提案保留供审计。
 
-## Security and operational impact
+## 安全与运维影响
 
-Learning tools are read-heavy and cannot access deployment, source write, or approval credentials. Evaluation enforces `available_at`, costs, regime splits, and leakage checks.
+学习工具以读取为主，不能访问部署、源代码写入或批准凭据。评估强制 `available_at`、成本、regime 切分和泄漏检查。
 
-## Migration and rollback
+## 迁移与回滚
 
-PR-09 introduces proposal-only permissions. Strategy activation is a separate human-authorized application use case.
+PR-09 引入仅提案权限。策略激活是单独的、经人类授权的应用用例。
 
-## References
+## 引用
 
-- Master Spec sections 8.4, 15, S11
+- 主规范第 8.4、15 节和 S11
