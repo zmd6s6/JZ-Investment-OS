@@ -567,6 +567,77 @@
         "title": "LivenessResponse",
         "type": "object"
       },
+      "OnboardingStateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "NOT_STARTED",
+              "IN_PROGRESS"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "started_at"
+        ],
+        "title": "OnboardingStateResponse",
+        "type": "object"
+      },
+      "ProductCapabilityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "CONFIGURATION_REQUIRED",
+              "NOT_IMPLEMENTED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "status",
+          "detail"
+        ],
+        "title": "ProductCapabilityResponse",
+        "type": "object"
+      },
       "ReadinessResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1102,6 +1173,74 @@
         "summary": "Read Decision Journal",
         "tags": [
           "decisions"
+        ]
+      }
+    },
+    "/api/v1/onboarding": {
+      "get": {
+        "operationId": "onboarding_state_api_v1_onboarding_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Onboarding State",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/api/v1/onboarding/start": {
+      "post": {
+        "operationId": "start_onboarding_api_v1_onboarding_start_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Start Onboarding",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/api/v1/product-capabilities": {
+      "get": {
+        "description": "\u8fd4\u56de\u670d\u52a1\u7aef\u5b9a\u4e49\u7684\u5f53\u524d\u80fd\u529b\u72b6\u6001\u3002\u5c1a\u672a\u5177\u5907\u53d7\u5ba1\u67e5\u914d\u7f6e\u8def\u5f84\u7684\u80fd\u529b\u5fc5\u987b\u6807\u8bb0\u4e3a NOT_IMPLEMENTED, \u800c\u4e0d\u662f CONFIGURATION_REQUIRED\u3002",
+        "operationId": "product_capabilities_api_v1_product_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductCapabilityResponse"
+                  },
+                  "title": "Response Product Capabilities Api V1 Product Capabilities Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Product Capabilities",
+        "tags": [
+          "product"
         ]
       }
     },

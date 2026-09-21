@@ -29,6 +29,19 @@ class ReadinessResponse(StrictResponse):
     checks: dict[str, str]
 
 
+class OnboardingStateResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    status: Literal["NOT_STARTED", "IN_PROGRESS"]
+    started_at: datetime | None
+
+
+class ProductCapabilityResponse(StrictResponse):
+    key: str
+    label: str
+    status: Literal["AVAILABLE", "CONFIGURATION_REQUIRED", "NOT_IMPLEMENTED"]
+    detail: str
+
+
 class TaskRunResponse(StrictResponse):
     id: UUID
     task_name: str

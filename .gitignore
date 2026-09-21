@@ -25,6 +25,8 @@ node_modules/
 .pnpm-store/
 coverage/
 *.tsbuildinfo
+web/test-results/
+web/playwright-report/
 
 # IDE and operating system
 .idea/

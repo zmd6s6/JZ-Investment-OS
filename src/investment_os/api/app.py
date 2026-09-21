@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 
 from investment_os.application.health import AsyncClosable, ReadinessProbe
+from investment_os.application.onboarding import OnboardingService
 from investment_os.application.research import ResearchArtifactDTO
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.database import (
@@ -32,6 +33,8 @@ from .schemas import (
     DailyReportResponse,
     DecisionJournalResponse,
     LivenessResponse,
+    OnboardingStateResponse,
+    ProductCapabilityResponse,
     ReadinessResponse,
     ResearchIngestRequest,
     ResearchIngestResponse,
@@ -133,6 +136,8 @@ def create_app(
     decision_journal_reader: SqlAlchemyDecisionJournalReader | None = None,
     task_run_reader: SqlAlchemyTaskRunReader | None = None,
     daily_report_reader: SqlAlchemyDailyReportReader | None = None,
+    onboarding_service: OnboardingService | None = None,
+    onboarding_lifecycle: AsyncClosable | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -143,6 +148,7 @@ def create_app(
     selected_decision_journal_reader = decision_journal_reader
     selected_task_run_reader = task_run_reader
     selected_daily_report_reader = daily_report_reader
+    selected_onboarding_service = onboarding_service
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
@@ -167,6 +173,8 @@ def create_app(
             await selected_probe.close()
         if reader_engine is not None:
             await reader_engine.dispose()
+        if onboarding_lifecycle is not None:
+            await onboarding_lifecycle.close()
 
     application = FastAPI(
         title="Personal AI Investment OS",
@@ -194,6 +202,63 @@ def create_app(
             status="ready" if check.ready else "not_ready",
             checks={"database": check.detail},
         )
+
+    @application.get(
+        "/api/v1/onboarding", response_model=OnboardingStateResponse, tags=["onboarding"]
+    )
+    async def onboarding_state() -> OnboardingStateResponse:
+        if selected_onboarding_service is None:
+            raise HTTPException(status_code=503, detail="onboarding_unavailable")
+        return OnboardingStateResponse.model_validate(
+            await selected_onboarding_service.current_state(), from_attributes=True
+        )
+
+    @application.post(
+        "/api/v1/onboarding/start", response_model=OnboardingStateResponse, tags=["onboarding"]
+    )
+    async def start_onboarding() -> OnboardingStateResponse:
+        if selected_onboarding_service is None:
+            raise HTTPException(status_code=503, detail="onboarding_unavailable")
+        return OnboardingStateResponse.model_validate(
+            await selected_onboarding_service.start(), from_attributes=True
+        )
+
+    @application.get(
+        "/api/v1/product-capabilities",
+        response_model=list[ProductCapabilityResponse],
+        tags=["product"],
+        description=(
+            "返回服务端定义的当前能力状态。尚未具备受审查配置路径的能力必须标记为 "
+            "NOT_IMPLEMENTED, 而不是 CONFIGURATION_REQUIRED。"
+        ),
+    )
+    async def product_capabilities() -> list[ProductCapabilityResponse]:
+        return [
+            ProductCapabilityResponse(
+                key="onboarding",
+                label="首次配置向导",
+                status="AVAILABLE",
+                detail="可记录首次配置已开始, 不收集密钥或真实持仓。",
+            ),
+            ProductCapabilityResponse(
+                key="providers",
+                label="模型与数据提供方",
+                status="NOT_IMPLEMENTED",
+                detail="PRODUCT-02 才会提供受审查的密钥存储与配置能力。",
+            ),
+            ProductCapabilityResponse(
+                key="portfolio",
+                label="资产组合导入",
+                status="NOT_IMPLEMENTED",
+                detail="尚不接受真实持仓录入或导入。",
+            ),
+            ProductCapabilityResponse(
+                key="execution",
+                label="实盘执行",
+                status="NOT_IMPLEMENTED",
+                detail="V1 始终禁止自动交易和券商下单。",
+            ),
+        ]
 
     @application.post(
         "/api/v1/research/ingest", response_model=ResearchIngestResponse, tags=["research"]
@@ -302,6 +367,3 @@ def create_app(
             return FileResponse(frontend_dist / "index.html")
 
     return application
-
-
-app = create_app()
