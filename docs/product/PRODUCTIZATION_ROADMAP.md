@@ -229,49 +229,135 @@ Dashboard 是只读操作面，展示 Portfolio、Decision、Watchlist、报告�
 
 ### P0 — 正确完成当前 PR-08
 
-完成审查、修复 blocker、记录验证和合并；保持只读 UI、显式合成日历和无实盘执行。
+在开始新产品化阶段前，必须完成：
+
+- 将调度器接入实际 worker/运行时；
+- 通过集成/E2E 证明运行时分派；
+- 更正 PR-07 合并 SHA 文档；
+- 更新过期 README 的当前能力/限制；
+- 保留当前 PR-08 阶段的合成/只读约束。
+
+PR-08 必须审查并合并后才能实施 P1。
 
 ### P1 — 产品化契约与引导骨架
 
-实现首次运行检测、Setup Wizard、能力矩阵、设置导航和真实能力说明。不得收集密钥、真实 Portfolio 或
-投资 policy 数值。
+交付：
+
+- 本产品化契约被接受并纳入仓库；
+- Setup Wizard 外壳；
+- 引导状态；
+- Settings 导航；
+- 明确的 Beta 验收引用；
+- 尚不接入真实密钥/供应商。
+
+验收：新安装进入确定性引导工作流，而非无法解释的合成仪表盘。
 
 ### P2 — 设置、Secret Store 与供应商配置文件
 
-在已审查的密钥设计下实现供应商 profile、授权、连接测试、轮换/撤销和审计。
+交付：
+
+- SystemSettings；
+- ModelProviderProfile；
+- DataProviderProfile；
+- RoleModelAssignment；
+- SecretStore；
+- 供应商 CRUD/测试 API；
+- Settings UI。
+
+验收：供应商密钥可以安全配置，连接测试可见且可审计。
 
 ### P3 — 真实模型运行时
 
-在显式人工授权后，将模型供应商接入 `LLMGatewayPort`，实施预算、超时、故障转移、模式验证和审计。
+交付：
+
+- OpenAI-compatible LLM adapter；
+- 通过既有 `LLMGatewayPort` 的真实可配置模型路径；
+- 角色分配；
+- 超时/预算/错误处理；
+- AgentRun 中的供应商/模型元数据。
+
+验收：合成 Evidence 夹具可以经完整 AgentOpinion 模式路径运行已授权真实模型，且不削弱失败闭合行为。
 
 ### P4 — 已授权数据供应商运行时
 
-接入获许可数据/研究来源，规范化 Evidence，实施来源、新鲜度、时间语义、健康和故障处理。
+交付：
+
+- 可运行的 DSAAdapter 或其他明确已授权供应商；
+- 供应商健康/新鲜度；
+- 规范化 Evidence 摄取；
+- 真实/影子数据边界。
+
+验收：一个已授权真实标的可以产生可追溯 Evidence，且不直接耦合 DSA/私有数据库。
 
 ### P5 — Portfolio 与 Watchlist 产品
 
-交付真实 Portfolio 导入/维护、Watchlist 生命周期、机会候选和 UI 校验；保留不可变快照与 Core/Tactical。
+交付：
+
+- Portfolio UI/API；
+- 手工持仓录入；
+- CSV 导入预览/确认；
+- 对账；
+- Watchlist CRUD；
+- 标的搜索/规范化。
+
+验收：所有者无需接触 SQL/JSON/代码即可载入个人 Portfolio；真实 portfolio 数据不会进入仓库资产。
 
 ### P6 — 端到端 Analysis Orchestration
 
-交付可从 UI 启动和重放的完整 AnalysisRun，连接研究、委员会、Risk、Portfolio、仓位规模计算和 CIO。
+交付：
+
+- AnalysisRun；
+- InvestmentAnalysisOrchestrator；
+- 立即运行分析；
+- 进度/失败可见性；
+- 完整 Evidence → Decision 持久化。
+
+验收：一个选定标的可使用已配置模型/数据供应商完成完整影子投资周期。
 
 ### P7 — 交互式决策与批准
 
-交付 Decision Center、具名批准/拒绝/撤销、价格/输入漂移检查、模拟/手工执行记录和 Journal。
+交付：
+
+- 由真实 API 支撑的 Decision 列表/详情；
+- Evidence/Thesis/Agent/Risk/仓位规模计算下钻；
+- Approve/Reject/Revoke；
+- 手工执行记录。
+
+验收：所有者可完全通过 UI 处理 Decision；不可能产生任何实盘经纪商订单。
 
 ### P8 — 每日 AI 团队运行时
 
-交付已授权日历下的日常调度、报告、异常、复核提醒和 Operations 可见性；保持任务失败闭合。
+交付：
+
+- 定时数据同步；
+- Portfolio/Watchlist Evidence diff；
+- 自动分析触发；
+- 每日报告；
+- 每周机会筛选；
+- 每月 Portfolio 复核；
+- 明确失败/降级状态。
+
+验收：到期市场会话使正在运行的 worker 在无需手工 CLI 调用时产生预期的持久分析/报告效果。
 
 ### P9 — Beta 验收
 
-以 `BETA_ACCEPTANCE.md` 中的全套新安装、正常、失败、安全、隐私和可用性证据判定 Beta。
+运行 `docs/product/BETA_ACCEPTANCE.md` 中完整验收门槛。未通过 P9，不得声称产品可正常使用。
 
 ### PR-09 — Outcome、Review/Learning、加固与发布
 
-在产品化阶段并行或其后完成结果、复核/Learning 治理、恢复演练、发布硬化和支持操作；Learning 仍不具
-激活权限。
+PR-09 在可用 Beta 之后执行，完成：
+
+- Outcome；
+- Review/Attribution；
+- Agent 性能评估；
+- StrategyProposal；
+- Backtest；
+- Shadow 验证；
+- 人工治理的激活；
+- 备份/恢复；
+- 安全/性能加固；
+- 可追溯性矩阵；
+- 发布检查清单。
 
 ## 18. 产品化所需工程纪律
 
