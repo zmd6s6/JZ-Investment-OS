@@ -23,6 +23,7 @@ from investment_os.infrastructure.decision_journal import (
     SqlAlchemyDecisionJournalReader,
 )
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
+from investment_os.infrastructure.onboarding import SqlAlchemyOnboardingStore
 from investment_os.infrastructure.report_delivery import SqlAlchemyDailyReportReader
 from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
@@ -32,6 +33,8 @@ from .schemas import (
     DailyReportResponse,
     DecisionJournalResponse,
     LivenessResponse,
+    OnboardingStateResponse,
+    ProductCapabilityResponse,
     ReadinessResponse,
     ResearchIngestRequest,
     ResearchIngestResponse,
@@ -133,6 +136,7 @@ def create_app(
     decision_journal_reader: SqlAlchemyDecisionJournalReader | None = None,
     task_run_reader: SqlAlchemyTaskRunReader | None = None,
     daily_report_reader: SqlAlchemyDailyReportReader | None = None,
+    onboarding_store: SqlAlchemyOnboardingStore | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -143,11 +147,13 @@ def create_app(
     selected_decision_journal_reader = decision_journal_reader
     selected_task_run_reader = task_run_reader
     selected_daily_report_reader = daily_report_reader
+    selected_onboarding_store = onboarding_store
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
         or selected_task_run_reader is None
         or selected_daily_report_reader is None
+        or selected_onboarding_store is None
     ):
         reader_engine = create_database_engine(settings.database_url)
         session_factory = create_session_factory(reader_engine)
@@ -159,6 +165,8 @@ def create_app(
             selected_task_run_reader = SqlAlchemyTaskRunReader(session_factory)
         if selected_daily_report_reader is None:
             selected_daily_report_reader = SqlAlchemyDailyReportReader(session_factory)
+        if selected_onboarding_store is None:
+            selected_onboarding_store = SqlAlchemyOnboardingStore(session_factory)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -194,6 +202,57 @@ def create_app(
             status="ready" if check.ready else "not_ready",
             checks={"database": check.detail},
         )
+
+    @application.get(
+        "/api/v1/onboarding", response_model=OnboardingStateResponse, tags=["onboarding"]
+    )
+    async def onboarding_state() -> OnboardingStateResponse:
+        assert selected_onboarding_store is not None
+        return OnboardingStateResponse.model_validate(
+            await selected_onboarding_store.get(), from_attributes=True
+        )
+
+    @application.post(
+        "/api/v1/onboarding/start", response_model=OnboardingStateResponse, tags=["onboarding"]
+    )
+    async def start_onboarding() -> OnboardingStateResponse:
+        assert selected_onboarding_store is not None
+        return OnboardingStateResponse.model_validate(
+            await selected_onboarding_store.start(), from_attributes=True
+        )
+
+    @application.get(
+        "/api/v1/product-capabilities",
+        response_model=list[ProductCapabilityResponse],
+        tags=["product"],
+    )
+    async def product_capabilities() -> list[ProductCapabilityResponse]:
+        return [
+            ProductCapabilityResponse(
+                key="onboarding",
+                label="首次配置向导",
+                status="AVAILABLE",
+                detail="可记录首次配置已开始, 不收集密钥或真实持仓。",
+            ),
+            ProductCapabilityResponse(
+                key="providers",
+                label="模型与数据提供方",
+                status="CONFIGURATION_REQUIRED",
+                detail="将在 PRODUCT-02 提供受审查的密钥存储与配置能力。",
+            ),
+            ProductCapabilityResponse(
+                key="portfolio",
+                label="资产组合导入",
+                status="NOT_IMPLEMENTED",
+                detail="尚不接受真实持仓录入或导入。",
+            ),
+            ProductCapabilityResponse(
+                key="execution",
+                label="实盘执行",
+                status="NOT_IMPLEMENTED",
+                detail="V1 始终禁止自动交易和券商下单。",
+            ),
+        ]
 
     @application.post(
         "/api/v1/research/ingest", response_model=ResearchIngestResponse, tags=["research"]

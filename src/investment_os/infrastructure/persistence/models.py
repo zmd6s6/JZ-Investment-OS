@@ -417,6 +417,22 @@ class TaskRunRecord(AuditFieldsMixin, Base):
     error_json: Mapped[JSON | None] = mapped_column(JSONB)
 
 
+class ProductOnboardingStateRecord(Base):
+    """Mutable, non-sensitive UI progress; it stores neither secrets nor investment data."""
+
+    __tablename__ = "product_onboarding_state"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class EventLogRecord(Base):
     __tablename__ = "event_log"
 

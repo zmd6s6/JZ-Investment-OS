@@ -1,102 +1,70 @@
-# Project Status
+# 项目状态
 
-> This is the single current-status record. Update it in the same change that advances a stage.
+> 本文件是唯一的当前状态记录。推进任何阶段时，必须在同一变更中更新本文件。
 
-## Current snapshot
+## 当前快照
 
-- Project: Personal AI Investment OS
-- Current mode: `DEVELOPMENT`
-- Active roadmap stage: `PR-08 — Scheduler, Reports & Personal UI`
-- Stage state: `READY_FOR_REVIEW`
-- Live trading: `FORBIDDEN`
-- Canonical specification: `INVESTMENT_OS_MASTER_SPEC.md`
-- Last status update: `2026-09-21`
+- 项目：Personal AI Investment OS
+- 当前模式：`DEVELOPMENT`
+- 活跃路线图阶段：`PRODUCT-01 — 产品化与引导配置骨架`
+- 阶段状态：`READY_FOR_REVIEW`
+- 实盘交易：`FORBIDDEN`
+- 规范来源：`INVESTMENT_OS_MASTER_SPEC.md`
+- 最近更新：`2026-09-21`
 
-## Established
+## 已建立
 
-- Master Engineering Specification exists and is the project SSOT.
-- Root Codex working agreement exists in `AGENTS.md`.
-- Persistent working mode exists in `docs/WORKING_MODE.md`.
-- PR/ADR/stage documentation conventions exist.
-- Python 3.12 project metadata and `uv.lock` exist.
-- API and worker bootstrap health paths exist and have automated tests.
-- PostgreSQL/API/worker Compose configuration parses successfully.
-- PostgreSQL, API, and worker images build and reach healthy state; end-to-end smoke passes on host port 8100.
-- CI, OpenAPI contract generation, dependency/license checks, and secret scanning are configured.
-- Remote GitHub CI passes quality, Compose smoke, and independent Gitleaks jobs on the PR-01 branch.
-- ADR-0001 through ADR-0010 are accepted as Master-Spec implementation decisions.
-- Pure domain values, Investment Policy, and Instrument/Thesis/Decision/Strategy state machines exist.
-- Core/Tactical, Risk Veto, human approval, and Learning authority invariants fail closed.
-- Decision Risk Gate is explicit (`UNKNOWN|PASS|VETO`); missing assessment cannot be interpreted as PASS.
-- ADR-0011 records the pure-domain and strict Policy-boundary implementation decision.
-- ADR-0012 records explicit synthetic calendar semantics for U.S., Shanghai, and Shenzhen venues;
-  A-share real data/provider and trading authorization remain unapproved.
-- Alembic revision `20260917_0001` creates all Master-Spec core tables plus normalized Evidence
-  reference tables with UUID, numeric, timestamptz, constraint, and index contracts.
-- Policy, Position, Thesis, and Decision persistence uses optimistic version checks.
-- Audit/event history and immutable artifacts have database-enforced append-only guards.
-- Unit of Work, transactional outbox, advisory locks, and idempotent TaskRun execution are verified
-  against PostgreSQL 16.
-- Compose applies migrations through a successful one-shot service before API/worker startup.
-- Remote GitHub Actions run `35295158962` passes quality, Compose smoke, and independent Gitleaks
-  jobs for the current PR-02 review head `cfb707d4f463a37605d6cae503f5a1f42aaceea9`.
-- PR-02 is accepted and merged to `main` by PR #2 as `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e`.
-- PR-03 is accepted and merged to `main` by PR #3 as `5dc99027a460a7f29d9b4021a982af726f2363f2`.
-- PR-04 is accepted and merged to `main` by PR #4 as `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f`.
-- PR-05 is accepted and merged to `main` by PR #5 as `b141be8ada55f44b2840e692c6b838c3df0913ca`.
-- PR-06 is accepted and merged to `main` by PR #6 as `3009b2b52289b6a6552dac5e3676e41f7ce8bb53`.
-- PR-07 is accepted and merged to `main` by PR #7 as `2838301827fd386f38dba5f58ab49a88db26d912`.
-- PR-08 review blockers are remediated: the worker runtime can dispatch only an explicitly
-  configured synthetic calendar with bounded replay, durable TaskRuns, transactional outbox, and
-  simulation-only reports; the default Compose environment leaves the calendar unset.
+- 主工程规范、根工作约定、持续工作模式以及 ADR/阶段文档约定均已建立。
+- Python 3.12 项目元数据、锁文件、健康检查、Compose、CI、OpenAPI、依赖/许可证检查与密钥扫描已具备。
+- ADR-0001 至 ADR-0012 已被接受；其中明确了模块化单体边界、DSA Adapter、证据与时间语义、双轮委员会、风险否决、确定性仓位、学习治理、调度锁与 Outbox、安全、纯领域内核及显式多市场日历语义。
+- 纯领域值对象、投资政策、Instrument/Thesis/Decision/Strategy 状态机，以及 Core/Tactical、风险否决、人类审批和学习权限不变量已实现并以失败关闭方式保护。
+- 数据库迁移、乐观版本控制、审计/事件历史、不可变工件守卫、工作单元、事务 Outbox、咨询锁和幂等 TaskRun 已验证。
+- PR-01 至 PR-07 已合并到 `main`；各自的合并提交记录仍保留在 Git 历史。
+- PR-08 已由 PR #8 合并到 `main`，合并提交为 `9e3dad77142336918b24849b99cdadd1068effb8`。它交付了只支持显式合成日历的运行时调度、持久化 TaskRun、事务 Outbox 与仅模拟的报告；默认 Compose 环境不启用日历。
+- PRODUCT-01 已完成首次启动引导状态、服务端能力矩阵、设置向导 UI、独立 PR-08 合成演示路由以及单元/集成/浏览器 E2E 验证。该状态不保存凭据、真实组合或投资政策数值。
 
-## Not yet implemented or verified
+## 尚未实现或尚未验证
 
-- business persistence workflows beyond the focused PR-02 repositories and reliability primitives;
-- acceptance-scenario coverage beyond the implemented PR-07 S10 and the focused PR-01/PR-05
-  domain-gate slices, except for PR-08 S12 scheduler replay and idempotency coverage;
-- Learning workflow functionality, outcome review, release hardening, and recovery drills (PR-09).
+- 真实模型或数据提供方配置、受审查的密钥存储、组合导入与观察清单写操作；这些属于 PRODUCT-02 及后续阶段。
+- 产品工作流中的分析编排、批准/拒绝 UI、手工执行记录、结果复盘、学习工作流与发布加固。
+- 除已实现的 PR-07 S10 和 PR-08 调度重放/幂等性切片以外的完整验收场景覆盖。
+- 逐份完成 ADR、历史阶段、产品计划和运行手册的中文版本；本地化索引如实列出了待对齐资料。
 
-Nothing above may be inferred complete from the Master Spec alone.
+不得仅因为主规范存在就推断以上项目已经完成。
 
-## Next authorized work
+## 当前授权工作
 
-PR-08 is `READY_FOR_REVIEW` on `codex/pr-08-scheduler-reports-ui`, created from the GitHub- and
-`origin/main`-confirmed PR #7 merge commit `2838301827fd386f38dba5f58ab49a88db26d912`.
-It may implement only synthetic scheduler/replay, reporting, and personal read-only UI contracts.
-Live brokerage execution, credentials, real Portfolio data, and real investment-policy choices
-remain forbidden.
+PRODUCT-01 在分支 `codex/product-01-onboarding` 上已达到 `READY_FOR_REVIEW`。其范围仅限确定性的首次启动引导、产品状态呈现及对应持久化边界；未加入真实凭据、真实组合、真实投资政策选择、券商执行或自动交易。
 
-## Recorded scope decisions
+PRODUCT-02 必须在 PRODUCT-01 达到 `READY_FOR_REVIEW` 并经人工验收后开始。
 
-- **PR-05 scope reconciliation (approved 2026-09-20):** defer S1/S2 final `WATCH`/`AVOID` Action
-  assertions to PR-07, where the CIO/Decision path is in scope. PR-05 retains synthetic research
-  and committee fixtures for the scenarios' antecedent inputs, and must not create a CIO Decision.
-- The shipped Policy is `TEST_DEFAULT`; choosing real limits remains a future human decision.
-- **A-share scope (approved 2026-09-20):** include SSE/SZSE calendar semantics and synthetic
-  research/simulation fixtures. This does not approve a data provider, real A-share portfolio data,
-  A-share policy limits, brokerage execution, or live trading.
-  Stage-branch commits and pushes are authorized by the owner; merging to `main` remains a separate
-  human action.
+## 已记录的范围决定
 
-## Roadmap
+- 发布的政策为 `TEST_DEFAULT`；选择真实限额仍需人工明确决定。
+- A 股范围仅授权 SSE/SZSE 日历语义和合成研究/模拟夹具，不授权数据提供方、真实 A 股组合数据、政策限额、券商执行或实盘交易。
+- 业主已授权阶段分支的提交和推送；合并到 `main` 仍是独立的人类动作。
+- 文档本地化采用“保留英文原始记录 + 添加中文版本或将活动文档改为中文”的方式。若翻译与已接受的原始 ADR 存在歧义，应以主规范和经接受的 ADR 原文为准，并在同一变更中修正译文。
 
-| Stage | State | Human acceptance | Notes |
+## 路线图
+
+| 阶段 | 状态 | 人工验收 | 说明 |
 |---|---|---|---|
-| PR-00 | ACCEPTED | Merged to `main` | Delivered and accepted with the merged foundational work |
-| PR-01 | ACCEPTED | Merged to `main` on 2026-09-17 | PR #1 merge commit `45b024109775e233049b8c7df1792b6190c67a58` |
-| PR-02 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #2 merge commit `72a64ff797c25ec1c1e5e8d8196f9fe85ad44d5e` |
-| PR-03 | ACCEPTED | Merged to `main` on 2026-09-18 | PR #3 merge commit `5dc99027a460a7f29d9b4021a982af726f2363f2` |
-| PR-04 | ACCEPTED | Merged to `main` on 2026-09-19 | PR #4 merge commit `a0a9acdca6b5c75b2193eede51dd1a6e2310a22f` |
-| PR-05 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #5 merge commit `b141be8ada55f44b2840e692c6b838c3df0913ca` |
-| PR-06 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #6 merge commit `3009b2b52289b6a6552dac5e3676e41f7ce8bb53` |
-| PR-07 | ACCEPTED | Merged to `main` on 2026-09-20 | PR #7 merge commit `2838301827fd386f38dba5f58ab49a88db26d912` |
-| PR-08 | READY_FOR_REVIEW | Pending | Scheduler, reports, UI; full local verification recorded |
-| PR-09 | PLANNED | Pending | Outcome, learning, hardening, release |
+| PR-00 | ACCEPTED | 已合并到 `main` | 基础工程工作已交付并接受 |
+| PR-01 | ACCEPTED | 已合并到 `main` | 2026-09-17 |
+| PR-02 | ACCEPTED | 已合并到 `main` | 2026-09-18 |
+| PR-03 | ACCEPTED | 已合并到 `main` | 2026-09-18 |
+| PR-04 | ACCEPTED | 已合并到 `main` | 2026-09-19 |
+| PR-05 | ACCEPTED | 已合并到 `main` | 2026-09-20 |
+| PR-06 | ACCEPTED | 已合并到 `main` | 2026-09-20 |
+| PR-07 | ACCEPTED | 已合并到 `main` | 2026-09-20 |
+| PR-08 | ACCEPTED | 已合并到 `main` | 调度、报告和只读 UI |
+| PRODUCT-01 | READY_FOR_REVIEW | 待人工验收 | 首次引导与产品状态 |
+| PRODUCT-02 | PLANNED | 待定 | 设置、密钥存储与提供方档案 |
+| PR-09 | PLANNED | 待定 | 结果、学习、加固与发布 |
 
-## Status update rules
+## 状态更新规则
 
-- Do not mark a stage `READY_FOR_REVIEW` without recorded verification evidence.
-- Do not mark a stage `ACCEPTED` on Codex's authority alone when human governance review is required.
-- Add blockers with an owner, precise condition, attempted alternatives, and unblocking event.
-- Keep detailed checklists and evidence in the corresponding `docs/stages/PR-XX.md`; keep this file concise.
+- 未记录验证证据时，禁止将阶段标为 `READY_FOR_REVIEW`。
+- 需要人工治理审查的阶段不得由 Codex 单方面标为 `ACCEPTED`。
+- 阻塞项必须记录负责人、精确条件、已尝试替代方案和解除事件。
+- 详细清单与证据放在对应阶段文档；本文件保持简明。

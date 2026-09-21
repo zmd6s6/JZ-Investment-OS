@@ -40,6 +40,7 @@ EXPECTED_CORE_TABLES = {
     "decision_outcome",
     "decision_review",
     "task_run",
+    "product_onboarding_state",
     "event_log",
     "outbox_event",
     "audit_log",

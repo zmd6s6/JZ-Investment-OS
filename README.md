@@ -1,5 +1,8 @@
 # Personal AI Investment OS
 
+中文版本与本地化状态见 [README.zh-CN.md](README.zh-CN.md) 和
+[docs/zh-CN/README.md](docs/zh-CN/README.md)。如译文与项目宪章或已接受 ADR 有歧义，以权威原始记录为准。
+
 Personal AI Investment OS is an evidence-first, long-lived investment research and portfolio decision system. It is independent from DSA: DSA supplies research/data through an adapter, while this project owns Thesis, Portfolio, Risk, Decision, Approval, Journal, and Review state.
 
 The repository currently includes PR-01 through PR-08 development work: a pure domain kernel,
