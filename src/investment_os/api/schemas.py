@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class StrictResponse(BaseModel):
@@ -39,6 +39,88 @@ class ProductCapabilityResponse(StrictResponse):
     key: str
     label: str
     status: Literal["AVAILABLE", "CONFIGURATION_REQUIRED", "NOT_IMPLEMENTED"]
+    detail: str
+
+
+class SystemSettingsResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    market_timezone: str
+    market_scopes: list[str]
+    auto_trade: Literal[False] = False
+
+
+class SystemSettingsUpdateRequest(StrictResponse):
+    market_timezone: str = Field(min_length=1, max_length=64)
+    market_scopes: list[str] = Field(default_factory=list, max_length=20)
+
+
+class ModelProviderProfileRequest(StrictResponse):
+    name: str = Field(min_length=1, max_length=255)
+    provider_type: str = Field(min_length=1, max_length=128)
+    base_url: str = Field(min_length=1, max_length=2048)
+    model_name: str = Field(min_length=1, max_length=255)
+    timeout_seconds: int = Field(ge=1, le=300)
+    max_tokens: int = Field(ge=1, le=200_000)
+    enabled: bool = False
+    credential: SecretStr | None = Field(
+        default=None,
+        json_schema_extra={"writeOnly": True},
+    )
+
+
+class ModelProviderProfileResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    id: UUID
+    name: str
+    provider_type: str
+    base_url: str
+    model_name: str
+    timeout_seconds: int
+    max_tokens: int
+    enabled: bool
+    credential_configured: bool
+
+
+class DataProviderProfileRequest(StrictResponse):
+    name: str = Field(min_length=1, max_length=255)
+    provider_type: str = Field(min_length=1, max_length=128)
+    base_url: str = Field(min_length=1, max_length=2048)
+    timeout_seconds: int = Field(ge=1, le=300)
+    enabled: bool = False
+    credential: SecretStr | None = Field(
+        default=None,
+        json_schema_extra={"writeOnly": True},
+    )
+
+
+class DataProviderProfileResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    id: UUID
+    name: str
+    provider_type: str
+    base_url: str
+    timeout_seconds: int
+    enabled: bool
+    credential_configured: bool
+
+
+class RoleModelAssignmentRequest(StrictResponse):
+    model_provider_profile_id: UUID
+
+
+class RoleModelAssignmentResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    role: str
+    model_provider_profile_id: UUID
+
+
+class ProviderTestResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    status: Literal[
+        "CONFIGURATION_VALID",
+        "CREDENTIAL_MISSING",
+        "SECRET_STORE_UNAVAILABLE",
+    ]
     detail: str
 
 

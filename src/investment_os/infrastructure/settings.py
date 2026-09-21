@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     worker_ready_file: Path = Path(".runtime/investment-os-worker-ready")
     worker_schedule_calendar_path: Path | None = None
     worker_scheduler_max_replay_sessions: int = Field(default=1, ge=1, le=31)
+    secret_store_path: Path = Path(".runtime/provider-secrets.json")
+    secret_store_key: str | None = None
 
 
 @lru_cache(maxsize=1)

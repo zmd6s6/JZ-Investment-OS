@@ -6,7 +6,7 @@
 
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
-- 活跃路线图阶段：`PRODUCT-01 — 产品化与引导配置骨架`
+- 活跃路线图阶段：`PRODUCT-02 — 设置、密钥存储与提供方档案`
 - 阶段状态：`READY_FOR_REVIEW`
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
@@ -25,7 +25,8 @@
 
 ## 尚未实现或尚未验证
 
-- 真实模型或数据提供方配置、受审查的密钥存储、组合导入与观察清单写操作；这些属于 PRODUCT-02 及后续阶段。
+- 真实模型或数据提供方运行时、组合导入与观察清单写操作；模型/数据提供方的安全配置元数据与本地加密
+  凭据存储已在 PRODUCT-02 实现，待人工安全审阅。
 - 产品工作流中的分析编排、批准/拒绝 UI、手工执行记录、结果复盘、学习工作流与发布加固。
 - 除已实现的 PR-07 S10 和 PR-08 调度重放/幂等性切片以外的完整验收场景覆盖。
 
@@ -33,9 +34,9 @@
 
 ## 当前授权工作
 
-PRODUCT-01 在分支 `codex/product-01-onboarding` 上已达到 `READY_FOR_REVIEW`。其范围仅限确定性的首次启动引导、产品状态呈现及对应持久化边界；未加入真实凭据、真实组合、真实投资政策选择、券商执行或自动交易。
-
-PRODUCT-02 必须在 PRODUCT-01 达到 `READY_FOR_REVIEW` 并经人工验收后开始。
+PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已在分支 `codex/pr-13-product-02-settings` 达到
+`READY_FOR_REVIEW`：它交付受审查的本地密钥存储、提供方配置元数据/API/UI 和无网络校验，不含真实
+提供方运行时调用、真实组合或任何交易执行。ADR-0013 的人工安全审阅是合并前的治理待办。
 
 ## 已记录的范围决定
 
@@ -56,8 +57,8 @@ PRODUCT-02 必须在 PRODUCT-01 达到 `READY_FOR_REVIEW` 并经人工验收后�
 | PR-06 | ACCEPTED | 已合并到 `main` | 2026-09-20 |
 | PR-07 | ACCEPTED | 已合并到 `main` | 2026-09-20 |
 | PR-08 | ACCEPTED | 已合并到 `main` | 调度、报告和只读 UI |
-| PRODUCT-01 | READY_FOR_REVIEW | 待人工验收 | 首次引导与产品状态 |
-| PRODUCT-02 | PLANNED | 待定 | 设置、密钥存储与提供方档案 |
+| PRODUCT-01 | ACCEPTED | 已由 PR #12 合并到 `main` | 首次引导与产品状态 |
+| PRODUCT-02 | READY_FOR_REVIEW | ADR-0013 待人工安全审阅 | 设置、密钥存储与提供方档案 |
 | PR-09 | PLANNED | 待定 | 结果、学习、加固与发布 |
 
 ## 状态更新规则

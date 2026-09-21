@@ -27,6 +27,8 @@ services:
     environment:
       INVESTMENT_OS_ENVIRONMENT: ${INVESTMENT_OS_ENVIRONMENT:-development}
       INVESTMENT_OS_DATABASE_URL: ${INVESTMENT_OS_DATABASE_URL:-postgresql+asyncpg://investment_os:local-development-only@postgres:5432/investment_os}
+      INVESTMENT_OS_SECRET_STORE_PATH: ${INVESTMENT_OS_SECRET_STORE_PATH:-/app/.runtime/provider-secrets.json}
+      INVESTMENT_OS_SECRET_STORE_KEY: ${INVESTMENT_OS_SECRET_STORE_KEY:-}
     ports:
       - "${API_PORT:-8100}:8000"
     depends_on:

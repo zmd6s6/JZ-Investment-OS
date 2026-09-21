@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { SettingsPage } from "./SettingsPage";
+
 type OnboardingStatus = "NOT_STARTED" | "IN_PROGRESS";
 type CapabilityStatus = "AVAILABLE" | "CONFIGURATION_REQUIRED" | "NOT_IMPLEMENTED";
 
@@ -18,7 +20,7 @@ type Capability = {
 
 const setupSteps = [
   ["01", "市场范围", "先确认研究市场与交易时区；此版本只记录向导进度。"],
-  ["02", "模型与数据提供方", "配置界面将在 P2 提供；本阶段不收集凭据。"],
+  ["02", "模型与数据提供方", "P2 已提供受控的配置页面与本地加密凭据存储。"],
   ["03", "组合与观察清单", "组合导入和观察标的维护尚未开放。"],
   ["04", "投资政策复核", "政策阈值必须经所有者明确批准后才可变更。"],
   ["05", "分析就绪", "仅在配置与证据链完整后，才进入受控分析流程。"],
@@ -89,6 +91,7 @@ function LegacyDemo() {
 
 export function App() {
   if (window.location.pathname === "/demo/pr-08") return <LegacyDemo />;
+  if (window.location.pathname === "/settings") return <SettingsPage />;
 
   const [state, setState] = useState<OnboardingState | null>(null);
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
@@ -135,11 +138,12 @@ export function App() {
     <main className="product-shell">
       <header className="product-header">
         <div>
-          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P1</p>
+          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P2</p>
           <h1>开始搭建你的研究工作台</h1>
         </div>
         <nav aria-label="产品导航">
           <a href="#setup">设置向导</a>
+          <a href="/settings">设置与提供方</a>
           <a href="#status">产品状态</a>
         </nav>
       </header>
