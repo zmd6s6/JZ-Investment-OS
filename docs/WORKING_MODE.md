@@ -1,169 +1,165 @@
-# Project Working Mode
+# 项目工作模式
 
-## Purpose
+## 目的
 
-This file defines how the human owner and Codex develop Personal AI Investment OS. It converts the Master Spec into a durable operating rhythm. It does not replace or modify the Master Spec.
+本文件定义人类所有者和 Codex 如何开发 Personal AI Investment OS。它将主规范转化为持久的工作节奏，但不替代或修改主规范。
 
-## Roles
+## 角色
 
-### Human owner
+### 人类所有者
 
-The human owner has final authority over:
+人类所有者对以下事项拥有最终权力：
 
-- investment philosophy and real Investment Policy parameters;
-- risk appetite and Veto semantics;
-- data/provider authorization and cost boundaries;
-- Strategy activation;
-- live-trading capability and every live-trade approval;
-- acceptance of roadmap stages and governance changes.
+- 投资哲学和真实 Investment Policy 参数；
+- 风险偏好和 Veto 语义；
+- 数据/提供方授权和成本边界；
+- Strategy 激活；
+- 实盘交易能力及每一次实盘交易批准；
+- 路线图阶段和治理变更的验收。
 
-The owner reviews outcomes and corrects direction. The owner does not need to prescribe routine implementation details already covered by the specification.
+所有者复核结果并纠正方向，无需指定主规范已涵盖的常规实现细节。
 
 ### Codex
 
-Codex acts as the senior implementation engineer and is responsible for:
+Codex 是高级实现工程师，负责：
 
-- repository analysis and gap detection;
-- architecture within approved boundaries;
-- code, migrations, schemas, API, UI, tests, CI, documentation, and runbooks;
-- independent verification and honest reporting;
-- preserving traceability from requirements to implementation and evidence;
-- surfacing only decisions that genuinely require human authority.
+- 仓库分析和缺口识别；
+- 经批准边界内的架构；
+- 代码、迁移、Schema、API、UI、测试、CI、文档和运行手册；
+- 独立验证与诚实报告；
+- 保留从需求到实现和证据的可追溯性；
+- 只上报确实需要人类权力的决定。
 
-Codex may make routine, reversible engineering choices. It may not change investment governance, claim unrun tests passed, or expand to live trading without authorization.
+Codex 可进行常规、可逆的工程选择。未经授权，不得改变投资治理、声称未运行测试已经通过，或扩展到实盘交易。
 
-### Runtime investment agents
+### 运行时投资 Agent
 
-CIO, Macro, Industry, Fundamental, Market/Quant, Event, Portfolio Manager, Risk Manager, Devil's Advocate, and Review/Learning are product components. They are not substitutes for Codex development work and do not inherit repository write or deployment authority.
+CIO、Macro、Industry、Fundamental、Market/Quant、Event、Portfolio Manager、Risk Manager、Devil’s Advocate 和 Review/Learning 都是产品组件。它们不是 Codex 开发工作的替代者，也不继承仓库写入或部署权力。
 
-## Operating loop
-
-```text
-Master Spec
-    ↓
-One active PR stage
-    ↓
-Codex implementation + tests
-    ↓
-Codex self-review and verification evidence
-    ↓
-Human review of governance/investment decisions
-    ↓
-Accept, correct, or return to implementation
-    ↓
-Update project status and begin the next stage
-```
-
-Only one roadmap stage is active at a time. Small defects discovered in completed stages may be fixed immediately when needed by the active stage, but must be identified in the delivery report.
-
-## Stage states
-
-Each `docs/stages/PR-XX.md` uses one state:
-
-- `PLANNED`: requirements captured; no implementation claim.
-- `IN_PROGRESS`: implementation is active.
-- `BLOCKED`: an explicit external or human authority decision prevents safe progress.
-- `READY_FOR_REVIEW`: implementation and required verification are complete.
-- `ACCEPTED`: human owner accepted the stage.
-- `SUPERSEDED`: replaced by an approved new stage contract.
-
-Codex may move `PLANNED → IN_PROGRESS → READY_FOR_REVIEW`. Only the human owner moves a stage to `ACCEPTED` when investment/governance review is required.
-
-## Starting a stage
-
-Before implementation, Codex must:
-
-1. inventory the repository and uncommitted changes;
-2. verify the previous stage rather than trusting status labels;
-3. identify Master Spec clauses and acceptance scenarios in scope;
-4. list deliverables, out-of-scope items, risks, and human decisions;
-5. set the stage state to `IN_PROGRESS`;
-6. choose a minimal complete vertical slice and verification plan.
-
-If the repository already contains work for a stage, Codex performs a gap analysis. Existing files are evidence only after their behavior is verified.
-
-## Finishing a stage
-
-A stage can become `READY_FOR_REVIEW` only when:
-
-- every stage deliverable is implemented or explicitly marked out of scope by an approved change;
-- every stage acceptance criterion has evidence;
-- the Master Spec Definition of Done is satisfied;
-- required commands have run successfully, with exact results recorded;
-- migrations, OpenAPI, schemas, docs, and ADRs are current;
-- no material `NOT VERIFIED` remains without a clearly identified external blocker;
-- `docs/PROJECT_STATUS.md` and the stage file are updated.
-
-The stage report uses this structure:
+## 工作循环
 
 ```text
-Scope completed
-Master Spec clauses implemented
-Files / migrations / APIs changed
-Verification run and results
-Acceptance scenarios demonstrated
-Risks and known limitations
-Human decisions required
-Rollback / recovery
-Recommended next stage
+主规范
+    ↓
+一个活动 PR 阶段
+    ↓
+Codex 实现 + 测试
+    ↓
+Codex 自审与验证证据
+    ↓
+人类复核治理/投资决定
+    ↓
+接受、修正或退回实现
+    ↓
+更新项目状态并开始下一阶段
 ```
 
-## Human-decision protocol
+一次只能有一个活动路线图阶段。已完成阶段中发现的小缺陷，可在活动阶段需要时立即修复，但必须在交付报告中标明。
 
-When a human decision is required, Codex presents:
+## 阶段状态
 
-1. the exact decision;
-2. why the Master Spec does not already resolve it;
-3. two or three viable options;
-4. the recommended option and trade-offs;
-5. which work is blocked and which work continues.
+每个 `docs/stages/PR-XX.md` 使用以下一种状态：
 
-The decision and rationale are recorded in an ADR, Policy approval, Strategy approval, or stage decision log as appropriate. Chat history alone is not the authoritative record.
+- `PLANNED`：需求已记录；未声称实现。
+- `IN_PROGRESS`：实现正在进行。
+- `BLOCKED`：明确的外部条件或人类授权决定阻碍安全推进。
+- `READY_FOR_REVIEW`：实现和必需验证均已完成。
+- `ACCEPTED`：人类所有者已接受该阶段。
+- `SUPERSEDED`：已被批准的新阶段契约替代。
 
-## Stage publication and remote CI
+Codex 可将状态从 `PLANNED → IN_PROGRESS → READY_FOR_REVIEW`。需要投资/治理审查时，只有人类所有者可将阶段移为 `ACCEPTED`。
 
-The owner gives standing authorization for Codex to publish each completed roadmap stage for CI:
+## 开始阶段
 
-1. after local Definition of Done checks pass and the stage reaches `READY_FOR_REVIEW`, use a
-   stage-specific branch named `codex/pr-XX-short-description`;
-2. commit only the reviewed stage scope and push the branch to `origin`;
-3. the push must trigger the repository's remote CI on every branch;
-4. wait for remote CI and record its actual result in the stage evidence;
-5. fix failures on the same branch and push follow-up commits until CI passes or a genuine blocker
-   is recorded.
+实现前，Codex 必须：
 
-This standing authorization does not allow Codex to push directly to `main`, force-push, merge,
-delete remote branches, publish releases, or bypass human stage acceptance. A GitHub pull request may
-be opened separately when requested or when repository automation explicitly requires it.
+1. 清点仓库和未提交改动；
+2. 验证前一阶段，而不是相信状态标签；
+3. 识别范围内的主规范条款和验收场景；
+4. 列出交付物、范围外事项、风险和人类决定；
+5. 将阶段状态设为 `IN_PROGRESS`；
+6. 选择最小完整纵切和验证计划。
 
-## Defect and change handling
+若仓库已有该阶段工作，Codex 必须进行缺口分析。文件只有在行为被验证后才能作为证据。
 
-- A defect that violates a Master Spec MUST is fixed before advancing the dependent stage.
-- A new feature outside PR-00–PR-09 is placed in a future backlog and does not silently expand the active stage.
-- A change to investment behavior requires a human decision and versioned Policy/Strategy artifacts.
-- A Master Spec ambiguity is interpreted conservatively, recorded, and escalated only if it changes behavior materially.
-- Failed experiments remain documented; do not delete evidence to make the project appear successful.
+## 完成阶段
 
-## Release modes
+只有满足以下条件，阶段才可变为 `READY_FOR_REVIEW`：
 
-The project progresses through explicit modes:
+- 每项阶段交付物均已实现，或被经批准的变更明确标为范围外；
+- 每条验收标准都有证据；
+- 满足主规范的完成定义；
+- 必需命令已成功运行且记录精确结果；
+- 迁移、OpenAPI、Schema、文档和 ADR 为最新；
+- 没有实质性的 `NOT VERIFIED`，除非已明确外部阻塞原因；
+- `docs/PROJECT_STATUS.md` 和阶段文件均已更新。
 
-1. `DEVELOPMENT`: synthetic fixtures; no portfolio authority.
-2. `BACKTEST`: historical as-of execution with `available_at` enforcement.
-3. `SHADOW`: current data, recommendations only, no execution.
-4. `PAPER`: simulated executions behind the approval workflow.
-5. `MANUAL_LIVE_RECORDING`: human executes externally; system records the result after approval.
-6. `BROKER_LIVE`: not part of V1 and forbidden until a separate ADR, security review, and explicit human authorization.
+阶段报告使用以下结构：
 
-Moving to a later mode is never automatic.
+```text
+已完成范围
+已实现的主规范条款
+变更的文件 / 迁移 / API
+实际运行的验证及结果
+已演示的验收场景
+风险和已知限制
+需要的人类决定
+回滚 / 恢复
+建议的下一阶段
+```
 
-## Communication cadence
+## 人类决策协议
 
-During active implementation Codex provides concise updates when a meaningful milestone, risk, or blocker appears. Final reports are self-contained and distinguish:
+需要人类决定时，Codex 应呈现：
 
-- completed and verified;
-- completed but not verified;
-- planned but not implemented;
-- blocked by human authority or external dependency.
+1. 精确的决定；
+2. 为什么主规范未能解决；
+3. 两到三个可行选项；
+4. 推荐选项及权衡；
+5. 哪些工作被阻塞、哪些继续进行。
 
-No status report may imply investment performance or safety that has not been demonstrated.
+决定和理由记录在 ADR、Policy 批准、Strategy 批准或阶段决定日志中（视情况而定）。聊天历史本身不是权威记录。
+
+## 阶段发布与远程 CI
+
+所有者长期授权 Codex 发布每个完成的路线图阶段以运行 CI：
+
+1. 本地完成定义检查通过、阶段达到 `READY_FOR_REVIEW` 后，使用 `codex/pr-XX-short-description` 格式的阶段专用分支；
+2. 仅提交已审查的阶段范围并推送至 `origin`；
+3. 推送必须在每个分支触发仓库远程 CI；
+4. 等待远程 CI 并在阶段证据中记录实际结果；
+5. 在同一分支修复失败并推送后续提交，直至 CI 通过或记录真实阻塞。
+
+这项长期授权不允许直接推送 `main`、force-push、合并、删除远程分支、发布版本或绕过人类阶段验收。只有在被要求或仓库自动化明确要求时，才可另行创建 GitHub Pull Request。
+
+## 缺陷和变更处理
+
+- 违反主规范 MUST 的缺陷，必须在推进依赖阶段前修复。
+- PR-00–PR-09 之外的新功能进入未来待办，不能静默扩展活动阶段。
+- 改变投资行为需要人类决定，以及带版本的 Policy/Strategy 工件。
+- 主规范歧义应保守解释、记录；仅在实质改变行为时升级。
+- 失败的实验仍须记录；不得删除证据以使项目看似成功。
+
+## 发布模式
+
+项目按明确模式推进：
+
+1. `DEVELOPMENT`：合成夹具；没有组合权力。
+2. `BACKTEST`：历史 as-of 执行，强制 `available_at`。
+3. `SHADOW`：当前数据，仅建议，不执行。
+4. `PAPER`：在审批工作流后的模拟执行。
+5. `MANUAL_LIVE_RECORDING`：人类在外部执行；系统在批准后记录结果。
+6. `BROKER_LIVE`：不属于 V1；在单独 ADR、安全审查和人类明确授权前禁止。
+
+向更高模式迁移绝不自动发生。
+
+## 沟通节奏
+
+活动实现期间，Codex 在出现有意义的里程碑、风险或阻塞时提供简洁更新。最终报告必须自包含，并区分：
+
+- 已完成且已验证；
+- 已完成但未验证；
+- 已计划但未实现；
+- 被人类权力或外部依赖阻塞。
+
+任何状态报告都不得暗示未经证明的投资表现或安全性。

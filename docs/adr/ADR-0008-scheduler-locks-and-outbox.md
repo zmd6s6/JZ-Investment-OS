@@ -1,44 +1,44 @@
-# ADR-0008 — Scheduler, advisory locks, and transactional outbox
+# ADR-0008 — 调度器、咨询锁与事务 Outbox
 
-- Status: Accepted
-- Date: 2026-09-17
-- Deciders: Human-approved Master Spec; implemented by Codex
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-02 / PR-08
+- 状态：Accepted
+- 日期：2026-09-17
+- 决策者：经人类批准的主规范；由 Codex 实现
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-02 / PR-08
 
-## Context
+## 背景
 
-Daily through quarterly workflows must survive retries without duplicate Evidence or Decisions. V1 does not need Kafka or Redis, but database changes and emitted events must stay consistent.
+日度至季度工作流必须能在重试后存活，且不重复创建 Evidence 或 Decision。V1 不需要 Kafka 或 Redis，但数据库变化和已发出事件必须保持一致。
 
-## Decision
+## 决策
 
-Use a persistent application scheduler with explicit market calendars and business `as_of`. PostgreSQL advisory locks prevent concurrent execution of the same logical job. `task_run.idempotency_key` provides business deduplication. Domain writes and `outbox_event` writes occur in one database transaction; a worker publishes outbox events with bounded retry and dead-letter visibility.
+使用具有显式市场日历和业务 `as_of` 的持久化应用调度器。PostgreSQL advisory lock 防止同一逻辑任务并发执行。`task_run.idempotency_key` 提供业务去重。领域写入和 `outbox_event` 写入位于同一数据库事务；Worker 以有限重试和死信可见性发布 Outbox 事件。
 
-Jobs are at-least-once at the process boundary and exactly-once in business effect through idempotency. Every job supports dry-run and as-of replay.
+任务在进程边界至少一次执行，并通过幂等性实现业务效果恰好一次。每个任务支持 dry-run 和 as-of 重放。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### In-memory cron only
+### 仅内存 cron
 
-Rejected because restarts lose state and concurrent workers duplicate work.
+未选择，因为重启会丢失状态，并发 Worker 会重复工作。
 
-### Kafka/Redis queue in V1
+### V1 使用 Kafka/Redis 队列
 
-Rejected because operations and failure modes exceed current scale.
+未选择，因为运维与失败模式超出当前规模。
 
-## Consequences
+## 后果
 
-PostgreSQL is a stronger operational dependency, but the topology remains small and observable.
+PostgreSQL 成为更强的运维依赖，但拓扑仍小且可观测。
 
-## Security and operational impact
+## 安全与运维影响
 
-Administrative job triggers require authorization and audit. Locks have bounded leases/transactions; retries are capped and visible.
+管理性任务触发需要授权和审计。锁具有有限租约/事务；重试有上限且可见。
 
-## Migration and rollback
+## 迁移与回滚
 
-PR-02 adds tables and primitives; PR-08 adds schedules. A future broker can replace outbox delivery without changing domain transactions.
+PR-02 增加表和原语；PR-08 增加计划。未来券商可替换 Outbox 投递而不改变领域事务。
 
-## References
+## 引用
 
-- Master Spec sections 3.2, 14, 17.2, S12
+- 主规范第 3.2、14、17.2 节和 S12

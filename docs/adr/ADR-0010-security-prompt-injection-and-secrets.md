@@ -1,45 +1,45 @@
-# ADR-0010 — Security, prompt injection, and secret management
+# ADR-0010 — 安全、Prompt Injection 与密钥管理
 
-- Status: Accepted
-- Date: 2026-09-17
-- Deciders: Human-approved Master Spec; implemented by Codex
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-00 and all stages
+- 状态：Accepted
+- 日期：2026-09-17
+- 决策者：经人类批准的主规范；由 Codex 实现
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-00 及所有阶段
 
-## Context
+## 背景
 
-The system consumes adversarial external text and may later contain sensitive portfolio and execution data. External content must not change instructions, permissions, approvals, or tool access.
+系统会接收对抗性外部文本，并可能随后包含敏感组合和执行数据。外部内容不得改变指令、权限、批准或工具访问。
 
-## Decision
+## 决策
 
-Treat every external payload—including DSA, news, filings, web pages, and model output—as untrusted data. Separate system instructions from quoted content; use role-specific least-privilege tool allowlists; validate all structured output and all domain transitions. External text can create Evidence content only, never commands.
+将所有外部 payload（包括 DSA、新闻、公告、网页和模型输出）视为不可信数据。将系统指令与引用内容分离；使用角色专用的最小权限工具白名单；校验全部结构化输出和领域转换。外部文本只能创建 Evidence 内容，绝不能成为命令。
 
-Secrets come from environment variables or a future secret manager, never source, fixtures, Prompt traces, logs, or Evidence. `.env` is ignored and `.env.example` contains placeholders. CI runs secret, dependency-vulnerability, and license checks. Local API binds only as configured; external exposure requires authentication, TLS, and a new threat review.
+密钥来自环境变量或未来密钥管理器，绝不来自源码、夹具、Prompt trace、日志或 Evidence。`.env` 被忽略，`.env.example` 只含占位符。CI 运行密钥、依赖漏洞和许可证检查。本地 API 仅按配置绑定；外部暴露需要认证、TLS 和新的威胁审查。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### Rely on model refusal alone
+### 仅依赖模型拒绝
 
-Rejected because prompt injection is an authorization and data-flow problem, not only a model-behavior problem.
+未选择，因为 Prompt Injection 是授权与数据流问题，而不只是模型行为问题。
 
-### Store credentials in local configuration committed to Git
+### 将凭据存入提交到 Git 的本地配置
 
-Rejected because history is difficult to purge and CI/logs can expose it.
+未选择，因为历史难以清除，CI/日志可能暴露它。
 
-## Consequences
+## 后果
 
-Tooling and schemas require more setup, and some content will fail closed. This is required for safe operation.
+工具和 Schema 需要更多配置，一些内容会失败关闭。这是安全运行所必需的。
 
-## Security and operational impact
+## 安全与运维影响
 
-Use sanitized structured logs, correlation IDs, dependency locks, bounded egress, minimal credentials, auditable approvals, and incident runbooks. A leaked secret must be rotated; deleting a file is insufficient.
+使用清理后的结构化日志、correlation ID、依赖锁、有限出站、最小凭据、可审计批准和事件运行手册。泄漏的密钥必须轮换；删除文件并不足够。
 
-## Migration and rollback
+## 迁移与回滚
 
-PR-00 establishes scanning and placeholders. Later stages add authentication and threat-specific tests. Security controls may only be superseded by equal or stronger controls.
+PR-00 建立扫描和占位符。后续阶段增加认证和特定威胁测试。安全控制只能由同等或更强的控制替代。
 
-## References
+## 引用
 
-- Master Spec sections 16.4, 17.1, 18, S15
+- 主规范第 16.4、17.1、18 节和 S15
 - `.github/workflows/ci.yml`

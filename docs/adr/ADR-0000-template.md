@@ -1,43 +1,43 @@
-# ADR-NNNN — Decision title
+# ADR-NNNN — 决策标题
 
-- Status: Proposed
-- Date: YYYY-MM-DD
-- Deciders: Codex / Human owner as applicable
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-XX
+- 状态：Proposed
+- 日期：YYYY-MM-DD
+- 决策者：Codex / 人类所有者（视情况而定）
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-XX
 
-## Context
+## 背景
 
-What problem, constraints, and Master Spec clauses require a decision?
+哪项问题、约束和主规范条款需要做出决策？
 
-## Decision
+## 决策
 
-What is being chosen? State enforceable boundaries and defaults.
+选择什么？说明可执行的边界和默认值。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### Alternative A
+### 替代方案 A
 
-Why it was not selected.
+未选择的原因。
 
-### Alternative B
+### 替代方案 B
 
-Why it was not selected.
+未选择的原因。
 
-## Consequences
+## 后果
 
-Positive, negative, and neutral consequences.
+正面、负面和中性后果。
 
-## Security and operational impact
+## 安全与运维影响
 
-Threats, permissions, secrets, failure behavior, cost, observability, and support impact.
+威胁、权限、密钥、失败行为、成本、可观测性和支持影响。
 
-## Migration and rollback
+## 迁移与回滚
 
-How to adopt the decision, verify it, and recover or supersede it.
+如何采用决策、验证并恢复或替代它。
 
-## References
+## 引用
 
-- Relevant Master Spec sections
-- Relevant code, tests, schemas, or external documentation
+- 相关主规范章节
+- 相关代码、测试、Schema 或外部文档
