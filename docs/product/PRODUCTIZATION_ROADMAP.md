@@ -55,174 +55,551 @@ Web UI 完成以下工作流：
 
 ## 3. 目标产品界面
 
-产品应有以下顶层界面：设置、Portfolio、Watchlist/Opportunities、Analysis Runs、Decision Center、
-Daily Reports、Review、Operations 和审计 Journal。所有页面必须标明数据 as-of、来源/新鲜度、模拟/实盘
-状态、Risk Veto、待批准项和运行异常。未实现能力必须明确标为不可用，不能用合成卡片伪装为真实状态。
+Web 应用最终必须提供以下面向用户的区域：
+
+1. **Setup Wizard**
+2. **Dashboard**
+3. **Portfolio**
+4. **Watchlist**
+5. **Opportunities**
+6. **Decision Center**
+7. **Thesis / Research Detail**
+8. **Reports**
+9. **Settings / Providers / System Health**
+
+既有四个 PR-08 只读视图只是展示基础，并非最终产品契约。
 
 ## 4. 首次运行 Setup Wizard
 
-首次打开时，用户按顺序完成市场和资产范围、模型供应商、Agent/模型分配、数据/研究供应商、Portfolio、
-Watchlist、Investment Policy 审阅和 Initial Analysis 就绪检查。向导可保存进度、可安全返回上一步，
-但不能静默使用默认真实投资参数或密钥。
+新安装必须检测引导尚未完成，并打开 Setup Wizard。
 
 ### 第 1 步 — 市场和资产范围
 
-选择获支持且已授权的市场、货币、时区、交易日历和资产类别。日历会话、收盘时间和数据源必须是显式
-配置；不得由服务器时钟、工作日或推测推断。真实市场/数据授权仍需人工决定。
+初始支持范围应可配置；V1 预计支持以下产品结构所需范围：
+
+- A 股股票；
+- 香港股票 / ETF；
+- 在存在适当已授权数据源时人工管理的基金持仓。
+
+用户选择市场范围和市场时区/日历配置文件。
 
 ### 第 2 步 — 模型供应商
 
-供应商配置显示名称、模型、区域、可用性、预算和状态，但密钥只能写入经审查的 SecretStore。连接测试
-必须为显式、经审计的最小请求；不得在日志、UI、事件、异常或 Agent 记录中泄露密钥。未经人工授权的
-供应商不可启用。
+用户配置一个或多个模型配置文件。
+
+最低字段：
+
+```text
+name
+provider_type
+base_url
+model_name
+credential_ref
+timeout_seconds
+max_tokens
+enabled
+```
+
+V1 实现应在既有 `LLMGatewayPort` 后提供一个 **OpenAI-compatible adapter**。
+
+这必须支持兼容供应商，且不将领域代码耦合至供应商 SDK。
+
+必需 UX：
+
+- 创建/编辑/禁用配置文件；
+- 掩码密钥展示；
+- Test Connection；
+- 结构化输出能力检查；
+- 延迟/错误结果；
+- 存储后绝不向浏览器返回密钥。
 
 ### 第 3 步 — Agent/模型分配
 
-为固定角色分配已授权模型与提示词包版本：Macro、Industry、Fundamental、Market/Quant、Event、
-Devil's Advocate 和 CIO。角色权限、工具允许列表、预算、超时与降级规则是版本化配置；外部文本和
-模型回复不能改变它们。
+支持：
 
-### 第 4 步 — 数据/研究供应商
+```text
+Default Model
+Macro
+Industry
+Fundamental
+Market/Quant
+Event
+Portfolio Manager
+Risk Manager
+Devil's Advocate
+CIO
+Review
+```
 
-记录供应商授权、许可、市场覆盖、数据延迟、来源层级、独立性和健康状态。所有采集结果需规范化为
-Evidence，并保留 observed/effective/available/ingested 时间；不可用、陈旧、许可不清或不合格数据必须
-显式失败，不能伪造结论。
+V1 可以将每个角色分配给一个默认模型，但模式必须支持角色级分配。
+
+每个 AgentRun 必须保留实际使用的供应商/模型。
+
+### 第 4 步 — 数据 / 研究供应商
+
+通过应用端口配置一个已授权供应商。
+
+首选的第一项集成：
+
+```text
+ResearchProviderPort
+        ↑
+     DSAAdapter
+```
+
+UI 必须支持：
+
+- 供应商端点/配置；
+- 必要时的凭据引用；
+- Test Connection；
+- 能力展示；
+- 上次成功同步；
+- 数据新鲜度/健康状态。
+
+供应商授权/许可仍是人工治理决定。不得静默启用任何供应商。
 
 ### 第 5 步 — Portfolio 引导
 
-导入或手工录入真实个人 Portfolio 的持仓、现金、成本、Core/Tactical 手数和 as-of；在提交前显示验证、
-重复、缺失价格、货币、手数和风险提示。导入必须产生不可变快照和审计记录，不能覆盖历史或通过 UI
-绕过 Policy/风险关卡。
+用户必须可以：
+
+- 手工添加持仓；
+- 导入 CSV；
+- 如果同阶段实现成本合理，导入 Excel；
+- 在提交前预览和验证。
+
+首个 Beta 不要求经纪商自动同步。
+
+所需导入流：
+
+```text
+Upload
+→ Parse
+→ Normalize symbol
+→ Match/Create Instrument
+→ Validate currency / quantity / cost / bucket
+→ Preview
+→ Human Confirm
+→ Commit
+→ Audit
+```
+
+上传在明确确认前绝不修改 Portfolio。
+
+建议导入字段：
+
+```text
+account
+market
+symbol
+name
+asset_type
+currency
+quantity
+avg_cost
+bucket
+```
+
+不得将任何真实个人 portfolio 数据提交至仓库夹具、日志、截图或测试。
 
 ### 第 6 步 — Watchlist
 
-用户可创建、编辑和归档受审计 Watchlist 项，指定标的、市场、类别、初始 thesis 问题和复核频率。发现
-机会并不等同于推荐或订单；无有效 Evidence 的项目必须明确为待研究。
+用户可以搜索/添加/移除标的，并检查生命周期状态：
+
+```text
+DISCOVER → WATCH → SETUP → BUYABLE → HOLD
+```
 
 ### 第 7 步 — Investment Policy 审阅
 
-展示已版本化 Policy、所有限制、风险预算、现金要求、Core/Tactical 边界、批准 TTL 和适用范围。真实数值
-只能由人工选择、验证并批准后生效；`TEST_DEFAULT` 只能用于工程测试，不能伪装为真实 policy。
+用户审阅所有当前生效值。
+
+在所有者明确批准真实值前，产品必须显著标记 `TEST_DEFAULT`，且不得将它们呈现为真实投资 policy。
+
+真实 policy 选择仍受 Master Spec 治理。
 
 ### 第 8 步 — Initial Analysis
 
-只有前置配置和数据可用性满足时才可启动。系统创建明确的 AnalysisRun，冻结输入上下文，执行有限两轮
-委员会、Risk、portfolio-fit 和确定性仓位规模计算，随后生成 Decision 或明确失败；没有任何隐式批准或
-实盘执行。
+一项受支持动作启动第一次完整影子分析。
+
+```text
+Run Initial Analysis
+```
+
+该动作不执行交易。
 
 ## 5. 模型集成契约
 
 ### 5.1 架构
 
-所有模型调用经 `LLMGatewayPort`、版本化严格 DTO、角色注册和提示词包。域层不依赖供应商 SDK。请求和
-响应有关联 ID、版本、哈希、预算、超时、用量和经清洗的输出引用；自由格式文本绝不直接成为 AgentOpinion。
+```text
+AgentRuntime
+   ↓
+LLMGatewayPort
+   ↓
+OpenAICompatibleLLMGateway
+   ↓
+Configured provider
+```
+
+领域代码不得导入模型 SDK。
 
 ### 5.2 强制运行时行为
 
-模式无效输出最多有限修复次数，之后为 `INSUFFICIENT_DATA`；事实观察必须引用冻结上下文中可见的
-Evidence；模型错误、超时、成本超限、模式漂移和缺失数据均显式记录。委员会最多两轮，始终包含
-Devil's Advocate，且保留异议。
+保留既有 AgentOpinion 和模型治理要求：
+
+- 严格 Pydantic/JSON schema；
+- 事实观察要求 Evidence；
+- 最多两次 schema 修复尝试；
+- 失败成为明确 failure / INSUFFICIENT_DATA；
+- 不得将自由文本回退为有效 opinion；
+- 超时有界；
+- 记录 provider/model/prompt/schema/input hash/output 元数据；
+- 外部模型输出不可信。
 
 ### 5.3 故障转移
 
-故障转移只能发生在已授权的供应商/模型配置间，保留原请求语义、预算和审计来源。不得把失败替换为
-未经验证的散文、静默较低质量模型或高置信度结论。
+首个 Beta 可选，但数据模型应支持以后显式回退。
+
+任何回退必须：
+
+- 在 AgentRun 中可见；
+- 绝不静默；
+- 保留 schema/invariants；
+- 绝不默认将不可用分析转换为 BUY/ADD。
 
 ### 5.4 成本控制
 
-为供应商、角色、运行和期间设置显式预算、token 上限、超时和并发限制。超过限制即失败闭合；成本记录
-不含提示词原文、密钥或个人数据。
+展示或强制执行：
+
+- 单次调用 token 上限；
+- 角色级超时；
+- 在供应商数据允许时的每日 token/成本预算；
+- 预算超出时的明确降级行为。
 
 ## 6. 密钥处理
 
-密钥只能由专门的、经过审查的 SecretStore 管理，采用最小权限、加密静态存储、轮换、撤销和审计。配置
-读取接口不得返回明文；日志、错误、浏览器本地存储、截图、测试夹具、事件和 outbox 均不得出现密钥。
-PRODUCT-01 不收集密钥；SecretStore 路径须在后续 ADR/阶段中实现和验证。
+API keys 和供应商 tokens 不得以普通明文设置存储或返回。
+
+引入 `SecretStore` 抽象。
+
+最低 V1 要求：
+
+- 本地静态加密密钥存储或其他经过审查的本地密钥机制；
+- 数据库/配置仅存储 `credential_ref`；
+- 在日志、审计负载、API 响应、截图、测试和导出报告中排除密钥；
+- UI 只显示掩码值；
+- 修改密钥创建可审计配置事件，但不存储旧明文值。
+
+个人/本地 V1 不要求生产级云密钥管理器。
 
 ## 7. Portfolio 产品契约
 
-Portfolio 展示不可变快照、Core/Tactical 分离、现金、价格/货币 as-of、待处理容量和数据质量。导入、
-更正和删除采用追加版本/明确撤销而非原地改写。用户看到的目标、数量和限制必须来自确定性代码；UI 不得
-计算或替换 Risk Veto、Policy 上限、手数取整或最终数量。
+Portfolio 必须成为用户拥有的运营对象，而不只是领域模型。
+
+必需能力：
+
+- Portfolio 摘要；
+- 现金；
+- NAV；
+- 货币；
+- 持仓；
+- Core/Tactical 拆分；
+- 平均成本；
+- 当前权重；
+- 行业/主题敞口；
+- 风险容量；
+- 最新 Decision；
+- 最新 Thesis 状态；
+- 对账状态。
+
+每次导入/更新均保留可审计性和业务时间。
+
+不得静默推断缺失成本/数量。
 
 ## 8. Watchlist 和机会发现
 
 ### Watchlist
 
-Watchlist 维护用户意图、标的标识、研究状态、复核时间、证据覆盖和归档历史。它不授予交易权限，也不把
-研究缺口隐藏为可操作建议。
+用户拥有的监控清单，包含：
+
+- 当前生命周期状态；
+- Thesis 状态；
+- 数据新鲜度；
+- 下一监控条件；
+- 最新 Decision；
+- 进入/离开清单的原因。
 
 ### Opportunities
 
-机会发现只能产生带来源、时间、筛选条件和不确定性的候选项。候选项要进入 Decision 路径，必须经过
-Evidence、Thesis、委员会、Risk、Portfolio 和批准关卡；不得由排名、热度或模型文本直接形成买入。
+系统必须支持所有者定期发现候选项的要求。
+
+每周工作流：
+
+```text
+market universe
+→ deterministic tradability filter
+→ deterministic financial/quality filters
+→ industry/growth/valuation filters
+→ timing filter
+→ bounded candidate set
+→ AI deep research only for candidates
+```
+
+不得对整个市场范围无差别运行高成本强模型分析。
+
+Opportunity UI 必须展示：
+
+- 标的为何进入漏斗；
+- 哪些 Evidence 可用/缺失；
+- 当前生命周期状态；
+- 推进所需条件；
+- 是否存在 Portfolio 容量。
 
 ## 9. 运行时 Analysis Orchestrator
 
-编排器从明确用户动作或显式日历任务启动，创建可重放 AnalysisRun 和冻结 `AnalysisContext`，并顺序连接
-Evidence 可用性检查、独立角色、两轮委员会、Thesis、Risk、portfolio-fit、确定性仓位规模计算和 CIO。
-每个步骤必须记录输入/输出版本、哈希、时间、失败和关联 ID。失败不会自动跳过、重试为不同业务输入或
-创建 Decision/批准/订单。
+创建一个应用层编排用例，例如：
+
+```text
+InvestmentAnalysisOrchestrator
+```
+
+输入契约应包含：
+
+```text
+portfolio_id
+instrument_id or scope
+as_of
+trigger
+correlation_id
+```
+
+编排器负责连接已受治理的组件，而非替换它们。
+
+预期流程：
+
+```text
+authorized data sync
+→ Evidence validation
+→ FeatureSnapshot
+→ Thesis evaluation/update
+→ frozen AnalysisContext
+→ specialist Agent Round 1
+→ deterministic conflict detection
+→ targeted Round 2 + Devil's Advocate
+→ Portfolio Manager risk_intent
+→ Risk Assessment
+→ deterministic Position Sizing
+→ CIO
+→ InvestmentDecision
+→ immutable persistence
+→ report/update event
+```
+
+既有失败闭合的 Risk、Evidence、仓位规模计算、批准和不可变性约束仍具权威性。
 
 ## 10. AnalysisRun
 
-AnalysisRun 是不可变且可审计的运行容器，至少记录触发者、原因、业务时间、市场日历、输入快照、
-Evidence 可见性、角色/提示词/模型版本、预算、状态、失败、关联 ID 和产物引用。重试须遵循幂等键和
-明确恢复策略；新数据、价格或 policy 变化不得与旧运行混合。
+长时间分析需要持久、用户可见的运行对象。
+
+建议状态：
+
+```text
+QUEUED
+RUNNING
+PARTIAL
+SUCCEEDED
+FAILED
+CANCELLED
+```
+
+必需可见性：
+
+- trigger；
+- as_of；
+- started/finished；
+- current stage；
+- 降级/失败组件；
+- correlation id；
+- 不泄露密钥/原始敏感负载。
+
+API/UI 必须提供受支持的 **Run Analysis Now** 动作。
+
+该动作只运行分析，绝不创建实盘经纪商订单。
 
 ## 11. 决策中心（Decision Center）
 
-Decision Center 显示完整 Decision Journal：Evidence、Thesis、Agent 观点、异议、Risk 结果、
-Portfolio-fit、仓位规模计算、Core/Tactical 动作、未知项、条件、复核计划和批准状态。它必须区分研究
-建议、待批准决定、模拟记录、手工执行记录和实盘交易（V1 始终不可用）；不得用摘要掩盖 Veto 或失败。
+Decision Center 是主要的日常交互界面。
+
+每个 Decision 展示：
+
+- instrument；
+- Action；
+- confidence；
+- Core action；
+- Tactical action；
+- current weight；
+- proposed target weight；
+- proposed delta quantity；
+- Thesis state；
+- Risk gate；
+- major risk flags；
+- Evidence freshness；
+- top reasons；
+- unknowns；
+- dissent；
+- watch/invalidation conditions；
+- next review；
+- 精确的 Decision/Thesis/Policy/Strategy/Prompt/Formula versions。
+
+Agent opinions 必须作为可下钻详情，而不是受治理 Decision 的替代物。
 
 ## 12. 人工批准和手工执行
 
-具名人工动作 `APPROVE`、`REJECT`、`REVOKE` 只追加并受 Policy TTL、输入/价格漂移和状态约束。只有
-当前有效批准可关联模拟或手工执行回执；撤销、到期、Veto 或输入漂移阻止增加风险。V1 实盘适配器必须
-拒绝每个请求，手工执行只是记录外部人工行为，不能成为经纪商下单通道。
+提供受支持用户动作：
+
+```text
+APPROVE
+REJECT
+REVOKE
+```
+
+批准必须使用既有不可变/失败闭合领域语义。
+
+V1 保持：
+
+```text
+auto_trade=false
+```
+
+Beta 要求中不包含任何经纪商订单端点。
+
+用户在外部完成交易后，UI 可以记录一笔 `MANUAL` 执行：
+
+- quantity；
+- price；
+- fees；
+- executed_at；
+- 经清洗的外部引用 / 备注。
+
+批准不是执行。
+
+Risk Veto 永远不能被 UI 覆盖。
 
 ## 13. 调度器和 worker 运行时
 
-Daily/Weekly/Monthly/Quarterly 任务要求明确市场时区、日历会话、`as_of`、幂等键、咨询锁、持久 TaskRun
-和事务性 outbox。默认环境不推断会话；重放只读取截至业务时间可用的输入。失败、重试耗尽和异常必须在
-Operations/UI 中可见，且调度器不能绕过 Risk Veto、批准或禁用实盘执行。
+只有正在运行的 worker 实际评估到期任务并进行分派时，调度器才算 Product Done。
+
+必需运行时链：
+
+```text
+investment-worker
+→ authorized/explicit Market Calendar
+→ due jobs
+→ durable dispatcher
+→ advisory lock
+→ TaskRun
+→ business handler
+→ Event/Outbox
+→ Report/Decision effects
+```
+
+必需节奏：
+
+- Daily；
+- Weekly；
+- Monthly；
+- Quarterly。
+
+调度必须保留明确市场时区、业务 `as_of`、重试/重放、幂等性、有界失败，且不得假设服务器本地时间。
+
+集成/E2E 验证必须证明运行时分派；直接调用 dispatcher 的测试不能作为唯一证明。
 
 ## 14. Dashboard 契约
 
-Dashboard 是只读操作面，展示 Portfolio、Decision、Watchlist、报告、数据新鲜度、任务健康、异常和待办。
-每个数值显示来源和 as-of；没有数据或数据陈旧时显示明确的无动作状态。不得把合成或占位数据标为真实。
+Dashboard 应回答：
+
+1. 今天什么需要动作？
+2. 我的 Portfolio 发生了什么变化？
+3. 是否存在活跃 Risk Veto？
+4. 哪些 Decisions 等待批准？
+5. 哪些 Evidence/Data 已陈旧？
+6. 出现了哪些新机会？
+7. 定时任务是否成功？
+8. 什么需要人工关注？
+
+不得将 Dashboard 做成通用市场新闻流。
 
 ## 15. 报告
 
-日、周、月报告明确区分事实、确定性计算、Agent 判断、假设和人工决定，保留来源引用和时间。固定模拟/
-禁止自动交易标记必须显著；报告只表达建议与状态，不能创建、批准或执行订单。
+日/周/月报告应从已验证内部对象生成，并清晰区分：
+
+- 事实；
+- 确定性计算；
+- Agent 判断；
+- 假设/未知项；
+- 人工决定。
+
+每日报告至少应包含：
+
+- 需要动作；
+- 继续持有；
+- 观察；
+- 新发现；
+- 风险/数据/运行异常。
 
 ## 16. Beta 所需 API 表面
 
+精确 URI 命名可以通过审查过的 API 设计改变，但产品必须提供等价能力。
+
 ### Providers / Settings
 
-配置读取/更新、密钥状态、供应商连接测试、模型/角色分配、市场日历和 policy 审阅 API 必须有带版本 DTO、
-认证/授权、审计、输入验证和经清洗错误；密钥明文永不返回。
+```text
+GET/PUT settings
+GET/POST model-providers
+POST model-providers/{id}/test
+GET/POST data-providers
+POST data-providers/{id}/test
+```
 
 ### Portfolio / Watchlist
 
-提供 Portfolio 快照读取、导入预览/提交、错误报告、Watchlist 生命周期和 Opportunities 查询。所有修改
-必须走类型化应用边界并留下不可变历史。
+```text
+GET portfolio
+POST portfolio/import/preview
+POST portfolio/import/commit
+POST portfolio/positions
+GET/POST watchlist
+DELETE watchlist/{id}
+```
 
 ### Analysis
 
-提供 Initial Analysis 启动、AnalysisRun 状态、产物读取和失败/重试可见性。启动需要明确权限和冻结输入，
-不接受自由文本覆盖治理。
+```text
+POST analysis-runs
+GET analysis-runs/{id}
+```
 
 ### Decisions
 
-提供 Decision Journal、`APPROVE`/`REJECT`/`REVOKE`、模拟/手工执行记录和复核读取。任何实盘订单端点
-在 V1 均不存在或明确拒绝。
+```text
+GET decisions
+GET decisions/{id}
+POST decisions/{id}/approve
+POST decisions/{id}/reject
+POST decisions/{id}/revoke
+POST decisions/{id}/manual-executions
+```
 
 ### Reports / Operations
 
-提供报告、TaskRuns、运行异常、健康、数据新鲜度、outbox/投递状态和支持信息的只读接口。管理任务运行
+```text
+GET reports/daily/latest
+GET reports/weekly/latest
+GET reports/monthly/latest
+GET task-runs
+```
+
+每项修改均要求验证、审计、适用时的幂等性，以及适合个人部署模型的授权。
 必须要求明确 `as_of` 和 `dry_run`，并保留锁与幂等语义。
 
 ## 17. 产品化交付阶段
