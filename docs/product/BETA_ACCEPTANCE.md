@@ -1,6 +1,7 @@
 # Personal AI Investment OS — Beta 验收门槛
 
-> 目的：定义项目可被描述为所有者可正常使用前所需的最低证据。  
+> 目的：定义项目可被描述为所有者可正常使用前所需的最低证据。
+>
 > 约束权威仍为 `INVESTMENT_OS_MASTER_SPEC.md`。
 
 ---
