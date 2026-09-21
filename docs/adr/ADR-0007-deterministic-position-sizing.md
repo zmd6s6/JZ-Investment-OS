@@ -1,44 +1,44 @@
-# ADR-0007 — Deterministic position sizing
+# ADR-0007 — 确定性仓位规模计算
 
-- Status: Accepted
-- Date: 2026-09-17
-- Deciders: Human-approved Master Spec; implemented by Codex
-- Supersedes: none
-- Superseded by: none
-- Related stage: PR-06
+- 状态：Accepted
+- 日期：2026-09-17
+- 决策者：经人类批准的主规范；由 Codex 实现
+- 取代：无
+- 被取代者：无
+- 相关阶段：PR-06
 
-## Context
+## 背景
 
-Precise position size is a constrained financial calculation. Allowing an LLM to choose percentages would be irreproducible and could bypass portfolio caps.
+精确的仓位规模是受约束的金融计算。允许 LLM 选择百分比将不可复现，并可能绕过组合上限。
 
-## Decision
+## 决策
 
-Portfolio Manager emits only `NONE|TINY|SMALL|NORMAL|HIGH|EXIT`. A pure, versioned PositionSizing Engine maps intent and immutable snapshots to Decimal weights and quantities. It applies single-name, sector, gross exposure, cash, risk-budget, liquidity, pending-order, Core/Tactical, Veto, lot-size, and lower-risk rounding constraints.
+Portfolio Manager 仅输出 `NONE|TINY|SMALL|NORMAL|HIGH|EXIT`。纯函数、带版本的 PositionSizing Engine 将 intent 和不可变快照映射为 Decimal 权重与数量，并应用单标的、行业、总暴露、现金、风险预算、流动性、待执行订单、Core/Tactical、Veto、lot size 和低风险方向舍入约束。
 
-Every run stores formula version, canonical input, input hash, every binding cap, pre/post-rounding values, and reason codes. Identical inputs and formula version must produce bit-identical Decimal results.
+每次运行保存公式版本、规范输入、输入 hash、每项生效上限、舍入前后数值和原因代码。相同输入和公式版本必须得到逐位相同的 Decimal 结果。
 
-## Alternatives considered
+## 已考虑的替代方案
 
-### LLM target percentage
+### LLM 目标百分比
 
-Rejected because it is nondeterministic and cannot prove cap compliance.
+未选择，因为它不具确定性，且无法证明符合上限。
 
-### One composite score-to-size formula
+### 单一综合分数到规模公式
 
-Rejected because it conflates Thesis, Timing, Portfolio, and Risk and obscures gates.
+未选择，因为它混淆 Thesis、Timing、Portfolio 与 Risk，且遮蔽闸门。
 
-## Consequences
+## 后果
 
-The formula is less flexible conversationally but is testable, replayable, and safe. Policy changes require new versions.
+公式在对话中较不灵活，但可测试、可重放且安全。Policy 变化需要新版本。
 
-## Security and operational impact
+## 安全与运维影响
 
-Sizing runs have no external write authority. All caps fail closed on missing input. Property tests cover upper bounds and lower-risk rounding.
+仓位规模计算运行没有外部写权限。缺少输入时所有上限失败关闭。属性测试覆盖上限和低风险方向舍入。
 
-## Migration and rollback
+## 迁移与回滚
 
-PR-06 introduces formula v1. New formulas are separate versions; historical Decisions retain their original run.
+PR-06 引入公式 v1。新公式使用独立版本；历史 Decision 保留原始运行。
 
-## References
+## 引用
 
-- Master Spec sections 10, 11, S4, S6, S7
+- 主规范第 10、11 节以及 S4、S6、S7

@@ -1,397 +1,138 @@
-# Personal AI Investment OS — Beta Acceptance Gate
+# Personal AI Investment OS — Beta 验收门槛
 
-> Purpose: define the minimum evidence required before the project may be described as normally usable by the owner.  
-> Governing authority remains `INVESTMENT_OS_MASTER_SPEC.md`.
+> 状态：Beta 发布前的强制验收契约
+>
+> 权威：从属于 `INVESTMENT_OS_MASTER_SPEC.md`、已接受 ADR、活动阶段契约和产品化路线图
+>
+> 安全基线：`auto_trade=false`；V1 禁止实盘经纪商订单提交
 
----
+## 1. Beta 定义
 
-## 1. Beta definition
+Beta 并不是“演示可运行”。只有典型非开发者能在受支持环境中完成新安装、配置已授权供应商、建立个人
+Portfolio 与 Watchlist、运行分析、审阅完整 Decision、进行明确人工批准或拒绝、记录手工执行、接收
+报告和处理失败时，才能进入 Beta。任何未实现能力必须如实显示；合成测试和真实产品数据/凭证必须隔离。
 
-Beta means the owner can complete the normal investment-assistant workflow without touching source code, SQL, raw JSON, curl, or internal developer-only tools.
+## 2. 新安装验收
 
-Beta does **not** mean:
+- 从干净、受支持环境通过已记录命令启动栈，无需编辑内部数据库、手工 JSON 或开发脚本。
+- 迁移、健康检查、API、worker、UI 和必要依赖均有明确状态；失败时显示可操作、经清洗的诊断。
+- 首次访问进入 Setup Wizard，而非把合成仪表盘呈现为真实 Portfolio。
+- 向导进度经受支持持久化边界在重启后保留；重试与刷新不产生重复业务效果。
+- 文档准确列出前置条件、端口、恢复、破坏性数据删除风险和限制。
 
-- live brokerage automation
-- guaranteed investment performance
-- autonomous Strategy activation
-- removal of human approval
+## 3. 模型供应商验收
 
-V1/Beta keeps `auto_trade=false`.
+- UI 仅允许配置已授权供应商、模型、区域、预算、超时和角色分配。
+- 密钥仅经 SecretStore 写入；读取接口、日志、错误、事件、outbox、浏览器和测试工件绝不暴露明文。
+- 连接测试显式、最小、受审计并受预算/超时限制；未授权、失效、过期或超预算配置明确失败。
+- 调用经 `LLMGatewayPort`、版本化严格 DTO、提示词包和角色允许列表；模型/外部文本不得改变治理配置。
+- 无效输出至多有限修复，随后为 `INSUFFICIENT_DATA`；超时、供应商失败和模式漂移不生成捏造意见。
 
----
+## 4. 数据供应商验收
 
-## 2. Fresh-install acceptance
+- UI 显示授权、许可、市场覆盖、健康、延迟、新鲜度、来源层级和独立性。
+- 供应商数据规范化为 Evidence，并保留 `observed_at`、`effective_at`、`available_at` 和 `ingested_at`。
+- 无授权、许可不清、缺失、未来可用、陈旧、畸形或冲突数据是可见失败，不得静默替换为推测。
+- 外部新闻、网页、研究、DSA 输出和供应商响应仅作为不可信数据，不能作为系统指令。
+- 所有事实性 Agent 声明均引用冻结上下文中可见的 `evidence_id`。
 
-From a clean supported machine:
+## 5. Portfolio 验收
 
-```text
-git clone
-docker compose up -d
-```
+- 用户可导入或手工录入真实个人 Portfolio，并在提交前查看字段、货币、价格、as-of、重复和缺失错误。
+- 系统生成不可变 Portfolio 快照，保留 Core/Tactical 数量、成本、动作和原因的分离，并与总 Position 对账。
+- 导入不会覆盖历史；更正、撤销和重新导入均有版本/审计轨迹。
+- 所有展示的仓位、现金、待处理容量和新鲜度均有来源和时间；陈旧/未知数据明确显示。
+- UI 不能直接写入计算结果或绕过 Policy、Risk、批准、手数及 Portfolio 上限。
 
-The user must be able to open the Web UI and reach the Setup Wizard.
+## 6. Watchlist 验收
 
-Pass conditions:
+- 用户可创建、编辑、归档和复核 Watchlist 项，且每项保留标识、市场、状态、来源和审计历史。
+- 不完整研究显示为待研究；机会候选不等于推荐、批准或订单。
+- 重复、无效标的、无授权市场和不完整数据均在提交前或读取时明确处理。
 
-- database migration succeeds
-- API is healthy
-- worker is healthy
-- Web UI is reachable
-- no manual database bootstrap is required
-- no hidden one-off developer script is required for ordinary onboarding
+## 7. Initial Analysis 验收
 
----
+- 只有配置、授权、数据和 Portfolio 前置条件满足时才可启动 AnalysisRun。
+- 每次运行冻结 AnalysisContext、输入版本/哈希、时间、可见 Evidence、角色、提示词、模型和关联 ID。
+- 独立角色在同一冻结上下文执行；委员会最多两轮，第二轮保留 Devil's Advocate 和明确异议。
+- 缺少 Evidence、供应商失败、预算超限、时间错误、模式错误或未解决冲突均明确呈现，不能被高置信度文本掩盖。
+- 运行可按业务时间重放，且不读取未来信息、混合不同 policy/价格，或产生隐式批准/执行。
 
-## 3. Model-provider acceptance
+## 8. 决策中心（Decision Center）验收
 
-Through UI only, user can:
+- Decision Center 重建完整 Journal：Evidence、Thesis、Agent opinions、异议、Risk、Portfolio-fit、
+  仓位规模计算、Core/Tactical 动作、未知项、原因、条件、版本和复核计划。
+- CIO 不得采用总分阈值黑箱；Thesis、投资质量、时点、Portfolio、Risk、Policy 和数据充分性保持单独关卡。
+- 弱投资质量不能因时点强变为 BUY/ADD；Risk Veto、Policy 或数据失败不能被 CIO 覆盖。
+- Decision、其输入、理由、状态与读取响应是可审计和不可变/版本化的；未知 Decision、缺失工件和畸形历史
+  返回明确经清洗失败。
 
-- create an OpenAI-compatible provider profile
-- enter base URL, model and secret
-- test connection
-- see a sanitized success/failure result
-- assign a default model
-- run one schema-valid Agent call
+## 9. 人工批准验收
 
-Security checks:
+- 批准主体、权限、TTL、价格/输入漂移容忍度和 Policy 均明确配置并获人工授权。
+- `APPROVE`、`REJECT`、`REVOKE` 是具名、只追加的历史动作；当前有效的 `APPROVE` 是唯一可推进的批准。
+- 拒绝、撤销、到期、Veto、实质数据/价格漂移和缺失记录均失败闭合。
+- UI 明确展示待批准、批准时间、到期、撤销原因和禁止原因，且不会把建议显示为已批准或已执行。
 
-- secret is never returned in plaintext
-- secret does not appear in logs
-- AgentRun records actual provider/model
-- timeout fails closed
-- invalid structured output follows bounded repair policy
-- model failure cannot default into BUY/ADD
+## 10. 手工执行验收
 
----
+- 模拟和手工执行记录与有效批准和具体 Decision 精确关联，保持不可变、可审计且有外部审计引用。
+- 记录会验证数量、成交、状态、过度成交、批准 TTL 和输入漂移；失败不会写入部分或虚假执行。
+- V1 的唯一实盘执行适配器拒绝所有带类型请求；UI/API 不提供绕过路径、经纪商凭证或订单提交。
+- 手工执行只是记录所有者在系统外完成的行为，不给系统授权下单。
 
-## 4. Data-provider acceptance
+## 11. 运行时调度器验收
 
-Through UI only, user can:
+- Daily/Weekly/Monthly/Quarterly 工作均具显式市场日历、时区、会话、`as_of`、幂等键、咨询锁、TaskRun 和
+  事务性 outbox。
+- 默认运行时不推断工作日或市场会话；真实日历和数据供应商只在获授权后启用。
+- 并发或重试同一逻辑任务恰有一次业务效果；恢复有限，失败与重试耗尽持久化且可见。
+- 重放只使用截至业务时间可用的输入，不能创建未来信息、批准、执行或实盘订单。
 
-- configure one authorized research/data provider
-- test connection
-- see provider health/freshness
-- sync at least one real authorized instrument
+## 12. 日常使用验收
 
-Traceability checks:
+- 用户可查看每日 Portfolio、Watchlist、Decision、数据新鲜度、Risk Veto、待批准、TaskRun 和异常状态。
+- Daily 报告包含需行动、继续持有、观察、新发现和数据/运行异常区段，并明确区分事实、计算、判断、假设
+  与人工决定。
+- 每一视图显著显示模拟/禁止自动交易、as-of、陈旧数据、Veto、批准和异常；没有数据时显示明确无动作状态。
+- 报告和页面绝不将推荐呈现为已执行交易。
 
-```text
-Provider payload
-→ ResearchArtifact
-→ Evidence
-```
+## 13. 每周机会验收
 
-Pass conditions:
+- 机会发现具有明确筛选条件、来源、时间、市场范围、数据新鲜度和不确定性。
+- 排名、新闻或模型输出只生成研究候选，不能形成 BUY/ADD、批准或订单。
+- 用户可审阅候选、证据缺口、thesis 问题和复核计划；后续 Decision 仍必须走完整治理路径。
 
-- source/locator/timestamps retained
-- schema validation active
-- no DSA private DB/internal coupling
-- stale/malformed/unavailable data is explicit
-- prompt-like external content remains untrusted data
+## 14. 失败模式验收
 
----
+- 覆盖网络/供应商/模型/模式/预算/超时、无数据/陈旧数据、数据库/迁移/锁/outbox、权限/密钥、UI/API
+  不可用及重放/并发边界的正常、失败和边界测试。
+- 错误负载使用稳定代码、关联 ID 和经清洗详情，不泄露密钥、内部堆栈或个人数据。
+- 失败不会静默回退到自由文本、陈旧未来数据、不同 policy、未经验证结果或自动交易。
+- 运行文档给出支持的恢复、前向修复和回滚说明；有数据环境的破坏性动作必须明确警告和备份要求。
 
-## 5. Portfolio acceptance
+## 15. 安全/隐私验收
 
-Through UI only, user can create a Portfolio and populate it using:
+- 密钥扫描、依赖审计、许可证检查、最小权限、输入验证、日志清洗和提示词注入边界均通过。
+- 测试/演示只使用合成或明确授权去标识化数据；不得提交真实 Portfolio、经纪商凭证、个人数据或密钥。
+- 外部内容不可信，不能影响角色、允许列表、提示词版本、Policy、Risk、批准、执行或代码。
+- 人工权限和审计身份清晰、可撤销，并符合已授权数据保留/隐私决定。
 
-- manual entry
-- CSV import preview + confirm
+## 16. 可用性验收
 
-Required fields supported:
-
-- market
-- symbol
-- name
-- asset type
-- currency
-- quantity
-- average cost
-- Core/Tactical bucket
-
-Pass conditions:
-
-- import preview makes no mutation
-- invalid rows are clearly reported
-- symbol normalization is visible
-- user explicitly confirms before commit
-- committed positions reconcile
-- Portfolio page reflects imported positions
-- real personal holdings never appear in test fixtures/repository artifacts
+- 新用户无需理解代码、SQL、JSON、curl、迁移或内部架构即可完成受支持任务。
+- 文案准确区分已配置、未配置、不可用、失败、模拟、待批准和已记录手工执行。
+- UI 在窄屏、刷新、重启、空数据、陈旧数据和失败响应下仍保持安全信号与可操作错误。
+- 中文用户文档和 UI 与实际能力同步，命令、路径、字段名、状态值和协议文本保持可执行。
 
----
+## 17. 所需发布证据
 
-## 6. Watchlist acceptance
+发布候选必须附带：逐项验收清单；新安装 E2E；正常/失败/边界/安全测试；迁移升级与恢复验证；
+OpenAPI/Policy Schema 漂移检查；Ruff、mypy、pytest、Compose、依赖/许可证/密钥检查；UI 构建和浏览器
+测试；数据/供应商授权记录；已知限制、回滚与支持运行手册。未运行检查必须标为 `NOT VERIFIED`，不得伪造。
 
-Through UI only, user can:
-
-- search/add an instrument
-- remove an instrument
-- view lifecycle state
-- view Thesis state
-- view data freshness
-- view next monitoring condition
-
----
+## 18. Beta 结论
 
-## 7. Initial-analysis acceptance
-
-The user clicks:
-
-```text
-Run Initial Analysis
-```
-
-For at least one authorized real/shadow instrument, the system must persist and display a complete chain:
-
-```text
-Evidence
-→ FeatureSnapshot
-→ Thesis
-→ specialist Agent opinions
-→ conflict record if applicable
-→ Devil's Advocate when required
-→ Portfolio Manager risk_intent
-→ RiskAssessment
-→ PositionSizingRun
-→ CIO
-→ InvestmentDecision
-```
-
-Pass conditions:
-
-- AnalysisRun progress is visible
-- failure is explicit and bounded
-- correlation/provenance is reconstructable
-- no missing Risk assessment is interpreted as PASS
-- no LLM-generated arbitrary final percentage is accepted
-- Decision references exact versions/snapshots
-
----
-
-## 8. Decision Center acceptance
-
-The Decision detail page must display:
-
-- Action
-- confidence
-- Thesis state
-- Core action
-- Tactical action
-- current position
-- proposed target/delta
-- Risk gate and flags
-- Evidence freshness
-- reasons
-- unknowns
-- dissent
-- invalidation/watch conditions
-- next review
-- relevant historical versions
-
-The user must be able to drill down to supporting Evidence and Agent opinions.
-
----
-
-## 9. Human-approval acceptance
-
-For an eligible Decision, the UI supports:
-
-- APPROVE
-- REJECT
-- REVOKE where legally valid in the state machine
-
-Pass conditions:
-
-- append-only human action
-- actor/time recorded
-- TTL enforced
-- expired approval cannot execute
-- revoked approval cannot execute
-- Risk Veto cannot be overridden
-- approval does not equal execution
-
----
-
-## 10. Manual-execution acceptance
-
-After externally placing a trade, user can record a MANUAL execution.
-
-Required inputs:
-
-- quantity
-- price
-- fees where relevant
-- execution timestamp
-- sanitized external reference/note
-
-Pass conditions:
-
-- valid approval linkage required where applicable
-- fill state is coherent
-- no broker order is submitted by the application
-- record is immutable/auditable
-
----
-
-## 11. Runtime scheduler acceptance
-
-The running worker, not a test harness, must evaluate due work.
-
-For at least one explicit synthetic/authorized market session:
-
-```text
-worker
-→ calendar
-→ due job
-→ dispatcher
-→ advisory lock
-→ TaskRun
-→ handler
-→ Event/Outbox
-→ Report/Analysis effect
-```
-
-Pass conditions:
-
-- no direct dispatcher call is used as the only E2E proof
-- retry is idempotent
-- duplicate concurrent invocation has one business effect
-- failures are durable and visible
-- as-of replay works
-- server local timezone is not used as business time
-
----
-
-## 12. Daily-use acceptance
-
-On the next due session after onboarding, without manual CLI invocation, the system must:
-
-- synchronize authorized data
-- evaluate Portfolio/Watchlist changes
-- create/update relevant analysis
-- produce Decisions where warranted
-- produce a Daily Report
-- surface operational/data/risk exceptions
-
-Dashboard must clearly answer:
-
-- what needs action
-- what can continue to hold
-- what is only being watched
-- what new opportunities appeared
-- what Risk Vetoes exist
-- what approvals are pending
-- whether data/jobs are degraded
-
----
-
-## 13. Weekly opportunity acceptance
-
-A weekly run must demonstrate:
-
-```text
-market universe
-→ deterministic funnel
-→ bounded candidate set
-→ deep research only for candidates
-→ Opportunities UI
-```
-
-Pass conditions:
-
-- no indiscriminate whole-market strong-model fan-out
-- candidate reason is visible
-- missing Evidence is visible
-- lifecycle state is visible
-- no candidate is automatically traded
-
----
-
-## 14. Failure-mode acceptance
-
-Beta must explicitly verify at least:
-
-- model provider unavailable
-- invalid model schema output
-- data provider unavailable
-- stale Evidence
-- conflicting Evidence
-- Portfolio import invalid row
-- RiskAssessment UNKNOWN
-- Risk VETO
-- scheduler retry
-- duplicate job invocation
-- expired approval
-- revoked approval
-- report unavailable
-- partial AnalysisRun failure
-
-For every case, the system must degrade safely and visibly.
-
----
-
-## 15. Security/privacy acceptance
-
-Verify:
-
-- no real API key in repository
-- no secret in browser/API read response
-- no secret in logs
-- no real portfolio fixture committed
-- no provider raw credential in audit payload
-- no unrestricted live execution adapter
-- no external content treated as instructions
-- dependency/security scans remain green
-
----
-
-## 16. Usability acceptance
-
-A person familiar with investing but not the repository internals must be able to complete:
-
-```text
-configure provider
-→ import Portfolio
-→ add Watchlist
-→ run analysis
-→ read Decision
-→ Approve/Reject
-→ record manual execution
-```
-
-using UI guidance alone.
-
-Developer documentation may exist, but ordinary use must not depend on it.
-
----
-
-## 17. Release evidence required
-
-Before declaring Beta ready, attach or record:
-
-- exact commit SHA
-- CI run
-- E2E run evidence
-- fresh-install evidence
-- provider test evidence with secrets redacted
-- Portfolio import test using de-identified/synthetic sample
-- complete analysis trace
-- scheduler runtime trace
-- approval/manual-execution trace
-- known limitations
-- unresolved human-governance decisions
-
----
-
-## 18. Beta verdict
-
-Beta passes only when every mandatory section above is PASS or explicitly marked NOT APPLICABLE by a human-approved scope decision.
-
-A green unit-test suite alone is insufficient.
-
-A working UI backed only by synthetic hard-coded cards is insufficient.
-
-A working backend without user-operable UI is insufficient.
-
-A complete domain model without runtime orchestration is insufficient.
+仅当所有适用条目具有可审计证据，未解决 blocker 已被修复或由人类明确接受，且没有削弱 Evidence、
+不可变历史、Risk Veto、确定性仓位规模计算、人工批准和 `auto_trade=false` 时，人工负责人才能宣布 Beta。
+Codex 不拥有该发布、治理或实盘授权权力。

@@ -32,7 +32,7 @@ Codex 是高级实现工程师，不是运行时投资 Agent。Codex 无权选�
 
 - 证据优先：Agent 的事实性主张必须引用有效 `evidence_id`。
 - 历史不可变：Thesis、Policy、Strategy、Prompt、Opinion、Decision、Approval、Execution、Outcome、Review 和 Audit 记录必须版本化或只追加。
-- LLM 负责解释和判断；特征、状态合法性、风险闸门、仓位、上限、舍入和最终数量由确定性代码计算。
+- LLM 负责解释和判断；特征、状态合法性、风险闸门、仓位规模计算、上限、舍入和最终数量由确定性代码计算。
 - Portfolio Manager 只能输出 `risk_intent`，不得输出任意目标百分比。
 - Risk Veto 阻止 BUY、ADD 及任何提高暴露的行为；CIO 不得覆盖。
 - 持仓必须分别保存 Core 与 Tactical 的数量、成本、操作和理由。
@@ -76,7 +76,7 @@ Codex 是高级实现工程师，不是运行时投资 Agent。Codex 无权选�
 
 - 修改主规范；
 - 选择或更改真实 Investment Policy 限额；
-- 削弱证据要求、Risk Veto、批准闸门、不可变历史或确定性仓位；
+- 削弱证据要求、Risk Veto、批准闸门、不可变历史或确定性仓位规模计算；
 - 激活 StrategyProposal；
 - 启用或集成实盘券商执行；
 - 使用许可、隐私或授权未解决的数据源；
@@ -95,7 +95,7 @@ Codex 是高级实现工程师，不是运行时投资 Agent。Codex 无权选�
 - 数据库/时间语义；
 - 破坏性的公共 API 变化；
 - Prompt、AgentOpinion 或 Decision Schema 的兼容性变化；
-- 风险、批准、仓位、调度、安全或 Learning 治理变化。
+- 风险、批准、仓位规模计算、调度、安全或 Learning 治理变化。
 
 已接受 ADR 不得静默改写；应由新 ADR 取代。迁移必须有升级测试及回滚或前向修复说明。破坏性 Schema 必须有版本和迁移/兼容计划。
 
