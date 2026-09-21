@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 
 from investment_os.application.health import AsyncClosable, ReadinessProbe
+from investment_os.application.onboarding import OnboardingService
 from investment_os.application.research import ResearchArtifactDTO
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.database import (
@@ -23,7 +24,6 @@ from investment_os.infrastructure.decision_journal import (
     SqlAlchemyDecisionJournalReader,
 )
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
-from investment_os.infrastructure.onboarding import SqlAlchemyOnboardingStore
 from investment_os.infrastructure.report_delivery import SqlAlchemyDailyReportReader
 from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
@@ -136,7 +136,8 @@ def create_app(
     decision_journal_reader: SqlAlchemyDecisionJournalReader | None = None,
     task_run_reader: SqlAlchemyTaskRunReader | None = None,
     daily_report_reader: SqlAlchemyDailyReportReader | None = None,
-    onboarding_store: SqlAlchemyOnboardingStore | None = None,
+    onboarding_service: OnboardingService | None = None,
+    onboarding_lifecycle: AsyncClosable | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -147,13 +148,12 @@ def create_app(
     selected_decision_journal_reader = decision_journal_reader
     selected_task_run_reader = task_run_reader
     selected_daily_report_reader = daily_report_reader
-    selected_onboarding_store = onboarding_store
+    selected_onboarding_service = onboarding_service
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
         or selected_task_run_reader is None
         or selected_daily_report_reader is None
-        or selected_onboarding_store is None
     ):
         reader_engine = create_database_engine(settings.database_url)
         session_factory = create_session_factory(reader_engine)
@@ -165,8 +165,6 @@ def create_app(
             selected_task_run_reader = SqlAlchemyTaskRunReader(session_factory)
         if selected_daily_report_reader is None:
             selected_daily_report_reader = SqlAlchemyDailyReportReader(session_factory)
-        if selected_onboarding_store is None:
-            selected_onboarding_store = SqlAlchemyOnboardingStore(session_factory)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -175,6 +173,8 @@ def create_app(
             await selected_probe.close()
         if reader_engine is not None:
             await reader_engine.dispose()
+        if onboarding_lifecycle is not None:
+            await onboarding_lifecycle.close()
 
     application = FastAPI(
         title="Personal AI Investment OS",
@@ -207,24 +207,30 @@ def create_app(
         "/api/v1/onboarding", response_model=OnboardingStateResponse, tags=["onboarding"]
     )
     async def onboarding_state() -> OnboardingStateResponse:
-        assert selected_onboarding_store is not None
+        if selected_onboarding_service is None:
+            raise HTTPException(status_code=503, detail="onboarding_unavailable")
         return OnboardingStateResponse.model_validate(
-            await selected_onboarding_store.get(), from_attributes=True
+            await selected_onboarding_service.current_state(), from_attributes=True
         )
 
     @application.post(
         "/api/v1/onboarding/start", response_model=OnboardingStateResponse, tags=["onboarding"]
     )
     async def start_onboarding() -> OnboardingStateResponse:
-        assert selected_onboarding_store is not None
+        if selected_onboarding_service is None:
+            raise HTTPException(status_code=503, detail="onboarding_unavailable")
         return OnboardingStateResponse.model_validate(
-            await selected_onboarding_store.start(), from_attributes=True
+            await selected_onboarding_service.start(), from_attributes=True
         )
 
     @application.get(
         "/api/v1/product-capabilities",
         response_model=list[ProductCapabilityResponse],
         tags=["product"],
+        description=(
+            "返回服务端定义的当前能力状态。尚未具备受审查配置路径的能力必须标记为 "
+            "NOT_IMPLEMENTED, 而不是 CONFIGURATION_REQUIRED。"
+        ),
     )
     async def product_capabilities() -> list[ProductCapabilityResponse]:
         return [
@@ -237,8 +243,8 @@ def create_app(
             ProductCapabilityResponse(
                 key="providers",
                 label="模型与数据提供方",
-                status="CONFIGURATION_REQUIRED",
-                detail="将在 PRODUCT-02 提供受审查的密钥存储与配置能力。",
+                status="NOT_IMPLEMENTED",
+                detail="PRODUCT-02 才会提供受审查的密钥存储与配置能力。",
             ),
             ProductCapabilityResponse(
                 key="portfolio",
@@ -361,6 +367,3 @@ def create_app(
             return FileResponse(frontend_dist / "index.html")
 
     return application
-
-
-app = create_app()

@@ -1,13 +1,17 @@
 """Persistent, non-sensitive first-run onboarding state."""
 
-from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Literal, cast
+from typing import cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from investment_os.application.onboarding import (
+    OnboardingService,
+    OnboardingState,
+    OnboardingStatus,
+)
 from investment_os.infrastructure.persistence.models import (
     EventLogRecord,
     OutboxEventRecord,
@@ -17,13 +21,6 @@ from investment_os.infrastructure.persistence.models import (
 ONBOARDING_STATE_ID = UUID("00000000-0000-0000-0000-000000000001")
 ONBOARDING_STARTED_EVENT = "product_onboarding.started"
 ONBOARDING_STARTED_TOPIC = "product.onboarding.started"
-OnboardingStatus = Literal["NOT_STARTED", "IN_PROGRESS"]
-
-
-@dataclass(frozen=True, slots=True)
-class OnboardingStateRead:
-    status: OnboardingStatus
-    started_at: datetime | None
 
 
 class SqlAlchemyOnboardingStore:
@@ -32,14 +29,14 @@ class SqlAlchemyOnboardingStore:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def get(self) -> OnboardingStateRead:
+    async def get(self) -> OnboardingState:
         async with self._session_factory() as session:
             record = await session.get(ProductOnboardingStateRecord, ONBOARDING_STATE_ID)
         if record is None:
-            return OnboardingStateRead(status="NOT_STARTED", started_at=None)
+            return OnboardingState(status="NOT_STARTED", started_at=None)
         return self._read_state(record)
 
-    async def start(self) -> OnboardingStateRead:
+    async def start(self) -> OnboardingState:
         now = datetime.now(UTC)
         async with self._session_factory() as session:
             record = await session.scalar(
@@ -64,12 +61,12 @@ class SqlAlchemyOnboardingStore:
             return self._read_state(record)
 
     @staticmethod
-    def _read_state(record: ProductOnboardingStateRecord) -> OnboardingStateRead:
+    def _read_state(record: ProductOnboardingStateRecord) -> OnboardingState:
         if record.status not in {"NOT_STARTED", "IN_PROGRESS"}:
             raise RuntimeError(
                 "Persisted onboarding state is not supported by this application version"
             )
-        return OnboardingStateRead(
+        return OnboardingState(
             status=cast(OnboardingStatus, record.status),
             started_at=record.started_at,
         )
@@ -106,3 +103,18 @@ class SqlAlchemyOnboardingStore:
                 created_by="product_onboarding",
             )
         )
+
+
+class SqlAlchemyOnboardingRuntime:
+    """Own the onboarding adapter lifecycle while API receives only the application use case."""
+
+    def __init__(
+        self,
+        engine: AsyncEngine,
+        service: OnboardingService,
+    ) -> None:
+        self._engine = engine
+        self.service = service
+
+    async def close(self) -> None:
+        await self._engine.dispose()

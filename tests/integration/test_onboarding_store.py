@@ -1,17 +1,18 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from investment_os.application.onboarding import OnboardingService
 from investment_os.infrastructure.onboarding import SqlAlchemyOnboardingStore
 from investment_os.infrastructure.persistence.models import EventLogRecord, OutboxEventRecord
 
 
 async def test_onboarding_state_survives_store_recreation(database_engine: AsyncEngine) -> None:
     factory = async_sessionmaker(database_engine, expire_on_commit=False, class_=AsyncSession)
-    first = SqlAlchemyOnboardingStore(factory)
+    first = OnboardingService(SqlAlchemyOnboardingStore(factory))
 
-    assert (await first.get()).status == "NOT_STARTED"
+    assert (await first.current_state()).status == "NOT_STARTED"
     started = await first.start()
-    restarted = await SqlAlchemyOnboardingStore(factory).get()
+    restarted = await OnboardingService(SqlAlchemyOnboardingStore(factory)).current_state()
 
     assert started.status == "IN_PROGRESS"
     assert started.started_at is not None

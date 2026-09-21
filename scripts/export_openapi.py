@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from investment_os.api.app import app
+from investment_os.api.bootstrap import app
 
 OUTPUT_PATH = Path("docs/schemas/openapi.json")
 

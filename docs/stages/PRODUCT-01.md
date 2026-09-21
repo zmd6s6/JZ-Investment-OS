@@ -104,6 +104,13 @@ E2E 必须从干净的本地开发数据库/应用状态运行；测试会验证
 
 首次 E2E 尝试在 API 尚未启动时出现连接挂断；随后启动完整 Compose 栈并以同一测试通过。该失败未掩盖，也不代表产品行为失败。
 
+## 审阅修复证据（2026-09-21）
+
+- 引导 HTTP 传输层现在只依赖 `application.onboarding.OnboardingService`；生产组合根注入 SQLAlchemy 适配器，且契约测试禁止 `api.app` 直接导入该适配器。
+- 缺失引导用例时 API 返回 `503 onboarding_unavailable`，不会以临时内存状态或自由文本降级。
+- 模型与数据提供方能力现在为 `NOT_IMPLEMENTED`；前端、API/OpenAPI 契约和单元测试均已同步。
+- Vitest 显式仅收集 `src` 单元测试，Playwright E2E 保持由 `npm run test:e2e` 单独运行，避免互相错误加载。
+
 ## 下一阶段
 
 PRODUCT-02 — 设置、密钥存储与提供方档案。

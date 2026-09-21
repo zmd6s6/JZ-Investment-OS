@@ -20,7 +20,12 @@ describe("product onboarding", () => {
         }
         return response([
           { key: "onboarding", label: "设置向导", status: "AVAILABLE", detail: "可开始" },
-          { key: "providers", label: "提供方配置", status: "CONFIGURATION_REQUIRED", detail: "稍后开放" },
+          {
+            key: "providers",
+            label: "提供方配置",
+            status: "NOT_IMPLEMENTED",
+            detail: "将在 P2 交付",
+          },
         ]);
       }),
     );
@@ -29,7 +34,7 @@ describe("product onboarding", () => {
 
     expect(await screen.findByRole("button", { name: "开始设置" })).toBeInTheDocument();
     expect(screen.queryByText("模拟净值")).not.toBeInTheDocument();
-    expect(screen.getByText("需要配置")).toBeInTheDocument();
+    expect(screen.getByText("尚未实现")).toBeInTheDocument();
   });
 
   it("persists the start action through the onboarding API", async () => {
