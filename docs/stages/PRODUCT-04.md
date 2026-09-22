@@ -4,14 +4,23 @@
 - 前置条件：PRODUCT-03 已由 PR #14 合并；`ResearchProviderPort`、`DSAAdapter`、Evidence 规范化与
   Provider 设置档案已存在
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md`
-- 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0010`、`ADR-0013`
+- 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0010`、`ADR-0013`、`ADR-0015`
 - 安全基线：`auto_trade=false`；外部数据和页面内容均为不可信输入；不访问 DSA 私有数据库或内部模块
 
 ## 目标
 
-将一个由所有者明确授权的数据/研究供应商经既有 `ResearchProviderPort` 接入运行时，形成可追溯、
-可验证且失败关闭的 Evidence 摄取路径。该阶段不改变 Portfolio、Thesis、Risk、Decision、Approval 或
-Execution 的权威边界。
+将一个由所有者明确授权的数据/研究供应商经既有 `ResearchProviderPort` 接入运行时，并建立可逐个扩展的
+多提供方运行时注册结构，形成可追溯、可验证且失败关闭的 Evidence 摄取路径。DSA 只是一种可替换 adapter，
+并非唯一或权威来源。该阶段不改变 Portfolio、Thesis、Risk、Decision、Approval 或 Execution 的权威边界。
+
+## 多提供方不变量
+
+- 每个已启用数据档案对应一个明确授权的供应商端点与凭据引用；运行时按 `provider_type` 选择基础设施 adapter。
+- application/domain 只使用 `ResearchProviderPort` 与版本化内部 DTO；供应商 SDK、HTTP 协议和外部 Schema
+  不得越过 infrastructure。
+- 一次摄取显式选择 provider；不因故障、缺数据或成本静默切换来源。未来的显式回退也必须记录尝试顺序与
+  实际来源。
+- 各来源独立保存溯源、Schema 版本、业务时间、内容 hash、质量和新鲜度；冲突不能以覆盖历史的方式解决。
 
 ## 可以先行的安全工作
 
