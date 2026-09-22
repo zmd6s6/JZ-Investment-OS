@@ -3,7 +3,7 @@
 - 状态：`READY_FOR_REVIEW`
 - 前置条件：PRODUCT-01 已合并；所有者已授权开始 PRODUCT-02
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md`
-- 安全 ADR：`ADR-0013-local-encrypted-secret-store.md`（待人工安全审阅）
+- 安全 ADR：`ADR-0013-local-encrypted-secret-store.md`（已由所有者于 2026-09-22 人工接受）
 - 安全基线：`auto_trade=false`；本阶段不得启用模型、数据或券商运行时调用
 
 ## 目标
@@ -56,7 +56,6 @@
 - 2026-09-21：按测试层累积执行 320 项 Python 测试并以隔离 coverage 数据复核，整体覆盖率 90%；
   前端 Vitest 4 项及在全新隔离 Compose 栈中的 Playwright 2 项均通过。
 
-## 待人工审阅
+## 人工审阅决定
 
-- ADR-0013 仍为 `Proposed`。请审阅本地加密文件、主密钥备份/轮换和运行时文件权限是否符合所有者的
-  安全与恢复要求；在接受 ADR 前不得把本阶段标记为 `ACCEPTED`。
+- 所有者于 2026-09-22 明确接受 ADR-0013 的本地加密 SecretStore 架构，以及主密钥备份/轮换和运行时密文文件权限责任。
