@@ -66,7 +66,7 @@ DeepSeek V4.1 Flash 已获所有者授权进行一次最小真实网络验收。
 | PR-08 | ACCEPTED | 已合并到 `main` | 调度、报告和只读 UI |
 | PRODUCT-01 | ACCEPTED | 已由 PR #12 合并到 `main` | 首次引导与产品状态 |
 | PRODUCT-02 | ACCEPTED | PR #13 已合并；ADR-0013 已接受 | 设置、密钥存储与提供方档案 |
-| PRODUCT-03 | READY_FOR_REVIEW | MockTransport 与隔离浏览器验证通过；真实提供方验收待所有者授权 | 真实模型运行时 |
+| PRODUCT-03 | READY_FOR_REVIEW | MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过；等待最终审核/合并 | 真实模型运行时 |
 | PR-09 | PLANNED | 待定 | 结果、学习、加固与发布 |
 
 ## 状态更新规则
