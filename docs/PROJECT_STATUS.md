@@ -6,8 +6,8 @@
 
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
-- 活跃路线图阶段：`PRODUCT-03 — 真实模型运行时`
-- 阶段状态：`READY_FOR_REVIEW`
+- 活跃路线图阶段：`PRODUCT-04 — 已授权数据供应商运行时`
+- 阶段状态：`PLANNING`
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 上次状态更新：`2026-09-22`
@@ -34,16 +34,16 @@
 ## 当前授权工作
 
 PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已由 PR #13 合并到 `main`，并且 ADR-0013
-已由所有者于 2026-09-22 接受。PRODUCT-03 正在分支
-`codex/pr-14-product-03-llm-runtime` 已达到 `READY_FOR_REVIEW`：它实施 OpenAI-compatible 模型网关、
-显式连接测试、角色分配、超时/Token 上限和失败关闭路径；它不选择或自动启用任何真实提供方，也不执行
-任何交易。针对 PR #14 审阅的预算 blocker，已补充 ADR-0014 所规定的原子任务/日 Token 与成本预留、
-可版本化档案定价、追加式用量记录和完整 Agent→模型映射；预算、定价或预留不可用时不发送模型请求。
+已由所有者于 2026-09-22 接受。PRODUCT-03 已由 PR #14 合并到 `main`（合并提交
+`6753da5`）：它交付 OpenAI-compatible 模型网关、显式连接测试、角色分配、超时/Token 上限、
+预算失败关闭和完整 AgentOpinion 验收，不选择或自动启用任何真实提供方，也不执行任何交易。
 DeepSeek V4.1 Flash 已获所有者授权进行一次最小真实网络验收。所有者录入的定价、测试预算和凭据均只存在于
 本地运行时配置；2026-09-22 已在无真实 Evidence、Portfolio 或交易数据的连接测试中验证认证、HTTPS 调用、预算
 预留、可验证用量结算和 JSON 对象输出。同日又以合成 Evidence 完成真实模型的完整
 `OpenAICompatibleLLMGateway → AgentRuntime → 严格 AgentOpinion → Evidence 引用校验` 路径：无修复成功，
 用量为 425 输入 / 452 输出 Token，脱敏成本为 USD 0.0006699。该验证不构成分析编排、真实投资数据或任何交易行为的授权。
+PRODUCT-04 现进入 `PLANNING`：可继续准备既有 `ResearchProviderPort`/`DSAAdapter` 的运行时接线，
+但不会选择、连接或摄取任何真实数据源，直至所有者明确授权供应商、许可、端点与数据边界。
 
 ## 已记录的范围决定
 
@@ -66,7 +66,8 @@ DeepSeek V4.1 Flash 已获所有者授权进行一次最小真实网络验收。
 | PR-08 | ACCEPTED | 已合并到 `main` | 调度、报告和只读 UI |
 | PRODUCT-01 | ACCEPTED | 已由 PR #12 合并到 `main` | 首次引导与产品状态 |
 | PRODUCT-02 | ACCEPTED | PR #13 已合并；ADR-0013 已接受 | 设置、密钥存储与提供方档案 |
-| PRODUCT-03 | READY_FOR_REVIEW | MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过；等待最终审核/合并 | 真实模型运行时 |
+| PRODUCT-03 | ACCEPTED | 已由 PR #14 合并；MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过 | 真实模型运行时 |
+| PRODUCT-04 | PLANNING | 待所有者授权数据供应商、许可、端点与数据边界；不发起真实网络请求 | 已授权数据供应商运行时 |
 | PR-09 | PLANNED | 待定 | 结果、学习、加固与发布 |
 
 ## 状态更新规则
