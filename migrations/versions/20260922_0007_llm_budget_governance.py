@@ -99,9 +99,15 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
         ),
     )
+    op.execute(
+        "CREATE TRIGGER trg_llm_usage_append_only "
+        "BEFORE UPDATE OR DELETE ON llm_usage "
+        "FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation()"
+    )
 
 
 def downgrade() -> None:
+    op.execute("DROP TRIGGER IF EXISTS trg_llm_usage_append_only ON llm_usage")
     op.drop_table("llm_usage")
     op.drop_index("ix_llm_budget_reservation_task_id", table_name="llm_budget_reservation")
     op.drop_table("llm_budget_reservation")

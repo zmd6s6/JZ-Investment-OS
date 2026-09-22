@@ -263,6 +263,31 @@ async def test_gateway_rejects_provider_output_that_exceeds_the_configured_budge
         await gateway.complete(_request(max_output_tokens=500))
 
 
+@pytest.mark.parametrize(
+    "usage",
+    (
+        None,
+        {"prompt_tokens": 1},
+        {"completion_tokens": 1},
+        {"prompt_tokens": None, "completion_tokens": 1},
+        {"prompt_tokens": "1", "completion_tokens": 1},
+        {"prompt_tokens": -1, "completion_tokens": 1},
+    ),
+)
+async def test_gateway_rejects_unverifiable_provider_usage_without_reconciliation(
+    usage: dict[str, object] | None,
+) -> None:
+    payload: dict[str, object] = {"choices": [{"message": {"content": "{}"}}]}
+    if usage is not None:
+        payload["usage"] = usage
+    gateway, _service, _profile = await _configured_gateway(
+        handler=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+    )
+
+    with pytest.raises(RuntimeError, match="invalid usage"):
+        await gateway.complete(_request())
+
+
 async def test_agent_runtime_preserves_fail_closed_agent_opinion_path_with_configured_gateway() -> (
     None
 ):

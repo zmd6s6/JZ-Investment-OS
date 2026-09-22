@@ -217,12 +217,15 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
         latency_ms = int((monotonic() - started) * 1000)
         try:
             raw_output = payload["choices"][0]["message"]["content"]
-            usage = payload.get("usage", {})
-            input_tokens = usage.get("prompt_tokens", 0)
-            output_tokens = usage.get("completion_tokens", 0)
             actual_model_name = payload.get("model", profile.model_name)
         except (AttributeError, IndexError, KeyError, TypeError) as exc:
             raise LLMGatewayFailure("model provider returned an invalid response schema") from exc
+        try:
+            usage = payload["usage"]
+            input_tokens = usage["prompt_tokens"]
+            output_tokens = usage["completion_tokens"]
+        except (AttributeError, KeyError, TypeError) as exc:
+            raise LLMGatewayFailure("model provider returned invalid usage fields") from exc
         if (
             not isinstance(raw_output, str)
             or not isinstance(input_tokens, int)
