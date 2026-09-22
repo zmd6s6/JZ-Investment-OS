@@ -20,7 +20,7 @@ type Capability = {
 
 const setupSteps = [
   ["01", "市场范围", "先确认研究市场与交易时区；此版本只记录向导进度。"],
-  ["02", "模型与数据提供方", "P2 已提供受控的配置页面与本地加密凭据存储。"],
+  ["02", "模型与数据提供方", "P3 已提供受控配置、本地加密凭据与显式模型连接测试。"],
   ["03", "组合与观察清单", "组合导入和观察标的维护尚未开放。"],
   ["04", "投资政策复核", "政策阈值必须经所有者明确批准后才可变更。"],
   ["05", "分析就绪", "仅在配置与证据链完整后，才进入受控分析流程。"],
@@ -138,7 +138,7 @@ export function App() {
     <main className="product-shell">
       <header className="product-header">
         <div>
-          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P2</p>
+          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P3</p>
           <h1>开始搭建你的研究工作台</h1>
         </div>
         <nav aria-label="产品导航">

@@ -4,12 +4,22 @@ The migration owns the complete core schema. These mappings intentionally cover 
 whose persistence behavior is exercised before their later business workflows exist.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -464,6 +474,11 @@ class ModelProviderProfileRecord(Base):
     timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     max_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    pricing_version: Mapped[str | None] = mapped_column(String(64))
+    pricing_currency: Mapped[str | None] = mapped_column(String(16))
+    input_token_price: Mapped[Decimal | None] = mapped_column(Numeric(38, 18))
+    output_token_price: Mapped[Decimal | None] = mapped_column(Numeric(38, 18))
+    pricing_effective_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -508,6 +523,82 @@ class RoleModelAssignmentRecord(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LLMBudgetPolicyRecord(Base):
+    """Singleton owner-configured hard limits; absent policy means no provider egress."""
+
+    __tablename__ = "llm_budget_policy"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    version: Mapped[str] = mapped_column(String(64), nullable=False)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False)
+    task_token_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    daily_token_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    task_cost_limit: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    daily_cost_limit: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LLMBudgetTaskLedgerRecord(Base):
+    __tablename__ = "llm_budget_task_ledger"
+
+    task_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    reserved_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consumed_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reserved_cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False, default=0)
+    consumed_cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False, default=0)
+
+
+class LLMBudgetDailyLedgerRecord(Base):
+    __tablename__ = "llm_budget_daily_ledger"
+
+    window_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    reserved_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consumed_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reserved_cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False, default=0)
+    consumed_cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False, default=0)
+
+
+class LLMBudgetReservationRecord(Base):
+    __tablename__ = "llm_budget_reservation"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    task_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    profile_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    window_date: Mapped[date] = mapped_column(Date, nullable=False)
+    pricing_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False)
+    input_token_price: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    output_token_price: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    reserved_input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    reserved_output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    reserved_cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="RESERVED")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LLMUsageRecord(Base):
+    __tablename__ = "llm_usage"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    reservation_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("llm_budget_reservation.id"), nullable=False, unique=True
+    )
+    task_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    profile_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    window_date: Mapped[date] = mapped_column(Date, nullable=False)
+    pricing_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 

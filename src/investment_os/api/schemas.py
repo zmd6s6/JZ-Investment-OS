@@ -62,6 +62,11 @@ class ModelProviderProfileRequest(StrictResponse):
     timeout_seconds: int = Field(ge=1, le=300)
     max_tokens: int = Field(ge=1, le=200_000)
     enabled: bool = False
+    pricing_version: str | None = Field(default=None, max_length=64)
+    pricing_currency: str | None = Field(default=None, max_length=16)
+    input_token_price: Decimal | None = Field(default=None, ge=0)
+    output_token_price: Decimal | None = Field(default=None, ge=0)
+    pricing_effective_at: datetime | None = None
     credential: SecretStr | None = Field(
         default=None,
         json_schema_extra={"writeOnly": True},
@@ -79,6 +84,11 @@ class ModelProviderProfileResponse(StrictResponse):
     max_tokens: int
     enabled: bool
     credential_configured: bool
+    pricing_version: str | None
+    pricing_currency: str | None
+    input_token_price: Decimal | None
+    output_token_price: Decimal | None
+    pricing_effective_at: datetime | None
 
 
 class DataProviderProfileRequest(StrictResponse):
@@ -114,14 +124,50 @@ class RoleModelAssignmentResponse(StrictResponse):
     model_provider_profile_id: UUID
 
 
+class LLMBudgetPolicyRequest(StrictResponse):
+    version: str = Field(min_length=1, max_length=64)
+    currency: str = Field(min_length=1, max_length=16)
+    task_token_limit: int = Field(gt=0)
+    daily_token_limit: int = Field(gt=0)
+    task_cost_limit: Decimal = Field(ge=0)
+    daily_cost_limit: Decimal = Field(ge=0)
+
+
+class LLMBudgetUsageResponse(StrictResponse):
+    window_date: str
+    input_tokens: int
+    output_tokens: int
+    total_cost: Decimal
+    reserved_tokens: int
+    reserved_cost: Decimal
+    remaining_tokens: int
+    remaining_cost: Decimal
+
+
+class LLMBudgetResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    status: Literal["CONFIGURED", "NOT_CONFIGURED"]
+    version: str | None = None
+    currency: str | None = None
+    task_token_limit: int | None = None
+    daily_token_limit: int | None = None
+    task_cost_limit: Decimal | None = None
+    daily_cost_limit: Decimal | None = None
+    usage: LLMBudgetUsageResponse | None = None
+
+
 class ProviderTestResponse(StrictResponse):
     schema_version: Literal["1.0"] = "1.0"
     status: Literal[
         "CONFIGURATION_VALID",
         "CREDENTIAL_MISSING",
         "SECRET_STORE_UNAVAILABLE",
+        "CONNECTION_SUCCEEDED",
+        "CONNECTION_FAILED",
+        "UNSUPPORTED_PROVIDER",
     ]
     detail: str
+    latency_ms: int | None = Field(default=None, ge=0)
 
 
 class TaskRunResponse(StrictResponse):

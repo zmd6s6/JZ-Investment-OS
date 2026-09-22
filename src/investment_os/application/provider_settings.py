@@ -1,6 +1,8 @@
 """Application use cases for non-sensitive provider configuration."""
 
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
 from typing import Literal, Protocol
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
@@ -12,6 +14,9 @@ ProviderTestStatus = Literal[
     "CONFIGURATION_VALID",
     "CREDENTIAL_MISSING",
     "SECRET_STORE_UNAVAILABLE",
+    "CONNECTION_SUCCEEDED",
+    "CONNECTION_FAILED",
+    "UNSUPPORTED_PROVIDER",
 ]
 
 
@@ -35,6 +40,11 @@ class ModelProviderProfile:
     timeout_seconds: int
     max_tokens: int
     enabled: bool
+    pricing_version: str | None = None
+    pricing_currency: str | None = None
+    input_token_price: Decimal | None = None
+    output_token_price: Decimal | None = None
+    pricing_effective_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +68,15 @@ class RoleModelAssignment:
 class ProviderTestResult:
     status: ProviderTestStatus
     detail: str
+    latency_ms: int | None = None
+
+
+class ModelProviderConnectionTester(Protocol):
+    """Perform an explicit, credentialed model connection check without persisting a secret."""
+
+    async def test_connection(
+        self, *, profile: ModelProviderProfile, credential: str
+    ) -> ProviderTestResult: ...
 
 
 class ProviderSettingsPort(Protocol):
@@ -89,6 +108,8 @@ class ProviderSettingsPort(Protocol):
         self, assignment: RoleModelAssignment
     ) -> RoleModelAssignment: ...
 
+    async def delete_role_assignment(self, role: str) -> bool: ...
+
     async def record_provider_test(
         self,
         *,
@@ -103,6 +124,10 @@ def _non_empty(value: str, field: str) -> str:
     if not normalized:
         raise ValueError(f"{field} must not be blank")
     return normalized
+
+
+def _optional_non_empty(value: str | None, field: str) -> str | None:
+    return _non_empty(value, field) if value is not None else None
 
 
 def _valid_url(value: str) -> str:
@@ -154,6 +179,11 @@ class ProviderSettingsService:
         max_tokens: int,
         enabled: bool,
         credential: str | None,
+        pricing_version: str | None = None,
+        pricing_currency: str | None = None,
+        input_token_price: Decimal | None = None,
+        output_token_price: Decimal | None = None,
+        pricing_effective_at: datetime | None = None,
     ) -> ModelProviderProfile:
         if timeout_seconds < 1 or max_tokens < 1:
             raise ValueError("timeout_seconds and max_tokens must be positive")
@@ -179,6 +209,11 @@ class ProviderSettingsService:
                 timeout_seconds=timeout_seconds,
                 max_tokens=max_tokens,
                 enabled=enabled,
+                pricing_version=_optional_non_empty(pricing_version, "pricing_version"),
+                pricing_currency=_optional_non_empty(pricing_currency, "pricing_currency"),
+                input_token_price=input_token_price,
+                output_token_price=output_token_price,
+                pricing_effective_at=pricing_effective_at,
             )
         )
 
@@ -248,6 +283,12 @@ class ProviderSettingsService:
             RoleModelAssignment(role=role, model_provider_profile_id=model_provider_profile_id)
         )
 
+    async def delete_role_assignment(self, role: str) -> bool:
+        accepted_roles = {"DEFAULT", *(member.value for member in AgentRole)}
+        if role not in accepted_roles:
+            raise ValueError("role is not supported")
+        return await self._settings_port.delete_role_assignment(role)
+
     async def model_for_role(self, role: str) -> ModelProviderProfile:
         """Resolve an explicit role assignment, then DEFAULT, while failing closed."""
 
@@ -263,15 +304,51 @@ class ProviderSettingsService:
             raise LookupError("assigned_model_provider_not_available")
         return profile
 
-    async def test_model_profile(self, profile_id: UUID) -> ProviderTestResult:
+    async def test_model_profile(
+        self,
+        profile_id: UUID,
+        *,
+        connection_tester: ModelProviderConnectionTester | None = None,
+    ) -> ProviderTestResult:
         profile = await self._settings_port.get_model_profile(profile_id)
         if profile is None:
             raise LookupError("model_provider_not_found")
-        result = await self._configuration_test(profile.credential_ref)
+        if connection_tester is None:
+            result = await self._configuration_test(profile.credential_ref)
+        else:
+            result = await self._connection_test(
+                profile=profile,
+                connection_tester=connection_tester,
+            )
         await self._settings_port.record_provider_test(
             profile_id=profile_id, provider_kind="MODEL", result=result
         )
         return result
+
+    async def _connection_test(
+        self,
+        *,
+        profile: ModelProviderProfile,
+        connection_tester: ModelProviderConnectionTester,
+    ) -> ProviderTestResult:
+        if profile.credential_ref is None:
+            return ProviderTestResult(
+                status="CREDENTIAL_MISSING",
+                detail="未配置凭据。未发起模型网络请求。",
+            )
+        try:
+            credential = await self._secret_store.get(profile.credential_ref)
+        except RuntimeError:
+            return ProviderTestResult(
+                status="SECRET_STORE_UNAVAILABLE",
+                detail="加密凭据存储不可用。未发起模型网络请求。",
+            )
+        if credential is None:
+            return ProviderTestResult(
+                status="CREDENTIAL_MISSING",
+                detail="凭据引用不存在。未发起模型网络请求。",
+            )
+        return await connection_tester.test_connection(profile=profile, credential=credential)
 
     async def test_data_profile(self, profile_id: UUID) -> ProviderTestResult:
         profile = await self._settings_port.get_data_profile(profile_id)

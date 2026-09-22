@@ -149,6 +149,11 @@ async def test_provider_settings_api_hides_credentials_and_records_no_network_te
         "max_tokens",
         "enabled",
         "credential_configured",
+        "pricing_version",
+        "pricing_currency",
+        "input_token_price",
+        "output_token_price",
+        "pricing_effective_at",
     }
     assert "synthetic-credential" not in str(created_model.json())
     assert tested_model.json()["status"] == "CONFIGURATION_VALID"

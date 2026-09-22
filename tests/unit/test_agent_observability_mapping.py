@@ -119,7 +119,7 @@ def test_mapping_preserves_required_provenance_without_raw_model_output() -> Non
     )
 
     assert run_record.status == "SUCCEEDED"
-    assert run_record.token_usage_json == {"input": 11, "output": 13}
+    assert run_record.token_usage_json == {"input": 11, "output": 13, "cost": "0"}
     assert run_record.metadata_json["attempts"][0]["raw_output_hash"] == "c" * 64
     assert "raw_output" not in run_record.metadata_json
     assert "raw_output" not in run_record.metadata_json["attempts"][0]

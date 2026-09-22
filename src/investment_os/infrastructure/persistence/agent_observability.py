@@ -49,6 +49,7 @@ def agent_run_record_from_result(
         token_usage_json={
             "input": sum(attempt.input_tokens for attempt in result.attempts),
             "output": sum(attempt.output_tokens for attempt in result.attempts),
+            "cost": str(sum((attempt.total_cost or 0) for attempt in result.attempts)),
         },
         error_code=result.failure.value if result.failure is not None else None,
         created_by=created_by,
@@ -68,6 +69,11 @@ def agent_run_record_from_result(
                     "input_tokens": attempt.input_tokens,
                     "output_tokens": attempt.output_tokens,
                     "raw_output_hash": attempt.raw_output_hash,
+                    "total_cost": str(attempt.total_cost)
+                    if attempt.total_cost is not None
+                    else None,
+                    "pricing_version": attempt.pricing_version,
+                    "budget_window_date": attempt.budget_window_date,
                 }
                 for attempt in result.attempts
             ],

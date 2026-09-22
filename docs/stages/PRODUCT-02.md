@@ -1,9 +1,9 @@
 # PRODUCT-02 — 设置、密钥存储与提供方档案
 
-- 状态：`READY_FOR_REVIEW`
+- 状态：`ACCEPTED`
 - 前置条件：PRODUCT-01 已合并；所有者已授权开始 PRODUCT-02
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md`
-- 安全 ADR：`ADR-0013-local-encrypted-secret-store.md`（已由所有者于 2026-09-22 人工接受）
+- 安全 ADR：`ADR-0013-local-encrypted-secret-store.md`（已接受）
 - 安全基线：`auto_trade=false`；本阶段不得启用模型、数据或券商运行时调用
 
 ## 目标

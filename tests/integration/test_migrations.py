@@ -122,10 +122,35 @@ async def test_audit_and_event_history_are_database_enforced_append_only(
                 "'trg_agent_run_append_only', 'trg_audit_log_append_only', "
                 "'trg_committee_message_append_only', 'trg_committee_session_append_only', "
                 "'trg_conflict_record_append_only', 'trg_event_log_append_only'"
+                ", 'trg_llm_usage_append_only'"
                 ")"
             )
         )
-    assert trigger_count == 6
+    assert trigger_count == 7
+
+    async with database_engine.begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO llm_budget_reservation "
+                "(id, task_id, profile_id, window_date, pricing_version, currency, "
+                "input_token_price, output_token_price, reserved_input_tokens, "
+                "reserved_output_tokens, reserved_cost, status) VALUES "
+                "(gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), CURRENT_DATE, "
+                "'TEST', 'USD', 0, 0, 1, 1, 0, 'RECONCILED')"
+            )
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO llm_usage "
+                "(id, reservation_id, task_id, profile_id, window_date, pricing_version, "
+                "input_tokens, output_tokens, total_cost) SELECT gen_random_uuid(), id, "
+                "task_id, profile_id, window_date, pricing_version, 1, 1, 0 "
+                "FROM llm_budget_reservation"
+            )
+        )
+    with pytest.raises(DBAPIError):
+        async with database_engine.begin() as connection:
+            await connection.execute(text("DELETE FROM llm_usage"))
 
 
 @pytest.mark.integration

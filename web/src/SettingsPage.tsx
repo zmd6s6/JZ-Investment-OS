@@ -16,7 +16,14 @@ type ModelProfile = {
   max_tokens: number;
   enabled: boolean;
   credential_configured: boolean;
+  pricing_version: string | null;
+  pricing_currency: string | null;
+  input_token_price: string | null;
+  output_token_price: string | null;
+  pricing_effective_at: string | null;
 };
+
+type Budget = { status: "CONFIGURED" | "NOT_CONFIGURED"; version: string | null; currency: string | null; task_token_limit: number | null; daily_token_limit: number | null; task_cost_limit: string | null; daily_cost_limit: string | null; usage: { remaining_tokens: number; remaining_cost: string } | null };
 
 type DataProfile = {
   id: string;
@@ -34,8 +41,15 @@ type Assignment = {
 };
 
 type TestResult = {
-  status: "CONFIGURATION_VALID" | "CREDENTIAL_MISSING" | "SECRET_STORE_UNAVAILABLE";
+  status:
+    | "CONFIGURATION_VALID"
+    | "CREDENTIAL_MISSING"
+    | "SECRET_STORE_UNAVAILABLE"
+    | "CONNECTION_SUCCEEDED"
+    | "CONNECTION_FAILED"
+    | "UNSUPPORTED_PROVIDER";
   detail: string;
+  latency_ms: number | null;
 };
 
 const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
@@ -46,6 +60,8 @@ const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
 
 const formText = (form: HTMLFormElement, name: string): string =>
   String(new FormData(form).get(name) ?? "").trim();
+
+const roles = ["DEFAULT", "MACRO", "INDUSTRY", "FUNDAMENTAL", "MARKET_QUANT", "EVENT", "PORTFOLIO", "RISK", "DEVILS_ADVOCATE", "CIO", "REVIEW"];
 
 function CredentialStatus({ configured }: { configured: boolean }) {
   return (
@@ -60,6 +76,7 @@ export function SettingsPage() {
   const [models, setModels] = useState<ModelProfile[]>([]);
   const [dataProfiles, setDataProfiles] = useState<DataProfile[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [budget, setBudget] = useState<Budget | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
@@ -68,16 +85,18 @@ export function SettingsPage() {
 
   const load = async () => {
     try {
-      const [nextSettings, nextModels, nextData, nextAssignments] = await Promise.all([
+      const [nextSettings, nextModels, nextData, nextAssignments, nextBudget] = await Promise.all([
         requestJson<SystemSettings>("/api/v1/settings/system"),
         requestJson<ModelProfile[]>("/api/v1/settings/model-providers"),
         requestJson<DataProfile[]>("/api/v1/settings/data-providers"),
         requestJson<Assignment[]>("/api/v1/settings/role-model-assignments"),
+        requestJson<Budget>("/api/v1/settings/llm-budget"),
       ]);
       setSettings(nextSettings);
       setModels(nextModels);
       setDataProfiles(nextData);
       setAssignments(nextAssignments);
+      setBudget(nextBudget);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "无法读取设置");
     }
@@ -117,11 +136,11 @@ export function SettingsPage() {
       const form = event.currentTarget;
       const credential = formText(form, "credential");
       const profile = await requestJson<ModelProfile>(
-        editingModel
-          ? "`/api/v1/settings/model-providers/${editingModel.id}`"
+        editingModel?.id
+          ? `/api/v1/settings/model-providers/${editingModel.id}`
           : "/api/v1/settings/model-providers",
         {
-        method: editingModel ? "PUT" : "POST",
+        method: editingModel?.id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formText(form, "name"),
@@ -131,13 +150,17 @@ export function SettingsPage() {
           timeout_seconds: Number(formText(form, "timeout_seconds")),
           max_tokens: Number(formText(form, "max_tokens")),
           enabled: formText(form, "enabled") === "true",
+          pricing_version: formText(form, "pricing_version") || null,
+          pricing_currency: formText(form, "pricing_currency") || null,
+          input_token_price: formText(form, "input_token_price") || null,
+          output_token_price: formText(form, "output_token_price") || null,
           ...(credential ? { credential } : {}),
         }),
         },
       );
       form.reset();
       setModels((current) =>
-        editingModel
+        editingModel?.id
           ? current.map((item) => (item.id === profile.id ? profile : item))
           : [...current, profile],
       );
@@ -156,7 +179,7 @@ export function SettingsPage() {
       const credential = formText(form, "credential");
       const profile = await requestJson<DataProfile>(
         editingData
-          ? "`/api/v1/settings/data-providers/${editingData.id}`"
+          ? `/api/v1/settings/data-providers/${editingData.id}`
           : "/api/v1/settings/data-providers",
         {
         method: editingData ? "PUT" : "POST",
@@ -188,7 +211,7 @@ export function SettingsPage() {
     setError(null);
     try {
       const result = await requestJson<TestResult>(
-        "`/api/v1/settings/${kind}/${id}/test`",
+        `/api/v1/settings/${kind}/${id}/test`,
         { method: "POST" },
       );
       setTestResults((current) => ({ ...current, [id]: result }));
@@ -218,11 +241,35 @@ export function SettingsPage() {
     }
   };
 
+  const setRoleModel = async (role: string, id: string) => {
+    setError(null);
+    try {
+      if (!id) {
+        const response = await fetch(`/api/v1/settings/role-model-assignments/${role}`, { method: "DELETE" });
+        if (!response.ok && response.status !== 404) throw new Error("无法更新角色映射");
+        setAssignments((current) => current.filter((item) => item.role !== role));
+      } else {
+        const assignment = await requestJson<Assignment>(`/api/v1/settings/role-model-assignments/${role}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model_provider_profile_id: id }) });
+        setAssignments((current) => [...current.filter((item) => item.role !== role), assignment]);
+      }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "无法更新角色映射"); }
+  };
+
+  const saveBudget = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); const form = event.currentTarget; setError(null);
+    try {
+      const next = await requestJson<Budget>("/api/v1/settings/llm-budget", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: formText(form, "version"), currency: formText(form, "currency"), task_token_limit: Number(formText(form, "task_token_limit")), daily_token_limit: Number(formText(form, "daily_token_limit")), task_cost_limit: formText(form, "task_cost_limit"), daily_cost_limit: formText(form, "daily_cost_limit") }) });
+      setBudget(next); setMessage("预算门禁已保存；预算或定价不可用时模型请求会被阻止。");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "无法保存预算"); }
+  };
+
+  const useDeepSeekTemplate = () => setEditingModel({ id: "", name: "DeepSeek V4.1 Flash", provider_type: "OPENAI_COMPATIBLE", base_url: "https://api.deepseek.com", model_name: "deepseek-flash", timeout_seconds: 30, max_tokens: 1024, enabled: false, credential_configured: false, pricing_version: null, pricing_currency: null, input_token_price: null, output_token_price: null, pricing_effective_at: null });
+
   const toggleModel = async (profile: ModelProfile) => {
     setError(null);
     try {
       const updated = await requestJson<ModelProfile>(
-        "`/api/v1/settings/model-providers/${profile.id}`",
+        `/api/v1/settings/model-providers/${profile.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -234,6 +281,10 @@ export function SettingsPage() {
             timeout_seconds: profile.timeout_seconds,
             max_tokens: profile.max_tokens,
             enabled: !profile.enabled,
+            pricing_version: profile.pricing_version,
+            pricing_currency: profile.pricing_currency,
+            input_token_price: profile.input_token_price,
+            output_token_price: profile.output_token_price,
           }),
         },
       );
@@ -247,7 +298,7 @@ export function SettingsPage() {
     setError(null);
     try {
       const updated = await requestJson<DataProfile>(
-        "`/api/v1/settings/data-providers/${profile.id}`",
+        `/api/v1/settings/data-providers/${profile.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -274,7 +325,7 @@ export function SettingsPage() {
     <main className="product-shell settings-shell">
       <header className="product-header">
         <div>
-          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P2</p>
+          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P3</p>
           <h1>设置与提供方</h1>
         </div>
         <nav aria-label="产品导航">
@@ -285,7 +336,8 @@ export function SettingsPage() {
       </header>
 
       <p className="settings-safety">
-        自动交易始终关闭。P2 的“测试配置”只读取本地加密凭据，绝不发起模型或数据网络请求。
+        自动交易始终关闭。模型“测试连接”仅在您明确点击后发起，检查认证与 JSON 输出；
+        数据提供方测试仍只做无网络配置校验。
       </p>
       {error ? <p role="alert" className="error-message">{error}</p> : null}
       {message ? <p role="status" className="status-note">{message}</p> : null}
@@ -309,6 +361,7 @@ export function SettingsPage() {
       <section id="models" className="settings-card" aria-labelledby="model-settings-title">
         <h2 id="model-settings-title">模型提供方</h2>
         <p>配置只保存端点、模型和加密凭据引用。凭据输入框不会用响应回填。</p>
+        <button type="button" onClick={useDeepSeekTemplate}>填入 DeepSeek V4.1 Flash 模板</button>
         <form key={editingModel?.id ?? "new-model"} className="settings-form" onSubmit={(event) => void saveModel(event)}>
           <label>名称<input name="name" defaultValue={editingModel?.name} required /></label>
           <label>类型<input name="provider_type" defaultValue={editingModel?.provider_type ?? "OPENAI_COMPATIBLE"} required /></label>
@@ -316,6 +369,10 @@ export function SettingsPage() {
           <label>模型名<input name="model_name" defaultValue={editingModel?.model_name} required /></label>
           <label>超时秒数<input name="timeout_seconds" type="number" min="1" max="300" defaultValue={editingModel?.timeout_seconds ?? "30"} required /></label>
           <label>最大 Tokens<input name="max_tokens" type="number" min="1" defaultValue={editingModel?.max_tokens ?? "1024"} required /></label>
+          <label>定价版本<input name="pricing_version" defaultValue={editingModel?.pricing_version ?? ""} /></label>
+          <label>定价币种<input name="pricing_currency" defaultValue={editingModel?.pricing_currency ?? ""} /></label>
+          <label>输入 Token 单价<input name="input_token_price" type="number" min="0" step="any" defaultValue={editingModel?.input_token_price ?? ""} /></label>
+          <label>输出 Token 单价<input name="output_token_price" type="number" min="0" step="any" defaultValue={editingModel?.output_token_price ?? ""} /></label>
           <label>启用状态<select name="enabled" defaultValue={String(editingModel?.enabled ?? false)}><option value="false">先禁用</option><option value="true">启用</option></select></label>
           <label>凭据（仅写入）<input name="credential" type="password" autoComplete="new-password" /></label>
           <button type="submit">{editingModel ? "保存模型修改" : "新增模型档案"}</button>
@@ -331,7 +388,7 @@ export function SettingsPage() {
                 <CredentialStatus configured={profile.credential_configured} />
               </div>
               <div className="provider-actions">
-                <button type="button" onClick={() => void testProfile("model-providers", profile.id)}>测试配置</button>
+                <button type="button" onClick={() => void testProfile("model-providers", profile.id)}>测试模型连接</button>
                 <button type="button" onClick={() => setEditingModel(profile)}>编辑</button>
                 <button type="button" onClick={() => void toggleModel(profile)}>{profile.enabled ? "停用" : "启用"}</button>
                 {profile.enabled ? <button type="button" onClick={() => void setDefaultModel(profile.id)}>设为默认模型</button> : null}
@@ -341,7 +398,12 @@ export function SettingsPage() {
           ))}
         </div>
         <p>当前默认模型：{defaultAssignment ? defaultAssignment.model_provider_profile_id : "未分配"}</p>
+        <h3>Agent → 模型映射</h3>
+        <p>明确映射优先；未映射的角色继承 DEFAULT。DEFAULT 不可用时不会改用其他提供方。</p>
+        {roles.map((role) => <label key={role}>{role}<select aria-label={`${role} 模型`} value={assignments.find((item) => item.role === role)?.model_provider_profile_id ?? ""} onChange={(event) => void setRoleModel(role, event.target.value)}><option value="">{role === "DEFAULT" ? "未分配（不可运行）" : "继承 DEFAULT"}</option>{models.filter((model) => model.enabled).map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}</select></label>)}
       </section>
+
+      <section className="settings-card" aria-labelledby="budget-title"><h2 id="budget-title">LLM 预算门禁</h2><p>状态：{budget?.status ?? "读取中"}；每日剩余 Tokens：{budget?.usage?.remaining_tokens ?? "不可用"}；剩余成本：{budget?.usage?.remaining_cost ?? "不可用"}</p><form className="settings-form compact-form" onSubmit={(event) => void saveBudget(event)}><label>版本<input name="version" defaultValue={budget?.version ?? "TEST_DEFAULT"} required /></label><label>币种<input name="currency" defaultValue={budget?.currency ?? "USD"} required /></label><label>单任务 Tokens<input name="task_token_limit" type="number" defaultValue={budget?.task_token_limit ?? 10000} required /></label><label>每日 Tokens<input name="daily_token_limit" type="number" defaultValue={budget?.daily_token_limit ?? 100000} required /></label><label>单任务成本<input name="task_cost_limit" defaultValue={budget?.task_cost_limit ?? "1"} required /></label><label>每日成本<input name="daily_cost_limit" defaultValue={budget?.daily_cost_limit ?? "10"} required /></label><button type="submit">保存预算</button></form></section>
 
       <section id="data" className="settings-card" aria-labelledby="data-settings-title">
         <h2 id="data-settings-title">数据 / 研究提供方</h2>

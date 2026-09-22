@@ -255,6 +255,28 @@ class SqlAlchemyProviderSettingsStore:
             await session.commit()
         return assignment
 
+    async def delete_role_assignment(self, role: str) -> bool:
+        async with self._session_factory() as session:
+            record = await session.scalar(
+                select(RoleModelAssignmentRecord)
+                .where(RoleModelAssignmentRecord.role == role)
+                .with_for_update()
+            )
+            if record is None:
+                return False
+            payload = self._assignment_payload(record)
+            await session.delete(record)
+            await self._record_change(
+                session,
+                operation="DELETE",
+                aggregate_type="RoleModelAssignment",
+                aggregate_id=record.id,
+                payload={"role": role, "deleted": True},
+                before=payload,
+            )
+            await session.commit()
+        return True
+
     async def record_provider_test(
         self,
         *,
@@ -293,6 +315,11 @@ class SqlAlchemyProviderSettingsStore:
             timeout_seconds=record.timeout_seconds,
             max_tokens=record.max_tokens,
             enabled=record.enabled,
+            pricing_version=record.pricing_version,
+            pricing_currency=record.pricing_currency,
+            input_token_price=record.input_token_price,
+            output_token_price=record.output_token_price,
+            pricing_effective_at=record.pricing_effective_at,
         )
 
     @staticmethod
@@ -318,6 +345,11 @@ class SqlAlchemyProviderSettingsStore:
             "timeout_seconds": profile.timeout_seconds,
             "max_tokens": profile.max_tokens,
             "enabled": profile.enabled,
+            "pricing_version": profile.pricing_version,
+            "pricing_currency": profile.pricing_currency,
+            "input_token_price": profile.input_token_price,
+            "output_token_price": profile.output_token_price,
+            "pricing_effective_at": profile.pricing_effective_at,
         }
 
     @staticmethod
@@ -350,6 +382,17 @@ class SqlAlchemyProviderSettingsStore:
             "timeout_seconds": record.timeout_seconds,
             "max_tokens": record.max_tokens,
             "enabled": record.enabled,
+            "pricing_version": record.pricing_version,
+            "pricing_currency": record.pricing_currency,
+            "input_token_price": str(record.input_token_price)
+            if record.input_token_price is not None
+            else None,
+            "output_token_price": str(record.output_token_price)
+            if record.output_token_price is not None
+            else None,
+            "pricing_effective_at": record.pricing_effective_at.isoformat()
+            if record.pricing_effective_at
+            else None,
         }
 
     @staticmethod
