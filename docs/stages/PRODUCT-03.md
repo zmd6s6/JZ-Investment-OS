@@ -74,5 +74,6 @@
   完整 AgentOpinion 路径和 HTTP 失败降级；预算测试覆盖缺少策略/定价的失败关闭及修复共用累计额度。
 - 2026-09-22：`web` 的 Vitest 4 项、生产构建和隔离 Compose 栈的 Playwright 2 项均通过。隔离栈使用
   独立端口、卷与临时测试主密钥，验证结束后已移除。
-- DeepSeek V4.1 Flash 已获 P3 合成测试授权；真实凭据、真实定价/预算和完整 AgentOpinion 网络验收仍为
-  `NOT VERIFIED`。未向任何真实模型端点发送请求，也不得把 Key 写入仓库、日志或评论。
+- 2026-09-22：在所有者显式授权和本地运行时配置下，DeepSeek V4.1 Flash 的最小连接测试已通过（861 ms）。
+  该请求不含 Evidence、Portfolio 或交易内容；认证、HTTPS、预算预留、可验证用量结算和 JSON 对象输出均已验证。
+  凭据、实际定价与测试限额未写入仓库、日志或评论。完整 AgentOpinion 的真实网络验收仍为 `NOT VERIFIED`。

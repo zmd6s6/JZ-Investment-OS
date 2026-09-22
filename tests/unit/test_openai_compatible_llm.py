@@ -132,6 +132,7 @@ async def _configured_gateway(
     *,
     handler: httpx.MockTransport,
     base_url: str = "https://models.example.test/v1",
+    profile_max_tokens: int = 100,
 ) -> tuple[OpenAICompatibleLLMGateway, ProviderSettingsService, ModelProviderProfile]:
     port = MemoryProviderSettingsPort()
     secrets = MemorySecretStore()
@@ -143,7 +144,7 @@ async def _configured_gateway(
         base_url=base_url,
         model_name="structured-test-model",
         timeout_seconds=20,
-        max_tokens=100,
+        max_tokens=profile_max_tokens,
         enabled=True,
         credential="only-in-memory-test-credential",
         pricing_version="TEST_PRICING",
@@ -214,11 +215,13 @@ async def test_openai_compatible_gateway_routes_role_and_enforces_profile_budget
 
 async def test_connection_check_is_explicit_and_persists_only_sanitized_result() -> None:
     request_count = 0
+    captured: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal request_count
         request_count += 1
         assert request.headers["Authorization"] == "Bearer only-in-memory-test-credential"
+        captured["body"] = json.loads(request.content)
         return httpx.Response(
             200,
             json={
@@ -227,13 +230,30 @@ async def test_connection_check_is_explicit_and_persists_only_sanitized_result()
             },
         )
 
-    gateway, service, profile = await _configured_gateway(handler=httpx.MockTransport(handler))
+    gateway, service, profile = await _configured_gateway(
+        handler=httpx.MockTransport(handler), profile_max_tokens=512
+    )
 
     result = await service.test_model_profile(profile.id, connection_tester=gateway)
 
     assert result.status == "CONNECTION_SUCCEEDED"
     assert result.latency_ms is not None
     assert request_count == 1
+    assert captured["body"] == {
+        "model": "structured-test-model",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    '这是连接测试。只能返回 JSON 对象 {"status":"ok"}。不得执行建议或模拟任何交易。'
+                ),
+            },
+            {"role": "user", "content": '{"connection_test":true}'},
+        ],
+        "temperature": 0,
+        "max_tokens": 256,
+        "response_format": {"type": "json_object"},
+    }
 
 
 async def test_gateway_rejects_non_tls_external_endpoint_before_sending_credential() -> None:

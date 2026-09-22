@@ -25,7 +25,9 @@ from investment_os.application.provider_settings import (
 from investment_os.application.secrets import SecretStore
 
 _OPENAI_COMPATIBLE = "OPENAI_COMPATIBLE"
-_TEST_MAX_OUTPUT_TOKENS = 16
+# Connection tests must allow a provider's bounded reasoning preamble as well as the
+# final JSON object. 256 remains a deliberately small, budget-governed request.
+_TEST_MAX_OUTPUT_TOKENS = 256
 
 
 class OpenAICompatibleLLMGateway(LLMGatewayPort):
