@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 
 from investment_os.application.health import AsyncClosable, ReadinessProbe
+from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import (
     DataProviderProfile,
@@ -44,6 +45,9 @@ from .schemas import (
     DataProviderProfileResponse,
     DecisionJournalResponse,
     LivenessResponse,
+    LLMBudgetPolicyRequest,
+    LLMBudgetResponse,
+    LLMBudgetUsageResponse,
     ModelProviderProfileRequest,
     ModelProviderProfileResponse,
     OnboardingStateResponse,
@@ -166,6 +170,11 @@ def _model_profile_response(profile: ModelProviderProfile) -> ModelProviderProfi
         max_tokens=profile.max_tokens,
         enabled=profile.enabled,
         credential_configured=profile.credential_ref is not None,
+        pricing_version=profile.pricing_version,
+        pricing_currency=profile.pricing_currency,
+        input_token_price=profile.input_token_price,
+        output_token_price=profile.output_token_price,
+        pricing_effective_at=profile.pricing_effective_at,
     )
 
 
@@ -206,6 +215,11 @@ async def _save_model_provider(
             credential=(
                 request.credential.get_secret_value() if request.credential is not None else None
             ),
+            pricing_version=request.pricing_version,
+            pricing_currency=request.pricing_currency,
+            input_token_price=request.input_token_price,
+            output_token_price=request.output_token_price,
+            pricing_effective_at=request.pricing_effective_at,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -273,6 +287,7 @@ def create_app(
     onboarding_service: OnboardingService | None = None,
     provider_settings_service: ProviderSettingsService | None = None,
     model_connection_tester: ModelProviderConnectionTester | None = None,
+    llm_budget_service: LLMBudgetService | None = None,
     onboarding_lifecycle: AsyncClosable | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
@@ -287,6 +302,7 @@ def create_app(
     selected_onboarding_service = onboarding_service
     selected_provider_settings_service = provider_settings_service
     selected_model_connection_tester = model_connection_tester
+    selected_llm_budget_service = llm_budget_service
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
@@ -415,6 +431,11 @@ def create_app(
         if selected_provider_settings_service is None:
             raise HTTPException(status_code=503, detail="provider_settings_unavailable")
         return selected_provider_settings_service
+
+    def llm_budget_or_503() -> LLMBudgetService:
+        if selected_llm_budget_service is None:
+            raise HTTPException(status_code=503, detail="llm_budget_unavailable")
+        return selected_llm_budget_service
 
     @application.get(
         "/api/v1/settings/system",
@@ -614,6 +635,70 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return _role_assignment_response(assignment)
+
+    @application.delete(
+        "/api/v1/settings/role-model-assignments/{role}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["settings"],
+    )
+    async def delete_role_model_assignment(role: str) -> Response:
+        try:
+            deleted = await provider_settings_or_503().delete_role_assignment(role)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if not deleted:
+            raise HTTPException(status_code=404, detail="role_model_assignment_not_found")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.get(
+        "/api/v1/settings/llm-budget", response_model=LLMBudgetResponse, tags=["settings"]
+    )
+    async def read_llm_budget() -> LLMBudgetResponse:
+        service = llm_budget_or_503()
+        policy = await service.policy()
+        if policy is None:
+            return LLMBudgetResponse(status="NOT_CONFIGURED")
+        usage = await service.usage()
+        return LLMBudgetResponse(
+            status="CONFIGURED",
+            version=policy.version,
+            currency=policy.currency,
+            task_token_limit=policy.task_token_limit,
+            daily_token_limit=policy.daily_token_limit,
+            task_cost_limit=policy.task_cost_limit,
+            daily_cost_limit=policy.daily_cost_limit,
+            usage=LLMBudgetUsageResponse(
+                window_date=usage.window_date.isoformat(),
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                total_cost=usage.total_cost,
+                reserved_tokens=usage.reserved_tokens,
+                reserved_cost=usage.reserved_cost,
+                remaining_tokens=usage.remaining_tokens,
+                remaining_cost=usage.remaining_cost,
+            )
+            if usage
+            else None,
+        )
+
+    @application.put(
+        "/api/v1/settings/llm-budget", response_model=LLMBudgetResponse, tags=["settings"]
+    )
+    async def save_llm_budget(request: LLMBudgetPolicyRequest) -> LLMBudgetResponse:
+        try:
+            await llm_budget_or_503().save_policy(
+                LLMBudgetPolicy(
+                    request.version,
+                    request.currency,
+                    request.task_token_limit,
+                    request.daily_token_limit,
+                    request.task_cost_limit,
+                    request.daily_cost_limit,
+                )
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return await read_llm_budget()
 
     @application.post(
         "/api/v1/research/ingest", response_model=ResearchIngestResponse, tags=["research"]

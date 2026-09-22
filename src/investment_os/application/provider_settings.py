@@ -1,6 +1,8 @@
 """Application use cases for non-sensitive provider configuration."""
 
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
 from typing import Literal, Protocol
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
@@ -38,6 +40,11 @@ class ModelProviderProfile:
     timeout_seconds: int
     max_tokens: int
     enabled: bool
+    pricing_version: str | None = None
+    pricing_currency: str | None = None
+    input_token_price: Decimal | None = None
+    output_token_price: Decimal | None = None
+    pricing_effective_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +108,8 @@ class ProviderSettingsPort(Protocol):
         self, assignment: RoleModelAssignment
     ) -> RoleModelAssignment: ...
 
+    async def delete_role_assignment(self, role: str) -> bool: ...
+
     async def record_provider_test(
         self,
         *,
@@ -115,6 +124,10 @@ def _non_empty(value: str, field: str) -> str:
     if not normalized:
         raise ValueError(f"{field} must not be blank")
     return normalized
+
+
+def _optional_non_empty(value: str | None, field: str) -> str | None:
+    return _non_empty(value, field) if value is not None else None
 
 
 def _valid_url(value: str) -> str:
@@ -166,6 +179,11 @@ class ProviderSettingsService:
         max_tokens: int,
         enabled: bool,
         credential: str | None,
+        pricing_version: str | None = None,
+        pricing_currency: str | None = None,
+        input_token_price: Decimal | None = None,
+        output_token_price: Decimal | None = None,
+        pricing_effective_at: datetime | None = None,
     ) -> ModelProviderProfile:
         if timeout_seconds < 1 or max_tokens < 1:
             raise ValueError("timeout_seconds and max_tokens must be positive")
@@ -191,6 +209,11 @@ class ProviderSettingsService:
                 timeout_seconds=timeout_seconds,
                 max_tokens=max_tokens,
                 enabled=enabled,
+                pricing_version=_optional_non_empty(pricing_version, "pricing_version"),
+                pricing_currency=_optional_non_empty(pricing_currency, "pricing_currency"),
+                input_token_price=input_token_price,
+                output_token_price=output_token_price,
+                pricing_effective_at=pricing_effective_at,
             )
         )
 
@@ -259,6 +282,12 @@ class ProviderSettingsService:
         return await self._settings_port.save_role_assignment(
             RoleModelAssignment(role=role, model_provider_profile_id=model_provider_profile_id)
         )
+
+    async def delete_role_assignment(self, role: str) -> bool:
+        accepted_roles = {"DEFAULT", *(member.value for member in AgentRole)}
+        if role not in accepted_roles:
+            raise ValueError("role is not supported")
+        return await self._settings_port.delete_role_assignment(role)
 
     async def model_for_role(self, role: str) -> ModelProviderProfile:
         """Resolve an explicit role assignment, then DEFAULT, while failing closed."""

@@ -37,6 +37,9 @@ class AgentRunAttempt:
     input_tokens: int
     output_tokens: int
     raw_output_hash: str
+    total_cost: Decimal | None = None
+    pricing_version: str | None = None
+    budget_window_date: str | None = None
 
     def __post_init__(self) -> None:
         if self.repair_attempt < 0 or self.repair_attempt > 2:
@@ -225,6 +228,9 @@ def _attempt_telemetry(*, response: LLMGatewayResponse, repair_attempt: int) -> 
         input_tokens=response.input_tokens,
         output_tokens=response.output_tokens,
         raw_output_hash=sha256(response.raw_output.encode("utf-8")).hexdigest(),
+        total_cost=response.total_cost,
+        pricing_version=response.pricing_version,
+        budget_window_date=response.budget_window_date,
     )
 
 

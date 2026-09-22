@@ -4,6 +4,7 @@ import asyncio
 import json
 from collections import deque
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
@@ -93,6 +94,9 @@ class LLMGatewayResponse:
     latency_ms: int
     input_tokens: int
     output_tokens: int
+    total_cost: Decimal | None = None
+    pricing_version: str | None = None
+    budget_window_date: str | None = None
 
     def __post_init__(self) -> None:
         if not self.provider or not self.model_name:

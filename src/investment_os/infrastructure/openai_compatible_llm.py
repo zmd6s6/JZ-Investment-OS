@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from time import monotonic
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 
+from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.llm_gateway import (
     LLMGatewayFailure,
     LLMGatewayPort,
@@ -34,10 +36,12 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
         *,
         provider_settings: ProviderSettingsService,
         secret_store: SecretStore,
+        budget_service: LLMBudgetService,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._provider_settings = provider_settings
         self._secret_store = secret_store
+        self._budget_service = budget_service
         self._client = client or httpx.AsyncClient(follow_redirects=False)
         self._owns_client = client is None
 
@@ -65,7 +69,8 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
             ) from exc
         if not isinstance(input_payload, dict):
             raise LLMGatewayFailure("configured model runtime requires a JSON object input")
-        return await self._complete(
+        reservation = await self._budget_service.reserve(profile=profile, request=request)
+        response = await self._complete(
             profile=profile,
             credential=credential,
             system_instruction=request.system_instruction,
@@ -79,6 +84,20 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
             max_tokens=min(profile.max_tokens, request.max_output_tokens),
             timeout_seconds=min(profile.timeout_seconds, request.timeout_seconds),
         )
+        try:
+            cost = await self._budget_service.reconcile(
+                reservation,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+            )
+        except (RuntimeError, LLMGatewayFailure) as exc:
+            raise LLMGatewayFailure("LLM budget reconciliation failed") from exc
+        return replace(
+            response,
+            total_cost=cost,
+            pricing_version=reservation.pricing.version,
+            budget_window_date=reservation.window_date.isoformat(),
+        )
 
     async def test_connection(
         self, *, profile: ModelProviderProfile, credential: str
@@ -91,16 +110,38 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
                 detail="P3 仅支持 OPENAI_COMPATIBLE 模型提供方。未发起网络请求。",
             )
         try:
+            from uuid import uuid4
+
+            from investment_os.domain.agent import AgentRole
+
+            request = LLMGatewayRequest(
+                request_id=uuid4(),
+                role=AgentRole.MACRO,
+                prompt_bundle_hash="connection-test",
+                input_snapshot_hash="connection-test",
+                timeout_seconds=profile.timeout_seconds,
+                max_output_tokens=min(profile.max_tokens, _TEST_MAX_OUTPUT_TOKENS),
+                system_instruction=(
+                    '这是连接测试。只能返回 JSON 对象 {"status":"ok"}。不得执行建议或模拟任何交易。'
+                ),
+                input_payload_json='{"connection_test":true}',
+            )
+            reservation = await self._budget_service.reserve(profile=profile, request=request)
+            system_instruction = request.system_instruction
+            if system_instruction is None:
+                raise LLMGatewayFailure("connection test prompt is unavailable")
             response = await self._complete(
                 profile=profile,
                 credential=credential,
-                system_instruction=(
-                    '这是连接测试。只能返回 JSON 对象 {"status": "ok"}。'
-                    "不得执行建议或模拟任何交易。"
-                ),
+                system_instruction=system_instruction,
                 input_payload={"connection_test": True},
-                max_tokens=min(profile.max_tokens, _TEST_MAX_OUTPUT_TOKENS),
+                max_tokens=request.max_output_tokens,
                 timeout_seconds=profile.timeout_seconds,
+            )
+            await self._budget_service.reconcile(
+                reservation,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
             )
             payload = json.loads(response.raw_output)
             if not isinstance(payload, dict) or payload.get("status") != "ok":

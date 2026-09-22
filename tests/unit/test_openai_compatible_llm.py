@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import httpx
@@ -8,6 +9,12 @@ import pytest
 from investment_os.application.agent_registry import AgentRoleRegistry, PromptBundle
 from investment_os.application.agent_runtime import AgentRunFailure, AgentRuntime
 from investment_os.application.analysis_context import AnalysisEvidence, freeze_analysis_context
+from investment_os.application.llm_budget import (
+    LLMBudgetPolicy,
+    LLMBudgetReservation,
+    LLMBudgetService,
+    LLMBudgetUsage,
+)
 from investment_os.application.llm_gateway import LLMGatewayRequest
 from investment_os.application.provider_settings import (
     DataProviderProfile,
@@ -80,10 +87,45 @@ class MemoryProviderSettingsPort:
         self.assignments[assignment.role] = assignment
         return assignment
 
+    async def delete_role_assignment(self, role: str) -> bool:
+        return self.assignments.pop(role, None) is not None
+
     async def record_provider_test(
         self, *, profile_id: UUID, provider_kind: str, result: ProviderTestResult
     ) -> None:
         self.recorded_tests.append(result)
+
+
+class MemoryBudgetPort:
+    def __init__(self) -> None:
+        self.policy = LLMBudgetPolicy(
+            "TEST_DEFAULT", "USD", 10000, 10000, Decimal("10"), Decimal("10")
+        )
+
+    async def get_policy(self):
+        return self.policy
+
+    async def save_policy(self, policy):
+        self.policy = policy
+        return policy
+
+    async def reserve(self, **values):
+        return LLMBudgetReservation(
+            uuid4(),
+            values["task_id"],
+            values["profile_id"],
+            values["window_date"],
+            values["pricing"],
+            values["input_tokens"],
+            values["output_tokens"],
+            values["cost"],
+        )
+
+    async def reconcile(self, reservation, **values):
+        return None
+
+    async def usage(self, **values):
+        return LLMBudgetUsage(values["window_date"], 0, 0, Decimal("0"), 10000, Decimal("10"))
 
 
 async def _configured_gateway(
@@ -104,12 +146,17 @@ async def _configured_gateway(
         max_tokens=100,
         enabled=True,
         credential="only-in-memory-test-credential",
+        pricing_version="TEST_PRICING",
+        pricing_currency="USD",
+        input_token_price=Decimal("0.000001"),
+        output_token_price=Decimal("0.000002"),
     )
     await service.save_role_assignment(role="DEFAULT", model_provider_profile_id=profile.id)
     return (
         OpenAICompatibleLLMGateway(
             provider_settings=service,
             secret_store=secrets,  # type: ignore[arg-type]
+            budget_service=LLMBudgetService(MemoryBudgetPort()),  # type: ignore[arg-type]
             client=httpx.AsyncClient(transport=handler, follow_redirects=False),
         ),
         service,

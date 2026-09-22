@@ -2,10 +2,12 @@
 
 from fastapi import FastAPI
 
+from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
 from investment_os.infrastructure.database import create_database_engine, create_session_factory
+from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
 from investment_os.infrastructure.onboarding import (
     SqlAlchemyOnboardingRuntime,
     SqlAlchemyOnboardingStore,
@@ -38,14 +40,17 @@ def create_production_app() -> FastAPI:
         SqlAlchemyProviderSettingsStore(session_factory),
         secret_store,
     )
+    budget_service = LLMBudgetService(SqlAlchemyLLMBudgetStore(session_factory))
     model_gateway = OpenAICompatibleLLMGateway(
         provider_settings=provider_settings_service,
         secret_store=secret_store,
+        budget_service=budget_service,
     )
     return create_app(
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
         model_connection_tester=model_gateway,
+        llm_budget_service=budget_service,
         onboarding_lifecycle=onboarding_runtime,
     )
 

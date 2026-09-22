@@ -637,6 +637,223 @@
         "title": "InvalidationConditionResponse",
         "type": "object"
       },
+      "LLMBudgetPolicyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Currency",
+            "type": "string"
+          },
+          "daily_cost_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Daily Cost Limit"
+          },
+          "daily_token_limit": {
+            "exclusiveMinimum": 0.0,
+            "title": "Daily Token Limit",
+            "type": "integer"
+          },
+          "task_cost_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Task Cost Limit"
+          },
+          "task_token_limit": {
+            "exclusiveMinimum": 0.0,
+            "title": "Task Token Limit",
+            "type": "integer"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "currency",
+          "task_token_limit",
+          "daily_token_limit",
+          "task_cost_limit",
+          "daily_cost_limit"
+        ],
+        "title": "LLMBudgetPolicyRequest",
+        "type": "object"
+      },
+      "LLMBudgetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "daily_cost_limit": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Cost Limit"
+          },
+          "daily_token_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Token Limit"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "CONFIGURED",
+              "NOT_CONFIGURED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "task_cost_limit": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Cost Limit"
+          },
+          "task_token_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Token Limit"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LLMBudgetUsageResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "LLMBudgetResponse",
+        "type": "object"
+      },
+      "LLMBudgetUsageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "remaining_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining Cost",
+            "type": "string"
+          },
+          "remaining_tokens": {
+            "title": "Remaining Tokens",
+            "type": "integer"
+          },
+          "reserved_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Reserved Cost",
+            "type": "string"
+          },
+          "reserved_tokens": {
+            "title": "Reserved Tokens",
+            "type": "integer"
+          },
+          "total_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "window_date": {
+            "title": "Window Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_date",
+          "input_tokens",
+          "output_tokens",
+          "total_cost",
+          "reserved_tokens",
+          "reserved_cost",
+          "remaining_tokens",
+          "remaining_cost"
+        ],
+        "title": "LLMBudgetUsageResponse",
+        "type": "object"
+      },
       "LivenessResponse": {
         "additionalProperties": false,
         "properties": {
@@ -702,6 +919,22 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "input_token_price": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Token Price"
+          },
           "max_tokens": {
             "maximum": 200000.0,
             "minimum": 1.0,
@@ -719,6 +952,58 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "output_token_price": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Token Price"
+          },
+          "pricing_currency": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Currency"
+          },
+          "pricing_effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Effective At"
+          },
+          "pricing_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Version"
           },
           "provider_type": {
             "maxLength": 128,
@@ -764,6 +1049,18 @@
             "title": "Id",
             "type": "string"
           },
+          "input_token_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Token Price"
+          },
           "max_tokens": {
             "title": "Max Tokens",
             "type": "integer"
@@ -775,6 +1072,52 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "output_token_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Token Price"
+          },
+          "pricing_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Currency"
+          },
+          "pricing_effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Effective At"
+          },
+          "pricing_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Version"
           },
           "provider_type": {
             "title": "Provider Type",
@@ -800,7 +1143,12 @@
           "timeout_seconds",
           "max_tokens",
           "enabled",
-          "credential_configured"
+          "credential_configured",
+          "pricing_version",
+          "pricing_currency",
+          "input_token_price",
+          "output_token_price",
+          "pricing_effective_at"
         ],
         "title": "ModelProviderProfileResponse",
         "type": "object"
@@ -1966,6 +2314,66 @@
         ]
       }
     },
+    "/api/v1/settings/llm-budget": {
+      "get": {
+        "operationId": "read_llm_budget_api_v1_settings_llm_budget_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LLMBudgetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Llm Budget",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "operationId": "save_llm_budget_api_v1_settings_llm_budget_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LLMBudgetPolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LLMBudgetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Llm Budget",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/model-providers": {
       "get": {
         "operationId": "list_model_providers_api_v1_settings_model_providers_get",
@@ -2227,6 +2635,39 @@
       }
     },
     "/api/v1/settings/role-model-assignments/{role}": {
+      "delete": {
+        "operationId": "delete_role_model_assignment_api_v1_settings_role_model_assignments__role__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "title": "Role",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Role Model Assignment",
+        "tags": [
+          "settings"
+        ]
+      },
       "put": {
         "operationId": "save_role_model_assignment_api_v1_settings_role_model_assignments__role__put",
         "parameters": [
