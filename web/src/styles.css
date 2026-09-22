@@ -234,6 +234,150 @@
   max-width: 620px;
 }
 
+.settings-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.settings-shell .product-header,
+.settings-card {
+  margin: 0;
+}
+
+.settings-safety {
+  margin: 0;
+  border-left: 4px solid #c69224;
+  padding: 14px 16px;
+  background: #fff7e4;
+  color: #65460b;
+  font-weight: 700;
+}
+
+.settings-card {
+  border: 1px solid #cbd8c6;
+  border-radius: 16px;
+  background: #f8fbf5;
+  padding: 28px;
+}
+
+.settings-card > h2 {
+  margin-bottom: 8px;
+}
+
+.settings-card > p {
+  color: #55635a;
+  line-height: 1.5;
+}
+
+.settings-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.settings-form label {
+  display: grid;
+  gap: 6px;
+  color: #405146;
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.settings-form input,
+.settings-form select {
+  width: 100%;
+  border: 1px solid #afc1b0;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  color: #152018;
+  font: inherit;
+}
+
+.settings-form button,
+.provider-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #1d5431;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.compact-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+}
+
+.compact-form p {
+  margin: 0;
+  color: #405146;
+}
+
+.provider-list {
+  display: grid;
+  gap: 12px;
+}
+
+.provider-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #d6e0d2;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+}
+
+.provider-card h3,
+.provider-card p {
+  margin: 0 0 5px;
+}
+
+.provider-card p {
+  color: #59685e;
+  font-size: .9rem;
+  overflow-wrap: anywhere;
+}
+
+.provider-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: start;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.provider-actions p {
+  flex-basis: 100%;
+  margin: 0;
+  color: #275e36;
+  font-weight: 700;
+}
+
+.credential-ok,
+.credential-missing {
+  display: inline-block;
+  margin-top: 4px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.credential-ok {
+  background: #e7f5e9;
+  color: #23733a;
+}
+
+.credential-missing {
+  background: #fff1dd;
+  color: #8d5d00;
+}
+
 @media (max-width: 760px) {
   .product-header,
   .onboarding-card,
@@ -256,5 +400,14 @@
 
   .setup-steps li {
     min-width: 0;
+  }
+
+  .settings-form,
+  .compact-form {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-card {
+    display: grid;
   }
 }

@@ -433,6 +433,85 @@ class ProductOnboardingStateRecord(Base):
     )
 
 
+class SystemSettingsRecord(Base):
+    """Singleton product settings. It deliberately cannot enable automated trading."""
+
+    __tablename__ = "system_settings"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    market_timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+    market_scopes_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    auto_trade: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ModelProviderProfileRecord(Base):
+    """Provider metadata and an opaque credential reference, never a credential value."""
+
+    __tablename__ = "model_provider_profile"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    provider_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    base_url: Mapped[str] = mapped_column(Text, nullable=False)
+    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    credential_ref: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), unique=True)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class DataProviderProfileRecord(Base):
+    """Authorized data-provider metadata and an opaque credential reference."""
+
+    __tablename__ = "data_provider_profile"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    provider_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    base_url: Mapped[str] = mapped_column(Text, nullable=False)
+    credential_ref: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), unique=True)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RoleModelAssignmentRecord(Base):
+    """One explicit enabled-model mapping per supported agent role or DEFAULT."""
+
+    __tablename__ = "role_model_assignment"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    role: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    model_provider_profile_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("model_provider_profile.id"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class EventLogRecord(Base):
     __tablename__ = "event_log"
 

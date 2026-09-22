@@ -12,6 +12,14 @@ from pydantic import AwareDatetime
 
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.onboarding import OnboardingService
+from investment_os.application.provider_settings import (
+    DataProviderProfile,
+    ModelProviderProfile,
+    ProviderSettingsService,
+    ProviderTestResult,
+    RoleModelAssignment,
+    SystemSettings,
+)
 from investment_os.application.research import ResearchArtifactDTO
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.database import (
@@ -31,13 +39,22 @@ from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, T
 
 from .schemas import (
     DailyReportResponse,
+    DataProviderProfileRequest,
+    DataProviderProfileResponse,
     DecisionJournalResponse,
     LivenessResponse,
+    ModelProviderProfileRequest,
+    ModelProviderProfileResponse,
     OnboardingStateResponse,
     ProductCapabilityResponse,
+    ProviderTestResponse,
     ReadinessResponse,
     ResearchIngestRequest,
     ResearchIngestResponse,
+    RoleModelAssignmentRequest,
+    RoleModelAssignmentResponse,
+    SystemSettingsResponse,
+    SystemSettingsUpdateRequest,
     TaskRunResponse,
     ThesisHistoryResponse,
     ThesisVersionResponse,
@@ -129,6 +146,117 @@ def _decision_journal_response(journal: DecisionJournalRead) -> DecisionJournalR
     )
 
 
+def _system_settings_response(settings: SystemSettings) -> SystemSettingsResponse:
+    return SystemSettingsResponse(
+        market_timezone=settings.market_timezone,
+        market_scopes=list(settings.market_scopes),
+        auto_trade=False,
+    )
+
+
+def _model_profile_response(profile: ModelProviderProfile) -> ModelProviderProfileResponse:
+    return ModelProviderProfileResponse(
+        id=profile.id,
+        name=profile.name,
+        provider_type=profile.provider_type,
+        base_url=profile.base_url,
+        model_name=profile.model_name,
+        timeout_seconds=profile.timeout_seconds,
+        max_tokens=profile.max_tokens,
+        enabled=profile.enabled,
+        credential_configured=profile.credential_ref is not None,
+    )
+
+
+def _data_profile_response(profile: DataProviderProfile) -> DataProviderProfileResponse:
+    return DataProviderProfileResponse(
+        id=profile.id,
+        name=profile.name,
+        provider_type=profile.provider_type,
+        base_url=profile.base_url,
+        timeout_seconds=profile.timeout_seconds,
+        enabled=profile.enabled,
+        credential_configured=profile.credential_ref is not None,
+    )
+
+
+def _role_assignment_response(assignment: RoleModelAssignment) -> RoleModelAssignmentResponse:
+    return RoleModelAssignmentResponse(
+        role=assignment.role,
+        model_provider_profile_id=assignment.model_provider_profile_id,
+    )
+
+
+async def _save_model_provider(
+    service: ProviderSettingsService,
+    profile_id: UUID | None,
+    request: ModelProviderProfileRequest,
+) -> ModelProviderProfile:
+    try:
+        return await service.save_model_profile(
+            profile_id=profile_id,
+            name=request.name,
+            provider_type=request.provider_type,
+            base_url=request.base_url,
+            model_name=request.model_name,
+            timeout_seconds=request.timeout_seconds,
+            max_tokens=request.max_tokens,
+            enabled=request.enabled,
+            credential=(
+                request.credential.get_secret_value() if request.credential is not None else None
+            ),
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="secret_store_unavailable") from exc
+
+
+async def _save_data_provider(
+    service: ProviderSettingsService,
+    profile_id: UUID | None,
+    request: DataProviderProfileRequest,
+) -> DataProviderProfile:
+    try:
+        return await service.save_data_profile(
+            profile_id=profile_id,
+            name=request.name,
+            provider_type=request.provider_type,
+            base_url=request.base_url,
+            timeout_seconds=request.timeout_seconds,
+            enabled=request.enabled,
+            credential=(
+                request.credential.get_secret_value() if request.credential is not None else None
+            ),
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="secret_store_unavailable") from exc
+
+
+async def _test_model_provider(
+    service: ProviderSettingsService, profile_id: UUID
+) -> ProviderTestResult:
+    try:
+        return await service.test_model_profile(profile_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+async def _test_data_provider(
+    service: ProviderSettingsService, profile_id: UUID
+) -> ProviderTestResult:
+    try:
+        return await service.test_data_profile(profile_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 def create_app(
     readiness_probe: ReadinessProbe | None = None,
     evidence_ingestor: SqlAlchemyEvidenceIngestor | None = None,
@@ -137,6 +265,7 @@ def create_app(
     task_run_reader: SqlAlchemyTaskRunReader | None = None,
     daily_report_reader: SqlAlchemyDailyReportReader | None = None,
     onboarding_service: OnboardingService | None = None,
+    provider_settings_service: ProviderSettingsService | None = None,
     onboarding_lifecycle: AsyncClosable | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
@@ -149,6 +278,7 @@ def create_app(
     selected_task_run_reader = task_run_reader
     selected_daily_report_reader = daily_report_reader
     selected_onboarding_service = onboarding_service
+    selected_provider_settings_service = provider_settings_service
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
@@ -243,8 +373,16 @@ def create_app(
             ProductCapabilityResponse(
                 key="providers",
                 label="模型与数据提供方",
-                status="NOT_IMPLEMENTED",
-                detail="PRODUCT-02 才会提供受审查的密钥存储与配置能力。",
+                status=(
+                    "CONFIGURATION_REQUIRED"
+                    if selected_provider_settings_service is not None
+                    else "NOT_IMPLEMENTED"
+                ),
+                detail=(
+                    "可安全配置提供方档案 P2 的测试仅校验配置且不发起网络请求"
+                    if selected_provider_settings_service is not None
+                    else "PRODUCT-02 才会提供受审查的密钥存储与配置能力。"
+                ),
             ),
             ProductCapabilityResponse(
                 key="portfolio",
@@ -259,6 +397,202 @@ def create_app(
                 detail="V1 始终禁止自动交易和券商下单。",
             ),
         ]
+
+    def provider_settings_or_503() -> ProviderSettingsService:
+        if selected_provider_settings_service is None:
+            raise HTTPException(status_code=503, detail="provider_settings_unavailable")
+        return selected_provider_settings_service
+
+    @application.get(
+        "/api/v1/settings/system",
+        response_model=SystemSettingsResponse,
+        tags=["settings"],
+    )
+    async def read_system_settings() -> SystemSettingsResponse:
+        return _system_settings_response(await provider_settings_or_503().system_settings())
+
+    @application.put(
+        "/api/v1/settings/system",
+        response_model=SystemSettingsResponse,
+        tags=["settings"],
+    )
+    async def update_system_settings(
+        request: SystemSettingsUpdateRequest,
+    ) -> SystemSettingsResponse:
+        try:
+            settings = await provider_settings_or_503().save_system_settings(
+                market_timezone=request.market_timezone,
+                market_scopes=tuple(request.market_scopes),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _system_settings_response(settings)
+
+    @application.get(
+        "/api/v1/settings/model-providers",
+        response_model=list[ModelProviderProfileResponse],
+        tags=["settings"],
+    )
+    async def list_model_providers() -> list[ModelProviderProfileResponse]:
+        return [
+            _model_profile_response(profile)
+            for profile in await provider_settings_or_503().list_model_profiles()
+        ]
+
+    @application.post(
+        "/api/v1/settings/model-providers",
+        response_model=ModelProviderProfileResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["settings"],
+    )
+    async def create_model_provider(
+        request: ModelProviderProfileRequest,
+    ) -> ModelProviderProfileResponse:
+        return _model_profile_response(
+            await _save_model_provider(provider_settings_or_503(), None, request)
+        )
+
+    @application.get(
+        "/api/v1/settings/model-providers/{profile_id}",
+        response_model=ModelProviderProfileResponse,
+        tags=["settings"],
+    )
+    async def read_model_provider(profile_id: UUID) -> ModelProviderProfileResponse:
+        profile = await provider_settings_or_503().get_model_profile(profile_id)
+        if profile is None:
+            raise HTTPException(status_code=404, detail="model_provider_not_found")
+        return _model_profile_response(profile)
+
+    @application.put(
+        "/api/v1/settings/model-providers/{profile_id}",
+        response_model=ModelProviderProfileResponse,
+        tags=["settings"],
+    )
+    async def update_model_provider(
+        profile_id: UUID, request: ModelProviderProfileRequest
+    ) -> ModelProviderProfileResponse:
+        return _model_profile_response(
+            await _save_model_provider(provider_settings_or_503(), profile_id, request)
+        )
+
+    @application.delete(
+        "/api/v1/settings/model-providers/{profile_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["settings"],
+    )
+    async def delete_model_provider(profile_id: UUID) -> Response:
+        try:
+            deleted = await provider_settings_or_503().delete_model_profile(profile_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if not deleted:
+            raise HTTPException(status_code=404, detail="model_provider_not_found")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/v1/settings/model-providers/{profile_id}/test",
+        response_model=ProviderTestResponse,
+        tags=["settings"],
+    )
+    async def test_model_provider(profile_id: UUID) -> ProviderTestResponse:
+        result = await _test_model_provider(provider_settings_or_503(), profile_id)
+        return ProviderTestResponse(status=result.status, detail=result.detail)
+
+    @application.get(
+        "/api/v1/settings/data-providers",
+        response_model=list[DataProviderProfileResponse],
+        tags=["settings"],
+    )
+    async def list_data_providers() -> list[DataProviderProfileResponse]:
+        return [
+            _data_profile_response(profile)
+            for profile in await provider_settings_or_503().list_data_profiles()
+        ]
+
+    @application.post(
+        "/api/v1/settings/data-providers",
+        response_model=DataProviderProfileResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["settings"],
+    )
+    async def create_data_provider(
+        request: DataProviderProfileRequest,
+    ) -> DataProviderProfileResponse:
+        return _data_profile_response(
+            await _save_data_provider(provider_settings_or_503(), None, request)
+        )
+
+    @application.get(
+        "/api/v1/settings/data-providers/{profile_id}",
+        response_model=DataProviderProfileResponse,
+        tags=["settings"],
+    )
+    async def read_data_provider(profile_id: UUID) -> DataProviderProfileResponse:
+        profile = await provider_settings_or_503().get_data_profile(profile_id)
+        if profile is None:
+            raise HTTPException(status_code=404, detail="data_provider_not_found")
+        return _data_profile_response(profile)
+
+    @application.put(
+        "/api/v1/settings/data-providers/{profile_id}",
+        response_model=DataProviderProfileResponse,
+        tags=["settings"],
+    )
+    async def update_data_provider(
+        profile_id: UUID, request: DataProviderProfileRequest
+    ) -> DataProviderProfileResponse:
+        return _data_profile_response(
+            await _save_data_provider(provider_settings_or_503(), profile_id, request)
+        )
+
+    @application.delete(
+        "/api/v1/settings/data-providers/{profile_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["settings"],
+    )
+    async def delete_data_provider(profile_id: UUID) -> Response:
+        deleted = await provider_settings_or_503().delete_data_profile(profile_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="data_provider_not_found")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/v1/settings/data-providers/{profile_id}/test",
+        response_model=ProviderTestResponse,
+        tags=["settings"],
+    )
+    async def test_data_provider(profile_id: UUID) -> ProviderTestResponse:
+        result = await _test_data_provider(provider_settings_or_503(), profile_id)
+        return ProviderTestResponse(status=result.status, detail=result.detail)
+
+    @application.get(
+        "/api/v1/settings/role-model-assignments",
+        response_model=list[RoleModelAssignmentResponse],
+        tags=["settings"],
+    )
+    async def list_role_model_assignments() -> list[RoleModelAssignmentResponse]:
+        return [
+            _role_assignment_response(assignment)
+            for assignment in await provider_settings_or_503().list_role_assignments()
+        ]
+
+    @application.put(
+        "/api/v1/settings/role-model-assignments/{role}",
+        response_model=RoleModelAssignmentResponse,
+        tags=["settings"],
+    )
+    async def save_role_model_assignment(
+        role: str, request: RoleModelAssignmentRequest
+    ) -> RoleModelAssignmentResponse:
+        try:
+            assignment = await provider_settings_or_503().save_role_assignment(
+                role=role, model_provider_profile_id=request.model_provider_profile_id
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _role_assignment_response(assignment)
 
     @application.post(
         "/api/v1/research/ingest", response_model=ResearchIngestResponse, tags=["research"]
@@ -364,6 +698,12 @@ def create_app(
 
         @application.get("/", include_in_schema=False)
         async def personal_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/settings", include_in_schema=False)
+        async def settings_ui() -> FileResponse:
+            """Serve the same SPA entry point for the supported P2 settings route."""
+
             return FileResponse(frontend_dist / "index.html")
 
     return application

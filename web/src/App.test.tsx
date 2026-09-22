@@ -72,4 +72,32 @@ describe("product onboarding", () => {
     expect(screen.getByRole("link", { name: "返回设置向导" })).toHaveAttribute("href", "/");
     window.history.pushState({}, "", "/");
   });
+
+  it("provides an API-backed settings route with write-only credential inputs", async () => {
+    window.history.pushState({}, "", "/settings");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url === "/api/v1/settings/system") {
+          return response({
+            schema_version: "1.0",
+            market_timezone: "Asia/Shanghai",
+            market_scopes: ["CN"],
+            auto_trade: false,
+          });
+        }
+        return response([]);
+      }),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "设置与提供方" })).toBeInTheDocument();
+    expect(screen.getByText("自动交易始终关闭。P2 的“测试配置”只读取本地加密凭据，绝不发起模型或数据网络请求。")).toBeInTheDocument();
+    const credentials = screen.getAllByLabelText("凭据（仅写入）");
+    expect(credentials).toHaveLength(2);
+    expect(credentials[0]).toHaveAttribute("type", "password");
+    expect(credentials[0]).toHaveValue("");
+    window.history.pushState({}, "", "/");
+  });
 });

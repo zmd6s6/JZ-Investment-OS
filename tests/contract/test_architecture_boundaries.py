@@ -37,3 +37,16 @@ def test_onboarding_http_transport_does_not_import_the_sqlalchemy_adapter() -> N
 
     assert "investment_os.application.onboarding" in imports
     assert "investment_os.infrastructure.onboarding" not in imports
+
+
+def test_provider_settings_http_transport_does_not_import_the_sqlalchemy_adapter() -> None:
+    path = Path("src/investment_os/api/app.py")
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    imports = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+    }
+
+    assert "investment_os.application.provider_settings" in imports
+    assert "investment_os.infrastructure.provider_settings" not in imports

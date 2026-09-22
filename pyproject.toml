@@ -13,6 +13,7 @@ authors = [{ name = "Personal AI Investment OS" }]
 dependencies = [
     "alembic>=1.16,<2",
     "asyncpg>=0.30,<1",
+    "cryptography>=50,<51",
     "fastapi>=0.116,<1",
     "pydantic-settings>=2.10,<3",
     "sqlalchemy[asyncio]>=2.0.43,<3",

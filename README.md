@@ -7,8 +7,8 @@ Review 状态。
 仓库当前包含 PR-01 至 PR-08 的开发工作：纯领域内核、PostgreSQL 持久化/审计/outbox 原语、合成
 DSA/Evidence/Thesis/Committee/Risk/Decision 工作流、明确的批准与禁用实盘执行关卡，以及只读个人 UI。
 worker 只能分派经模式验证、显式提供的合成日历；它不推断市场会话，也不连接真实市场数据供应商。
-项目仅包含合成 Agent Runtime 和网关契约；不提供真实模型供应商配置、真实数据供应商配置、组合导入或
-实盘经纪商执行。
+项目仅包含合成 Agent Runtime 和网关契约；PRODUCT-02 提供经审计的模型/数据提供方配置元数据与本地
+加密凭据存储，但不提供真实模型或数据供应商运行时、组合导入或实盘经纪商执行。
 
 ## 安全状态
 
@@ -47,6 +47,19 @@ uv sync --frozen --group dev
 ```
 
 已提交的 `.env.example` 仅含本地占位值。端口冲突时替换被忽略的 `.env` 文件中的值；绝不提交真实密钥。
+
+### PRODUCT-02 提供方凭据
+
+在保存任何提供方凭据前，为 API 生成一个本地 Fernet 主密钥并仅写入被忽略的环境文件：
+
+```text
+uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+将输出赋给 `INVESTMENT_OS_SECRET_STORE_KEY`，随后重启 API 容器。数据库、审计、Event、Outbox、日志和
+HTTP 响应均不保存或回传凭据；数据库仅保存不可读的引用。丢失主密钥后不能恢复旧凭据，必须重新配置。
+未设置主密钥时，系统设置仍可读取，但涉及凭据的保存与校验会明确失败关闭。P2 的“测试配置”不发起任何
+网络请求；真实模型和数据调用分别属于后续 PRODUCT-03 与 PRODUCT-04，且仍需要人工授权。
 
 ## 规范验证
 
