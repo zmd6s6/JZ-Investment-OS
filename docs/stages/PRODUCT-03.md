@@ -76,4 +76,9 @@
   独立端口、卷与临时测试主密钥，验证结束后已移除。
 - 2026-09-22：在所有者显式授权和本地运行时配置下，DeepSeek V4.1 Flash 的最小连接测试已通过（861 ms）。
   该请求不含 Evidence、Portfolio 或交易内容；认证、HTTPS、预算预留、可验证用量结算和 JSON 对象输出均已验证。
-  凭据、实际定价与测试限额未写入仓库、日志或评论。完整 AgentOpinion 的真实网络验收仍为 `NOT VERIFIED`。
+  凭据、实际定价与测试限额未写入仓库、日志或评论。
+- 2026-09-22：使用仅含 UUID/哈希的合成 Evidence，真实 DeepSeek 已完成
+  `OpenAICompatibleLLMGateway → AgentRuntime → 严格 AgentOpinion → Evidence 引用校验` 网络验收。
+  首次响应即通过（无修复）；记录的脱敏遥测为 `DeepSeek V4.1 Flash` / `deepseek-flash`、2689 ms、
+  425 输入 Token、452 输出 Token、USD 0.0006699。未发送真实 Evidence、Portfolio 或交易数据，未记录原始
+  模型输出或凭据。

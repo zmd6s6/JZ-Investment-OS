@@ -40,8 +40,10 @@ PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已由 PR #13 合并到 `
 任何交易。针对 PR #14 审阅的预算 blocker，已补充 ADR-0014 所规定的原子任务/日 Token 与成本预留、
 可版本化档案定价、追加式用量记录和完整 Agent→模型映射；预算、定价或预留不可用时不发送模型请求。
 DeepSeek V4.1 Flash 已获所有者授权进行一次最小真实网络验收。所有者录入的定价、测试预算和凭据均只存在于
-本地运行时配置；2026-09-22 已在无 Evidence、Portfolio 或交易数据的连接测试中验证认证、HTTPS 调用、预算
-预留、可验证用量结算和 JSON 对象输出。该验证不构成分析编排、真实投资数据或任何交易行为的授权。
+本地运行时配置；2026-09-22 已在无真实 Evidence、Portfolio 或交易数据的连接测试中验证认证、HTTPS 调用、预算
+预留、可验证用量结算和 JSON 对象输出。同日又以合成 Evidence 完成真实模型的完整
+`OpenAICompatibleLLMGateway → AgentRuntime → 严格 AgentOpinion → Evidence 引用校验` 路径：无修复成功，
+用量为 425 输入 / 452 输出 Token，脱敏成本为 USD 0.0006699。该验证不构成分析编排、真实投资数据或任何交易行为的授权。
 
 ## 已记录的范围决定
 
