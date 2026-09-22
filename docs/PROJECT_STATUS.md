@@ -6,7 +6,7 @@
 
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
-- 活跃路线图阶段：`PRODUCT-02 — 设置、密钥存储与提供方档案`
+- 活跃路线图阶段：`PRODUCT-03 — 真实模型运行时`
 - 阶段状态：`READY_FOR_REVIEW`
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
@@ -25,8 +25,7 @@
 
 ## 尚未实现或尚未验证
 
-- 真实模型或数据提供方运行时、组合导入与观察清单写操作；模型/数据提供方的安全配置元数据与本地加密
-  凭据存储已在 PRODUCT-02 实现，ADR-0013 已由所有者于 2026-09-22 人工接受。
+- 真实数据提供方运行时、组合导入与观察清单写操作。
 - 产品工作流中的分析编排、批准/拒绝 UI、手工执行记录、结果复盘、学习工作流与发布加固。
 - 除已实现的 PR-07 S10 和 PR-08 调度重放/幂等性切片以外的完整验收场景覆盖。
 
@@ -34,9 +33,11 @@
 
 ## 当前授权工作
 
-PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已在分支 `codex/pr-13-product-02-settings` 达到
-`READY_FOR_REVIEW`：它交付受审查的本地密钥存储、提供方配置元数据/API/UI 和无网络校验，不含真实
-提供方运行时调用、真实组合或任何交易执行。ADR-0013 已由所有者于 2026-09-22 人工接受。
+PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已由 PR #13 合并到 `main`，并且 ADR-0013
+已由所有者于 2026-09-22 接受。PRODUCT-03 正在分支
+`codex/pr-14-product-03-llm-runtime` 已达到 `READY_FOR_REVIEW`：它实施 OpenAI-compatible 模型网关、
+显式连接测试、角色分配、超时/Token 上限和失败关闭路径；它不选择或自动启用任何真实提供方，也不执行
+任何交易。真实提供方网络验收需要所有者授权具体供应商、许可、预算与凭据。
 
 ## 已记录的范围决定
 
@@ -58,7 +59,8 @@ PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已在分支 `codex/pr-13
 | PR-07 | ACCEPTED | 已合并到 `main` | 2026-09-20 |
 | PR-08 | ACCEPTED | 已合并到 `main` | 调度、报告和只读 UI |
 | PRODUCT-01 | ACCEPTED | 已由 PR #12 合并到 `main` | 首次引导与产品状态 |
-| PRODUCT-02 | READY_FOR_REVIEW | ADR-0013 已由所有者接受 | 设置、密钥存储与提供方档案 |
+| PRODUCT-02 | ACCEPTED | PR #13 已合并；ADR-0013 已接受 | 设置、密钥存储与提供方档案 |
+| PRODUCT-03 | READY_FOR_REVIEW | MockTransport 与隔离浏览器验证通过；真实提供方验收待所有者授权 | 真实模型运行时 |
 | PR-09 | PLANNED | 待定 | 结果、学习、加固与发布 |
 
 ## 状态更新规则

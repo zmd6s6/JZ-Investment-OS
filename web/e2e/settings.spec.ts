@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("settings keeps a configured credential write-only and records a no-network validation", async ({
+test("settings keeps a configured credential write-only without contacting the configured endpoint", async ({
   page,
   request,
 }) => {
@@ -21,12 +21,6 @@ test("settings keeps a configured credential write-only and records a no-network
   const model = await created.json();
   expect(model.credential_configured).toBe(true);
   expect(JSON.stringify(model)).not.toContain("e2e-synthetic-credential");
-
-  const validation = await request.post(`/api/v1/settings/model-providers/${model.id}/test`);
-  expect(validation.ok()).toBeTruthy();
-  await expect(validation.json()).resolves.toMatchObject({
-    status: "CONFIGURATION_VALID",
-  });
 
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "设置与提供方" })).toBeVisible();

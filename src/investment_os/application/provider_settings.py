@@ -12,6 +12,9 @@ ProviderTestStatus = Literal[
     "CONFIGURATION_VALID",
     "CREDENTIAL_MISSING",
     "SECRET_STORE_UNAVAILABLE",
+    "CONNECTION_SUCCEEDED",
+    "CONNECTION_FAILED",
+    "UNSUPPORTED_PROVIDER",
 ]
 
 
@@ -58,6 +61,15 @@ class RoleModelAssignment:
 class ProviderTestResult:
     status: ProviderTestStatus
     detail: str
+    latency_ms: int | None = None
+
+
+class ModelProviderConnectionTester(Protocol):
+    """Perform an explicit, credentialed model connection check without persisting a secret."""
+
+    async def test_connection(
+        self, *, profile: ModelProviderProfile, credential: str
+    ) -> ProviderTestResult: ...
 
 
 class ProviderSettingsPort(Protocol):
@@ -263,15 +275,51 @@ class ProviderSettingsService:
             raise LookupError("assigned_model_provider_not_available")
         return profile
 
-    async def test_model_profile(self, profile_id: UUID) -> ProviderTestResult:
+    async def test_model_profile(
+        self,
+        profile_id: UUID,
+        *,
+        connection_tester: ModelProviderConnectionTester | None = None,
+    ) -> ProviderTestResult:
         profile = await self._settings_port.get_model_profile(profile_id)
         if profile is None:
             raise LookupError("model_provider_not_found")
-        result = await self._configuration_test(profile.credential_ref)
+        if connection_tester is None:
+            result = await self._configuration_test(profile.credential_ref)
+        else:
+            result = await self._connection_test(
+                profile=profile,
+                connection_tester=connection_tester,
+            )
         await self._settings_port.record_provider_test(
             profile_id=profile_id, provider_kind="MODEL", result=result
         )
         return result
+
+    async def _connection_test(
+        self,
+        *,
+        profile: ModelProviderProfile,
+        connection_tester: ModelProviderConnectionTester,
+    ) -> ProviderTestResult:
+        if profile.credential_ref is None:
+            return ProviderTestResult(
+                status="CREDENTIAL_MISSING",
+                detail="未配置凭据。未发起模型网络请求。",
+            )
+        try:
+            credential = await self._secret_store.get(profile.credential_ref)
+        except RuntimeError:
+            return ProviderTestResult(
+                status="SECRET_STORE_UNAVAILABLE",
+                detail="加密凭据存储不可用。未发起模型网络请求。",
+            )
+        if credential is None:
+            return ProviderTestResult(
+                status="CREDENTIAL_MISSING",
+                detail="凭据引用不存在。未发起模型网络请求。",
+            )
+        return await connection_tester.test_connection(profile=profile, credential=credential)
 
     async def test_data_profile(self, profile_id: UUID) -> ProviderTestResult:
         profile = await self._settings_port.get_data_profile(profile_id)

@@ -1,0 +1,70 @@
+# PRODUCT-03 — 真实模型运行时
+
+- 状态：`READY_FOR_REVIEW`
+- 前置条件：PRODUCT-02 与 ADR-0013 已由所有者接受
+- 治理规范：`INVESTMENT_OS_MASTER_SPEC.md`
+- 相关 ADR：`ADR-0001`、`ADR-0004`、`ADR-0010`、`ADR-0013`
+- 安全基线：`auto_trade=false`；模型输出和所有外部内容均为不可信数据
+
+## 目标
+
+通过既有 `LLMGatewayPort` 提供可配置的 OpenAI-compatible 模型路径。角色仍先解析显式分配，
+再解析 `DEFAULT`，并保留实际 provider/model、请求边界和失败结果的可审计元数据。
+
+## 首个纵切面
+
+- [x] OpenAI-compatible HTTP 适配器，不导入供应商 SDK
+- [x] 角色到启用模型档案的失败关闭解析
+- [x] 仅在用户明确点击时执行的模型连接测试
+- [x] JSON 对象输出请求、响应解析和严格 AgentOpinion 校验链
+- [x] 请求超时、模型档案与调用请求 Token 上限、无重定向和脱敏错误
+- [x] 非回环端点强制 HTTPS；本地开发仅允许回环 HTTP
+- [x] AgentRun 保留实际 provider/model 与既有安全输出哈希
+- [x] 设置页明确显示 P3 连接测试语义
+
+## 明确范围外
+
+- 自动选择、自动启用或自动回退模型提供方
+- 未经所有者授权的真实供应商调用、许可证决定或费用预算
+- 数据提供方运行时（PRODUCT-04）
+- Portfolio 导入、分析编排、批准、执行或任何实盘交易
+
+## 验收标准
+
+1. 配置的 OpenAI-compatible 档案可通过角色分配供 `AgentRuntime` 使用，且不会泄漏凭据。
+2. 使用合成 Evidence 的契约夹具可穿过实际适配器、`AgentRuntime`、严格 AgentOpinion 与 Evidence
+   校验链；无效输出、认证、HTTP 或超时失败均变为显式 `INSUFFICIENT_DATA`。
+3. 连接测试只在所有者的显式 UI/API 动作后发出最小、无 Evidence/Portfolio/交易内容的请求，并返回
+   脱敏状态和延迟；审计仅记录结果状态。
+4. 外部端点必须使用 HTTPS；仅 `localhost`、`127.0.0.1` 和 `::1` 可使用 HTTP 供本地开发。
+5. Risk Veto、确定性仓位计算、人类批准与 `auto_trade=false` 不发生变化。
+
+## 验证计划
+
+- OpenAI-compatible MockTransport 契约：正常响应、HTTP/认证失败、非 TLS 外部端点、结构化连接测试和
+  完整 AgentOpinion 路径。
+- 现有 AgentRuntime、LLMGateway、设置 API 与持久化审计回归。
+- 全量格式、lint、类型、Python/前端测试、OpenAPI、密钥扫描、依赖审计和 Compose 配置。
+
+## 所需人工决定
+
+真实提供方、许可、费用预算和任何实际凭据均由所有者决定。实现与 MockTransport 验证不构成对真实模型、
+真实投资数据或任何交易行为的授权。
+
+## 实现与验证证据
+
+- `OpenAICompatibleLLMGateway` 使用 `httpx`，通过 `ProviderSettingsService.model_for_role`
+  解析角色档案，并仅在内存中从 `SecretStore` 读取 credential。请求禁用重定向，外部端点强制 HTTPS，
+  并将档案和调用方的 timeout/Token 上限取更严格值。
+- 连接测试只发送固定的无业务 JSON 请求；它将认证、HTTP、响应 Schema 与 JSON 对象失败统一脱敏为
+  `CONNECTION_FAILED`，并只持久化测试结果状态。提供方原始输出不写入审计记录。
+- 2026-09-22：`ruff format --check .`、`ruff check .`、`mypy src`、`docker compose config --quiet`、
+  `scripts/export_openapi.py --check`、`scripts/export_policy_schema.py --check`、
+  `scripts/check_secrets.py`、`pip-audit` 与 `scripts/check_domain_coverage.py` 均通过。
+- 2026-09-22：`pytest` 通过 326 项，整体覆盖率 89.22%；领域行覆盖率 97.96%，分支覆盖率 86.75%。
+  P3 MockTransport 契约覆盖正常角色路由、实际模型元数据、Token 超限、非 TLS 外部端点、显式连接测试、
+  完整 AgentOpinion 路径和 HTTP 失败降级。
+- 2026-09-22：`web` 的 Vitest 4 项、生产构建和隔离 Compose 栈的 Playwright 2 项均通过。隔离栈使用
+  独立端口、卷与临时测试主密钥，验证结束后已移除。
+- 已授权真实提供方的网络验收：`NOT VERIFIED`。原因是所有者尚未授权具体供应商、许可、费用预算或凭据；
+  未向任何真实模型端点发送请求。

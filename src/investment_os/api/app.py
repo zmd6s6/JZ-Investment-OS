@@ -14,6 +14,7 @@ from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import (
     DataProviderProfile,
+    ModelProviderConnectionTester,
     ModelProviderProfile,
     ProviderSettingsService,
     ProviderTestResult,
@@ -240,10 +241,15 @@ async def _save_data_provider(
 
 
 async def _test_model_provider(
-    service: ProviderSettingsService, profile_id: UUID
+    service: ProviderSettingsService,
+    profile_id: UUID,
+    connection_tester: ModelProviderConnectionTester | None,
 ) -> ProviderTestResult:
     try:
-        return await service.test_model_profile(profile_id)
+        return await service.test_model_profile(
+            profile_id,
+            connection_tester=connection_tester,
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -266,6 +272,7 @@ def create_app(
     daily_report_reader: SqlAlchemyDailyReportReader | None = None,
     onboarding_service: OnboardingService | None = None,
     provider_settings_service: ProviderSettingsService | None = None,
+    model_connection_tester: ModelProviderConnectionTester | None = None,
     onboarding_lifecycle: AsyncClosable | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
@@ -279,6 +286,7 @@ def create_app(
     selected_daily_report_reader = daily_report_reader
     selected_onboarding_service = onboarding_service
     selected_provider_settings_service = provider_settings_service
+    selected_model_connection_tester = model_connection_tester
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
@@ -305,6 +313,8 @@ def create_app(
             await reader_engine.dispose()
         if onboarding_lifecycle is not None:
             await onboarding_lifecycle.close()
+        if isinstance(selected_model_connection_tester, AsyncClosable):
+            await selected_model_connection_tester.close()
 
     application = FastAPI(
         title="Personal AI Investment OS",
@@ -379,7 +389,10 @@ def create_app(
                     else "NOT_IMPLEMENTED"
                 ),
                 detail=(
-                    "可安全配置提供方档案 P2 的测试仅校验配置且不发起网络请求"
+                    "可安全配置提供方档案。模型连接测试会在所有者明确发起后执行。"
+                    "并检查认证和结构化输出。"
+                    if selected_model_connection_tester is not None
+                    else "可安全配置提供方档案。当前部署仅提供无网络配置校验。"
                     if selected_provider_settings_service is not None
                     else "PRODUCT-02 才会提供受审查的密钥存储与配置能力。"
                 ),
@@ -495,8 +508,16 @@ def create_app(
         tags=["settings"],
     )
     async def test_model_provider(profile_id: UUID) -> ProviderTestResponse:
-        result = await _test_model_provider(provider_settings_or_503(), profile_id)
-        return ProviderTestResponse(status=result.status, detail=result.detail)
+        result = await _test_model_provider(
+            provider_settings_or_503(),
+            profile_id,
+            selected_model_connection_tester,
+        )
+        return ProviderTestResponse(
+            status=result.status,
+            detail=result.detail,
+            latency_ms=result.latency_ms,
+        )
 
     @application.get(
         "/api/v1/settings/data-providers",

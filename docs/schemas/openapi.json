@@ -883,6 +883,18 @@
             "title": "Detail",
             "type": "string"
           },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
           "schema_version": {
             "const": "1.0",
             "default": "1.0",
@@ -893,7 +905,10 @@
             "enum": [
               "CONFIGURATION_VALID",
               "CREDENTIAL_MISSING",
-              "SECRET_STORE_UNAVAILABLE"
+              "SECRET_STORE_UNAVAILABLE",
+              "CONNECTION_SUCCEEDED",
+              "CONNECTION_FAILED",
+              "UNSUPPORTED_PROVIDER"
             ],
             "title": "Status",
             "type": "string"

@@ -93,7 +93,9 @@ describe("product onboarding", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "设置与提供方" })).toBeInTheDocument();
-    expect(screen.getByText("自动交易始终关闭。P2 的“测试配置”只读取本地加密凭据，绝不发起模型或数据网络请求。")).toBeInTheDocument();
+    expect(
+      screen.getByText(/自动交易始终关闭。模型“测试连接”仅在您明确点击后发起/),
+    ).toBeInTheDocument();
     const credentials = screen.getAllByLabelText("凭据（仅写入）");
     expect(credentials).toHaveLength(2);
     expect(credentials[0]).toHaveAttribute("type", "password");

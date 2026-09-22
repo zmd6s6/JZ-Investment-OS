@@ -1,6 +1,7 @@
 """Provider-neutral, bounded LLM gateway protocol for synthetic PR-05 execution."""
 
 import asyncio
+import json
 from collections import deque
 from dataclasses import dataclass
 from typing import Protocol
@@ -32,6 +33,8 @@ class LLMGatewayRequest:
     repair_attempt: int = 0
     repair_error_code: str | None = None
     committee_context_hash: str | None = None
+    system_instruction: str | None = None
+    input_payload_json: str | None = None
 
     def __post_init__(self) -> None:
         _positive(self.timeout_seconds, "timeout_seconds")
@@ -62,6 +65,24 @@ class LLMGatewayRequest:
                 DomainErrorCode.INVARIANT_VIOLATION,
                 "committee_context_hash must be a lowercase SHA-256 hex digest",
             )
+        if self.system_instruction is not None and not self.system_instruction.strip():
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION,
+                "system_instruction must not be blank when supplied",
+            )
+        if self.input_payload_json is not None:
+            try:
+                payload = json.loads(self.input_payload_json)
+            except (TypeError, ValueError) as exc:
+                raise DomainError(
+                    DomainErrorCode.INVARIANT_VIOLATION,
+                    "input_payload_json must be valid JSON",
+                ) from exc
+            if not isinstance(payload, dict):
+                raise DomainError(
+                    DomainErrorCode.INVARIANT_VIOLATION,
+                    "input_payload_json must encode a JSON object",
+                )
 
 
 @dataclass(frozen=True, slots=True)

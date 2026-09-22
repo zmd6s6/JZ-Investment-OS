@@ -120,8 +120,12 @@ class ProviderTestResponse(StrictResponse):
         "CONFIGURATION_VALID",
         "CREDENTIAL_MISSING",
         "SECRET_STORE_UNAVAILABLE",
+        "CONNECTION_SUCCEEDED",
+        "CONNECTION_FAILED",
+        "UNSUPPORTED_PROVIDER",
     ]
     detail: str
+    latency_ms: int | None = Field(default=None, ge=0)
 
 
 class TaskRunResponse(StrictResponse):

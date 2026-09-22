@@ -10,6 +10,7 @@ from investment_os.infrastructure.onboarding import (
     SqlAlchemyOnboardingRuntime,
     SqlAlchemyOnboardingStore,
 )
+from investment_os.infrastructure.openai_compatible_llm import OpenAICompatibleLLMGateway
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
 from investment_os.infrastructure.settings import get_settings
@@ -37,9 +38,14 @@ def create_production_app() -> FastAPI:
         SqlAlchemyProviderSettingsStore(session_factory),
         secret_store,
     )
+    model_gateway = OpenAICompatibleLLMGateway(
+        provider_settings=provider_settings_service,
+        secret_store=secret_store,
+    )
     return create_app(
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
+        model_connection_tester=model_gateway,
         onboarding_lifecycle=onboarding_runtime,
     )
 

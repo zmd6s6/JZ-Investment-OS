@@ -34,8 +34,15 @@ type Assignment = {
 };
 
 type TestResult = {
-  status: "CONFIGURATION_VALID" | "CREDENTIAL_MISSING" | "SECRET_STORE_UNAVAILABLE";
+  status:
+    | "CONFIGURATION_VALID"
+    | "CREDENTIAL_MISSING"
+    | "SECRET_STORE_UNAVAILABLE"
+    | "CONNECTION_SUCCEEDED"
+    | "CONNECTION_FAILED"
+    | "UNSUPPORTED_PROVIDER";
   detail: string;
+  latency_ms: number | null;
 };
 
 const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
@@ -118,7 +125,7 @@ export function SettingsPage() {
       const credential = formText(form, "credential");
       const profile = await requestJson<ModelProfile>(
         editingModel
-          ? "`/api/v1/settings/model-providers/${editingModel.id}`"
+          ? `/api/v1/settings/model-providers/${editingModel.id}`
           : "/api/v1/settings/model-providers",
         {
         method: editingModel ? "PUT" : "POST",
@@ -156,7 +163,7 @@ export function SettingsPage() {
       const credential = formText(form, "credential");
       const profile = await requestJson<DataProfile>(
         editingData
-          ? "`/api/v1/settings/data-providers/${editingData.id}`"
+          ? `/api/v1/settings/data-providers/${editingData.id}`
           : "/api/v1/settings/data-providers",
         {
         method: editingData ? "PUT" : "POST",
@@ -188,7 +195,7 @@ export function SettingsPage() {
     setError(null);
     try {
       const result = await requestJson<TestResult>(
-        "`/api/v1/settings/${kind}/${id}/test`",
+        `/api/v1/settings/${kind}/${id}/test`,
         { method: "POST" },
       );
       setTestResults((current) => ({ ...current, [id]: result }));
@@ -222,7 +229,7 @@ export function SettingsPage() {
     setError(null);
     try {
       const updated = await requestJson<ModelProfile>(
-        "`/api/v1/settings/model-providers/${profile.id}`",
+        `/api/v1/settings/model-providers/${profile.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -247,7 +254,7 @@ export function SettingsPage() {
     setError(null);
     try {
       const updated = await requestJson<DataProfile>(
-        "`/api/v1/settings/data-providers/${profile.id}`",
+        `/api/v1/settings/data-providers/${profile.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -274,7 +281,7 @@ export function SettingsPage() {
     <main className="product-shell settings-shell">
       <header className="product-header">
         <div>
-          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P2</p>
+          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P3</p>
           <h1>设置与提供方</h1>
         </div>
         <nav aria-label="产品导航">
@@ -285,7 +292,8 @@ export function SettingsPage() {
       </header>
 
       <p className="settings-safety">
-        自动交易始终关闭。P2 的“测试配置”只读取本地加密凭据，绝不发起模型或数据网络请求。
+        自动交易始终关闭。模型“测试连接”仅在您明确点击后发起，检查认证与 JSON 输出；
+        数据提供方测试仍只做无网络配置校验。
       </p>
       {error ? <p role="alert" className="error-message">{error}</p> : null}
       {message ? <p role="status" className="status-note">{message}</p> : null}
@@ -331,7 +339,7 @@ export function SettingsPage() {
                 <CredentialStatus configured={profile.credential_configured} />
               </div>
               <div className="provider-actions">
-                <button type="button" onClick={() => void testProfile("model-providers", profile.id)}>测试配置</button>
+                <button type="button" onClick={() => void testProfile("model-providers", profile.id)}>测试模型连接</button>
                 <button type="button" onClick={() => setEditingModel(profile)}>编辑</button>
                 <button type="button" onClick={() => void toggleModel(profile)}>{profile.enabled ? "停用" : "启用"}</button>
                 {profile.enabled ? <button type="button" onClick={() => void setDefaultModel(profile.id)}>设为默认模型</button> : null}
