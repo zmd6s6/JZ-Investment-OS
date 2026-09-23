@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -19,7 +19,9 @@ from investment_os.infrastructure.bocha.adapter import (
 NOW = datetime(2026, 9, 22, 9, 0, tzinfo=UTC)
 
 
-def _profile(*, base_url: str = "https://api.example.test/v1") -> DataProviderProfile:
+def _profile(
+    *, base_url: str = "https://api.example.test/v1", retention_days: int = 365
+) -> DataProviderProfile:
     return DataProviderProfile(
         id=__import__("uuid").uuid4(),
         name="博查 Web 搜索",
@@ -28,6 +30,7 @@ def _profile(*, base_url: str = "https://api.example.test/v1") -> DataProviderPr
         credential_ref=__import__("uuid").uuid4(),
         timeout_seconds=15,
         enabled=True,
+        retention_days=retention_days,
     )
 
 
@@ -78,8 +81,29 @@ async def test_bocha_adapter_maps_search_results_to_untrusted_news_artifacts() -
     assert artifact.source_tier == "OTHER"
     assert artifact.source_name == "Synthetic Issuer"
     assert artifact.available_at == UtcTimestamp(NOW)
+    assert artifact.expires_at == UtcTimestamp(NOW + timedelta(days=365))
     assert artifact.payload["content_trust"] == "UNTRUSTED_SEARCH_RESULT"
     assert artifact.payload["summary"] == "Untrusted search summary"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("retention_days", [1, 3650])
+async def test_bocha_adapter_maps_profile_retention_boundary_to_artifact_expiry(
+    retention_days: int,
+) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=_response()))
+    ) as client:
+        provider = BochaWebSearchProvider(
+            profile=_profile(retention_days=retention_days),
+            credential="synthetic-credential",
+            client=client,
+        )
+        artifacts = await provider.fetch_artifacts(
+            ResearchRequest((), UtcTimestamp(NOW), query="synthetic query", max_results=1)
+        )
+
+    assert artifacts[0].expires_at == UtcTimestamp(NOW + timedelta(days=retention_days))
 
 
 @pytest.mark.asyncio

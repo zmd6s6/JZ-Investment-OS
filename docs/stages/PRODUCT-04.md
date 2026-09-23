@@ -1,10 +1,10 @@
 # PRODUCT-04 — 已授权数据供应商运行时
 
-- 状态：`IMPLEMENTING`
+- 状态：`READY_FOR_REVIEW`
 - 前置条件：PRODUCT-03 已由 PR #14 合并；`ResearchProviderPort`、`DSAAdapter`、Evidence 规范化与
   Provider 设置档案已存在
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md`
-- 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0010`、`ADR-0013`、`ADR-0015`
+- 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0010`、`ADR-0013`、`ADR-0015`、`ADR-0016`
 - 安全基线：`auto_trade=false`；外部数据和页面内容均为不可信输入；不访问 DSA 私有数据库或内部模块
 
 ## 目标
@@ -57,6 +57,10 @@
   一次测试结果。空历史、未知档案，以及损坏的审计状态/延迟均明确失败关闭；这不是“同步成功”声明。
 - 2026-09-23 回归验证：`pytest` 344 passed，覆盖率 87.17%；`ruff format --check .`、`ruff check .`、
   `mypy src`、相关后端测试、Web 构建与单元测试、密钥扫描及 `docker compose config` 均通过。
+- PR #15 审阅修复补充了保留期映射的默认值及 1/3650 天边界测试，并验证仅在全部 Evidence 摄取成功后
+  才记录同步；摄取异常时不会写入“最近成功同步”。`pytest --no-cov -q tests/unit/test_bocha_adapter.py
+  tests/unit/test_provider_research_api.py` 通过（8 项）；Ruff 格式/检查、mypy、Compose 配置和 OpenAPI
+  检查均通过。当前本地虚拟环境缺少密钥扫描开发依赖，因此该项由 PR 的独立 CI 门禁复验。
 - 2026-09-23，所有者重新在本地设置页保存档案后，已完成一次受限的真实 Evidence 摄取：公开查询
   “宁德时代 最新公告”、最多 5 条，连接测试成功（约 634ms），5 条结果均作为新的、未复用的 Evidence 写入。
   每条均有来源、`observed_at`/`effective_at`/`available_at`/`ingested_at`、内容哈希、质量分和新鲜度标记；
