@@ -78,6 +78,13 @@
             "title": "Provider Type",
             "type": "string"
           },
+          "retention_days": {
+            "default": 365,
+            "maximum": 3650.0,
+            "minimum": 1.0,
+            "title": "Retention Days",
+            "type": "integer"
+          },
           "timeout_seconds": {
             "maximum": 300.0,
             "minimum": 1.0,
@@ -122,6 +129,10 @@
             "title": "Provider Type",
             "type": "string"
           },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
           "schema_version": {
             "const": "1.0",
             "default": "1.0",
@@ -140,6 +151,7 @@
           "base_url",
           "timeout_seconds",
           "enabled",
+          "retention_days",
           "credential_configured"
         ],
         "title": "DataProviderProfileResponse",
@@ -1224,6 +1236,153 @@
         "title": "ProductCapabilityResponse",
         "type": "object"
       },
+      "ProviderResearchFetchRequest": {
+        "additionalProperties": false,
+        "description": "Explicit owner-requested fetch; it never selects a provider implicitly.",
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "instrument_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Instrument Ids",
+            "type": "array"
+          },
+          "max_results": {
+            "default": 10,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query",
+          "as_of"
+        ],
+        "title": "ProviderResearchFetchRequest",
+        "type": "object"
+      },
+      "ProviderResearchFetchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "provider_profile_id": {
+            "format": "uuid",
+            "title": "Provider Profile Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchIngestResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_profile_id",
+          "results"
+        ],
+        "title": "ProviderResearchFetchResponse",
+        "type": "object"
+      },
+      "ProviderSyncHistoryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_count": {
+            "minimum": 0.0,
+            "title": "Artifact Count",
+            "type": "integer"
+          },
+          "latency_ms": {
+            "minimum": 0.0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "occurred_at",
+          "artifact_count",
+          "latency_ms"
+        ],
+        "title": "ProviderSyncHistoryResponse",
+        "type": "object"
+      },
+      "ProviderTestHistoryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "CONFIGURATION_VALID",
+              "CREDENTIAL_MISSING",
+              "SECRET_STORE_UNAVAILABLE",
+              "CONNECTION_SUCCEEDED",
+              "CONNECTION_FAILED",
+              "UNSUPPORTED_PROVIDER"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "occurred_at"
+        ],
+        "title": "ProviderTestHistoryResponse",
+        "type": "object"
+      },
       "ProviderTestResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2079,6 +2238,60 @@
         ]
       }
     },
+    "/api/v1/research/providers/{profile_id}/fetch": {
+      "post": {
+        "description": "\u4ec5\u6309\u660e\u786e\u6307\u5b9a\u7684\u5df2\u542f\u7528\u63d0\u4f9b\u65b9\u6863\u6848\u83b7\u53d6\u7814\u7a76\u7ebf\u7d22, \u4e0d\u4f1a\u81ea\u52a8\u56de\u9000\u5230\u5176\u4ed6\u6765\u6e90\u3002",
+        "operationId": "fetch_provider_research_api_v1_research_providers__profile_id__fetch_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderResearchFetchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderResearchFetchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch Provider Research",
+        "tags": [
+          "research"
+        ]
+      }
+    },
     "/api/v1/settings/data-providers": {
       "get": {
         "operationId": "list_data_providers_api_v1_settings_data_providers_get",
@@ -2266,6 +2479,108 @@
           }
         },
         "summary": "Update Data Provider",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/data-providers/{profile_id}/last-sync": {
+      "get": {
+        "operationId": "read_last_data_provider_sync_api_v1_settings_data_providers__profile_id__last_sync_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProviderSyncHistoryResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Last Data Provider Sync Api V1 Settings Data Providers  Profile Id  Last Sync Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Last Data Provider Sync",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/data-providers/{profile_id}/last-test": {
+      "get": {
+        "operationId": "read_last_data_provider_test_api_v1_settings_data_providers__profile_id__last_test_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProviderTestHistoryResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Last Data Provider Test Api V1 Settings Data Providers  Profile Id  Last Test Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Last Data Provider Test",
         "tags": [
           "settings"
         ]

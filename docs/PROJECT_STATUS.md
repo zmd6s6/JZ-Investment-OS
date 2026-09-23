@@ -42,15 +42,15 @@ DeepSeek V4.1 Flash 已获所有者授权进行一次最小真实网络验收。
 预留、可验证用量结算和 JSON 对象输出。同日又以合成 Evidence 完成真实模型的完整
 `OpenAICompatibleLLMGateway → AgentRuntime → 严格 AgentOpinion → Evidence 引用校验` 路径：无修复成功，
 用量为 425 输入 / 452 输出 Token，脱敏成本为 USD 0.0006699。该验证不构成分析编排、真实投资数据或任何交易行为的授权。
-PRODUCT-04 现为 `IMPLEMENTING`：已完成多提供方显式 registry、博查 Web Search 基础设施适配器、
+PRODUCT-04 现为 `READY_FOR_REVIEW`：已完成多提供方显式 registry、博查 Web Search 基础设施适配器、
 受限连接测试、统一 DTO 和显式 Evidence 摄取 API 的合成验证。设置 API/UI 可显示每个数据档案最近一次
-显式连接测试的无凭据状态、时间和延迟；这不等同于数据同步成功。所有者已选择博查并在本地保存加密凭据引用；
+显式连接测试及最近成功同步的无凭据状态、时间、数量和延迟。所有者已选择博查并在本地保存加密凭据引用；
 该档案保持禁用。2026-09-22 经所有者明确授权，以固定无敏感测试词完成一次最小真实连接验证（HTTP 200、
 供应商 code 200、1 条结果、约 1.28 秒），未保存搜索正文或创建 Evidence。所有者现已确认博查可用于
 个人投资研究、结果保留 365 天，以及首次公开查询“宁德时代 最新公告”（最多 5 条）。重新保存档案后，
 该查询已于 2026-09-23 成功写入 5 条新的不可信搜索 Evidence，连接测试约 634ms，且档案随后恢复禁用；
-未启动分析、决策或交易。该批次的来源发布时间存在较早记录，不能据此宣称“最新”；365 天保留边界尚待实现为
-provider 配置和未来 Evidence 的 `expires_at`，既有不可变 Evidence 不会被原地改写。ADR-0016 与前向迁移已
+未启动分析、决策或交易。该批次的来源发布时间存在较早记录，不能据此宣称“最新”；既有不可变 Evidence 不会
+被原地改写。ADR-0016 与前向迁移已
 交付 365 天档案配置、未来到期时间映射及 API SecretStore 命名卷；当前本地容器尚未重建迁移，以保护现有凭据。
 
 ## 已记录的范围决定
@@ -75,7 +75,7 @@ provider 配置和未来 Evidence 的 `expires_at`，既有不可变 Evidence �
 | PRODUCT-01 | ACCEPTED | 已由 PR #12 合并到 `main` | 首次引导与产品状态 |
 | PRODUCT-02 | ACCEPTED | PR #13 已合并；ADR-0013 已接受 | 设置、密钥存储与提供方档案 |
 | PRODUCT-03 | ACCEPTED | 已由 PR #14 合并；MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过 | 真实模型运行时 |
-| PRODUCT-04 | IMPLEMENTING | 博查连接和首次受限 Evidence 摄取已验证；待落实 365 天保留配置及“最近成功同步”可见性 | 多提供方数据运行时 |
+| PRODUCT-04 | READY_FOR_REVIEW | 博查连接、首次受限 Evidence 摄取、365 天保留配置和最近成功同步可见性已验证；等待 PR #15 CI/审阅 | 多提供方数据运行时 |
 | PR-09 | PLANNED | 待定 | 结果、学习、加固与发布 |
 
 ## 状态更新规则
