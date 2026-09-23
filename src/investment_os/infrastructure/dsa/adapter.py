@@ -5,16 +5,16 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from investment_os.application.research import ResearchArtifactDTO, ResearchRequest
+from investment_os.application.research import (
+    ResearchArtifactDTO,
+    ResearchProviderSchemaError,
+    ResearchProviderUnavailableError,
+    ResearchRequest,
+)
 from investment_os.domain.values import UtcTimestamp
 
-
-class ProviderUnavailableError(RuntimeError):
-    """The upstream provider did not supply a usable response."""
-
-
-class ProviderSchemaError(ValueError):
-    """The upstream response drifted from the explicit adapter contract."""
+ProviderUnavailableError = ResearchProviderUnavailableError
+ProviderSchemaError = ResearchProviderSchemaError
 
 
 class DSAClient(Protocol):

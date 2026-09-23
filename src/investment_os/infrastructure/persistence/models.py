@@ -499,6 +499,7 @@ class DataProviderProfileRecord(Base):
     credential_ref: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), unique=True)
     timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    retention_days: Mapped[int] = mapped_column(Integer, nullable=False, default=365)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

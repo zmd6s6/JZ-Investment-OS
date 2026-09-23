@@ -31,6 +31,8 @@ services:
       INVESTMENT_OS_SECRET_STORE_KEY: ${INVESTMENT_OS_SECRET_STORE_KEY:-}
     ports:
       - "${API_PORT:-8100}:8000"
+    volumes:
+      - provider-secrets:/app/.runtime
     depends_on:
       investment-migrate:
         condition: service_completed_successfully
@@ -87,3 +89,4 @@ services:
 
 volumes:
   postgres-data:
+  provider-secrets:

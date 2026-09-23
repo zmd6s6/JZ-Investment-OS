@@ -56,6 +56,7 @@ class DataProviderProfile:
     credential_ref: UUID | None
     timeout_seconds: int
     enabled: bool
+    retention_days: int = 365
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,11 +72,35 @@ class ProviderTestResult:
     latency_ms: int | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderTestHistoryEntry:
+    """One secret-free, immutable record of an explicitly requested connection check."""
+
+    status: ProviderTestStatus
+    occurred_at: datetime
+    latency_ms: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderSyncHistoryEntry:
+    occurred_at: datetime
+    artifact_count: int
+    latency_ms: int
+
+
 class ModelProviderConnectionTester(Protocol):
     """Perform an explicit, credentialed model connection check without persisting a secret."""
 
     async def test_connection(
         self, *, profile: ModelProviderProfile, credential: str
+    ) -> ProviderTestResult: ...
+
+
+class DataProviderConnectionTester(Protocol):
+    """Perform an explicit, bounded data-provider check without persisting a secret."""
+
+    async def test_connection(
+        self, *, profile: DataProviderProfile, credential: str
     ) -> ProviderTestResult: ...
 
 
@@ -117,6 +142,18 @@ class ProviderSettingsPort(Protocol):
         provider_kind: Literal["MODEL", "DATA"],
         result: ProviderTestResult,
     ) -> None: ...
+
+    async def latest_provider_test(
+        self, *, profile_id: UUID, provider_kind: Literal["MODEL", "DATA"]
+    ) -> ProviderTestHistoryEntry | None: ...
+
+    async def record_data_provider_sync(
+        self, *, profile_id: UUID, artifact_count: int, latency_ms: int
+    ) -> None: ...
+
+    async def latest_data_provider_sync(
+        self, *, profile_id: UUID
+    ) -> ProviderSyncHistoryEntry | None: ...
 
 
 def _non_empty(value: str, field: str) -> str:
@@ -236,9 +273,10 @@ class ProviderSettingsService:
         timeout_seconds: int,
         enabled: bool,
         credential: str | None,
+        retention_days: int = 365,
     ) -> DataProviderProfile:
-        if timeout_seconds < 1:
-            raise ValueError("timeout_seconds must be positive")
+        if timeout_seconds < 1 or not 1 <= retention_days <= 3650:
+            raise ValueError("timeout_seconds and retention_days must be within supported bounds")
         existing = (
             await self._settings_port.get_data_profile(profile_id)
             if profile_id is not None
@@ -259,6 +297,7 @@ class ProviderSettingsService:
                 credential_ref=credential_ref,
                 timeout_seconds=timeout_seconds,
                 enabled=enabled,
+                retention_days=retention_days,
             )
         )
 
@@ -350,15 +389,74 @@ class ProviderSettingsService:
             )
         return await connection_tester.test_connection(profile=profile, credential=credential)
 
-    async def test_data_profile(self, profile_id: UUID) -> ProviderTestResult:
+    async def test_data_profile(
+        self,
+        profile_id: UUID,
+        *,
+        connection_tester: DataProviderConnectionTester | None = None,
+    ) -> ProviderTestResult:
         profile = await self._settings_port.get_data_profile(profile_id)
         if profile is None:
             raise LookupError("data_provider_not_found")
-        result = await self._configuration_test(profile.credential_ref)
+        if connection_tester is None:
+            result = await self._configuration_test(profile.credential_ref)
+        else:
+            result = await self._data_connection_test(
+                profile=profile,
+                connection_tester=connection_tester,
+            )
         await self._settings_port.record_provider_test(
             profile_id=profile_id, provider_kind="DATA", result=result
         )
         return result
+
+    async def latest_data_provider_test(self, profile_id: UUID) -> ProviderTestHistoryEntry | None:
+        profile = await self._settings_port.get_data_profile(profile_id)
+        if profile is None:
+            raise LookupError("data_provider_not_found")
+        return await self._settings_port.latest_provider_test(
+            profile_id=profile_id,
+            provider_kind="DATA",
+        )
+
+    async def record_data_provider_sync(
+        self, *, profile_id: UUID, artifact_count: int, latency_ms: int
+    ) -> None:
+        if artifact_count < 0 or latency_ms < 0:
+            raise ValueError("sync metrics must be non-negative")
+        await self._settings_port.record_data_provider_sync(
+            profile_id=profile_id, artifact_count=artifact_count, latency_ms=latency_ms
+        )
+
+    async def latest_data_provider_sync(self, profile_id: UUID) -> ProviderSyncHistoryEntry | None:
+        if await self._settings_port.get_data_profile(profile_id) is None:
+            raise LookupError("data_provider_not_found")
+        return await self._settings_port.latest_data_provider_sync(profile_id=profile_id)
+
+    async def _data_connection_test(
+        self,
+        *,
+        profile: DataProviderProfile,
+        connection_tester: DataProviderConnectionTester,
+    ) -> ProviderTestResult:
+        if profile.credential_ref is None:
+            return ProviderTestResult(
+                status="CREDENTIAL_MISSING",
+                detail="未配置凭据。未发起数据提供方网络请求。",
+            )
+        try:
+            credential = await self._secret_store.get(profile.credential_ref)
+        except RuntimeError:
+            return ProviderTestResult(
+                status="SECRET_STORE_UNAVAILABLE",
+                detail="加密凭据存储不可用。未发起数据提供方网络请求。",
+            )
+        if credential is None:
+            return ProviderTestResult(
+                status="CREDENTIAL_MISSING",
+                detail="凭据引用不存在。未发起数据提供方网络请求。",
+            )
+        return await connection_tester.test_connection(profile=profile, credential=credential)
 
     async def _replace_credential(
         self, *, current_ref: UUID | None, credential: str | None

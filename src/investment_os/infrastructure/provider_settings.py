@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Literal
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.provider_settings import (
     DataProviderProfile,
     ModelProviderProfile,
+    ProviderSyncHistoryEntry,
+    ProviderTestHistoryEntry,
     ProviderTestResult,
+    ProviderTestStatus,
     RoleModelAssignment,
     SystemSettings,
 )
@@ -29,7 +33,34 @@ from investment_os.infrastructure.persistence.models import (
     SystemSettingsRecord,
 )
 
+_PROVIDER_TEST_STATUSES: frozenset[ProviderTestStatus] = frozenset(
+    {
+        "CONFIGURATION_VALID",
+        "CREDENTIAL_MISSING",
+        "SECRET_STORE_UNAVAILABLE",
+        "CONNECTION_SUCCEEDED",
+        "CONNECTION_FAILED",
+        "UNSUPPORTED_PROVIDER",
+    }
+)
+
 SYSTEM_SETTINGS_ID = UUID("00000000-0000-0000-0000-000000000002")
+
+
+def _provider_test_history_entry(
+    *, occurred_at: datetime, payload: Mapping[str, object]
+) -> ProviderTestHistoryEntry:
+    status = payload.get("result")
+    latency_ms = payload.get("latency_ms")
+    if not isinstance(status, str) or status not in _PROVIDER_TEST_STATUSES:
+        raise ValueError("provider test audit record has invalid status")
+    if latency_ms is not None and (not isinstance(latency_ms, int) or latency_ms < 0):
+        raise ValueError("provider test audit record has invalid latency")
+    return ProviderTestHistoryEntry(
+        status=status,
+        occurred_at=occurred_at,
+        latency_ms=latency_ms,
+    )
 
 
 class SqlAlchemyProviderSettingsStore:
@@ -290,10 +321,91 @@ class SqlAlchemyProviderSettingsStore:
                 operation="TEST",
                 aggregate_type=f"{provider_kind.title()}ProviderProfile",
                 aggregate_id=profile_id,
-                payload={"result": result.status},
+                payload={
+                    "operation": "CONNECTION_TEST",
+                    "result": result.status,
+                    "latency_ms": result.latency_ms,
+                },
                 before=None,
             )
             await session.commit()
+
+    async def latest_provider_test(
+        self, *, profile_id: UUID, provider_kind: Literal["MODEL", "DATA"]
+    ) -> ProviderTestHistoryEntry | None:
+        aggregate_type = f"{provider_kind.title()}ProviderProfile"
+        async with self._session_factory() as session:
+            records = list(
+                (
+                    await session.scalars(
+                        select(EventLogRecord)
+                        .where(
+                            EventLogRecord.aggregate_type == aggregate_type,
+                            EventLogRecord.aggregate_id == profile_id,
+                            EventLogRecord.event_type == f"product_settings.{aggregate_type}.test",
+                        )
+                        .order_by(desc(EventLogRecord.occurred_at))
+                        .limit(1)
+                    )
+                ).all()
+            )
+        if not records:
+            return None
+        return _provider_test_history_entry(
+            occurred_at=records[0].occurred_at,
+            payload=records[0].payload_json,
+        )
+
+    async def record_data_provider_sync(
+        self, *, profile_id: UUID, artifact_count: int, latency_ms: int
+    ) -> None:
+        async with self._session_factory() as session:
+            await self._record_change(
+                session,
+                operation="SYNC",
+                aggregate_type="DataProviderProfile",
+                aggregate_id=profile_id,
+                payload={
+                    "operation": "RESEARCH_FETCH",
+                    "artifact_count": artifact_count,
+                    "latency_ms": latency_ms,
+                },
+                before=None,
+            )
+            await session.commit()
+
+    async def latest_data_provider_sync(
+        self, *, profile_id: UUID
+    ) -> ProviderSyncHistoryEntry | None:
+        async with self._session_factory() as session:
+            record = await session.scalar(
+                select(EventLogRecord)
+                .where(
+                    EventLogRecord.aggregate_type == "DataProviderProfile",
+                    EventLogRecord.aggregate_id == profile_id,
+                    EventLogRecord.event_type == "product_settings.DataProviderProfile.sync",
+                )
+                .order_by(desc(EventLogRecord.occurred_at))
+                .limit(1)
+            )
+        if record is None:
+            return None
+        artifact_count = record.payload_json.get("artifact_count")
+        latency_ms = record.payload_json.get("latency_ms")
+        if (
+            not isinstance(artifact_count, int)
+            or isinstance(artifact_count, bool)
+            or artifact_count < 0
+            or not isinstance(latency_ms, int)
+            or isinstance(latency_ms, bool)
+            or latency_ms < 0
+        ):
+            raise ValueError("provider sync audit record has invalid metrics")
+        return ProviderSyncHistoryEntry(
+            occurred_at=record.occurred_at,
+            artifact_count=artifact_count,
+            latency_ms=latency_ms,
+        )
 
     @staticmethod
     def _system_settings(record: SystemSettingsRecord) -> SystemSettings:
@@ -332,6 +444,7 @@ class SqlAlchemyProviderSettingsStore:
             credential_ref=record.credential_ref,
             timeout_seconds=record.timeout_seconds,
             enabled=record.enabled,
+            retention_days=record.retention_days,
         )
 
     @staticmethod
@@ -361,6 +474,7 @@ class SqlAlchemyProviderSettingsStore:
             "credential_ref": profile.credential_ref,
             "timeout_seconds": profile.timeout_seconds,
             "enabled": profile.enabled,
+            "retention_days": profile.retention_days,
         }
 
     @staticmethod
@@ -404,6 +518,7 @@ class SqlAlchemyProviderSettingsStore:
             "credential_configured": record.credential_ref is not None,
             "timeout_seconds": record.timeout_seconds,
             "enabled": record.enabled,
+            "retention_days": record.retention_days,
         }
 
     @staticmethod
