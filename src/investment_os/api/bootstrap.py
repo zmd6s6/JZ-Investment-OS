@@ -1,12 +1,22 @@
 """Production composition root for the HTTP application."""
 
+from datetime import UTC, datetime
+
 from fastapi import FastAPI
 
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import ProviderSettingsService
+from investment_os.application.research_runtime import (
+    DataProviderRuntimeRegistry,
+    ResearchProviderRuntime,
+)
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
+from investment_os.infrastructure.bocha.adapter import (
+    BochaWebSearchConnectionTester,
+)
 from investment_os.infrastructure.database import create_database_engine, create_session_factory
+from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
 from investment_os.infrastructure.onboarding import (
     SqlAlchemyOnboardingRuntime,
@@ -46,10 +56,24 @@ def create_production_app() -> FastAPI:
         secret_store=secret_store,
         budget_service=budget_service,
     )
+    data_connection_tester = BochaWebSearchConnectionTester()
+    research_provider_runtime = ResearchProviderRuntime(
+        provider_settings=provider_settings_service,
+        secret_store=secret_store,
+        registry=DataProviderRuntimeRegistry(
+            {"BOCHA_WEB_SEARCH": data_connection_tester.provider_for}
+        ),
+    )
     return create_app(
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
         model_connection_tester=model_gateway,
+        data_connection_tester=data_connection_tester,
+        research_provider_runtime=research_provider_runtime,
+        evidence_ingestor=SqlAlchemyEvidenceIngestor(
+            session_factory,
+            now=lambda: datetime.now(UTC),
+        ),
         llm_budget_service=budget_service,
         onboarding_lifecycle=onboarding_runtime,
     )

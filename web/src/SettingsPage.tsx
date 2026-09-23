@@ -32,6 +32,7 @@ type DataProfile = {
   base_url: string;
   timeout_seconds: number;
   enabled: boolean;
+  retention_days: number;
   credential_configured: boolean;
 };
 
@@ -52,6 +53,14 @@ type TestResult = {
   latency_ms: number | null;
 };
 
+type TestHistory = {
+  status: TestResult["status"];
+  occurred_at: string;
+  latency_ms: number | null;
+};
+
+type SyncHistory = { occurred_at: string; artifact_count: number; latency_ms: number };
+
 const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(url, init);
   if (!response.ok) throw new Error("保存失败，请检查配置或加密密钥是否可用。");
@@ -71,6 +80,23 @@ function CredentialStatus({ configured }: { configured: boolean }) {
   );
 }
 
+function DataProviderTestStatus({ history }: { history: TestHistory | null | undefined }) {
+  if (!history) return <p>最近连接：尚未测试</p>;
+
+  const latency = history.latency_ms === null ? "" : ` · ${history.latency_ms}ms`;
+  return (
+    <p>
+      最近连接：{history.status} · {new Date(history.occurred_at).toLocaleString()}
+      {latency}
+    </p>
+  );
+}
+
+function DataProviderSyncStatus({ history }: { history: SyncHistory | null | undefined }) {
+  if (!history) return <p>最近同步：尚未成功同步</p>;
+  return <p>最近同步：{new Date(history.occurred_at).toLocaleString()} · {history.artifact_count} 条 · {history.latency_ms}ms</p>;
+}
+
 export function SettingsPage() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [models, setModels] = useState<ModelProfile[]>([]);
@@ -80,6 +106,8 @@ export function SettingsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
+  const [dataTestHistory, setDataTestHistory] = useState<Record<string, TestHistory | null>>({});
+  const [dataSyncHistory, setDataSyncHistory] = useState<Record<string, SyncHistory | null>>({});
   const [editingModel, setEditingModel] = useState<ModelProfile | null>(null);
   const [editingData, setEditingData] = useState<DataProfile | null>(null);
 
@@ -95,6 +123,15 @@ export function SettingsPage() {
       setSettings(nextSettings);
       setModels(nextModels);
       setDataProfiles(nextData);
+      const histories = await Promise.all(
+        nextData.map(async (profile) => [
+          profile.id,
+          await requestJson<TestHistory | null>(`/api/v1/settings/data-providers/${profile.id}/last-test`),
+        ] as const),
+      );
+      setDataTestHistory(Object.fromEntries(histories));
+      const syncs = await Promise.all(nextData.map(async (profile) => [profile.id, await requestJson<SyncHistory | null>(`/api/v1/settings/data-providers/${profile.id}/last-sync`)] as const));
+      setDataSyncHistory(Object.fromEntries(syncs));
       setAssignments(nextAssignments);
       setBudget(nextBudget);
     } catch (reason) {
@@ -190,6 +227,7 @@ export function SettingsPage() {
           base_url: formText(form, "base_url"),
           timeout_seconds: Number(formText(form, "timeout_seconds")),
           enabled: formText(form, "enabled") === "true",
+          retention_days: Number(formText(form, "retention_days")),
           ...(credential ? { credential } : {}),
         }),
         },
@@ -215,6 +253,12 @@ export function SettingsPage() {
         { method: "POST" },
       );
       setTestResults((current) => ({ ...current, [id]: result }));
+      if (kind === "data-providers") {
+        const history = await requestJson<TestHistory | null>(
+          `/api/v1/settings/data-providers/${id}/last-test`,
+        );
+        setDataTestHistory((current) => ({ ...current, [id]: history }));
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "无法校验配置");
     }
@@ -308,6 +352,7 @@ export function SettingsPage() {
             base_url: profile.base_url,
             timeout_seconds: profile.timeout_seconds,
             enabled: !profile.enabled,
+            retention_days: profile.retention_days,
           }),
         },
       );
@@ -337,7 +382,8 @@ export function SettingsPage() {
 
       <p className="settings-safety">
         自动交易始终关闭。模型“测试连接”仅在您明确点击后发起，检查认证与 JSON 输出；
-        数据提供方测试仍只做无网络配置校验。
+        已支持的数据提供方也只会在您明确点击“测试连接”后发起受限网络校验；未支持的类型
+        和未配置凭据会失败关闭。
       </p>
       {error ? <p role="alert" className="error-message">{error}</p> : null}
       {message ? <p role="status" className="status-note">{message}</p> : null}
@@ -386,6 +432,7 @@ export function SettingsPage() {
                 <p>{profile.provider_type} · {profile.model_name}</p>
                 <p>{profile.base_url}</p>
                 <CredentialStatus configured={profile.credential_configured} />
+                <DataProviderTestStatus history={dataTestHistory[profile.id]} />
               </div>
               <div className="provider-actions">
                 <button type="button" onClick={() => void testProfile("model-providers", profile.id)}>测试模型连接</button>
@@ -413,6 +460,7 @@ export function SettingsPage() {
           <label>类型<input name="provider_type" defaultValue={editingData?.provider_type ?? "DSA_ADAPTER"} required /></label>
           <label>基础 URL<input name="base_url" type="url" defaultValue={editingData?.base_url} placeholder="https://provider.example" required /></label>
           <label>超时秒数<input name="timeout_seconds" type="number" min="1" max="300" defaultValue={editingData?.timeout_seconds ?? "30"} required /></label>
+          <label>本地保留天数<input name="retention_days" type="number" min="1" max="3650" defaultValue={editingData?.retention_days ?? "365"} required /></label>
           <label>启用状态<select name="enabled" defaultValue={String(editingData?.enabled ?? false)}><option value="false">先禁用</option><option value="true">启用</option></select></label>
           <label>凭据（仅写入）<input name="credential" type="password" autoComplete="new-password" /></label>
           <button type="submit">{editingData ? "保存数据修改" : "新增数据档案"}</button>
@@ -424,10 +472,13 @@ export function SettingsPage() {
               <div>
                 <h3>{profile.name}</h3>
                 <p>{profile.provider_type} · {profile.base_url}</p>
+                <p>本地保留：{profile.retention_days} 天</p>
                 <CredentialStatus configured={profile.credential_configured} />
+                <DataProviderTestStatus history={dataTestHistory[profile.id]} />
+                <DataProviderSyncStatus history={dataSyncHistory[profile.id]} />
               </div>
               <div className="provider-actions">
-                <button type="button" onClick={() => void testProfile("data-providers", profile.id)}>测试配置</button>
+                <button type="button" onClick={() => void testProfile("data-providers", profile.id)}>测试连接</button>
                 <button type="button" onClick={() => setEditingData(profile)}>编辑</button>
                 <button type="button" onClick={() => void toggleData(profile)}>{profile.enabled ? "停用" : "启用"}</button>
                 {testResults[profile.id] ? <p role="status">{testResults[profile.id].detail}</p> : null}

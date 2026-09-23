@@ -97,6 +97,7 @@ class DataProviderProfileRequest(StrictResponse):
     base_url: str = Field(min_length=1, max_length=2048)
     timeout_seconds: int = Field(ge=1, le=300)
     enabled: bool = False
+    retention_days: int = Field(default=365, ge=1, le=3650)
     credential: SecretStr | None = Field(
         default=None,
         json_schema_extra={"writeOnly": True},
@@ -111,6 +112,7 @@ class DataProviderProfileResponse(StrictResponse):
     base_url: str
     timeout_seconds: int
     enabled: bool
+    retention_days: int
     credential_configured: bool
 
 
@@ -170,6 +172,27 @@ class ProviderTestResponse(StrictResponse):
     latency_ms: int | None = Field(default=None, ge=0)
 
 
+class ProviderTestHistoryResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    status: Literal[
+        "CONFIGURATION_VALID",
+        "CREDENTIAL_MISSING",
+        "SECRET_STORE_UNAVAILABLE",
+        "CONNECTION_SUCCEEDED",
+        "CONNECTION_FAILED",
+        "UNSUPPORTED_PROVIDER",
+    ]
+    occurred_at: datetime
+    latency_ms: int | None = Field(default=None, ge=0)
+
+
+class ProviderSyncHistoryResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    occurred_at: datetime
+    artifact_count: int = Field(ge=0)
+    latency_ms: int = Field(ge=0)
+
+
 class TaskRunResponse(StrictResponse):
     id: UUID
     task_name: str
@@ -211,6 +234,21 @@ class ResearchIngestResponse(StrictResponse):
     schema_version: Literal["1.0"] = "1.0"
     evidence_id: UUID
     reused: bool
+
+
+class ProviderResearchFetchRequest(StrictResponse):
+    """Explicit owner-requested fetch; it never selects a provider implicitly."""
+
+    query: str = Field(min_length=1, max_length=1_000)
+    as_of: datetime
+    instrument_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    max_results: int = Field(default=10, ge=1, le=20)
+
+
+class ProviderResearchFetchResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    provider_profile_id: UUID
+    results: list[ResearchIngestResponse]
 
 
 class EvidenceClaimResponse(StrictResponse):

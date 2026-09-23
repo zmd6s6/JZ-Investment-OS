@@ -1,4 +1,5 @@
-from uuid import UUID
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 from httpx import ASGITransport, AsyncClient
 
@@ -7,6 +8,7 @@ from investment_os.application.provider_settings import (
     DataProviderProfile,
     ModelProviderProfile,
     ProviderSettingsService,
+    ProviderTestHistoryEntry,
     ProviderTestResult,
     RoleModelAssignment,
     SystemSettings,
@@ -35,6 +37,7 @@ class MemoryProviderSettingsPort:
         self.data: dict[UUID, DataProviderProfile] = {}
         self.assignments: dict[str, RoleModelAssignment] = {}
         self.tests: list[tuple[UUID, str, ProviderTestResult]] = []
+        self.syncs: list[tuple[UUID, int, int]] = []
 
     async def get_system_settings(self) -> SystemSettings:
         return self.settings
@@ -81,6 +84,41 @@ class MemoryProviderSettingsPort:
     ) -> None:
         self.tests.append((profile_id, provider_kind, result))
 
+    async def latest_provider_test(
+        self, *, profile_id: UUID, provider_kind: str
+    ) -> ProviderTestHistoryEntry | None:
+        matches = [
+            result
+            for candidate_id, candidate_kind, result in self.tests
+            if candidate_id == profile_id and candidate_kind == provider_kind
+        ]
+        if not matches:
+            return None
+        result = matches[-1]
+        return ProviderTestHistoryEntry(
+            status=result.status,
+            occurred_at=datetime(2026, 9, 23, tzinfo=UTC),
+            latency_ms=result.latency_ms,
+        )
+
+    async def record_data_provider_sync(
+        self, *, profile_id: UUID, artifact_count: int, latency_ms: int
+    ) -> None:
+        self.syncs.append((profile_id, artifact_count, latency_ms))
+
+    async def latest_data_provider_sync(self, *, profile_id: UUID) -> object | None:
+        from investment_os.application.provider_settings import ProviderSyncHistoryEntry
+
+        matches = [item for item in self.syncs if item[0] == profile_id]
+        if not matches:
+            return None
+        _, artifact_count, latency_ms = matches[-1]
+        return ProviderSyncHistoryEntry(
+            occurred_at=datetime(2026, 9, 23, tzinfo=UTC),
+            artifact_count=artifact_count,
+            latency_ms=latency_ms,
+        )
+
 
 def _model_request(credential: str | None = "synthetic-credential") -> dict[str, object]:
     request: dict[str, object] = {
@@ -100,9 +138,8 @@ def _model_request(credential: str | None = "synthetic-credential") -> dict[str,
 async def test_provider_settings_api_hides_credentials_and_records_no_network_test() -> None:
     port = MemoryProviderSettingsPort()
     secret_store = MemorySecretStore()
-    app = create_app(
-        provider_settings_service=ProviderSettingsService(port, secret_store)  # type: ignore[arg-type]
-    )
+    service = ProviderSettingsService(port, secret_store)  # type: ignore[arg-type]
+    app = create_app(provider_settings_service=service)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         updated_settings = await client.put(
@@ -128,6 +165,12 @@ async def test_provider_settings_api_hides_credentials_and_records_no_network_te
         )
         data_id = created_data.json()["id"]
         tested_data = await client.post(f"/api/v1/settings/data-providers/{data_id}/test")
+        last_data_test = await client.get(f"/api/v1/settings/data-providers/{data_id}/last-test")
+        await service.record_data_provider_sync(
+            profile_id=UUID(data_id), artifact_count=5, latency_ms=12
+        )
+        last_data_sync = await client.get(f"/api/v1/settings/data-providers/{data_id}/last-sync")
+        missing_data_test = await client.get(f"/api/v1/settings/data-providers/{uuid4()}/last-test")
         capabilities = await client.get("/api/v1/product-capabilities")
 
     assert updated_settings.json() == {
@@ -160,6 +203,12 @@ async def test_provider_settings_api_hides_credentials_and_records_no_network_te
     assert role_assignment.json()["role"] == "DEFAULT"
     assert created_data.status_code == 201
     assert tested_data.json()["status"] == "CREDENTIAL_MISSING"
+    assert last_data_test.json()["status"] == "CREDENTIAL_MISSING"
+    assert last_data_test.json()["latency_ms"] is None
+    assert last_data_sync.json()["artifact_count"] == 5
+    assert last_data_sync.json()["latency_ms"] == 12
+    assert missing_data_test.status_code == 404
+    assert missing_data_test.json()["detail"] == "data_provider_not_found"
     assert port.tests[0][1] == "MODEL"
     assert port.tests[1][1] == "DATA"
     assert next(item for item in capabilities.json() if item["key"] == "providers")["status"] == (

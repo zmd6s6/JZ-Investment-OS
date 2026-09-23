@@ -15,6 +15,8 @@ class ResearchRequest:
 
     instrument_ids: tuple[UUID, ...]
     as_of: UtcTimestamp
+    query: str | None = None
+    max_results: int = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +43,14 @@ class ResearchProviderPort(Protocol):
     """Port that prevents DSA-specific types from crossing application boundaries."""
 
     async def fetch_artifacts(self, request: ResearchRequest) -> list[ResearchArtifactDTO]: ...
+
+
+class ResearchProviderUnavailableError(RuntimeError):
+    """An upstream provider could not produce a usable response."""
+
+
+class ResearchProviderSchemaError(ValueError):
+    """An upstream response does not match its explicit adapter contract."""
 
 
 def utc_timestamp(value: datetime) -> UtcTimestamp:

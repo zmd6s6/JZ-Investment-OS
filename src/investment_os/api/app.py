@@ -3,7 +3,8 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from uuid import UUID
+from time import monotonic
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
@@ -14,6 +15,7 @@ from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import (
+    DataProviderConnectionTester,
     DataProviderProfile,
     ModelProviderConnectionTester,
     ModelProviderProfile,
@@ -22,7 +24,13 @@ from investment_os.application.provider_settings import (
     RoleModelAssignment,
     SystemSettings,
 )
-from investment_os.application.research import ResearchArtifactDTO
+from investment_os.application.research import (
+    ResearchArtifactDTO,
+    ResearchProviderSchemaError,
+    ResearchProviderUnavailableError,
+    ResearchRequest,
+)
+from investment_os.application.research_runtime import ResearchProviderRuntime, ResearchRuntimeError
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.database import (
     DatabaseReadinessProbe,
@@ -52,6 +60,10 @@ from .schemas import (
     ModelProviderProfileResponse,
     OnboardingStateResponse,
     ProductCapabilityResponse,
+    ProviderResearchFetchRequest,
+    ProviderResearchFetchResponse,
+    ProviderSyncHistoryResponse,
+    ProviderTestHistoryResponse,
     ProviderTestResponse,
     ReadinessResponse,
     ResearchIngestRequest,
@@ -186,6 +198,7 @@ def _data_profile_response(profile: DataProviderProfile) -> DataProviderProfileR
         base_url=profile.base_url,
         timeout_seconds=profile.timeout_seconds,
         enabled=profile.enabled,
+        retention_days=profile.retention_days,
         credential_configured=profile.credential_ref is not None,
     )
 
@@ -242,6 +255,7 @@ async def _save_data_provider(
             base_url=request.base_url,
             timeout_seconds=request.timeout_seconds,
             enabled=request.enabled,
+            retention_days=request.retention_days,
             credential=(
                 request.credential.get_secret_value() if request.credential is not None else None
             ),
@@ -269,10 +283,12 @@ async def _test_model_provider(
 
 
 async def _test_data_provider(
-    service: ProviderSettingsService, profile_id: UUID
+    service: ProviderSettingsService,
+    profile_id: UUID,
+    connection_tester: DataProviderConnectionTester | None,
 ) -> ProviderTestResult:
     try:
-        return await service.test_data_profile(profile_id)
+        return await service.test_data_profile(profile_id, connection_tester=connection_tester)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -287,6 +303,8 @@ def create_app(
     onboarding_service: OnboardingService | None = None,
     provider_settings_service: ProviderSettingsService | None = None,
     model_connection_tester: ModelProviderConnectionTester | None = None,
+    data_connection_tester: DataProviderConnectionTester | None = None,
+    research_provider_runtime: ResearchProviderRuntime | None = None,
     llm_budget_service: LLMBudgetService | None = None,
     onboarding_lifecycle: AsyncClosable | None = None,
 ) -> FastAPI:
@@ -302,6 +320,8 @@ def create_app(
     selected_onboarding_service = onboarding_service
     selected_provider_settings_service = provider_settings_service
     selected_model_connection_tester = model_connection_tester
+    selected_data_connection_tester = data_connection_tester
+    selected_research_provider_runtime = research_provider_runtime
     selected_llm_budget_service = llm_budget_service
     if (
         selected_thesis_reader is None
@@ -331,6 +351,8 @@ def create_app(
             await onboarding_lifecycle.close()
         if isinstance(selected_model_connection_tester, AsyncClosable):
             await selected_model_connection_tester.close()
+        if isinstance(selected_data_connection_tester, AsyncClosable):
+            await selected_data_connection_tester.close()
 
     application = FastAPI(
         title="Personal AI Investment OS",
@@ -436,6 +458,11 @@ def create_app(
         if selected_llm_budget_service is None:
             raise HTTPException(status_code=503, detail="llm_budget_unavailable")
         return selected_llm_budget_service
+
+    def research_provider_runtime_or_503() -> ResearchProviderRuntime:
+        if selected_research_provider_runtime is None:
+            raise HTTPException(status_code=503, detail="research_provider_runtime_unavailable")
+        return selected_research_provider_runtime
 
     @application.get(
         "/api/v1/settings/system",
@@ -604,8 +631,54 @@ def create_app(
         tags=["settings"],
     )
     async def test_data_provider(profile_id: UUID) -> ProviderTestResponse:
-        result = await _test_data_provider(provider_settings_or_503(), profile_id)
-        return ProviderTestResponse(status=result.status, detail=result.detail)
+        result = await _test_data_provider(
+            provider_settings_or_503(),
+            profile_id,
+            selected_data_connection_tester,
+        )
+        return ProviderTestResponse(
+            status=result.status,
+            detail=result.detail,
+            latency_ms=result.latency_ms,
+        )
+
+    @application.get(
+        "/api/v1/settings/data-providers/{profile_id}/last-test",
+        response_model=ProviderTestHistoryResponse | None,
+        tags=["settings"],
+    )
+    async def read_last_data_provider_test(
+        profile_id: UUID,
+    ) -> ProviderTestHistoryResponse | None:
+        try:
+            latest = await provider_settings_or_503().latest_data_provider_test(profile_id)
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if latest is None:
+            return None
+        return ProviderTestHistoryResponse(
+            status=latest.status,
+            occurred_at=latest.occurred_at,
+            latency_ms=latest.latency_ms,
+        )
+
+    @application.get(
+        "/api/v1/settings/data-providers/{profile_id}/last-sync",
+        response_model=ProviderSyncHistoryResponse | None,
+        tags=["settings"],
+    )
+    async def read_last_data_provider_sync(profile_id: UUID) -> ProviderSyncHistoryResponse | None:
+        try:
+            latest = await provider_settings_or_503().latest_data_provider_sync(profile_id)
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if latest is None:
+            return None
+        return ProviderSyncHistoryResponse(
+            occurred_at=latest.occurred_at,
+            artifact_count=latest.artifact_count,
+            latency_ms=latest.latency_ms,
+        )
 
     @application.get(
         "/api/v1/settings/role-model-assignments",
@@ -724,6 +797,49 @@ def create_app(
         )
         result = await evidence_ingestor.ingest(artifact)
         return ResearchIngestResponse(evidence_id=result.evidence_id, reused=result.reused)
+
+    @application.post(
+        "/api/v1/research/providers/{profile_id}/fetch",
+        response_model=ProviderResearchFetchResponse,
+        tags=["research"],
+        description=("仅按明确指定的已启用提供方档案获取研究线索, 不会自动回退到其他来源。"),
+    )
+    async def fetch_provider_research(
+        profile_id: UUID, request: ProviderResearchFetchRequest
+    ) -> ProviderResearchFetchResponse:
+        if evidence_ingestor is None:
+            raise HTTPException(status_code=503, detail="research_ingestion_unavailable")
+        started = monotonic()
+        try:
+            artifacts = await research_provider_runtime_or_503().fetch(
+                profile_id=profile_id,
+                request=ResearchRequest(
+                    instrument_ids=tuple(request.instrument_ids),
+                    as_of=UtcTimestamp(request.as_of),
+                    query=request.query,
+                    max_results=request.max_results,
+                ),
+            )
+        except ResearchProviderUnavailableError as exc:
+            raise HTTPException(status_code=502, detail="research_provider_unavailable") from exc
+        except (ResearchRuntimeError, ResearchProviderSchemaError, ValueError) as exc:
+            raise HTTPException(
+                status_code=422, detail="research_provider_request_rejected"
+            ) from exc
+        correlation_id = uuid4()
+        results: list[ResearchIngestResponse] = []
+        for artifact in artifacts:
+            result = await evidence_ingestor.ingest(artifact, correlation_id=correlation_id)
+            results.append(
+                ResearchIngestResponse(evidence_id=result.evidence_id, reused=result.reused)
+            )
+        if selected_provider_settings_service is not None:
+            await selected_provider_settings_service.record_data_provider_sync(
+                profile_id=profile_id,
+                artifact_count=len(results),
+                latency_ms=int((monotonic() - started) * 1000),
+            )
+        return ProviderResearchFetchResponse(provider_profile_id=profile_id, results=results)
 
     @application.get(
         "/api/v1/theses/{instrument_id}", response_model=ThesisVersionResponse, tags=["theses"]
