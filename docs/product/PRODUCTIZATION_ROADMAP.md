@@ -1,12 +1,40 @@
 # Personal AI Investment OS — 产品化路线图
 
-> 状态：拟议执行计划
+> 状态：已接受的产品执行顺序（2026-09-29 由所有者重新确认）
 >
 > 权威：从属于 `INVESTMENT_OS_MASTER_SPEC.md`、已接受 ADR 和活动阶段契约
 >
 > 目的：将既有 Investment OS 内核转化为所有者无需编写代码、SQL、JSON 或 curl 命令即可使用的产品
 >
 > 安全基线：`auto_trade=false`；V1 不提交实盘经纪商订单
+
+---
+
+## 当前执行决定（2026-09-29）
+
+所有者已明确重新排序产品化工作：`PRODUCT-04 / P4` 已接受，必须按 `P5 → P6 → P7 → P8 → P9`
+依次完成、验证并经所有者接受，之后才能恢复 `PR-09`。
+
+任何尚未合并的 PR-09 Outcome、Review/Learning、发布与加固预研均不构成已接受交付，不能作为当前活动阶段、
+可用 Beta 或发布就绪的声明。`PR-09` 当前为 `BLOCKED`，解除条件是 P9 经所有者 `ACCEPTED`，并由所有者
+明确要求恢复该阶段。
+
+这一决定补充主规范中 PR-00 至 PR-09 的技术交付顺序，不改写主规范、已接受 ADR 或既有合并历史。产品阶段
+文件是本路线图的可审查执行契约；任一时刻只能有一个活动路线图阶段。
+
+| 产品步骤 | 阶段文件 | 当前状态 | 说明 |
+|---|---|---|---|
+| P0 | 历史基础 | `ACCEPTED` | 既有工程基线 |
+| P1 | `PRODUCT-01` | `ACCEPTED` | 首次引导与产品状态 |
+| P2 | `PRODUCT-02` | `ACCEPTED` | 设置、密钥存储与供应商档案 |
+| P3 | `PRODUCT-03` | `ACCEPTED` | 真实模型运行时 |
+| P4 | `PRODUCT-04` | `ACCEPTED` | 多提供方数据运行时 |
+| P5 | `PRODUCT-05` | `PLANNED` | 当前下一阶段：Portfolio 与 Watchlist 产品 |
+| P6 | `PRODUCT-06` | `PLANNED` | 端到端 Analysis Orchestration |
+| P7 | `PRODUCT-07` | `PLANNED` | 交互式决策与批准 |
+| P8 | `PRODUCT-08` | `PLANNED` | 每日 AI 团队运行时 |
+| P9 | `PRODUCT-09` | `PLANNED` | Beta 验收 |
+| 后续 | `PR-09` | `BLOCKED` | 仅在 P9 接受后恢复 Outcome、Review/Learning、加固与发布 |
 
 ---
 
@@ -687,6 +715,8 @@ PR-08 必须审查并合并后才能实施 P1。
 
 ### P5 — Portfolio 与 Watchlist 产品
 
+状态：`PLANNED`。具体范围和验收条件见 `docs/stages/PRODUCT-05.md`。
+
 交付：
 
 - Portfolio UI/API；
@@ -700,6 +730,8 @@ PR-08 必须审查并合并后才能实施 P1。
 
 ### P6 — 端到端 Analysis Orchestration
 
+状态：`PLANNED`，依赖 P5 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-06.md`。
+
 交付：
 
 - AnalysisRun；
@@ -712,6 +744,8 @@ PR-08 必须审查并合并后才能实施 P1。
 
 ### P7 — 交互式决策与批准
 
+状态：`PLANNED`，依赖 P6 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-07.md`。
+
 交付：
 
 - 由真实 API 支撑的 Decision 列表/详情；
@@ -722,6 +756,8 @@ PR-08 必须审查并合并后才能实施 P1。
 验收：所有者可完全通过 UI 处理 Decision；不可能产生任何实盘经纪商订单。
 
 ### P8 — 每日 AI 团队运行时
+
+状态：`PLANNED`，依赖 P7 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-08.md`。
 
 交付：
 
@@ -737,9 +773,14 @@ PR-08 必须审查并合并后才能实施 P1。
 
 ### P9 — Beta 验收
 
+状态：`PLANNED`，依赖 P8 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-09.md`。
+
 运行 `docs/product/BETA_ACCEPTANCE.md` 中完整验收门槛。未通过 P9，不得声称产品可正常使用。
 
 ### PR-09 — Outcome、Review/Learning、加固与发布
+
+状态：`BLOCKED`。PR-09 仅在 P9 经所有者 `ACCEPTED` 后恢复；此前任何既有切片都不得用作产品完成或发布
+就绪声明。
 
 PR-09 在可用 Beta 之后执行，完成：
 

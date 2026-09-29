@@ -41,7 +41,7 @@ CIO、Macro、Industry、Fundamental、Market/Quant、Event、Portfolio Manager�
 ```text
 主规范
     ↓
-一个活动 PR 阶段
+一个活动路线图阶段
     ↓
 Codex 实现 + 测试
     ↓
@@ -58,7 +58,7 @@ Codex 自审与验证证据
 
 ## 阶段状态
 
-每个 `docs/stages/PR-XX.md` 使用以下一种状态：
+每个 `docs/stages/<阶段>.md`（例如 `PR-XX` 或 `PRODUCT-XX`）使用以下一种状态：
 
 - `PLANNED`：需求已记录；未声称实现。
 - `IN_PROGRESS`：实现正在进行。
@@ -135,7 +135,7 @@ Codex 可将状态从 `PLANNED → IN_PROGRESS → READY_FOR_REVIEW`。需要投
 ## 缺陷和变更处理
 
 - 违反主规范 MUST 的缺陷，必须在推进依赖阶段前修复。
-- PR-00–PR-09 之外的新功能进入未来待办，不能静默扩展活动阶段。
+- 主规范 PR-00–PR-09 之外的产品执行顺序必须记录在受其约束的产品路线图与阶段契约中，不能静默扩展活动阶段。
 - 改变投资行为需要人类决定，以及带版本的 Policy/Strategy 工件。
 - 主规范歧义应保守解释、记录；仅在实质改变行为时升级。
 - 失败的实验仍须记录；不得删除证据以使项目看似成功。
