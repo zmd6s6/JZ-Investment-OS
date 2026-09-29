@@ -19,14 +19,21 @@
 2. `InvestmentAnalysisOrchestrator` 通过现有 application ports 编排研究、Evidence、Agent、Risk 和 Decision；
    domain 不依赖 API、供应商、LLM、调度器或 UI。
 3. **结构化市场数据端口**：可替换的 market-data port/adapter（或明确列出的 DSA 受支持能力），至少覆盖
-   reference price、instrument universe、sector/classification，以及本阶段/ P8 实际使用的确定性特征输入。
+   reference price、instrument universe、sector/classification，以及本阶段/P8 实际使用的确定性特征输入。
+   Instrument 身份/目录/搜索已在 P5 交付，本阶段扩展 quote/valuation/features，不重复或推迟目录能力。
    仅有博查 Web Search 文本检索不能冒充行情或证券全集；缺失必须失败关闭并显式标注。
-4. **确定性估值与 Sizing 上下文构建**：在进入 Risk/仓位引擎前生成带 `as-of`/来源的 reference price、NAV、
+4. **FX 与多币种估值契约**：跨币种 Portfolio 必须引入带 `as-of`/来源的 FX rate 输入与确定性换算；缺失或陈旧
+   FX 失败关闭，禁止用默认汇率或 LLM 估算。首个 Beta 若只使用单币种 Portfolio，仍须显式记录该限制，并保证
+   一旦出现异币种持仓/现金即失败关闭或要求配置 FX 源。
+5. **确定性估值与 Sizing 上下文构建**：在进入 Risk/仓位引擎前生成带 `as-of`/来源的 reference price、NAV、
    weights、sector/gross exposure、volatility/liquidity 等 `SizingRequest` 所需输入，并与 P5 的 cash/base
-   currency/持仓快照精确对账。LLM 不得估算这些数值。
-5. UI 中的立即分析、进度/失败展示、取消/重试的明确边界，以及从 Run 到只读 Decision 详情的导航。
-6. 多数据源只能显式选择：记录实际 provider、查询、顺序、结果、失败和新鲜度；禁止按故障、成本或缺数据静默回退。
-7. 对没有可用 Evidence、陈旧/冲突数据、模型输出无效、预算耗尽、供应商故障和 Risk Veto 的失败关闭展示。
+   currency/持仓快照精确对账（含 FX 换算路径）。LLM 不得估算这些数值。
+6. **Policy 版本固定**：AnalysisRun 与由此产生的 Decision 必须固定引用具体 `policy_version`（与 P5 审阅面
+   展示的 active version 一致）；禁止使用“当前 Policy”漂移引用。真实限额数值仍不在本阶段选择或修改。
+7. UI 中的立即分析、进度/失败展示、取消/重试的明确边界，以及从 Run 到只读 Decision 详情的导航。
+8. 多数据源只能显式选择：记录实际 provider、查询、顺序、结果、失败和新鲜度；禁止按故障、成本或缺数据静默回退。
+9. 对没有可用 Evidence、陈旧/冲突数据、无 FX/估值输入、模型输出无效、预算耗尽、供应商故障和 Risk Veto 的
+   失败关闭展示。
 
 ## 不变量与范围外事项
 
@@ -50,11 +57,14 @@
 2. 每次 Run 能回溯到明确的 provider/model profile、输入、Evidence、业务时间、Agent opinions、Risk、确定性
    仓位规模结果及 Decision；未知或失败信息显式保留。
 3. Risk/Sizing 输入完整：reference price、NAV、weights、exposure、volatility/liquidity 等均可追溯到
-   确定性 valuation/context builder 与 P5 快照对账；缺失导致失败关闭，而不是空值通过。
-4. 未授权/禁用 profile、无 Evidence、无行情/universe、超时、Schema 漂移、无效 Agent 输出、预算失败和 Veto
+   确定性 valuation/context builder 与 P5 快照对账；跨币种路径使用带 as-of/source 的 FX 与确定性换算，
+   缺失/陈旧 FX 失败关闭；禁止空值通过。
+4. 每次 AnalysisRun/Decision 显示并固定 `policy_version`；与 P5 审阅面一致，无漂移。
+5. 未授权/禁用 profile、无 Evidence、无行情/universe/FX、超时、Schema 漂移、无效 Agent 输出、预算失败和 Veto
    都失败关闭且可见。
-5. 不存在静默数据源回退、自动 Policy/Strategy 变更、自动批准或任何真实/模拟订单提交路径。
-6. 正常、失败、边界、多源选择、估值上下文与 UI 进度路径具备单元、契约、集成、迁移和浏览器 E2E 证据。
+6. 不存在静默数据源回退、自动 Policy/Strategy 变更、自动批准或任何真实/模拟订单提交路径。
+7. 正常、失败、边界、多源选择、FX/估值上下文、Policy 版本固定与 UI 进度路径具备单元、契约、集成、迁移和
+   浏览器 E2E 证据。
 
 ## 完成前验证
 

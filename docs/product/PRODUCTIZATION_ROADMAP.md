@@ -720,15 +720,16 @@ PR-08 必须审查并合并后才能实施 P1。
 交付：
 
 - Portfolio UI/API；
+- 最小 InstrumentIdentity/Catalog/Search 端口与适配器（market/symbol/name/asset_type/currency/sector）；
 - 手工持仓录入（含 base currency / 现金与快照边界）；
 - CSV 导入预览/确认；
 - 对账；
-- Watchlist CRUD；
-- 标的搜索/规范化；
-- Watchlist 展示 lifecycle state、Thesis state、data freshness、next monitoring condition（缺失显式标注）。
+- Watchlist CRUD（搜索/规范化用本阶段目录端口）；
+- Watchlist 展示 lifecycle state、Thesis state、data freshness、next monitoring condition（缺失显式标注）；
+- 只读 Investment Policy 审阅（active version、限额摘要、`TEST_DEFAULT` 警告）；不修改真实限额。
 
-验收：所有者无需接触 SQL/JSON/代码即可载入个人 Portfolio；真实 portfolio 数据不会进入仓库资产；Watchlist 四项
-信息在数据可得时可见且经 UI/API/E2E 验证。
+验收：所有者无需接触 SQL/JSON/代码即可载入个人 Portfolio；目录/搜索在本阶段可用；真实 portfolio 数据不会进入
+仓库资产；Watchlist 四项与 Policy 审阅经 UI/API/E2E 验证。
 
 ### P6 — 端到端 Analysis Orchestration
 
@@ -739,7 +740,9 @@ PR-08 必须审查并合并后才能实施 P1。
 - AnalysisRun；
 - InvestmentAnalysisOrchestrator；
 - 结构化 market-data port/adapter（reference price、universe、sector/classification、确定性特征）；
+- FX rate 输入（as-of/source）与确定性多币种换算（缺失/陈旧失败关闭）；
 - 确定性 valuation/context builder（price、NAV、weights、exposure、volatility/liquidity）；
+- Analysis/Decision 固定 `policy_version`；
 - 立即运行分析；
 - 进度/失败可见性；
 - 完整 Evidence → Decision 持久化。
@@ -766,6 +769,7 @@ PR-08 必须审查并合并后才能实施 P1。
 
 交付：
 
+- 产品化交易日历（CalendarProvider 或 UI/Settings 可审计日历导入，持久化 market sessions；不靠 env/手写内部文件）；
 - 定时数据同步；
 - Portfolio/Watchlist Evidence diff；
 - 自动分析触发；
