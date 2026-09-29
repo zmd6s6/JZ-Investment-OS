@@ -16,8 +16,13 @@ Veto、确定性仓位规模计算、Core/Tactical 快照和审计时间线，�
 
 1. Decision 列表、筛选、详情与不可变 Journal 下钻；所有卡片均来自真实应用 API。
 2. 状态合法性、版本/并发冲突、原因、审批人、时间、Evidence 引用和审计事件的可见、可验证的 Approve/Reject/Revoke。
-3. 仅限外部手工动作的执行记录：必须明确 Decision、批准、执行状态、时间和说明；它只记录事实，绝不触发外部系统。
-4. 显著显示 `SIMULATION / NO AUTO TRADE`、as-of、陈旧/缺失 Evidence、Risk Veto、未知项与失败状态。
+3. 仅限外部手工动作的执行记录，字段必须覆盖 `BETA_ACCEPTANCE` §10 与主规范 trade_record 语义：
+   - `quantity`、`price`、适用时 `fees`、`execution timestamp`；
+   - 经清洗的 `external reference` / `note`；
+   - 有效 `approval linkage`（需要时）、fill-state 一致性、不可变审计。
+   它只记录事实，绝不触发外部系统。
+4. 若持久化模型缺少 `fees` 等字段，在本阶段作为迁移/API/UI 工作补齐，不得推迟到 P9 才发现。
+5. 显著显示 `SIMULATION / NO AUTO TRADE`、as-of、陈旧/缺失 Evidence、Risk Veto、未知项与失败状态。
 
 ## 不变量与范围外事项
 
@@ -36,9 +41,11 @@ Veto、确定性仓位规模计算、Core/Tactical 快照和审计时间线，�
 
 1. 所有者可仅通过 UI 找到并完整审阅 P6 产生的 Decision 与其 Evidence 至仓位规模计算的追溯链。
 2. Approve、Reject、Revoke 仅在合法状态、有效版本和有效人类授权下成功；非法、过期、Veto 和并发路径失败关闭。
-3. 外部手工执行可被记录和阅读，但系统没有任何订单提交、经纪商网络调用或自动执行路径。
+3. 外部手工执行可录入并回读完整字段（quantity、price、适用时 fees、execution timestamp、sanitized external
+   reference/note、approval linkage）；fill-state 一致，历史不可变，且系统没有任何订单提交、经纪商网络调用或自动执行路径。
 4. UI/API 对权限、失败、未知、陈旧、Veto 与模拟状态均清晰显示，不伪造成功、仓位或执行。
 5. 具名单元、状态机/属性、API 契约、集成、迁移、审计与浏览器 E2E 测试覆盖正常、失败和边界行为。
+6. 完整认证/授权、CSRF 与外网加固不是本功能阶段的阻塞项（归后续 hardening/PR-09）；投资批准语义本身仍不可绕过。
 
 ## 完成前验证
 

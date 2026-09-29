@@ -720,13 +720,15 @@ PR-08 必须审查并合并后才能实施 P1。
 交付：
 
 - Portfolio UI/API；
-- 手工持仓录入；
+- 手工持仓录入（含 base currency / 现金与快照边界）；
 - CSV 导入预览/确认；
 - 对账；
 - Watchlist CRUD；
-- 标的搜索/规范化。
+- 标的搜索/规范化；
+- Watchlist 展示 lifecycle state、Thesis state、data freshness、next monitoring condition（缺失显式标注）。
 
-验收：所有者无需接触 SQL/JSON/代码即可载入个人 Portfolio；真实 portfolio 数据不会进入仓库资产。
+验收：所有者无需接触 SQL/JSON/代码即可载入个人 Portfolio；真实 portfolio 数据不会进入仓库资产；Watchlist 四项
+信息在数据可得时可见且经 UI/API/E2E 验证。
 
 ### P6 — 端到端 Analysis Orchestration
 
@@ -736,11 +738,13 @@ PR-08 必须审查并合并后才能实施 P1。
 
 - AnalysisRun；
 - InvestmentAnalysisOrchestrator；
+- 结构化 market-data port/adapter（reference price、universe、sector/classification、确定性特征）；
+- 确定性 valuation/context builder（price、NAV、weights、exposure、volatility/liquidity）；
 - 立即运行分析；
 - 进度/失败可见性；
 - 完整 Evidence → Decision 持久化。
 
-验收：一个选定标的可使用已配置模型/数据供应商完成完整影子投资周期。
+验收：一个选定标的可使用已配置模型/数据供应商完成完整影子投资周期；Risk/Sizing 输入可对账且缺失失败关闭。
 
 ### P7 — 交互式决策与批准
 
@@ -751,7 +755,8 @@ PR-08 必须审查并合并后才能实施 P1。
 - 由真实 API 支撑的 Decision 列表/详情；
 - Evidence/Thesis/Agent/Risk/仓位规模计算下钻；
 - Approve/Reject/Revoke；
-- 手工执行记录。
+- 手工执行记录：quantity、price、适用时 fees、execution timestamp、sanitized external reference/note、
+  approval linkage、fill-state 一致性与不可变审计（含必要的 fees 迁移/API/UI）。
 
 验收：所有者可完全通过 UI 处理 Decision；不可能产生任何实盘经纪商订单。
 
@@ -764,8 +769,9 @@ PR-08 必须审查并合并后才能实施 P1。
 - 定时数据同步；
 - Portfolio/Watchlist Evidence diff；
 - 自动分析触发；
-- 每日报告；
-- 每周机会筛选；
+- 每日报告（必显：action required、hold/watch、新机会、Risk Veto、待处理 approvals、data/job degraded）；
+- 每周机会筛选硬契约：`universe → deterministic funnel → bounded candidates → 仅候选 deep research →
+  Opportunities UI`，禁止全市场强模型 fan-out；
 - 每月 Portfolio 复核；
 - 明确失败/降级状态。
 
@@ -775,7 +781,9 @@ PR-08 必须审查并合并后才能实施 P1。
 
 状态：`PLANNED`，依赖 P8 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-09.md`。
 
-运行 `docs/product/BETA_ACCEPTANCE.md` 中完整验收门槛。未通过 P9，不得声称产品可正常使用。
+运行 `docs/product/BETA_ACCEPTANCE.md` 中完整验收门槛，并维护
+`BETA_ACCEPTANCE §2–§18 → owning stage → evidence` 追溯矩阵；P9 只做 fresh-install + E2E 重跑/汇总。
+正式 backup/restore 演练归 PR-09。未通过 P9，不得声称产品可正常使用。
 
 ### PR-09 — Outcome、Review/Learning、加固与发布
 
@@ -791,8 +799,8 @@ PR-09 在可用 Beta 之后执行，完成：
 - Backtest；
 - Shadow 验证；
 - 人工治理的激活；
-- 备份/恢复；
-- 安全/性能加固；
+- 备份/恢复 hardening 与正式演练；
+- 安全/性能加固（含多用户鉴权/授权、TLS 等）；
 - 可追溯性矩阵；
 - 发布检查清单。
 

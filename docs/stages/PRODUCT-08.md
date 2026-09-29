@@ -16,9 +16,21 @@ Portfolio/Watchlist Evidence diff、自动分析触发、每日报告、每周�
 
 1. 明确、持久化、可暂停的日/周/月任务定义和 UI 运行历史；同一业务键不能重入。
 2. 已授权 Portfolio/Watchlist 的数据新鲜度检查、Evidence diff 与通过 P6 既有编排器产生的分析触发。
-3. 面向所有者的报告和机会候选；它们必须标明来源、as-of、未知、缺失、降级、模拟状态和是否需要人工操作。
-4. 失败、部分成功、锁冲突、超时、预算耗尽、市场关闭、无授权 profile 或无数据的显式状态和恢复说明。
-5. dry-run 与 as-of 重放只能使用隔离输入，不能影响真实个人历史或执行状态。
+3. **每周机会筛选硬契约**（确定性漏斗，禁止全市场强模型扇出）：
+   ```text
+   market universe
+   → deterministic filter / features
+   → bounded candidate set
+   → deep research / LLM 仅用于候选
+   → Opportunities UI
+   ```
+   必须记录每个候选的入选原因与缺失数据；必须有测试证明不会对全市场直接 fan-out 强模型（对齐
+   `BETA_ACCEPTANCE` §13 与主规范 §17.3 成本/性能边界）。
+4. 面向所有者的报告和机会候选；它们必须标明来源、as-of、未知、缺失、降级、模拟状态和是否需要人工操作。
+5. **每日主界面/报告必显信息归属**：action required、hold/watch、新机会、Risk Veto、待处理 approvals、
+   data/job degraded；缺失时显式“未提供”，不得静默省略。
+6. 失败、部分成功、锁冲突、超时、预算耗尽、市场关闭、无授权 profile 或无数据的显式状态和恢复说明。
+7. dry-run 与 as-of 重放只能使用隔离输入，不能影响真实个人历史或执行状态。
 
 ## 不变量与范围外事项
 
@@ -37,8 +49,11 @@ Portfolio/Watchlist Evidence diff、自动分析触发、每日报告、每周�
 1. 已授权市场会话到期后，Worker 无需手工 CLI 即能产生可追溯的预期分析/报告或明确失败记录。
 2. 日/周/月任务的锁、幂等、重试、重放、失败和部分成功均可通过 UI/API 与持久化历史审计。
 3. 每次自动运行明确记录实际数据/模型来源、as-of、Evidence 新鲜度、预算和降级情况；没有静默回退。
-4. 机会筛选和报告不是投资建议或交易命令，所有批准与执行仍由 P7 的人类关卡控制。
-5. 调度、重入、故障恢复、授权边界、报告内容和浏览器流程具有具名单元、集成、迁移、E2E 与合成运行证据。
+4. 每周机会筛选严格执行 `universe → deterministic funnel → bounded candidates → 候选才 deep research`；
+   有自动化证据表明未对全市场强模型 fan-out，且候选原因/缺失数据可见。
+5. 每日主界面/报告展示 action required、hold/watch、新机会、Risk Veto、待处理 approvals、data/job degraded。
+6. 机会筛选和报告不是投资建议或交易命令，所有批准与执行仍由 P7 的人类关卡控制。
+7. 调度、重入、故障恢复、授权边界、报告内容和浏览器流程具有具名单元、集成、迁移、E2E 与合成运行证据。
 
 ## 完成前验证
 
