@@ -77,3 +77,9 @@
   - `ruff check` 与针对新增模块的 `mypy` 通过。
   - **尚未完成**：CSV 导入预览/确认、对账、Watchlist 页面产品 UI、Policy 审阅 UI、集成/E2E、全量测试与
     OpenAPI 基线更新。不得据此标 `READY_FOR_REVIEW`。
+- 2026-09-29（续）：并行交付 CSV 导入与产品 UI。
+  - CSV：预览（VALID/INVALID/DUPLICATE）与确认写入；存在无效行时禁止 commit；单元测试 5 项。
+  - UI：`/portfolio`（创建/手工持仓/CSV/对账表）、`/watchlist`（增删与四项空状态）、首页只读 Policy 审阅。
+  - API：`POST /portfolios/{id}/csv/preview|confirm`、`GET /policy/review`。
+  - 验证：定向单元测试合计 15 项通过；`ruff`/`mypy` 通过；`npm run build` 通过。
+  - 仍缺：浏览器 E2E、集成/迁移全量、OpenAPI 基线。不得标 `READY_FOR_REVIEW`。

@@ -201,6 +201,37 @@
   padding: 32px;
 }
 
+.stack-form {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+
+.stack-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  color: #3d3a24;
+}
+
+.stack-form input,
+.stack-form textarea {
+  border: 1px solid #cbbf8b;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.error-text {
+  color: #8b2e2e;
+  font-weight: 700;
+}
+
+.ok-text {
+  color: #2f6b3a;
+  font-weight: 700;
+}
+
 .legacy-warning {
   border-left: 4px solid #b6a667;
   padding: 12px 16px;

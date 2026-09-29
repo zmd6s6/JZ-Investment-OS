@@ -434,3 +434,41 @@ class WatchlistItemResponse(StrictResponse):
     thesis_state: str | None
     data_freshness_as_of: datetime | None
     next_monitoring_condition: str | None
+
+
+class CsvImportRequest(StrictResponse):
+    csv_text: str = Field(min_length=1)
+
+
+class CsvRowResultResponse(StrictResponse):
+    line_number: int
+    status: Literal["VALID", "INVALID", "DUPLICATE"]
+    reason: str | None
+    market: str | None = None
+    symbol: str | None = None
+    name: str | None = None
+    core_quantity: Decimal | None = None
+    tactical_quantity: Decimal | None = None
+    average_cost: Decimal | None = None
+
+
+class CsvImportPreviewResponse(StrictResponse):
+    total_rows: int
+    can_commit: bool
+    valid: list[CsvRowResultResponse]
+    invalid: list[CsvRowResultResponse]
+    duplicates: list[CsvRowResultResponse]
+
+
+class CsvImportCommitResponse(StrictResponse):
+    imported_count: int
+    skipped_count: int
+    portfolio: PortfolioResponse
+
+
+class PolicyReviewResponse(StrictResponse):
+    active_policy_version: str
+    policy_status: str
+    is_test_default: bool
+    limits: list[dict[str, str]]
+    warning: str

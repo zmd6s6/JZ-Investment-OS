@@ -37,10 +37,10 @@
 
 ## 当前授权工作
 
-PRODUCT-05 已开始（`IN_PROGRESS`）。2026-09-29 首个纵切交付 Instrument 本地目录（身份/规范化/搜索）、
-Portfolio 手工录入（base currency、现金、Core/Tactical、平均成本）与 Watchlist 写路径（幂等加入、缺失字段
-显式空状态），含迁移 `20260929_0011`、API 与定向单元测试 11 项；`ruff`/`mypy`（新增模块）通过。CSV 导入、
-对账、产品 UI、Policy 审阅面、集成/E2E 与完整完成定义仍未满足，不得标 `READY_FOR_REVIEW`。
+PRODUCT-05 已开始（`IN_PROGRESS`）。2026-09-29 交付 Instrument 本地目录、Portfolio 手工录入、Watchlist 写路径、
+CSV 预览/确认（无效行禁止写入）、`/portfolio`/`/watchlist` 产品页与首页只读 Policy 审阅（TEST_DEFAULT）。
+迁移 `20260929_0011`；定向单元测试 15 项、`ruff`/`mypy`、`npm run build` 通过。集成/E2E、OpenAPI 基线与
+完整完成定义仍未满足，不得标 `READY_FOR_REVIEW`。
 
 PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已由 PR #13 合并到 `main`，并且 ADR-0013
 已由所有者于 2026-09-22 接受。PRODUCT-03 已由 PR #14 合并到 `main`（合并提交

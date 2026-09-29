@@ -21,6 +21,11 @@ from investment_os.application.portfolio_book import (
     PortfolioPositionInput,
     PortfolioView,
 )
+from investment_os.application.portfolio_csv import (
+    CsvImportPreview,
+    CsvRowResult,
+    PortfolioCsvImportService,
+)
 from investment_os.application.provider_settings import (
     DataProviderConnectionTester,
     DataProviderProfile,
@@ -61,6 +66,10 @@ from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
 from .schemas import (
+    CsvImportCommitResponse,
+    CsvImportPreviewResponse,
+    CsvImportRequest,
+    CsvRowResultResponse,
     DailyReportResponse,
     DataProviderProfileRequest,
     DataProviderProfileResponse,
@@ -75,6 +84,7 @@ from .schemas import (
     ModelProviderProfileRequest,
     ModelProviderProfileResponse,
     OnboardingStateResponse,
+    PolicyReviewResponse,
     PortfolioCashUpdateRequest,
     PortfolioCreateRequest,
     PortfolioResponse,
@@ -330,6 +340,7 @@ def create_app(
     instrument_catalog_service: InstrumentCatalogService | None = None,
     portfolio_book_service: PortfolioBookService | None = None,
     watchlist_service: WatchlistService | None = None,
+    portfolio_csv_service: PortfolioCsvImportService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -349,6 +360,7 @@ def create_app(
     selected_instrument_catalog_service = instrument_catalog_service
     selected_portfolio_book_service = portfolio_book_service
     selected_watchlist_service = watchlist_service
+    selected_portfolio_csv_service = portfolio_csv_service
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
@@ -357,6 +369,7 @@ def create_app(
         or selected_instrument_catalog_service is None
         or selected_portfolio_book_service is None
         or selected_watchlist_service is None
+        or selected_portfolio_csv_service is None
     ):
         reader_engine = create_database_engine(settings.database_url)
         session_factory = create_session_factory(reader_engine)
@@ -376,6 +389,10 @@ def create_app(
             selected_portfolio_book_service = PortfolioBookService(
                 SessionPortfolioBookPort(session_factory),
                 SessionCatalogPort(session_factory),
+            )
+        if selected_portfolio_csv_service is None and selected_portfolio_book_service is not None:
+            selected_portfolio_csv_service = PortfolioCsvImportService(
+                selected_portfolio_book_service
             )
         if selected_watchlist_service is None:
             selected_watchlist_service = WatchlistService(
@@ -1165,6 +1182,90 @@ def create_app(
         if not removed:
             raise HTTPException(status_code=404, detail="watchlist_item_not_found")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    def _csv_row_response(row: CsvRowResult) -> CsvRowResultResponse:
+        payload: dict[str, object] = {
+            "line_number": row.line_number,
+            "status": row.status,
+            "reason": row.reason,
+        }
+        if row.normalized is not None:
+            payload.update(
+                {
+                    "market": row.normalized.market,
+                    "symbol": row.normalized.symbol,
+                    "name": row.normalized.name,
+                    "core_quantity": str(row.normalized.core_quantity),
+                    "tactical_quantity": str(row.normalized.tactical_quantity),
+                    "average_cost": str(row.normalized.average_cost),
+                }
+            )
+        return CsvRowResultResponse.model_validate(payload)
+
+    def _csv_preview_response(preview: CsvImportPreview) -> CsvImportPreviewResponse:
+        return CsvImportPreviewResponse(
+            total_rows=preview.total_rows,
+            can_commit=preview.can_commit,
+            valid=[_csv_row_response(row) for row in preview.valid],
+            invalid=[_csv_row_response(row) for row in preview.invalid],
+            duplicates=[_csv_row_response(row) for row in preview.duplicates],
+        )
+
+    @application.post(
+        "/api/v1/portfolios/{portfolio_id}/csv/preview",
+        response_model=CsvImportPreviewResponse,
+        tags=["portfolio"],
+    )
+    async def preview_portfolio_csv(
+        portfolio_id: UUID, request: CsvImportRequest
+    ) -> CsvImportPreviewResponse:
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            await selected_portfolio_book_service.get_portfolio(portfolio_id)
+            preview = await selected_portfolio_csv_service.preview(request.csv_text)
+        except ApplicationError as exc:
+            raise HTTPException(status_code=422, detail=exc.code.value) from exc
+        return _csv_preview_response(preview)
+
+    @application.post(
+        "/api/v1/portfolios/{portfolio_id}/csv/confirm",
+        response_model=CsvImportCommitResponse,
+        tags=["portfolio"],
+    )
+    async def confirm_portfolio_csv(
+        portfolio_id: UUID, request: CsvImportRequest
+    ) -> CsvImportCommitResponse:
+        from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+
+        try:
+            result = await selected_portfolio_csv_service.confirm(
+                portfolio_id=portfolio_id,
+                raw_text=request.csv_text,
+            )
+        except ApplicationError as exc:
+            status_code = 404 if exc.code is ApplicationErrorCode.PORTFOLIO_NOT_FOUND else 422
+            raise HTTPException(status_code=status_code, detail=exc.code.value) from exc
+        return CsvImportCommitResponse(
+            imported_count=result.imported_count,
+            skipped_count=result.skipped_count,
+            portfolio=_portfolio_response(result.portfolio),
+        )
+
+    @application.get(
+        "/api/v1/policy/review",
+        response_model=PolicyReviewResponse,
+        tags=["policy"],
+    )
+    async def policy_review() -> PolicyReviewResponse:
+        # Read-only P5 surface: never invent or modify real policy limits.
+        return PolicyReviewResponse(
+            active_policy_version="none",
+            policy_status="TEST_DEFAULT",
+            is_test_default=True,
+            limits=[],
+            warning="TEST_DEFAULT 不是投资建议. 真实限额须所有者治理批准后才可变更.",
+        )
 
     frontend_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
     if frontend_dist.is_dir():
