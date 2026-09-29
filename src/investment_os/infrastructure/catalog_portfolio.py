@@ -26,6 +26,15 @@ from investment_os.infrastructure.persistence.models import (
 )
 
 
+def _audit_kwargs(actor: str = "product_portfolio") -> dict[str, object]:
+    return {
+        "created_by": actor,
+        "correlation_id": uuid4(),
+        "schema_version": "1.0",
+        "metadata_json": {},
+    }
+
+
 def _catalog_entry(record: InstrumentRecord) -> InstrumentCatalogEntry:
     return InstrumentCatalogEntry(
         instrument_id=record.id,
@@ -58,6 +67,7 @@ class SqlInstrumentCatalogAdapter(InstrumentCatalogPort):
                 currency=identity.currency,
                 sector=identity.sector,
                 status="ACTIVE",
+                **_audit_kwargs("instrument_catalog"),
             )
             self._session.add(record)
         else:
@@ -135,6 +145,7 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             cash_balance=cash_balance,
             status="ACTIVE",
             policy_id=None,
+            **_audit_kwargs("portfolio_book"),
         )
         self._session.add(record)
         await self._session.flush()
@@ -196,6 +207,7 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 avg_cost=average_cost,
                 realized_pnl=Decimal("0"),
                 version=1,
+                **_audit_kwargs("portfolio_book"),
             )
             self._session.add(record)
         else:
@@ -227,6 +239,7 @@ class SqlWatchlistAdapter(WatchlistPort):
             id=uuid4(),
             instrument_id=instrument_id,
             added_at=added_at,
+            **_audit_kwargs("watchlist"),
         )
         self._session.add(record)
         await self._session.flush()

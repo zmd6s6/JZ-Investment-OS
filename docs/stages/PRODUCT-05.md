@@ -83,3 +83,9 @@
   - API：`POST /portfolios/{id}/csv/preview|confirm`、`GET /policy/review`。
   - 验证：定向单元测试合计 15 项通过；`ruff`/`mypy` 通过；`npm run build` 通过。
   - 仍缺：浏览器 E2E、集成/迁移全量、OpenAPI 基线。不得标 `READY_FOR_REVIEW`。
+- 2026-09-29（收口）：
+  - 集成：隔离库 `investment_os_p5_test` 3 项通过；修复迁移 revision、审计字段、SPA 路由与创建后选中组合。
+  - E2E：`portfolio_watchlist.spec.ts` 4 项通过（Chrome channel）。
+  - OpenAPI check、`tests.unit+集成 310`、`ruff`/`mypy src` 通过。
+  - NOT VERIFIED：detect-secrets 本机未装；`docker compose` CLI 本机不可用。
+  - 保持 `IN_PROGRESS`，待所有者验收。

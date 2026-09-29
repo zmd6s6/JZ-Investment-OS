@@ -1283,4 +1283,20 @@ def create_app(
 
             return FileResponse(frontend_dist / "index.html")
 
+        @application.get("/portfolio", include_in_schema=False)
+        async def portfolio_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/watchlist", include_in_schema=False)
+        async def watchlist_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/journal", include_in_schema=False)
+        async def journal_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/opportunities", include_in_schema=False)
+        async def opportunities_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
     return application

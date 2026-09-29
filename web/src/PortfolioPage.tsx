@@ -69,12 +69,17 @@ export function PortfolioPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preferredId?: string) => {
     const response = await fetch("/api/v1/portfolios");
     if (!response.ok) throw new Error("无法加载资产组合");
     const data = (await response.json()) as Portfolio[];
     setPortfolios(data);
-    if (data.length > 0 && !selectedId) setSelectedId(data[0].portfolio_id);
+    const nextId = preferredId || selectedId;
+    if (nextId && data.some((item) => item.portfolio_id === nextId)) {
+      setSelectedId(nextId);
+    } else if (data.length > 0) {
+      setSelectedId(data[0].portfolio_id);
+    }
   }, [selectedId]);
 
   useEffect(() => {
@@ -102,8 +107,10 @@ export function PortfolioPage() {
       setError("创建组合失败");
       return;
     }
+    const created = (await response.json()) as Portfolio;
     setMessage("组合已创建（未计算市值）");
-    await load();
+    setSelectedId(created.portfolio_id);
+    await load(created.portfolio_id);
   }
 
   async function addPosition(event: FormEvent) {

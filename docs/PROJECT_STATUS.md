@@ -37,10 +37,10 @@
 
 ## 当前授权工作
 
-PRODUCT-05 已开始（`IN_PROGRESS`）。2026-09-29 交付 Instrument 本地目录、Portfolio 手工录入、Watchlist 写路径、
-CSV 预览/确认（无效行禁止写入）、`/portfolio`/`/watchlist` 产品页与首页只读 Policy 审阅（TEST_DEFAULT）。
-迁移 `20260929_0011`；定向单元测试 15 项、`ruff`/`mypy`、`npm run build` 通过。集成/E2E、OpenAPI 基线与
-完整完成定义仍未满足，不得标 `READY_FOR_REVIEW`。
+PRODUCT-05（`IN_PROGRESS`）已覆盖 Instrument 目录、Portfolio 手工/CSV、Watchlist、Policy 只读审阅与产品页。
+2026-09-29 收口：隔离库集成 3 项、浏览器 E2E 4 项、单元+集成 310 项、`ruff`/`mypy src`、OpenAPI check 通过；
+迁移 `20260929_0011`。`detect-secrets` 本机未安装标 `NOT VERIFIED`；`docker-compose config` 通过。待所有者验收后
+方可 `READY_FOR_REVIEW`。
 
 PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已由 PR #13 合并到 `main`，并且 ADR-0013
 已由所有者于 2026-09-22 接受。PRODUCT-03 已由 PR #14 合并到 `main`（合并提交

@@ -1,7 +1,17 @@
-"""PRODUCT-05: instrument catalog metadata, portfolio bookkeeping, watchlist."""
+"""PRODUCT-05: instrument catalog metadata, portfolio bookkeeping, watchlist.
+
+Revision ID: 20260929_0011
+Revises: 20260923_0008
+Create Date: 2026-09-29
+"""
 
 import sqlalchemy as sa
 from alembic import op
+
+revision: str = "20260929_0011"
+down_revision: str | None = "20260923_0008"
+branch_labels = None
+depends_on = None
 
 UUID = sa.Uuid()
 MONEY = sa.Numeric(38, 18)
@@ -35,9 +45,13 @@ def upgrade() -> None:
             unique=True,
         ),
         sa.Column("added_at", TZ, nullable=False),
-        sa.Column("created_at", TZ, nullable=False),
+        sa.Column("created_at", TZ, nullable=False, server_default=sa.func.now()),
         sa.Column("created_by", sa.String(255), nullable=False, server_default="system"),
-        sa.Column("updated_at", TZ, nullable=False),
+        sa.Column("correlation_id", UUID, nullable=False),
+        sa.Column("causation_id", UUID),
+        sa.Column("schema_version", sa.String(32), nullable=False, server_default="1.0"),
+        sa.Column("metadata_json", sa.JSON(), nullable=False, server_default="{}"),
+        sa.Column("updated_at", TZ, nullable=False, server_default=sa.func.now()),
         sa.Column("updated_by", sa.String(255), nullable=False, server_default="system"),
     )
     op.create_index("ix_watchlist_item_instrument", "watchlist_item", ["instrument_id"])
