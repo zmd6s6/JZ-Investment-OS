@@ -66,6 +66,52 @@ class InvestmentPolicyVersionRecord(AuditFieldsMixin, Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class InstrumentRecord(AuditFieldsMixin, Base):
+    """Local catalog identity for one listed instrument (PRODUCT-05)."""
+
+    __tablename__ = "instrument"
+    __table_args__ = (UniqueConstraint("symbol", "exchange", name="uq_instrument_symbol_exchange"),)
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    symbol: Mapped[str] = mapped_column(String(64), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    asset_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False)
+    sector: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    lot_size: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False, default=Decimal(1))
+    sector_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+
+
+class PortfolioRecord(AuditFieldsMixin, Base):
+    __tablename__ = "portfolio"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    base_currency: Mapped[str] = mapped_column(String(16), nullable=False)
+    cash_balance: Mapped[Decimal] = mapped_column(
+        Numeric(38, 18), nullable=False, default=Decimal(0)
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+    policy_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("investment_policy.id", ondelete="RESTRICT")
+    )
+
+
+class WatchlistItemRecord(AuditFieldsMixin, Base):
+    __tablename__ = "watchlist_item"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("instrument.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class PositionRecord(AuditFieldsMixin, Base):
     __tablename__ = "position"
     __table_args__ = (UniqueConstraint("portfolio_id", "instrument_id"),)

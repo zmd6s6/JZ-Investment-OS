@@ -352,3 +352,85 @@ class DecisionJournalResponse(StrictResponse):
     approvals: list[DecisionApprovalResponse]
     executions: list[DecisionExecutionResponse]
     created_at: datetime
+
+
+class InstrumentIdentityRequest(StrictResponse):
+    market: str = Field(min_length=1, max_length=64)
+    symbol: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=255)
+    asset_type: str = Field(min_length=1, max_length=64)
+    currency: str = Field(min_length=3, max_length=3)
+    sector: str = Field(default="", max_length=64)
+
+
+class InstrumentCatalogResponse(StrictResponse):
+    instrument_id: UUID
+    market: str
+    symbol: str
+    name: str
+    asset_type: str
+    currency: str
+    sector: str
+
+
+class PortfolioCreateRequest(StrictResponse):
+    name: str = Field(min_length=1, max_length=255)
+    base_currency: str = Field(min_length=3, max_length=3)
+    cash_balance: Decimal = Decimal("0")
+
+
+class PortfolioCashUpdateRequest(StrictResponse):
+    cash_balance: Decimal
+
+
+class ManualPositionRequest(StrictResponse):
+    market: str = Field(min_length=1, max_length=64)
+    symbol: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=255)
+    asset_type: str = Field(min_length=1, max_length=64)
+    currency: str = Field(min_length=3, max_length=3)
+    sector: str = Field(default="", max_length=64)
+    core_quantity: Decimal = Decimal("0")
+    tactical_quantity: Decimal = Decimal("0")
+    average_cost: Decimal = Decimal("0")
+
+
+class PortfolioPositionResponse(StrictResponse):
+    position_id: UUID
+    instrument_id: UUID
+    market: str
+    symbol: str
+    name: str
+    asset_type: str
+    currency: str
+    sector: str
+    core_quantity: Decimal
+    tactical_quantity: Decimal
+    average_cost: Decimal
+
+
+class PortfolioResponse(StrictResponse):
+    portfolio_id: UUID
+    name: str
+    base_currency: str
+    cash_balance: Decimal
+    status: str
+    as_of: datetime
+    missing_pricing: bool = True
+    positions: list[PortfolioPositionResponse]
+
+
+class WatchlistItemResponse(StrictResponse):
+    watchlist_item_id: UUID
+    instrument_id: UUID
+    market: str
+    symbol: str
+    name: str
+    asset_type: str
+    currency: str
+    sector: str
+    added_at: datetime
+    lifecycle_state: str | None
+    thesis_state: str | None
+    data_freshness_as_of: datetime | None
+    next_monitoring_condition: str | None

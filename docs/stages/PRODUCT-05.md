@@ -1,6 +1,6 @@
 # PRODUCT-05 — Portfolio 与 Watchlist 产品
 
-- 状态：`PLANNED`
+- 状态：`IN_PROGRESS`
 - 前置条件：`PRODUCT-04` 已接受；既有 Portfolio 领域模型、确定性仓位规模计算、Evidence 边界与受支持的 Web UI 基线可用
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md` §5、§8、§10、§11、§12、§16 至 §19
 - 相关 ADR：`ADR-0003`、`ADR-0006`、`ADR-0007`、`ADR-0010`
@@ -64,3 +64,16 @@
 
 至少运行受影响的格式、lint、类型、后端单元/集成/迁移、API/OpenAPI、前端单元/生产构建、浏览器 E2E、密钥扫描和
 `docker compose config`。记录实际命令、结果和仍未验证项；只有全部验收标准有证据时才能转为 `READY_FOR_REVIEW`。
+
+## 实施记录
+
+- 2026-09-29：首个纵切已实现 **Instrument 目录 + Portfolio 手工持仓 + Watchlist 写路径**（应用/领域/SQL/API）。
+  - 领域：`InstrumentIdentity` 规范化 market/symbol/currency/name/asset_type/sector。
+  - 应用：`InstrumentCatalogService`、`PortfolioBookService`（base currency/现金/Core+Tactical/平均成本）、
+    `WatchlistService`（幂等加入；缺失产品字段显式 `None`，不伪造）。
+  - 持久化：`InstrumentRecord`/`PortfolioRecord`/`WatchlistItemRecord` 与迁移 `20260929_0011`。
+  - API：`/api/v1/instruments`、`/api/v1/portfolios`、`/api/v1/watchlist` 写读路径；组合响应 `missing_pricing=true`。
+  - 定向单元测试 9 项通过（身份规范化、目录注册复用、现金/持仓、float 拒绝、Watchlist 幂等与空状态）。
+  - `ruff check` 与针对新增模块的 `mypy` 通过。
+  - **尚未完成**：CSV 导入预览/确认、对账、Watchlist 页面产品 UI、Policy 审阅 UI、集成/E2E、全量测试与
+    OpenAPI 基线更新。不得据此标 `READY_FOR_REVIEW`。

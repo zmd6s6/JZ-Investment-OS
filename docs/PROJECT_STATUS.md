@@ -7,7 +7,7 @@
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
 - 活跃路线图阶段：`PRODUCT-05 / P5 — Portfolio 与 Watchlist 产品`
-- 阶段状态：`PLANNED`（下一阶段；尚未开始实现）
+- 阶段状态：`IN_PROGRESS`（首个纵切：Instrument 目录 + Portfolio 手工持仓 + Watchlist）
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 上次状态更新：`2026-09-29`
@@ -36,6 +36,11 @@
 不得仅因为主规范存在就推断以上项目已经完成。
 
 ## 当前授权工作
+
+PRODUCT-05 已开始（`IN_PROGRESS`）。2026-09-29 首个纵切交付 Instrument 本地目录（身份/规范化/搜索）、
+Portfolio 手工录入（base currency、现金、Core/Tactical、平均成本）与 Watchlist 写路径（幂等加入、缺失字段
+显式空状态），含迁移 `20260929_0011`、API 与定向单元测试 11 项；`ruff`/`mypy`（新增模块）通过。CSV 导入、
+对账、产品 UI、Policy 审阅面、集成/E2E 与完整完成定义仍未满足，不得标 `READY_FOR_REVIEW`。
 
 PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已由 PR #13 合并到 `main`，并且 ADR-0013
 已由所有者于 2026-09-22 接受。PRODUCT-03 已由 PR #14 合并到 `main`（合并提交
