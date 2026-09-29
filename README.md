@@ -6,10 +6,13 @@ Review 状态。
 
 仓库当前包含 PR-01 至 PR-08 的开发工作：纯领域内核、PostgreSQL 持久化/审计/outbox 原语、合成
 DSA/Evidence/Thesis/Committee/Risk/Decision 工作流、明确的批准与禁用实盘执行关卡，以及只读个人 UI。
-worker 只能分派经模式验证、显式提供的合成日历；它不推断市场会话，也不连接真实市场数据供应商。
-项目包含经审计的模型/数据提供方配置元数据与本地加密凭据存储。PRODUCT-03 已接入
-OpenAI-compatible 模型网关和显式的模型连接测试；它不自动选择、启用或调用任何提供方，且仍不提供
-真实数据供应商运行时、组合导入或实盘经纪商执行。
+项目也已接受 PRODUCT-01 至 PRODUCT-04：首次引导、设置/加密凭据存储、OpenAI-compatible 模型运行时和
+经端口隔离的多提供方数据运行时。它们不自动选择或启用提供方，也不提供组合导入、完整分析编排或实盘经纪商执行。
+
+当前产品执行顺序是 P5（Portfolio 与 Watchlist）→ P6（分析编排）→ P7（交互式决策与批准）→ P8（每日 AI
+团队运行时）→ P9（Beta 验收）。PR-09 在 P9 经所有者接受前保持阻塞，不能视作发布就绪。完整状态见
+[`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)，阶段契约见
+[`docs/product/PRODUCTIZATION_ROADMAP.md`](docs/product/PRODUCTIZATION_ROADMAP.md)。
 
 ## 安全状态
 

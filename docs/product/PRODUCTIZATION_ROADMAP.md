@@ -1,12 +1,40 @@
 # Personal AI Investment OS — 产品化路线图
 
-> 状态：拟议执行计划
+> 状态：已接受的产品执行顺序（2026-09-29 由所有者重新确认）
 >
 > 权威：从属于 `INVESTMENT_OS_MASTER_SPEC.md`、已接受 ADR 和活动阶段契约
 >
 > 目的：将既有 Investment OS 内核转化为所有者无需编写代码、SQL、JSON 或 curl 命令即可使用的产品
 >
 > 安全基线：`auto_trade=false`；V1 不提交实盘经纪商订单
+
+---
+
+## 当前执行决定（2026-09-29）
+
+所有者已明确重新排序产品化工作：`PRODUCT-04 / P4` 已接受，必须按 `P5 → P6 → P7 → P8 → P9`
+依次完成、验证并经所有者接受，之后才能恢复 `PR-09`。
+
+任何尚未合并的 PR-09 Outcome、Review/Learning、发布与加固预研均不构成已接受交付，不能作为当前活动阶段、
+可用 Beta 或发布就绪的声明。`PR-09` 当前为 `BLOCKED`，解除条件是 P9 经所有者 `ACCEPTED`，并由所有者
+明确要求恢复该阶段。
+
+这一决定补充主规范中 PR-00 至 PR-09 的技术交付顺序，不改写主规范、已接受 ADR 或既有合并历史。产品阶段
+文件是本路线图的可审查执行契约；任一时刻只能有一个活动路线图阶段。
+
+| 产品步骤 | 阶段文件 | 当前状态 | 说明 |
+|---|---|---|---|
+| P0 | 历史基础 | `ACCEPTED` | 既有工程基线 |
+| P1 | `PRODUCT-01` | `ACCEPTED` | 首次引导与产品状态 |
+| P2 | `PRODUCT-02` | `ACCEPTED` | 设置、密钥存储与供应商档案 |
+| P3 | `PRODUCT-03` | `ACCEPTED` | 真实模型运行时 |
+| P4 | `PRODUCT-04` | `ACCEPTED` | 多提供方数据运行时 |
+| P5 | `PRODUCT-05` | `PLANNED` | 当前下一阶段：Portfolio 与 Watchlist 产品 |
+| P6 | `PRODUCT-06` | `PLANNED` | 端到端 Analysis Orchestration |
+| P7 | `PRODUCT-07` | `PLANNED` | 交互式决策与批准 |
+| P8 | `PRODUCT-08` | `PLANNED` | 每日 AI 团队运行时 |
+| P9 | `PRODUCT-09` | `PLANNED` | Beta 验收 |
+| 后续 | `PR-09` | `BLOCKED` | 仅在 P9 接受后恢复 Outcome、Review/Learning、加固与发布 |
 
 ---
 
@@ -687,49 +715,67 @@ PR-08 必须审查并合并后才能实施 P1。
 
 ### P5 — Portfolio 与 Watchlist 产品
 
+状态：`PLANNED`。具体范围和验收条件见 `docs/stages/PRODUCT-05.md`。
+
 交付：
 
 - Portfolio UI/API；
-- 手工持仓录入；
+- 最小 InstrumentIdentity/Catalog/Search 端口与适配器（market/symbol/name/asset_type/currency/sector）；
+- 手工持仓录入（含 base currency / 现金与快照边界）；
 - CSV 导入预览/确认；
 - 对账；
-- Watchlist CRUD；
-- 标的搜索/规范化。
+- Watchlist CRUD（搜索/规范化用本阶段目录端口）；
+- Watchlist 展示 lifecycle state、Thesis state、data freshness、next monitoring condition（缺失显式标注）；
+- 只读 Investment Policy 审阅（active version、限额摘要、`TEST_DEFAULT` 警告）；不修改真实限额。
 
-验收：所有者无需接触 SQL/JSON/代码即可载入个人 Portfolio；真实 portfolio 数据不会进入仓库资产。
+验收：所有者无需接触 SQL/JSON/代码即可载入个人 Portfolio；目录/搜索在本阶段可用；真实 portfolio 数据不会进入
+仓库资产；Watchlist 四项与 Policy 审阅经 UI/API/E2E 验证。
 
 ### P6 — 端到端 Analysis Orchestration
+
+状态：`PLANNED`，依赖 P5 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-06.md`。
 
 交付：
 
 - AnalysisRun；
 - InvestmentAnalysisOrchestrator；
+- 结构化 market-data port/adapter（reference price、universe、sector/classification、确定性特征）；
+- FX rate 输入（as-of/source）与确定性多币种换算（缺失/陈旧失败关闭）；
+- 确定性 valuation/context builder（price、NAV、weights、exposure、volatility/liquidity）；
+- Analysis/Decision 固定 `policy_version`；
 - 立即运行分析；
 - 进度/失败可见性；
 - 完整 Evidence → Decision 持久化。
 
-验收：一个选定标的可使用已配置模型/数据供应商完成完整影子投资周期。
+验收：一个选定标的可使用已配置模型/数据供应商完成完整影子投资周期；Risk/Sizing 输入可对账且缺失失败关闭。
 
 ### P7 — 交互式决策与批准
+
+状态：`PLANNED`，依赖 P6 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-07.md`。
 
 交付：
 
 - 由真实 API 支撑的 Decision 列表/详情；
 - Evidence/Thesis/Agent/Risk/仓位规模计算下钻；
 - Approve/Reject/Revoke；
-- 手工执行记录。
+- 手工执行记录：quantity、price、适用时 fees、execution timestamp、sanitized external reference/note、
+  approval linkage、fill-state 一致性与不可变审计（含必要的 fees 迁移/API/UI）。
 
 验收：所有者可完全通过 UI 处理 Decision；不可能产生任何实盘经纪商订单。
 
 ### P8 — 每日 AI 团队运行时
 
+状态：`PLANNED`，依赖 P7 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-08.md`。
+
 交付：
 
+- 产品化交易日历（CalendarProvider 或 UI/Settings 可审计日历导入，持久化 market sessions；不靠 env/手写内部文件）；
 - 定时数据同步；
 - Portfolio/Watchlist Evidence diff；
 - 自动分析触发；
-- 每日报告；
-- 每周机会筛选；
+- 每日报告（必显：action required、hold/watch、新机会、Risk Veto、待处理 approvals、data/job degraded）；
+- 每周机会筛选硬契约：`universe → deterministic funnel → bounded candidates → 仅候选 deep research →
+  Opportunities UI`，禁止全市场强模型 fan-out；
 - 每月 Portfolio 复核；
 - 明确失败/降级状态。
 
@@ -737,9 +783,16 @@ PR-08 必须审查并合并后才能实施 P1。
 
 ### P9 — Beta 验收
 
-运行 `docs/product/BETA_ACCEPTANCE.md` 中完整验收门槛。未通过 P9，不得声称产品可正常使用。
+状态：`PLANNED`，依赖 P8 `ACCEPTED`。具体范围和验收条件见 `docs/stages/PRODUCT-09.md`。
+
+运行 `docs/product/BETA_ACCEPTANCE.md` 中完整验收门槛，并维护
+`BETA_ACCEPTANCE §2–§18 → owning stage → evidence` 追溯矩阵；P9 只做 fresh-install + E2E 重跑/汇总。
+正式 backup/restore 演练归 PR-09。未通过 P9，不得声称产品可正常使用。
 
 ### PR-09 — Outcome、Review/Learning、加固与发布
+
+状态：`BLOCKED`。PR-09 仅在 P9 经所有者 `ACCEPTED` 后恢复；此前任何既有切片都不得用作产品完成或发布
+就绪声明。
 
 PR-09 在可用 Beta 之后执行，完成：
 
@@ -750,8 +803,8 @@ PR-09 在可用 Beta 之后执行，完成：
 - Backtest；
 - Shadow 验证；
 - 人工治理的激活；
-- 备份/恢复；
-- 安全/性能加固；
+- 备份/恢复 hardening 与正式演练；
+- 安全/性能加固（含多用户鉴权/授权、TLS 等）；
 - 可追溯性矩阵；
 - 发布检查清单。
 
