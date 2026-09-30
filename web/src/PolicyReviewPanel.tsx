@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { Panel } from "./ProductChrome";
+
 type PolicyReview = {
   active_policy_version: string;
   policy_status: string;
@@ -25,37 +27,61 @@ export function PolicyReviewPanel() {
       );
   }, []);
 
-  if (error) return <p className="error-text">{error}</p>;
-  if (!policy) return <p>加载中…</p>;
-
   return (
-    <section className="legacy-page" aria-labelledby="policy-review-title">
-      <h2 id="policy-review-title">Investment Policy（只读审阅）</h2>
-      <p className="legacy-warning">{policy.warning}</p>
-      <p>
-        状态：<strong>{policy.policy_status}</strong> · 版本：
-        <strong>{policy.active_policy_version}</strong>
-        {policy.is_test_default ? " · TEST_DEFAULT" : ""}
-      </p>
-      {policy.limits.length === 0 ? (
-        <p>未提供具体限额（不伪造数值）</p>
-      ) : (
-        <ul>
-          {policy.limits.map((limit) => (
-            <li key={limit.key}>
-              {limit.key}: {limit.value}
-            </li>
-          ))}
-        </ul>
-      )}
-      <label>
-        <input
-          type="checkbox"
-          checked={acknowledged}
-          onChange={(e) => setAcknowledged(e.target.checked)}
-        />
-        我已阅读当前政策状态（系统不会在此修改限额）
-      </label>
-    </section>
+    <Panel
+      title="Investment Policy · 只读审阅"
+      description="这里只展示当前纪律状态，不能修改真实限额。"
+      tone="warn"
+    >
+      {error ? <p className="banner banner-error">{error}</p> : null}
+      {!policy && !error ? <p>加载中…</p> : null}
+      {policy ? (
+        <div className="policy-layout">
+          <div className="policy-summary">
+            <div>
+              <span>状态</span>
+              <strong data-testid="policy-status">{policy.policy_status}</strong>
+            </div>
+            <div>
+              <span>版本</span>
+              <strong>{policy.active_policy_version}</strong>
+            </div>
+            {policy.is_test_default ? (
+              <div>
+                <span>标记</span>
+                <strong>TEST_DEFAULT</strong>
+              </div>
+            ) : null}
+          </div>
+
+          <p className="banner banner-info">{policy.warning}</p>
+
+          {policy.limits.length === 0 ? (
+            <p className="muted">未提供具体限额（不伪造数值）</p>
+          ) : (
+            <ul className="limit-list">
+              {policy.limits.map((limit) => (
+                <li key={limit.key}>
+                  <span>{limit.key}</span>
+                  <strong>{limit.value}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <label className="check-line">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
+            />
+            <span>我已阅读当前政策状态（系统不会在此修改限额）</span>
+          </label>
+          {acknowledged ? (
+            <p className="banner banner-ok">已记录你的审阅确认（本地界面状态，不改政策）。</p>
+          ) : null}
+        </div>
+      ) : null}
+    </Panel>
   );
 }

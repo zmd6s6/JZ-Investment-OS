@@ -1,4 +1,6 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+
+import { EmptyState, Field, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 
 type PortfolioPosition = {
   position_id: string;
@@ -57,6 +59,16 @@ const emptyManual = {
   average_cost: "0",
 };
 
+const csvSample = [
+  "market,symbol,name,asset_type,currency,sector,core_quantity,tactical_quantity,average_cost",
+  "SSE,600519,贵州茅台,EQUITY,CNY,Consumer,10,2,1600",
+].join("\n");
+
+function formatQty(value: string) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toLocaleString("zh-CN", { maximumFractionDigits: 4 }) : value;
+}
+
 export function PortfolioPage() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
@@ -68,19 +80,23 @@ export function PortfolioPage() {
   const [preview, setPreview] = useState<CsvPreview | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async (preferredId?: string) => {
-    const response = await fetch("/api/v1/portfolios");
-    if (!response.ok) throw new Error("无法加载资产组合");
-    const data = (await response.json()) as Portfolio[];
-    setPortfolios(data);
-    const nextId = preferredId || selectedId;
-    if (nextId && data.some((item) => item.portfolio_id === nextId)) {
-      setSelectedId(nextId);
-    } else if (data.length > 0) {
-      setSelectedId(data[0].portfolio_id);
-    }
-  }, [selectedId]);
+  const load = useCallback(
+    async (preferredId?: string) => {
+      const response = await fetch("/api/v1/portfolios");
+      if (!response.ok) throw new Error("无法加载资产组合");
+      const data = (await response.json()) as Portfolio[];
+      setPortfolios(data);
+      const nextId = preferredId || selectedId;
+      if (nextId && data.some((item) => item.portfolio_id === nextId)) {
+        setSelectedId(nextId);
+      } else if (data.length > 0) {
+        setSelectedId(data[0].portfolio_id);
+      }
+    },
+    [selectedId],
+  );
 
   useEffect(() => {
     void load().catch((reason: unknown) =>
@@ -88,257 +104,349 @@ export function PortfolioPage() {
     );
   }, [load]);
 
-  const selected = portfolios.find((item) => item.portfolio_id === selectedId) || portfolios[0];
+  const selected = useMemo(
+    () => portfolios.find((item) => item.portfolio_id === selectedId) || portfolios[0],
+    [portfolios, selectedId],
+  );
 
   async function createPortfolio(event: FormEvent) {
     event.preventDefault();
+    setBusy(true);
     setError(null);
     setMessage(null);
-    const response = await fetch("/api/v1/portfolios", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        base_currency: baseCurrency,
-        cash_balance: cashBalance,
-      }),
-    });
-    if (!response.ok) {
-      setError("创建组合失败");
-      return;
+    try {
+      const response = await fetch("/api/v1/portfolios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          base_currency: baseCurrency,
+          cash_balance: cashBalance,
+        }),
+      });
+      if (!response.ok) throw new Error("创建组合失败");
+      const created = (await response.json()) as Portfolio;
+      setMessage("组合已创建（暂不计算市值）");
+      setSelectedId(created.portfolio_id);
+      await load(created.portfolio_id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "创建组合失败");
+    } finally {
+      setBusy(false);
     }
-    const created = (await response.json()) as Portfolio;
-    setMessage("组合已创建（未计算市值）");
-    setSelectedId(created.portfolio_id);
-    await load(created.portfolio_id);
   }
 
   async function addPosition(event: FormEvent) {
     event.preventDefault();
     if (!selected) return;
+    setBusy(true);
     setError(null);
     setMessage(null);
-    const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/positions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(manual),
-    });
-    if (!response.ok) {
-      setError("持仓写入失败");
-      return;
+    try {
+      const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/positions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(manual),
+      });
+      if (!response.ok) throw new Error("持仓写入失败");
+      setMessage("持仓已记录（Core / Tactical 分开保存）");
+      setManual(emptyManual);
+      await load(selected.portfolio_id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "持仓写入失败");
+    } finally {
+      setBusy(false);
     }
-    setMessage("持仓已记录（Core/Tactical 分开保存）");
-    setManual(emptyManual);
-    await load();
   }
 
   async function previewCsv() {
     if (!selected) return;
+    setBusy(true);
     setError(null);
-    const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/preview`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ csv_text: csvText }),
-    });
-    if (!response.ok) {
-      setError("CSV 预览失败");
+    try {
+      const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv_text: csvText }),
+      });
+      if (!response.ok) throw new Error("CSV 预览失败");
+      setPreview((await response.json()) as CsvPreview);
+      setMessage("预览完成：确认前不会写入任何持仓");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "CSV 预览失败");
       setPreview(null);
-      return;
+    } finally {
+      setBusy(false);
     }
-    setPreview((await response.json()) as CsvPreview);
   }
 
   async function confirmCsv() {
     if (!selected) return;
+    setBusy(true);
     setError(null);
-    const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/confirm`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ csv_text: csvText }),
-    });
-    if (!response.ok) {
-      setError("CSV 确认失败（存在无效行时不会写入）");
-      return;
+    try {
+      const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv_text: csvText }),
+      });
+      if (!response.ok) throw new Error("CSV 确认失败（存在无效行时不会写入）");
+      setMessage("CSV 已导入，请对照下表核对");
+      setPreview(null);
+      setCsvText("");
+      await load(selected.portfolio_id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "CSV 确认失败");
+    } finally {
+      setBusy(false);
     }
-    setMessage("CSV 已导入；请对照下表核对持仓");
-    setPreview(null);
-    setCsvText("");
-    await load();
   }
 
   return (
-    <main className="product-shell">
-      <header className="product-header">
-        <div>
-          <p className="eyebrow">PRODUCT-05 · 资产组合</p>
-          <h1>Portfolio</h1>
-        </div>
-        <a className="back-link" href="/">
-          返回向导
-        </a>
-      </header>
-      <p className="legacy-warning">
-        SIMULATION / NO AUTO TRADE。此页不计算市值、收益或建议仓位；数据 as-of
-        {selected ? ` ${selected.as_of}` : " 未提供"}。个人持仓不会写入仓库。
-      </p>
-      {error ? <p className="error-text">{error}</p> : null}
-      {message ? <p className="ok-text">{message}</p> : null}
+    <ProductChrome
+      eyebrow="PRODUCT-05 · 资产组合"
+      title="Portfolio"
+      subtitle="录入持仓、批量导入并核对。本页不计算市值/收益，也不给出买卖建议。"
+    >
+      <StatusBanner kind="error" text={error} />
+      <StatusBanner kind="ok" text={message} />
 
-      <section className="legacy-page">
-        <h2>创建组合</h2>
-        <form onSubmit={createPortfolio} className="stack-form">
-          <label>
-            名称
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label>
-            基础货币
-            <input value={baseCurrency} onChange={(e) => setBaseCurrency(e.target.value)} />
-          </label>
-          <label>
-            现金余额
-            <input value={cashBalance} onChange={(e) => setCashBalance(e.target.value)} />
-          </label>
-          <button type="submit">创建</button>
-        </form>
-      </section>
+      <div className="stat-row">
+        <article className="stat-card">
+          <span>当前组合</span>
+          <strong>{selected?.name || "未提供"}</strong>
+          <small>
+            {selected
+              ? `${selected.base_currency} · as-of ${new Date(selected.as_of).toLocaleString("zh-CN")}`
+              : "先创建或选择一个组合"}
+          </small>
+        </article>
+        <article className="stat-card">
+          <span>现金余额</span>
+          <strong>{selected ? formatQty(selected.cash_balance) : "—"}</strong>
+          <small>{selected?.base_currency || ""}</small>
+        </article>
+        <article className="stat-card">
+          <span>持仓笔数</span>
+          <strong>{selected?.positions.length ?? 0}</strong>
+          <small>Core / Tactical 分列</small>
+        </article>
+        <article className="stat-card warn">
+          <span>定价</span>
+          <strong>未提供</strong>
+          <small>市值与 NAV 归属 P6，此处不伪造</small>
+        </article>
+      </div>
 
-      <section className="legacy-page">
-        <h2>持仓（手工录入）</h2>
-        <form onSubmit={addPosition} className="stack-form">
-          <label>
-            market
-            <input
-              value={manual.market}
-              onChange={(e) => setManual({ ...manual, market: e.target.value })}
-            />
-          </label>
-          <label>
-            symbol
-            <input
-              value={manual.symbol}
-              onChange={(e) => setManual({ ...manual, symbol: e.target.value })}
-            />
-          </label>
-          <label>
-            name
-            <input
-              value={manual.name}
-              onChange={(e) => setManual({ ...manual, name: e.target.value })}
-            />
-          </label>
-          <label>
-            currency
-            <input
-              value={manual.currency}
-              onChange={(e) => setManual({ ...manual, currency: e.target.value })}
-            />
-          </label>
-          <label>
-            sector
-            <input
-              value={manual.sector}
-              onChange={(e) => setManual({ ...manual, sector: e.target.value })}
-            />
-          </label>
-          <label>
-            core_quantity
-            <input
-              value={manual.core_quantity}
-              onChange={(e) => setManual({ ...manual, core_quantity: e.target.value })}
-            />
-          </label>
-          <label>
-            tactical_quantity
-            <input
-              value={manual.tactical_quantity}
-              onChange={(e) => setManual({ ...manual, tactical_quantity: e.target.value })}
-            />
-          </label>
-          <label>
-            average_cost
-            <input
-              value={manual.average_cost}
-              onChange={(e) => setManual({ ...manual, average_cost: e.target.value })}
-            />
-          </label>
-          <button type="submit">记录持仓</button>
-        </form>
-      </section>
-
-      <section className="legacy-page">
-        <h2>CSV 导入（先预览，后确认）</h2>
-        <p>
-          表头必须包含：market,symbol,name,asset_type,currency,sector,core_quantity,tactical_quantity,average_cost
-        </p>
-        <textarea
-          value={csvText}
-          onChange={(e) => setCsvText(e.target.value)}
-          rows={6}
-          aria-label="CSV 内容"
-        />
-        <div className="legacy-tabs">
-          <button type="button" onClick={() => void previewCsv()}>
-            预览
-          </button>
-          <button type="button" onClick={() => void confirmCsv()} disabled={!preview?.can_commit}>
-            确认导入
-          </button>
-        </div>
-        {preview ? (
-          <div>
-            <p>
-              共 {preview.total_rows} 行 · 有效 {preview.valid.length} · 无效 {preview.invalid.length} ·
-              重复 {preview.duplicates.length} ·{" "}
-              {preview.can_commit ? "可确认导入" : "存在无效行，禁止写入"}
-            </p>
-            <ul>
-              {[...preview.invalid, ...preview.duplicates, ...preview.valid].map((row) => (
-                <li key={`${row.line_number}-${row.status}`}>
-                  行 {row.line_number} · {row.status} · {row.symbol || "-"} ·{" "}
-                  {row.reason || "ok"}
+      <div className="two-col">
+        <Panel
+          title="切换组合"
+          description="创建后自动选中；列表来自真实 API。"
+          tone="muted"
+        >
+          {portfolios.length === 0 ? (
+            <EmptyState title="还没有组合" hint="在右侧创建你的第一个组合。" />
+          ) : (
+            <ul className="select-list">
+              {portfolios.map((item) => (
+                <li key={item.portfolio_id}>
+                  <button
+                    type="button"
+                    className={item.portfolio_id === selected?.portfolio_id ? "selected" : ""}
+                    onClick={() => setSelectedId(item.portfolio_id)}
+                  >
+                    <strong>{item.name}</strong>
+                    <span>
+                      {item.base_currency} · {item.positions.length} 笔持仓
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
-          </div>
-        ) : null}
-      </section>
+          )}
+        </Panel>
 
-      <section className="legacy-page">
-        <h2>对账视图</h2>
-        {!selected ? (
-          <p>未提供组合</p>
-        ) : (
-          <div>
-            <p>
-              {selected.name} · {selected.base_currency} · 现金 {selected.cash_balance} ·{" "}
-              {selected.missing_pricing ? "未提供市值/NAV" : ""}
-            </p>
-            <table>
+        <Panel title="创建组合" description="名称、基础货币与现金。可先建组合再补持仓。">
+          <form className="form-grid" onSubmit={createPortfolio}>
+            <Field label="名称" value={name} onChange={setName} />
+            <Field
+              label="基础货币"
+              value={baseCurrency}
+              onChange={setBaseCurrency}
+              hint="3 位代码，如 CNY / USD / HKD"
+            />
+            <Field label="现金余额" value={cashBalance} onChange={setCashBalance} />
+            <button type="submit" className="btn primary" disabled={busy}>
+              创建
+            </button>
+          </form>
+        </Panel>
+      </div>
+
+      <Panel
+        title="手工录入持仓"
+        description="每笔明确市场、代码、数量与成本。核心仓与短线仓分开记账。"
+      >
+        <form className="form-grid wide" onSubmit={addPosition}>
+          <Field
+            label="market"
+            value={manual.market}
+            onChange={(v) => setManual({ ...manual, market: v })}
+            hint="SSE / SZSE / HKEX…"
+          />
+          <Field
+            label="symbol"
+            value={manual.symbol}
+            onChange={(v) => setManual({ ...manual, symbol: v })}
+            placeholder="600519"
+          />
+          <Field
+            label="name"
+            value={manual.name}
+            onChange={(v) => setManual({ ...manual, name: v })}
+            placeholder="贵州茅台"
+          />
+          <Field
+            label="currency"
+            value={manual.currency}
+            onChange={(v) => setManual({ ...manual, currency: v })}
+          />
+          <Field
+            label="sector"
+            value={manual.sector}
+            onChange={(v) => setManual({ ...manual, sector: v })}
+            placeholder="Consumer"
+          />
+          <Field
+            label="core_quantity"
+            value={manual.core_quantity}
+            onChange={(v) => setManual({ ...manual, core_quantity: v })}
+          />
+          <Field
+            label="tactical_quantity"
+            value={manual.tactical_quantity}
+            onChange={(v) => setManual({ ...manual, tactical_quantity: v })}
+          />
+          <Field
+            label="average_cost"
+            value={manual.average_cost}
+            onChange={(v) => setManual({ ...manual, average_cost: v })}
+          />
+          <button type="submit" className="btn primary" disabled={busy || !selected}>
+            记录持仓
+          </button>
+        </form>
+      </Panel>
+
+      <Panel
+        title="CSV 导入"
+        description="先预览再确认。存在无效行时禁止写入，避免半截导入。"
+        actions={
+          <button type="button" className="btn ghost" onClick={() => setCsvText(csvSample)}>
+            填入示例
+          </button>
+        }
+      >
+        <p className="hint-text">
+          表头必须包含：
+          <code>market,symbol,name,asset_type,currency,sector,core_quantity,tactical_quantity,average_cost</code>
+        </p>
+        <textarea
+          className="csv-input"
+          value={csvText}
+          onChange={(e) => setCsvText(e.target.value)}
+          rows={7}
+          aria-label="CSV 内容"
+          placeholder={csvSample}
+        />
+        <div className="btn-row">
+          <button type="button" className="btn" onClick={() => void previewCsv()} disabled={busy}>
+            预览
+          </button>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => void confirmCsv()}
+            disabled={busy || !preview?.can_commit}
+          >
+            确认导入
+          </button>
+          {!preview?.can_commit && preview ? (
+            <span className="inline-note">存在无效行，确认按钮保持禁用</span>
+          ) : null}
+        </div>
+
+        {preview ? (
+          <div className="preview-block">
+            <div className="chip-row">
+              <span className="chip">共 {preview.total_rows} 行</span>
+              <span className="chip ok">有效 {preview.valid.length}</span>
+              <span className="chip bad">无效 {preview.invalid.length}</span>
+              <span className="chip warn">重复 {preview.duplicates.length}</span>
+              <span className={`chip ${preview.can_commit ? "ok" : "bad"}`}>
+                {preview.can_commit ? "可确认导入" : "存在无效行，禁止写入"}
+              </span>
+            </div>
+            <table className="data-table">
               <thead>
                 <tr>
+                  <th>行</th>
+                  <th>状态</th>
                   <th>symbol</th>
-                  <th>name</th>
-                  <th>core</th>
-                  <th>tactical</th>
-                  <th>avg cost</th>
+                  <th>说明</th>
                 </tr>
               </thead>
               <tbody>
-                {selected.positions.map((position) => (
-                  <tr key={position.position_id}>
-                    <td>{position.symbol}</td>
-                    <td>{position.name}</td>
-                    <td>{position.core_quantity}</td>
-                    <td>{position.tactical_quantity}</td>
-                    <td>{position.average_cost}</td>
+                {[...preview.invalid, ...preview.duplicates, ...preview.valid].map((row) => (
+                  <tr key={`${row.line_number}-${row.status}`} className={`row-${row.status.toLowerCase()}`}>
+                    <td>{row.line_number}</td>
+                    <td>
+                      <span className={`pill ${row.status.toLowerCase()}`}>{row.status}</span>
+                    </td>
+                    <td>{row.symbol || "—"}</td>
+                    <td>{row.reason || "ok"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : null}
+      </Panel>
+
+      <Panel title="对账视图" description="导入或手工录入后，用这张表核对数量与成本。">
+        {!selected || selected.positions.length === 0 ? (
+          <EmptyState title="暂无持仓" hint="用上方手工录入或 CSV 导入后，这里会列出结果。" />
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>market</th>
+                <th>symbol</th>
+                <th>name</th>
+                <th>Core</th>
+                <th>Tactical</th>
+                <th>均价</th>
+                <th>currency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selected.positions.map((position) => (
+                <tr key={position.position_id}>
+                  <td>{position.market}</td>
+                  <td>
+                    <strong>{position.symbol}</strong>
+                  </td>
+                  <td>{position.name}</td>
+                  <td>{formatQty(position.core_quantity)}</td>
+                  <td>{formatQty(position.tactical_quantity)}</td>
+                  <td>{formatQty(position.average_cost)}</td>
+                  <td>{position.currency}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-      </section>
-    </main>
+      </Panel>
+    </ProductChrome>
   );
 }

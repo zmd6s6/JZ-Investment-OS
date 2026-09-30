@@ -13,7 +13,7 @@ test("portfolio page creates portfolio and records core/tactical position", asyn
   await page.getByLabel("基础货币").fill("CNY");
   await page.getByLabel("现金余额").fill("10000");
   await page.getByRole("button", { name: "创建" }).click();
-  await expect(page.getByText("组合已创建（未计算市值）")).toBeVisible();
+  await expect(page.getByText("组合已创建（暂不计算市值）")).toBeVisible();
 
   await page.getByLabel("symbol").fill("600519");
   await page.getByLabel("name").fill("贵州茅台");
@@ -21,7 +21,7 @@ test("portfolio page creates portfolio and records core/tactical position", asyn
   await page.getByLabel("tactical_quantity").fill("2");
   await page.getByLabel("average_cost").fill("1600");
   await page.getByRole("button", { name: "记录持仓" }).click();
-  await expect(page.getByText("持仓已记录（Core/Tactical 分开保存）")).toBeVisible();
+  await expect(page.getByText("持仓已记录（Core / Tactical 分开保存）")).toBeVisible();
   await expect(page.getByRole("cell", { name: "600519" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "10" }).first()).toBeVisible();
 
@@ -43,7 +43,7 @@ test("csv import blocks commit when invalid rows exist and accepts clean file", 
   await page.goto("/portfolio");
   await page.getByLabel("名称").fill("csv-" + Date.now());
   await page.getByRole("button", { name: "创建" }).click();
-  await expect(page.getByText("组合已创建（未计算市值）")).toBeVisible();
+  await expect(page.getByText("组合已创建（暂不计算市值）")).toBeVisible();
 
   const header =
     "market,symbol,name,asset_type,currency,sector,core_quantity,tactical_quantity,average_cost";
@@ -58,7 +58,7 @@ test("csv import blocks commit when invalid rows exist and accepts clean file", 
   await page.getByRole("button", { name: "预览" }).click();
   await expect(page.getByText("可确认导入")).toBeVisible();
   await page.getByRole("button", { name: "确认导入" }).click();
-  await expect(page.getByText("CSV 已导入；请对照下表核对持仓")).toBeVisible();
+  await expect(page.getByText("CSV 已导入，请对照下表核对")).toBeVisible();
 });
 
 test("watchlist shows explicit empty optional fields and supports add/remove", async ({
@@ -69,10 +69,10 @@ test("watchlist shows explicit empty optional fields and supports add/remove", a
   await page.getByLabel("symbol").fill("000001");
   await page.getByLabel("name").fill("平安银行");
   await page.getByRole("button", { name: "加入" }).click();
-  await expect(page.getByText("已加入观察清单（缺失状态显示为未提供）")).toBeVisible();
+  await expect(page.getByText("已加入观察清单")).toBeVisible();
   await expect(page.getByRole("cell", { name: "未提供" }).first()).toBeVisible();
   await page.getByRole("button", { name: "移除" }).click();
-  await expect(page.getByText("已移除")).toBeVisible();
+  await expect(page.getByText(/已移除/)).toBeVisible();
 });
 
 test("home policy review is read-only and marks TEST_DEFAULT", async ({ page }) => {
