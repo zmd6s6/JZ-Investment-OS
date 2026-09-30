@@ -643,6 +643,7 @@
 }
 
 .field input,
+.field select,
 .csv-input {
   width: 100%;
   border: 1px solid #c9d5c7;
@@ -653,9 +654,18 @@
 }
 
 .field input:focus,
+.field select:focus,
 .csv-input:focus {
   outline: 2px solid #2f7a52;
   outline-offset: 1px;
+}
+
+.more-toggle {
+  margin-top: 12px;
+}
+
+.more-grid {
+  margin-top: 14px;
 }
 
 .field small,

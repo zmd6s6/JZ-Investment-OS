@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
-import { EmptyState, Field, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
+import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 
 type WatchlistItem = {
   watchlist_item_id: string;
@@ -18,18 +18,18 @@ type WatchlistItem = {
   next_monitoring_condition: string | null;
 };
 
-const emptyForm = {
-  market: "SSE",
-  symbol: "",
-  name: "",
-  asset_type: "EQUITY",
-  currency: "CNY",
-  sector: "",
-};
+function guessMarket(symbol: string) {
+  const s = symbol.trim();
+  if (/^[69]/.test(s)) return "SSE";
+  if (/^[03]/.test(s)) return "SZSE";
+  if (/^\d{5}$/.test(s)) return "HKEX";
+  return "SSE";
+}
 
 export function WatchlistPage() {
   const [items, setItems] = useState<WatchlistItem[]>([]);
-  const [form, setForm] = useState(emptyForm);
+  const [symbol, setSymbol] = useState("");
+  const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,17 +52,26 @@ export function WatchlistPage() {
     setError(null);
     setMessage(null);
     try {
+      const market = guessMarket(symbol);
       const response = await fetch("/api/v1/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          market,
+          symbol,
+          name,
+          asset_type: "EQUITY",
+          currency: market === "HKEX" ? "HKD" : "CNY",
+          sector: "",
+        }),
       });
-      if (!response.ok) throw new Error("加入观察清单失败");
+      if (!response.ok) throw new Error("加入失败");
       setMessage("已加入观察清单");
-      setForm(emptyForm);
+      setSymbol("");
+      setName("");
       await load();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "加入观察清单失败");
+      setError(reason instanceof Error ? reason.message : "加入失败");
     } finally {
       setBusy(false);
     }
@@ -89,89 +98,80 @@ export function WatchlistPage() {
 
   return (
     <ProductChrome
-      eyebrow="PRODUCT-05 · 观察清单"
-      title="Watchlist"
-      subtitle="只维护盯什么票。状态字段有数据才显示，没有就写「未提供」，绝不伪造。"
+      eyebrow="观察清单"
+      title="我在盯的票"
+      subtitle="只记代码和名称。研究状态有数据才显示，没有就是「未提供」。"
     >
       <StatusBanner kind="error" text={error} />
       <StatusBanner kind="ok" text={message} />
 
       <div className="stat-row">
         <article className="stat-card">
-          <span>观察标的</span>
+          <span>观察数量</span>
           <strong>{items.length}</strong>
-          <small>只增删，不改投资结论</small>
+          <small>可随时增删</small>
         </article>
         <article className="stat-card">
-          <span>数据完整性</span>
-          <strong>诚实显示</strong>
-          <small>缺 lifecycle / Thesis / 新鲜度时标未提供</small>
+          <span>研究状态</span>
+          <strong>按实显示</strong>
+          <small>不编造生命周期 / 逻辑状态</small>
         </article>
         <article className="stat-card warn">
           <span>下一步</span>
-          <strong>P6 分析</strong>
-          <small>分析链路接上后才填充研究状态</small>
+          <strong>等分析</strong>
+          <small>分析功能接上后自动填充</small>
         </article>
       </div>
 
       <div className="two-col">
-        <Panel title="添加标的" description="录入身份信息，系统会规范化市场与代码。">
+        <Panel title="加入观察" description="填代码和名称即可，市场按代码自动识别。">
           <form className="form-grid" onSubmit={addItem}>
-            <Field
-              label="market"
-              value={form.market}
-              onChange={(v) => setForm({ ...form, market: v })}
-            />
-            <Field
-              label="symbol"
-              value={form.symbol}
-              onChange={(v) => setForm({ ...form, symbol: v })}
-              placeholder="000001"
-            />
-            <Field
-              label="name"
-              value={form.name}
-              onChange={(v) => setForm({ ...form, name: v })}
-              placeholder="平安银行"
-            />
-            <Field
-              label="currency"
-              value={form.currency}
-              onChange={(v) => setForm({ ...form, currency: v })}
-            />
-            <Field
-              label="sector"
-              value={form.sector}
-              onChange={(v) => setForm({ ...form, sector: v })}
-            />
+            <label className="field">
+              <span>代码</span>
+              <input
+                value={symbol}
+                placeholder="000001"
+                onChange={(e) => setSymbol(e.target.value)}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>名称</span>
+              <input
+                value={name}
+                placeholder="平安银行"
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </label>
             <button type="submit" className="btn primary" disabled={busy}>
-              加入
+              加入清单
             </button>
           </form>
         </Panel>
 
-        <Panel title="使用提示" tone="muted">
+        <Panel title="说明" tone="muted">
           <ul className="tip-list">
-            <li>加入后可在下表移除；重复添加同一代码是幂等的。</li>
-            <li>lifecycle / Thesis / 新鲜度 / 监控条件来自后续分析链路。</li>
-            <li>本页不产生交易建议，也不连接券商。</li>
+            <li>重复加入同一代码不会写两遍。</li>
+            <li>「未提供」= 还没分析，不是零。</li>
+            <li>这里不产生任何交易建议。</li>
           </ul>
         </Panel>
       </div>
 
-      <Panel title="清单" description="空白字段表示系统尚未评估，不是零。">
+      <Panel title="清单">
         {items.length === 0 ? (
-          <EmptyState title="清单为空" hint="在上方添加第一只观察标的。" />
+          <EmptyState title="清单是空的" hint="在上面加一只票试试。" />
         ) : (
           <table className="data-table">
             <thead>
               <tr>
-                <th>symbol</th>
-                <th>name</th>
-                <th>lifecycle</th>
-                <th>thesis</th>
-                <th>freshness</th>
-                <th>next monitoring</th>
+                <th>代码</th>
+                <th>名称</th>
+                <th>生命周期</th>
+                <th>投资逻辑</th>
+                <th>数据新鲜度</th>
+                <th>下一步盯什么</th>
                 <th />
               </tr>
             </thead>
@@ -182,10 +182,7 @@ export function WatchlistPage() {
                     <strong>{item.symbol}</strong>
                     <div className="muted">{item.market}</div>
                   </td>
-                  <td>
-                    {item.name}
-                    <div className="muted">{item.currency}</div>
-                  </td>
+                  <td>{item.name}</td>
                   <td>
                     <span className="pill missing">{item.lifecycle_state ?? "未提供"}</span>
                   </td>
