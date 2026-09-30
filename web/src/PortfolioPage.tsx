@@ -349,7 +349,7 @@ export function PortfolioPage() {
             />
           </label>
           <label className="field">
-            <span>核心仓数量</span>
+            <span title="长期持有的底仓">长期仓数量</span>
             <input
               value={manual.core_quantity}
               inputMode="decimal"
@@ -357,7 +357,7 @@ export function PortfolioPage() {
             />
           </label>
           <label className="field">
-            <span>短线仓数量</span>
+            <span title="可灵活进出的机动仓">机动仓数量</span>
             <input
               value={manual.tactical_quantity}
               inputMode="decimal"
@@ -520,8 +520,8 @@ export function PortfolioPage() {
                 <th>代码</th>
                 <th>名称</th>
                 <th>市场</th>
-                <th>核心仓</th>
-                <th>短线仓</th>
+                <th title="长期持有的底仓">长期仓</th>
+                <th title="可灵活进出的机动仓">机动仓</th>
                 <th>均价</th>
                 <th>币种</th>
               </tr>

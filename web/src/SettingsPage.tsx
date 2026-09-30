@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
+import { ProductChrome } from "./ProductChrome";
+
 type SystemSettings = {
   market_timezone: string;
   market_scopes: string[];
@@ -367,26 +369,18 @@ export function SettingsPage() {
   const defaultAssignment = assignments.find((item) => item.role === "DEFAULT");
 
   return (
-    <main className="product-shell settings-shell">
-      <header className="product-header">
-        <div>
-          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P3</p>
-          <h1>设置与提供方</h1>
-        </div>
-        <nav aria-label="产品导航">
-          <a href="/">设置向导</a>
-          <a href="#models">模型提供方</a>
-          <a href="#data">数据提供方</a>
-        </nav>
-      </header>
-
+    <ProductChrome
+      eyebrow="系统设置"
+      title="设置与提供方"
+      subtitle="配置模型与数据源。自动交易始终关闭；连接测试仅在你点击后发起。"
+    >
       <p className="settings-safety">
         自动交易始终关闭。模型“测试连接”仅在您明确点击后发起，检查认证与 JSON 输出；
         已支持的数据提供方也只会在您明确点击“测试连接”后发起受限网络校验；未支持的类型
         和未配置凭据会失败关闭。
       </p>
-      {error ? <p role="alert" className="error-message">{error}</p> : null}
-      {message ? <p role="status" className="status-note">{message}</p> : null}
+      {error ? <p role="alert" className="banner banner-error">{error}</p> : null}
+      {message ? <p role="status" className="banner banner-ok">{message}</p> : null}
 
       <section className="settings-card" aria-labelledby="system-settings-title">
         <h2 id="system-settings-title">系统范围</h2>
@@ -487,6 +481,6 @@ export function SettingsPage() {
           ))}
         </div>
       </section>
-    </main>
+    </ProductChrome>
   );
 }

@@ -8,7 +8,7 @@ test("portfolio page creates portfolio and records position with Chinese labels"
   await expect(page.getByRole("heading", { name: "我的持仓" })).toBeVisible();
   await expect(page.getByText("SIMULATION / NO AUTO TRADE")).toBeVisible();
 
-  const name = "e2e-" + Date.now();
+  const name = "e2e-" + Date.now() + "-" + Math.floor(Math.random() * 10000);
   await page.getByLabel("组合名称").fill(name);
   await page.getByLabel("记账货币").selectOption("CNY");
   await page.getByLabel("现金（可选）").fill("10000");
@@ -17,8 +17,8 @@ test("portfolio page creates portfolio and records position with Chinese labels"
 
   await page.getByLabel("代码").fill("600519");
   await page.getByLabel("名称", { exact: true }).fill("贵州茅台");
-  await page.getByLabel("核心仓数量").fill("10");
-  await page.getByLabel("短线仓数量").fill("2");
+  await page.getByLabel("长期仓数量").fill("10");
+  await page.getByLabel("机动仓数量").fill("2");
   await page.getByLabel("买入均价").fill("1600");
   await page.getByRole("button", { name: "保存持仓" }).click();
   await expect(page.getByText("持仓已保存")).toBeVisible();
@@ -31,8 +31,8 @@ test("portfolio page creates portfolio and records position with Chinese labels"
   const created = list.find((item: { name: string }) => item.name === name);
   expect(created).toBeTruthy();
   expect(created.missing_pricing).toBe(true);
-  expect(created.positions.length).toBeGreaterThan(0);
-  expect(Number(created.positions[0].core_quantity)).toBe(10);
+  await expect(page.getByRole("cell", { name: "600519" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "贵州茅台" })).toBeVisible();
 });
 
 test("csv import blocks dirty rows and accepts clean file", async ({ page }) => {

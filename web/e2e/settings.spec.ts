@@ -24,8 +24,8 @@ test("settings keeps a configured credential write-only without contacting the c
 
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "设置与提供方" })).toBeVisible();
-  await expect(page.getByText(profileName)).toBeVisible();
-  await expect(page.getByText("凭据已配置")).toBeVisible();
+  await expect(page.getByRole("heading", { name: profileName })).toBeVisible();
+  await expect(page.getByText("凭据已配置").first()).toBeVisible();
   await expect(page.getByLabel("凭据（仅写入）").first()).toHaveValue("");
   await expect(page.getByText("e2e-synthetic-credential")).not.toBeVisible();
 });
