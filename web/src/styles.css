@@ -374,6 +374,56 @@ textarea:focus {
   margin-top: 14px;
 }
 
+.token-toggle {
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.token-bar {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 22px;
+  background: #fff8e8;
+  border-bottom: 1px solid var(--line);
+}
+
+.token-bar label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.conflict-policy {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #e6d7a8;
+  border-radius: 12px;
+  background: var(--warn-soft);
+}
+
+.conflict-policy label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.conflict-policy input {
+  width: auto;
+  margin-top: 3px;
+}
+
 /* ---------- Feedback ---------- */
 
 .banner {

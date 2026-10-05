@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
+import { apiFetch, readApiError } from "./writeApi";
 
 type PortfolioPosition = {
   position_id: string;
@@ -29,7 +30,7 @@ type Portfolio = {
 
 type CsvRow = {
   line_number: number;
-  status: "VALID" | "INVALID" | "DUPLICATE";
+  status: "VALID" | "INVALID" | "DUPLICATE" | "CONFLICT";
   reason: string | null;
   market?: string | null;
   symbol?: string | null;
@@ -37,14 +38,19 @@ type CsvRow = {
   core_quantity?: string | null;
   tactical_quantity?: string | null;
   average_cost?: string | null;
+  existing_core_quantity?: string | null;
+  existing_tactical_quantity?: string | null;
+  existing_average_cost?: string | null;
 };
 
 type CsvPreview = {
   total_rows: number;
   can_commit: boolean;
+  requires_conflict_policy: boolean;
   valid: CsvRow[];
   invalid: CsvRow[];
   duplicates: CsvRow[];
+  conflicts: CsvRow[];
 };
 
 function num(value: string | number | null | undefined) {
@@ -88,14 +94,15 @@ export function PortfolioPage() {
   const [showMore, setShowMore] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [preview, setPreview] = useState<CsvPreview | null>(null);
+  const [conflictPolicy, setConflictPolicy] = useState<"SKIP" | "REPLACE" | "UPDATE">("SKIP");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(
     async (preferredId?: string) => {
-      const response = await fetch("/api/v1/portfolios");
-      if (!response.ok) throw new Error("无法加载资产组合");
+      const response = await apiFetch("/api/v1/portfolios");
+      if (!response.ok) throw new Error(await readApiError(response));
       const data = (await response.json()) as Portfolio[];
       setPortfolios(data);
       const nextId = preferredId || selectedId;
@@ -125,7 +132,7 @@ export function PortfolioPage() {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch("/api/v1/portfolios", {
+      const response = await apiFetch("/api/v1/portfolios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -134,7 +141,7 @@ export function PortfolioPage() {
           cash_balance: cashBalance,
         }),
       });
-      if (!response.ok) throw new Error("创建组合失败");
+      if (!response.ok) throw new Error(await readApiError(response));
       const created = (await response.json()) as Portfolio;
       setMessage("组合已创建");
       setSelectedId(created.portfolio_id);
@@ -156,7 +163,7 @@ export function PortfolioPage() {
     try {
       const market = manual.market || guessMarket(manual.symbol);
       if (!market) throw new Error("请填写市场，或输入标准 A 股/港股代码自动识别");
-      const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/positions`, {
+      const response = await apiFetch(`/api/v1/portfolios/${selected.portfolio_id}/positions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -171,7 +178,7 @@ export function PortfolioPage() {
           average_cost: manual.average_cost || "0",
         }),
       });
-      if (!response.ok) throw new Error("持仓写入失败");
+      if (!response.ok) throw new Error(await readApiError(response));
       setMessage("持仓已保存");
       setManual((prev) => ({
         ...emptyManual,
@@ -190,14 +197,14 @@ export function PortfolioPage() {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/preview`, {
+      const response = await apiFetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ csv_text: csvText }),
       });
-      if (!response.ok) throw new Error("CSV 预览失败");
+      if (!response.ok) throw new Error(await readApiError(response));
       setPreview((await response.json()) as CsvPreview);
-      setMessage("预览完成，确认前不会写入");
+      setMessage("预览完成。与现有持仓冲突时，必须显式选择处理方式后才能导入。");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "CSV 预览失败");
       setPreview(null);
@@ -211,13 +218,23 @@ export function PortfolioPage() {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/confirm`, {
+      const response = await apiFetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csv_text: csvText }),
+        body: JSON.stringify({
+          csv_text: csvText,
+          conflict_policy: preview?.requires_conflict_policy ? conflictPolicy : undefined,
+        }),
       });
-      if (!response.ok) throw new Error("导入失败（有无效行时不会写入）");
-      setMessage("已导入，请在下方核对");
+      if (!response.ok) throw new Error(await readApiError(response));
+      const result = (await response.json()) as {
+        imported_count: number;
+        skipped_count: number;
+        audit_id: string;
+      };
+      setMessage(
+        `已导入 ${result.imported_count} 笔，跳过 ${result.skipped_count} 笔。对账记录 ${result.audit_id.slice(0, 8)}…`,
+      );
       setPreview(null);
       setCsvText("");
       await load(selected.portfolio_id);
@@ -466,10 +483,45 @@ export function PortfolioPage() {
               <span className="chip ok">有效 {preview.valid.length}</span>
               <span className="chip bad">无效 {preview.invalid.length}</span>
               <span className="chip warn">重复 {preview.duplicates.length}</span>
+              <span className="chip warn">与现有持仓冲突 {preview.conflicts.length}</span>
               <span className={`chip ${preview.can_commit ? "ok" : "bad"}`}>
                 {preview.can_commit ? "可以导入" : "存在无效行，禁止写入"}
               </span>
             </div>
+
+            {preview.requires_conflict_policy ? (
+              <div className="conflict-policy">
+                <strong>冲突处理方式（必选）</strong>
+                <label>
+                  <input
+                    type="radio"
+                    name="conflictPolicy"
+                    checked={conflictPolicy === "SKIP"}
+                    onChange={() => setConflictPolicy("SKIP")}
+                  />
+                  跳过：保留原持仓，忽略 CSV 中的同代码行
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="conflictPolicy"
+                    checked={conflictPolicy === "REPLACE"}
+                    onChange={() => setConflictPolicy("REPLACE")}
+                  />
+                  替换：用 CSV 数量与均价覆盖原持仓
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="conflictPolicy"
+                    checked={conflictPolicy === "UPDATE"}
+                    onChange={() => setConflictPolicy("UPDATE")}
+                  />
+                  累加：数量相加，均价采用 CSV 均价
+                </label>
+              </div>
+            ) : null}
+
             <table className="data-table">
               <thead>
                 <tr>
@@ -480,30 +532,42 @@ export function PortfolioPage() {
                 </tr>
               </thead>
               <tbody>
-                {[...preview.invalid, ...preview.duplicates, ...preview.valid].map((row) => (
-                  <tr key={`${row.line_number}-${row.status}`}>
-                    <td>{row.line_number}</td>
-                    <td>
-                      <span
-                        className={`pill ${
-                          row.status === "VALID"
-                            ? "valid"
+                {[...preview.invalid, ...preview.duplicates, ...preview.conflicts, ...preview.valid].map(
+                  (row) => (
+                    <tr key={`${row.line_number}-${row.status}`}>
+                      <td>{row.line_number}</td>
+                      <td>
+                        <span
+                          className={`pill ${
+                            row.status === "VALID"
+                              ? "valid"
+                              : row.status === "INVALID"
+                                ? "invalid"
+                                : "warn"
+                          }`}
+                        >
+                          {row.status === "VALID"
+                            ? "有效"
                             : row.status === "INVALID"
-                              ? "invalid"
-                              : "warn"
-                        }`}
-                      >
-                        {row.status === "VALID"
-                          ? "有效"
-                          : row.status === "INVALID"
-                            ? "无效"
-                            : "重复"}
-                      </span>
-                    </td>
-                    <td>{row.symbol || "—"}</td>
-                    <td>{row.reason || "可以导入"}</td>
-                  </tr>
-                ))}
+                              ? "无效"
+                              : row.status === "CONFLICT"
+                                ? "冲突"
+                                : "重复"}
+                        </span>
+                      </td>
+                      <td>{row.symbol || "—"}</td>
+                      <td>
+                        {row.reason || "可以导入"}
+                        {row.status === "CONFLICT" && row.existing_core_quantity ? (
+                          <div className="muted">
+                            现有：长期 {row.existing_core_quantity} / 机动{" "}
+                            {row.existing_tactical_quantity} / 均价 {row.existing_average_cost}
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>

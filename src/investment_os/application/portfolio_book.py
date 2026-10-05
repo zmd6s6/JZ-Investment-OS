@@ -81,6 +81,14 @@ class PortfolioBookPort(Protocol):
         self, portfolio_id: UUID, cash_balance: Decimal
     ) -> PortfolioView: ...
 
+    async def record_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        conflict_policy: str,
+        applied: tuple[object, ...],
+    ) -> UUID: ...
+
 
 class PortfolioBookService:
     """Manual portfolio bookkeeping for PRODUCT-05; no valuation or trading."""
@@ -229,6 +237,19 @@ class PortfolioBookService:
                 "cash balance must not be negative",
             )
         return await self._portfolios.set_cash_balance(portfolio_id, cash)
+
+    async def record_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        conflict_policy: str,
+        applied: tuple[object, ...],
+    ) -> UUID:
+        return await self._portfolios.record_import_audit(
+            portfolio_id=portfolio_id,
+            conflict_policy=conflict_policy,
+            applied=applied,
+        )
 
 
 def new_portfolio_id() -> UUID:

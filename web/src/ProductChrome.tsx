@@ -1,4 +1,6 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
+
+import { getWriteToken, setWriteToken } from "./writeApi";
 
 const navItems = [
   { href: "/", label: "首页" },
@@ -18,6 +20,13 @@ export function ProductChrome({
   subtitle?: string;
   children: ReactNode;
 }) {
+  const [token, setToken] = useState("");
+  const [tokenOpen, setTokenOpen] = useState(false);
+
+  useEffect(() => {
+    setToken(getWriteToken());
+  }, []);
+
   return (
     <div className="app-frame">
       <header className="app-topbar">
@@ -40,8 +49,40 @@ export function ProductChrome({
               </a>
             );
           })}
+          <button
+            type="button"
+            className="token-toggle"
+            onClick={() => setTokenOpen((v) => !v)}
+            title="写操作令牌"
+          >
+            {getWriteToken() ? "令牌已配置" : "配置写令牌"}
+          </button>
         </nav>
       </header>
+
+      {tokenOpen ? (
+        <div className="token-bar">
+          <label>
+            写入令牌
+            <input
+              type="password"
+              value={token}
+              placeholder="与服务端 INVESTMENT_OS_API_WRITE_TOKEN 一致"
+              onChange={(e) => setToken(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => {
+              setWriteToken(token.trim());
+              setTokenOpen(false);
+            }}
+          >
+            保存令牌
+          </button>
+        </div>
+      ) : null}
 
       <div className="safety-strip">SIMULATION / NO AUTO TRADE · 建议不等于成交 · 风控否决不可覆盖</div>
 

@@ -1,7 +1,7 @@
 """PRODUCT-05: instrument catalog metadata, portfolio bookkeeping, watchlist.
 
 Revision ID: 20260929_0011
-Revises: 20260923_0008
+Revises: 20260923_0010
 Create Date: 2026-09-29
 """
 
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "20260929_0011"
-down_revision: str | None = "20260923_0008"
+down_revision: str | None = "20260923_0010"
 branch_labels = None
 depends_on = None
 

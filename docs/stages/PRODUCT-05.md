@@ -89,3 +89,10 @@
   - OpenAPI check、`tests.unit+集成 310`、`ruff`/`mypy src` 通过。
   - NOT VERIFIED：detect-secrets 本机未装；`docker compose` CLI 本机不可用。
   - 保持 `IN_PROGRESS`，待所有者验收。
+- 2026-10-05（按所有者验收问题修复）：
+  - P0 写鉴权：`/api/v1/` 写请求强制 Bearer；未配置令牌 503 失败关闭，错误令牌 401；UI 可配置写令牌。
+  - P0 CSV 冲突：预览识别已有持仓冲突；必须显式跳过/替换/累加；写入 audit_log（before/after）。
+  - P1 迁移链：补 `20260923_0009`/`0010`，`0011` 接到 `20260923_0010`，可从现有 0010 库升级。
+  - P1 对账：导入返回 applied 明细与 audit_id；冲突决策可追溯。
+  - P2：CSV 原因中文化、错误带 message、文档状态统一为 IN_PROGRESS。
+  - 回归：单元 312 项、集成、`npm run build` 通过。

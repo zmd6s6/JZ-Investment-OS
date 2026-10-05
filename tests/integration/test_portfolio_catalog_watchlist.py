@@ -122,7 +122,7 @@ async def test_csv_preview_then_confirm_imports_and_reconciles(
             "SSE,600519,贵州茅台,EQUITY,CNY,Consumer,x,2,1600",
         ]
     )
-    preview = await csv_service.preview(dirty)
+    preview = await csv_service.preview(portfolio.portfolio_id, dirty)
     assert preview.can_commit is False
     assert len(preview.invalid) == 1
 

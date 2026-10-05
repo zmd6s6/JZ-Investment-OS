@@ -62,6 +62,7 @@ class InMemoryPortfolios:
         self.portfolios = {}
         self.positions = {}
         self.writes = 0
+        self.audit_calls = []
 
     async def create_portfolio(self, *, name, base_currency, cash_balance):
         portfolio_id = uuid4()
@@ -123,6 +124,12 @@ class InMemoryPortfolios:
             positions=(),
         )
 
+    async def record_import_audit(self, *, portfolio_id, conflict_policy, applied):
+        self.audit_calls.append(
+            {"portfolio_id": portfolio_id, "conflict_policy": conflict_policy, "applied": applied}
+        )
+        return uuid4()
+
 
 def test_csv_preview_marks_valid_invalid_and_duplicate() -> None:
     preview = parse_portfolio_csv("\n".join([HEADER, GOOD, BAD, DUP]))
@@ -133,9 +140,27 @@ def test_csv_preview_marks_valid_invalid_and_duplicate() -> None:
     assert preview.can_commit is False
 
 
+def test_csv_preview_flags_existing_portfolio_conflicts() -> None:
+    existing = {
+        ("SSE", "600519"): {
+            "core_quantity": "100",
+            "tactical_quantity": "0",
+            "average_cost": "10",
+            "name": "贵州茅台",
+        }
+    }
+    preview = parse_portfolio_csv("\n".join([HEADER, GOOD]), existing=existing)
+    assert preview.valid == ()
+    assert len(preview.conflicts) == 1
+    assert preview.requires_conflict_policy is True
+    assert preview.conflicts[0].existing_core_quantity == "100"
+    assert preview.can_commit is True  # commit allowed only with explicit policy later
+
+
 def test_csv_preview_all_valid_can_commit() -> None:
     preview = parse_portfolio_csv("\n".join([HEADER, GOOD]))
     assert preview.can_commit is True
+    assert preview.requires_conflict_policy is False
     assert preview.valid[0].normalized is not None
     assert preview.valid[0].normalized.core_quantity == Decimal("10")
 
@@ -153,6 +178,40 @@ async def test_csv_confirm_requires_clean_preview() -> None:
 
 
 @pytest.mark.asyncio
+async def test_csv_confirm_requires_conflict_policy_and_never_silent_overwrite() -> None:
+    store = InMemoryPortfolios()
+    book = PortfolioBookService(store, InMemoryCatalog())
+    service = PortfolioCsvImportService(book)
+    portfolio = await book.create_portfolio(name="p", base_currency="CNY", cash_balance=0)
+
+    async def fake_existing(_portfolio_id):
+        return {
+            ("SSE", "600519"): {
+                "core_quantity": "100",
+                "tactical_quantity": "0",
+                "average_cost": "10",
+                "name": "贵州茅台",
+            }
+        }
+
+    service._existing_map = fake_existing  # type: ignore[method-assign]
+    with pytest.raises(ApplicationError) as exc:
+        await service.confirm(
+            portfolio_id=portfolio.portfolio_id, raw_text="\n".join([HEADER, GOOD])
+        )
+    assert exc.value.code is ApplicationErrorCode.PORTFOLIO_WRITE_CONFLICT_POLICY_REQUIRED
+
+    result = await service.confirm(
+        portfolio_id=portfolio.portfolio_id,
+        raw_text="\n".join([HEADER, GOOD]),
+        conflict_policy="SKIP",
+    )
+    assert result.imported_count == 0
+    assert result.skipped_count >= 1
+    assert store.audit_calls and store.audit_calls[-1]["conflict_policy"] == "SKIP"
+
+
+@pytest.mark.asyncio
 async def test_csv_confirm_writes_valid_rows_once() -> None:
     store = InMemoryPortfolios()
     book = PortfolioBookService(store, InMemoryCatalog())
@@ -165,3 +224,4 @@ async def test_csv_confirm_writes_valid_rows_once() -> None:
     assert result.imported_count == 1
     assert store.writes == 1
     assert len(result.portfolio.positions) == 1
+    assert store.audit_calls

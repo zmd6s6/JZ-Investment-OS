@@ -341,6 +341,7 @@ def create_app(
     portfolio_book_service: PortfolioBookService | None = None,
     watchlist_service: WatchlistService | None = None,
     portfolio_csv_service: PortfolioCsvImportService | None = None,
+    write_api_token: str | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -421,6 +422,12 @@ def create_app(
         "read APIs; no execution.",
         lifespan=lifespan,
     )
+    from investment_os.api.write_auth import WriteApiAuthMiddleware
+
+    selected_write_token = (
+        write_api_token if write_api_token is not None else settings.api_write_token
+    )
+    application.add_middleware(WriteApiAuthMiddleware, token=selected_write_token)
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
     async def liveness() -> LivenessResponse:
@@ -1188,6 +1195,9 @@ def create_app(
             "line_number": row.line_number,
             "status": row.status,
             "reason": row.reason,
+            "existing_core_quantity": row.existing_core_quantity,
+            "existing_tactical_quantity": row.existing_tactical_quantity,
+            "existing_average_cost": row.existing_average_cost,
         }
         if row.normalized is not None:
             payload.update(
@@ -1206,9 +1216,30 @@ def create_app(
         return CsvImportPreviewResponse(
             total_rows=preview.total_rows,
             can_commit=preview.can_commit,
+            requires_conflict_policy=preview.requires_conflict_policy,
             valid=[_csv_row_response(row) for row in preview.valid],
             invalid=[_csv_row_response(row) for row in preview.invalid],
             duplicates=[_csv_row_response(row) for row in preview.duplicates],
+            conflicts=[_csv_row_response(row) for row in preview.conflicts],
+        )
+
+    def _app_error_to_http(exc: Exception) -> HTTPException:
+        from investment_os.application.errors import ApplicationError
+
+        if isinstance(exc, ApplicationError):
+            status_code = (
+                404
+                if exc.code.value.endswith("NOT_FOUND")
+                else 409
+                if "CONFLICT" in exc.code.value
+                else 422
+            )
+            return HTTPException(
+                status_code=status_code,
+                detail={"code": exc.code.value, "message": exc.message, "details": exc.details},
+            )
+        return HTTPException(
+            status_code=422, detail={"code": "INVALID_REQUEST", "message": str(exc)}
         )
 
     @application.post(
@@ -1223,9 +1254,9 @@ def create_app(
 
         try:
             await selected_portfolio_book_service.get_portfolio(portfolio_id)
-            preview = await selected_portfolio_csv_service.preview(request.csv_text)
+            preview = await selected_portfolio_csv_service.preview(portfolio_id, request.csv_text)
         except ApplicationError as exc:
-            raise HTTPException(status_code=422, detail=exc.code.value) from exc
+            raise _app_error_to_http(exc) from exc
         return _csv_preview_response(preview)
 
     @application.post(
@@ -1236,19 +1267,32 @@ def create_app(
     async def confirm_portfolio_csv(
         portfolio_id: UUID, request: CsvImportRequest
     ) -> CsvImportCommitResponse:
-        from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+        from investment_os.application.errors import ApplicationError
 
         try:
             result = await selected_portfolio_csv_service.confirm(
                 portfolio_id=portfolio_id,
                 raw_text=request.csv_text,
+                conflict_policy=request.conflict_policy,
             )
         except ApplicationError as exc:
-            status_code = 404 if exc.code is ApplicationErrorCode.PORTFOLIO_NOT_FOUND else 422
-            raise HTTPException(status_code=status_code, detail=exc.code.value) from exc
+            raise _app_error_to_http(exc) from exc
         return CsvImportCommitResponse(
             imported_count=result.imported_count,
             skipped_count=result.skipped_count,
+            conflict_policy=result.conflict_policy,
+            audit_id=result.audit_id,
+            applied=[
+                {
+                    "line_number": row.line_number,
+                    "market": row.market,
+                    "symbol": row.symbol,
+                    "action": row.action,
+                    "before": row.before,
+                    "after": row.after,
+                }
+                for row in result.applied
+            ],
             portfolio=_portfolio_response(result.portfolio),
         )
 

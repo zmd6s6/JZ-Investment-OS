@@ -19,6 +19,7 @@ from investment_os.application.portfolio_book import (
 from investment_os.application.watchlist import WatchlistItemView, WatchlistPort
 from investment_os.domain.instrument import InstrumentIdentity
 from investment_os.infrastructure.persistence.models import (
+    AuditLogRecord,
     InstrumentRecord,
     PortfolioRecord,
     PositionRecord,
@@ -229,6 +230,46 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         await self._session.flush()
         return await self._view(record)
 
+    async def record_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        conflict_policy: str,
+        applied: tuple[object, ...],
+    ) -> UUID:
+        audit_id = uuid4()
+        payload = []
+        for item in applied:
+            payload.append(
+                {
+                    "line_number": getattr(item, "line_number", None),
+                    "market": getattr(item, "market", None),
+                    "symbol": getattr(item, "symbol", None),
+                    "action": getattr(item, "action", None),
+                    "before": getattr(item, "before", None),
+                    "after": getattr(item, "after", None),
+                }
+            )
+        record = AuditLogRecord(
+            id=audit_id,
+            actor_type="USER",
+            actor_id="product_portfolio",
+            operation="portfolio_csv_import",
+            entity_type="portfolio",
+            entity_id=portfolio_id,
+            ip_or_runtime_ref="local-product-ui",
+            occurred_at=datetime.now(UTC),
+            correlation_id=uuid4(),
+            created_by="product_portfolio",
+            metadata_json={
+                "conflict_policy": conflict_policy,
+                "applied": payload,
+            },
+        )
+        self._session.add(record)
+        await self._session.flush()
+        return audit_id
+
 
 class SqlWatchlistAdapter(WatchlistPort):
     def __init__(self, session: AsyncSession) -> None:
@@ -382,6 +423,22 @@ class SessionPortfolioBookPort:
             )
             await session.commit()
             return view
+
+    async def record_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        conflict_policy: str,
+        applied: tuple[object, ...],
+    ) -> UUID:
+        async with self._session_factory() as session:
+            audit_id = await SqlPortfolioBookAdapter(session).record_import_audit(
+                portfolio_id=portfolio_id,
+                conflict_policy=conflict_policy,
+                applied=applied,
+            )
+            await session.commit()
+            return audit_id
 
 
 class SessionWatchlistPort:

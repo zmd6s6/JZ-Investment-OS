@@ -1,4 +1,8 @@
-"""CSV position import for PRODUCT-05: preview never writes; confirm is explicit."""
+"""CSV position import for PRODUCT-05: preview never writes; confirm is explicit.
+
+Import never silently overwrites holdings. Conflicts with the current portfolio
+must be resolved explicitly (skip / replace / update) and are audited.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,7 @@ import io
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.portfolio_book import (
@@ -17,7 +21,8 @@ from investment_os.application.portfolio_book import (
 )
 from investment_os.domain.instrument import InstrumentIdentity
 
-RowStatus = Literal["VALID", "INVALID", "DUPLICATE"]
+RowStatus = Literal["VALID", "INVALID", "DUPLICATE", "CONFLICT"]
+ConflictPolicy = Literal["SKIP", "REPLACE", "UPDATE"]
 
 CSV_HEADER = (
     "market",
@@ -31,6 +36,40 @@ CSV_HEADER = (
     "average_cost",
 )
 
+# Chinese reasons for product-facing validation messages.
+_REASON_ZH = {
+    "csv content must not be empty": "CSV 内容不能为空",
+    "csv must include a header row": "CSV 必须包含表头行",
+    "symbol must not be empty": "代码不能为空",
+    "market must not be empty": "市场不能为空",
+    "name must not be empty": "名称不能为空",
+    "currency must be a 3-letter code": "币种必须是 3 位字母代码",
+    "core_quantity is required": "缺少长期仓数量",
+    "tactical_quantity is required": "缺少机动仓数量",
+    "average_cost is required": "缺少买入均价",
+    "core_quantity is not a valid decimal": "长期仓数量不是有效数字",
+    "tactical_quantity is not a valid decimal": "机动仓数量不是有效数字",
+    "average_cost is not a valid decimal": "买入均价不是有效数字",
+    "core_quantity must be finite": "长期仓数量必须是有限数值",
+    "tactical_quantity must be finite": "机动仓数量必须是有限数值",
+    "average_cost must be finite": "买入均价必须是有限数值",
+    "core_quantity must not contain separators": "长期仓数量不能包含逗号或空格",
+    "tactical_quantity must not contain separators": "机动仓数量不能包含逗号或空格",
+    "average_cost must not contain separators": "买入均价不能包含逗号或空格",
+}
+
+
+def _zh(reason: str) -> str:
+    if reason in _REASON_ZH:
+        return _REASON_ZH[reason]
+    if reason.startswith("quantities and average_cost"):
+        return "数量与均价不能为负数"
+    if reason.startswith("zero quantity cannot"):
+        return "数量为 0 时不能填写均价"
+    if reason.startswith("duplicate of line"):
+        return f"与第 {reason.rsplit(' ', 1)[-1]} 行重复"
+    return reason
+
 
 @dataclass(frozen=True, slots=True)
 class CsvRowResult:
@@ -38,6 +77,9 @@ class CsvRowResult:
     status: RowStatus
     reason: str | None
     normalized: PortfolioPositionInput | None
+    existing_core_quantity: str | None = None
+    existing_tactical_quantity: str | None = None
+    existing_average_cost: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,14 +88,29 @@ class CsvImportPreview:
     valid: tuple[CsvRowResult, ...]
     invalid: tuple[CsvRowResult, ...]
     duplicates: tuple[CsvRowResult, ...]
+    conflicts: tuple[CsvRowResult, ...]
     can_commit: bool
+    requires_conflict_policy: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CsvImportAppliedRow:
+    line_number: int
+    market: str
+    symbol: str
+    action: Literal["CREATED", "REPLACED", "UPDATED", "SKIPPED"]
+    before: dict[str, str] | None
+    after: dict[str, str]
 
 
 @dataclass(frozen=True, slots=True)
 class CsvImportCommitResult:
     imported_count: int
     skipped_count: int
+    conflict_policy: ConflictPolicy
+    applied: tuple[CsvImportAppliedRow, ...]
     portfolio: PortfolioView
+    audit_id: UUID
 
 
 def _parse_decimal(raw: str, field: str) -> Decimal:
@@ -71,50 +128,50 @@ def _parse_decimal(raw: str, field: str) -> Decimal:
     return value
 
 
-def parse_portfolio_csv(raw_text: str) -> CsvImportPreview:
+def parse_portfolio_csv(
+    raw_text: str,
+    *,
+    existing: dict[tuple[str, str], dict[str, str]] | None = None,
+) -> CsvImportPreview:
     if not raw_text.strip():
         raise ApplicationError(
             ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
-            "csv content must not be empty",
+            "CSV 内容不能为空",
         )
     sample = raw_text.lstrip("﻿")
     reader = csv.DictReader(io.StringIO(sample))
     if reader.fieldnames is None:
         raise ApplicationError(
             ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
-            "csv must include a header row",
+            "CSV 必须包含表头行",
         )
     headers = tuple((name or "").strip().lower() for name in reader.fieldnames)
     missing = [column for column in CSV_HEADER if column not in headers]
     if missing:
         raise ApplicationError(
             ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
-            "csv header is missing required columns",
+            "CSV 表头缺少必需列",
             details={"missing": missing},
         )
 
+    existing = existing or {}
     seen_keys: dict[tuple[str, str], int] = {}
     valid: list[CsvRowResult] = []
     invalid: list[CsvRowResult] = []
     duplicates: list[CsvRowResult] = []
+    conflicts: list[CsvRowResult] = []
     total_rows = 0
 
     for offset, row in enumerate(reader, start=2):
         total_rows += 1
         try:
-            market = (row.get("market") or "").strip()
-            symbol = (row.get("symbol") or "").strip()
-            name = (row.get("name") or "").strip()
-            asset_type = (row.get("asset_type") or "").strip()
-            currency = (row.get("currency") or "").strip()
-            sector = (row.get("sector") or "").strip()
             identity = InstrumentIdentity(
-                market=market,
-                symbol=symbol,
-                name=name,
-                asset_type=asset_type,
-                currency=currency,
-                sector=sector,
+                market=(row.get("market") or "").strip(),
+                symbol=(row.get("symbol") or "").strip(),
+                name=(row.get("name") or "").strip(),
+                asset_type=(row.get("asset_type") or "").strip(),
+                currency=(row.get("currency") or "").strip(),
+                sector=(row.get("sector") or "").strip(),
             )
             core = _parse_decimal(row.get("core_quantity") or "", "core_quantity")
             tactical = _parse_decimal(row.get("tactical_quantity") or "", "tactical_quantity")
@@ -129,7 +186,7 @@ def parse_portfolio_csv(raw_text: str) -> CsvImportPreview:
                     CsvRowResult(
                         line_number=offset,
                         status="DUPLICATE",
-                        reason=f"duplicate of line {seen_keys[key]}",
+                        reason=_zh(f"duplicate of line {seen_keys[key]}"),
                         normalized=None,
                     )
                 )
@@ -146,6 +203,20 @@ def parse_portfolio_csv(raw_text: str) -> CsvImportPreview:
                 tactical_quantity=tactical,
                 average_cost=average_cost,
             )
+            current = existing.get(key)
+            if current is not None:
+                conflicts.append(
+                    CsvRowResult(
+                        line_number=offset,
+                        status="CONFLICT",
+                        reason="组合中已有该代码; 请选择跳过、替换或累加",
+                        normalized=normalized,
+                        existing_core_quantity=current.get("core_quantity"),
+                        existing_tactical_quantity=current.get("tactical_quantity"),
+                        existing_average_cost=current.get("average_cost"),
+                    )
+                )
+                continue
             valid.append(
                 CsvRowResult(
                     line_number=offset,
@@ -159,7 +230,7 @@ def parse_portfolio_csv(raw_text: str) -> CsvImportPreview:
                 CsvRowResult(
                     line_number=offset,
                     status="INVALID",
-                    reason=str(exc),
+                    reason=_zh(str(exc)),
                     normalized=None,
                 )
             )
@@ -169,7 +240,9 @@ def parse_portfolio_csv(raw_text: str) -> CsvImportPreview:
         valid=tuple(valid),
         invalid=tuple(invalid),
         duplicates=tuple(duplicates),
-        can_commit=bool(valid) and not invalid,
+        conflicts=tuple(conflicts),
+        can_commit=bool(valid or conflicts) and not invalid,
+        requires_conflict_policy=bool(conflicts),
     )
 
 
@@ -177,37 +250,150 @@ class PortfolioCsvImportService:
     def __init__(self, portfolios: PortfolioBookService) -> None:
         self._portfolios = portfolios
 
-    async def preview(self, raw_text: str) -> CsvImportPreview:
-        return parse_portfolio_csv(raw_text)
+    async def _existing_map(self, portfolio_id: UUID) -> dict[tuple[str, str], dict[str, str]]:
+        view = await self._portfolios.get_portfolio(portfolio_id)
+        mapping: dict[tuple[str, str], dict[str, str]] = {}
+        for position in view.positions:
+            mapping[(position.market, position.symbol)] = {
+                "core_quantity": str(position.core_quantity),
+                "tactical_quantity": str(position.tactical_quantity),
+                "average_cost": str(position.average_cost),
+                "name": position.name,
+            }
+        return mapping
+
+    async def preview(self, portfolio_id: UUID, raw_text: str) -> CsvImportPreview:
+        existing = await self._existing_map(portfolio_id)
+        return parse_portfolio_csv(raw_text, existing=existing)
 
     async def confirm(
         self,
         *,
         portfolio_id: UUID,
         raw_text: str,
+        conflict_policy: ConflictPolicy | None = None,
     ) -> CsvImportCommitResult:
-        preview = parse_portfolio_csv(raw_text)
-        if not preview.can_commit:
+        existing = await self._existing_map(portfolio_id)
+        preview = parse_portfolio_csv(raw_text, existing=existing)
+
+        if preview.invalid:
             raise ApplicationError(
                 ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
-                "csv cannot be committed while invalid rows exist",
+                "CSV 存在无效行; 禁止写入",
                 details={
                     "invalid_count": len(preview.invalid),
                     "valid_count": len(preview.valid),
+                    "conflict_count": len(preview.conflicts),
                 },
             )
+        if preview.requires_conflict_policy and conflict_policy is None:
+            raise ApplicationError(
+                ApplicationErrorCode.PORTFOLIO_WRITE_CONFLICT_POLICY_REQUIRED,
+                "CSV 与现有持仓冲突; 必须显式选择跳过、替换或累加",
+                details={"conflict_count": len(preview.conflicts)},
+            )
+        if conflict_policy not in (None, "SKIP", "REPLACE", "UPDATE"):
+            raise ApplicationError(
+                ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
+                "冲突处理方式无效",
+            )
+
+        applied: list[CsvImportAppliedRow] = []
         imported = 0
+        skipped = 0
+
+        def _after(row: PortfolioPositionInput) -> dict[str, str]:
+            return {
+                "core_quantity": str(row.core_quantity),
+                "tactical_quantity": str(row.tactical_quantity),
+                "average_cost": str(row.average_cost),
+            }
+
         for row in preview.valid:
-            if row.normalized is None:
-                continue
+            assert row.normalized is not None
+            key = (row.normalized.market, row.normalized.symbol)
+            before = existing.get(key)
             await self._portfolios.record_manual_position(
                 portfolio_id=portfolio_id,
                 position=row.normalized,
             )
             imported += 1
+            applied.append(
+                CsvImportAppliedRow(
+                    line_number=row.line_number,
+                    market=row.normalized.market,
+                    symbol=row.normalized.symbol,
+                    action="REPLACED" if before else "CREATED",
+                    before=before,
+                    after=_after(row.normalized),
+                )
+            )
+
+        for row in preview.conflicts:
+            assert row.normalized is not None
+            key = (row.normalized.market, row.normalized.symbol)
+            before = existing.get(key)
+            if conflict_policy == "SKIP" or conflict_policy is None:
+                skipped += 1
+                applied.append(
+                    CsvImportAppliedRow(
+                        line_number=row.line_number,
+                        market=row.normalized.market,
+                        symbol=row.normalized.symbol,
+                        action="SKIPPED",
+                        before=before,
+                        after=_after(row.normalized),
+                    )
+                )
+                continue
+
+            if conflict_policy == "UPDATE" and before is not None:
+                merged = PortfolioPositionInput(
+                    market=row.normalized.market,
+                    symbol=row.normalized.symbol,
+                    name=row.normalized.name,
+                    asset_type=row.normalized.asset_type,
+                    currency=row.normalized.currency,
+                    sector=row.normalized.sector,
+                    core_quantity=Decimal(before["core_quantity"]) + row.normalized.core_quantity,
+                    tactical_quantity=Decimal(before["tactical_quantity"])
+                    + row.normalized.tactical_quantity,
+                    average_cost=row.normalized.average_cost,
+                )
+            else:
+                merged = row.normalized
+
+            await self._portfolios.record_manual_position(
+                portfolio_id=portfolio_id,
+                position=merged,
+            )
+            imported += 1
+            applied.append(
+                CsvImportAppliedRow(
+                    line_number=row.line_number,
+                    market=merged.market,
+                    symbol=merged.symbol,
+                    action="UPDATED" if conflict_policy == "UPDATE" else "REPLACED",
+                    before=before,
+                    after=_after(merged),
+                )
+            )
+
         portfolio = await self._portfolios.get_portfolio(portfolio_id)
+        audit_id = await self._portfolios.record_import_audit(
+            portfolio_id=portfolio_id,
+            conflict_policy=conflict_policy or "NONE",
+            applied=tuple(applied),
+        )
         return CsvImportCommitResult(
             imported_count=imported,
-            skipped_count=len(preview.duplicates),
+            skipped_count=skipped + len(preview.duplicates),
+            conflict_policy=conflict_policy or "NONE",  # type: ignore[arg-type]
+            applied=tuple(applied),
             portfolio=portfolio,
+            audit_id=audit_id,
         )
+
+
+def new_audit_id() -> UUID:
+    return uuid4()

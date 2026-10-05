@@ -1,9 +1,83 @@
 {
   "components": {
     "schemas": {
+      "CsvImportAppliedRowResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "CREATED",
+              "REPLACED",
+              "UPDATED",
+              "SKIPPED"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "after": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "After",
+            "type": "object"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "line_number": {
+            "title": "Line Number",
+            "type": "integer"
+          },
+          "market": {
+            "title": "Market",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line_number",
+          "market",
+          "symbol",
+          "action",
+          "before",
+          "after"
+        ],
+        "title": "CsvImportAppliedRowResponse",
+        "type": "object"
+      },
       "CsvImportCommitResponse": {
         "additionalProperties": false,
         "properties": {
+          "applied": {
+            "items": {
+              "$ref": "#/components/schemas/CsvImportAppliedRowResponse"
+            },
+            "title": "Applied",
+            "type": "array"
+          },
+          "audit_id": {
+            "format": "uuid",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "conflict_policy": {
+            "title": "Conflict Policy",
+            "type": "string"
+          },
           "imported_count": {
             "title": "Imported Count",
             "type": "integer"
@@ -19,6 +93,9 @@
         "required": [
           "imported_count",
           "skipped_count",
+          "conflict_policy",
+          "audit_id",
+          "applied",
           "portfolio"
         ],
         "title": "CsvImportCommitResponse",
@@ -30,6 +107,13 @@
           "can_commit": {
             "title": "Can Commit",
             "type": "boolean"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/CsvRowResultResponse"
+            },
+            "title": "Conflicts",
+            "type": "array"
           },
           "duplicates": {
             "items": {
@@ -44,6 +128,10 @@
             },
             "title": "Invalid",
             "type": "array"
+          },
+          "requires_conflict_policy": {
+            "title": "Requires Conflict Policy",
+            "type": "boolean"
           },
           "total_rows": {
             "title": "Total Rows",
@@ -60,9 +148,11 @@
         "required": [
           "total_rows",
           "can_commit",
+          "requires_conflict_policy",
           "valid",
           "invalid",
-          "duplicates"
+          "duplicates",
+          "conflicts"
         ],
         "title": "CsvImportPreviewResponse",
         "type": "object"
@@ -70,6 +160,22 @@
       "CsvImportRequest": {
         "additionalProperties": false,
         "properties": {
+          "conflict_policy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SKIP",
+                  "REPLACE",
+                  "UPDATE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Policy"
+          },
           "csv_text": {
             "minLength": 1,
             "title": "Csv Text",
@@ -108,6 +214,39 @@
               }
             ],
             "title": "Core Quantity"
+          },
+          "existing_average_cost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Average Cost"
+          },
+          "existing_core_quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Core Quantity"
+          },
+          "existing_tactical_quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Tactical Quantity"
           },
           "line_number": {
             "title": "Line Number",
@@ -150,7 +289,8 @@
             "enum": [
               "VALID",
               "INVALID",
-              "DUPLICATE"
+              "DUPLICATE",
+              "CONFLICT"
             ],
             "title": "Status",
             "type": "string"

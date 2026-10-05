@@ -438,11 +438,12 @@ class WatchlistItemResponse(StrictResponse):
 
 class CsvImportRequest(StrictResponse):
     csv_text: str = Field(min_length=1)
+    conflict_policy: Literal["SKIP", "REPLACE", "UPDATE"] | None = None
 
 
 class CsvRowResultResponse(StrictResponse):
     line_number: int
-    status: Literal["VALID", "INVALID", "DUPLICATE"]
+    status: Literal["VALID", "INVALID", "DUPLICATE", "CONFLICT"]
     reason: str | None
     market: str | None = None
     symbol: str | None = None
@@ -450,19 +451,36 @@ class CsvRowResultResponse(StrictResponse):
     core_quantity: Decimal | None = None
     tactical_quantity: Decimal | None = None
     average_cost: Decimal | None = None
+    existing_core_quantity: str | None = None
+    existing_tactical_quantity: str | None = None
+    existing_average_cost: str | None = None
 
 
 class CsvImportPreviewResponse(StrictResponse):
     total_rows: int
     can_commit: bool
+    requires_conflict_policy: bool
     valid: list[CsvRowResultResponse]
     invalid: list[CsvRowResultResponse]
     duplicates: list[CsvRowResultResponse]
+    conflicts: list[CsvRowResultResponse]
+
+
+class CsvImportAppliedRowResponse(StrictResponse):
+    line_number: int
+    market: str
+    symbol: str
+    action: Literal["CREATED", "REPLACED", "UPDATED", "SKIPPED"]
+    before: dict[str, str] | None
+    after: dict[str, str]
 
 
 class CsvImportCommitResponse(StrictResponse):
     imported_count: int
     skipped_count: int
+    conflict_policy: str
+    audit_id: UUID
+    applied: list[CsvImportAppliedRowResponse]
     portfolio: PortfolioResponse
 
 
