@@ -94,7 +94,20 @@ export function PortfolioPage() {
   const [showMore, setShowMore] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [preview, setPreview] = useState<CsvPreview | null>(null);
-  const [conflictPolicy, setConflictPolicy] = useState<"SKIP" | "REPLACE" | "UPDATE">("SKIP");
+  const [conflictPolicy, setConflictPolicy] = useState<"SKIP" | "REPLACE" | "UPDATE" | "">("");
+  const [importReport, setImportReport] = useState<null | {
+    imported_count: number;
+    skipped_count: number;
+    audit_id: string;
+    applied: {
+      line_number: number;
+      market: string;
+      symbol: string;
+      action: string;
+      before: Record<string, string> | null;
+      after: Record<string, string>;
+    }[];
+  }>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -227,13 +240,10 @@ export function PortfolioPage() {
         }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
-      const result = (await response.json()) as {
-        imported_count: number;
-        skipped_count: number;
-        audit_id: string;
-      };
+      const result = (await response.json()) as NonNullable<typeof importReport>;
+      setImportReport(result);
       setMessage(
-        `已导入 ${result.imported_count} 笔，跳过 ${result.skipped_count} 笔。对账记录 ${result.audit_id.slice(0, 8)}…`,
+        `已导入 ${result.imported_count} 笔，跳过 ${result.skipped_count} 笔。下方可查看逐行对账。`,
       );
       setPreview(null);
       setCsvText("");
@@ -467,10 +477,17 @@ export function PortfolioPage() {
             type="button"
             className="btn primary"
             onClick={() => void confirmCsv()}
-            disabled={busy || !preview?.can_commit}
+            disabled={
+              busy ||
+              !preview?.can_commit ||
+              (Boolean(preview?.requires_conflict_policy) && conflictPolicy === "")
+            }
           >
             确认导入
           </button>
+          {preview?.requires_conflict_policy && conflictPolicy === "" ? (
+            <span className="inline-note">请先选择冲突处理方式</span>
+          ) : null}
           {preview && !preview.can_commit ? (
             <span className="inline-note">有错误行，暂不能导入</span>
           ) : null}
@@ -491,7 +508,16 @@ export function PortfolioPage() {
 
             {preview.requires_conflict_policy ? (
               <div className="conflict-policy">
-                <strong>冲突处理方式（必选）</strong>
+                <strong>冲突处理方式（必须选择后才能导入）</strong>
+                <label>
+                  <input
+                    type="radio"
+                    name="conflictPolicy"
+                    checked={conflictPolicy === ""}
+                    onChange={() => setConflictPolicy("")}
+                  />
+                  请选择…
+                </label>
                 <label>
                   <input
                     type="radio"
@@ -573,6 +599,51 @@ export function PortfolioPage() {
           </div>
         ) : null}
       </Panel>
+
+      {importReport ? (
+        <Panel
+          title="导入对账记录"
+          description={`审计编号 ${importReport.audit_id} · 同一 CSV 与策略重复确认会被拒绝`}
+        >
+          <div className="chip-row">
+            <span className="chip ok">写入 {importReport.imported_count}</span>
+            <span className="chip">跳过 {importReport.skipped_count}</span>
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>行</th>
+                <th>代码</th>
+                <th>动作</th>
+                <th>变更前</th>
+                <th>变更后</th>
+              </tr>
+            </thead>
+            <tbody>
+              {importReport.applied.map((row) => (
+                <tr key={`${row.line_number}-${row.symbol}-${row.action}`}>
+                  <td>{row.line_number}</td>
+                  <td>
+                    {row.market} {row.symbol}
+                  </td>
+                  <td>
+                    <span className="pill valid">{row.action}</span>
+                  </td>
+                  <td>
+                    {row.before
+                      ? `长期 ${row.before.core_quantity} / 机动 ${row.before.tactical_quantity} / 均价 ${row.before.average_cost}`
+                      : "—"}
+                  </td>
+                  <td>
+                    长期 {row.after.core_quantity} / 机动 {row.after.tactical_quantity} / 均价{" "}
+                    {row.after.average_cost}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      ) : null}
 
       <Panel title="持仓一览" description="导入或录入后在这里核对。">
         {!selected || selected.positions.length === 0 ? (

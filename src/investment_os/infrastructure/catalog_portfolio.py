@@ -206,6 +206,11 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 core_quantity=core_quantity,
                 tactical_quantity=tactical_quantity,
                 avg_cost=average_cost,
+                core_average_cost=average_cost if core_quantity != 0 else Decimal("0"),
+                tactical_average_cost=average_cost if tactical_quantity != 0 else Decimal("0"),
+                core_reason="",
+                tactical_reason="",
+                last_operation="MANUAL",
                 realized_pnl=Decimal("0"),
                 version=1,
                 **_audit_kwargs("portfolio_book"),
@@ -215,6 +220,11 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             record.core_quantity = core_quantity
             record.tactical_quantity = tactical_quantity
             record.avg_cost = average_cost
+            if core_quantity != 0:
+                record.core_average_cost = average_cost
+            if tactical_quantity != 0:
+                record.tactical_average_cost = average_cost
+            record.last_operation = "MANUAL"
             record.version = record.version + 1
         await self._session.flush()
         instrument = await self._session.get(InstrumentRecord, instrument_id)
@@ -236,6 +246,61 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         portfolio_id: UUID,
         conflict_policy: str,
         applied: tuple[object, ...],
+        import_hash: str = "",
+    ) -> UUID:
+        return await self._write_import_audit(
+            portfolio_id=portfolio_id,
+            conflict_policy=conflict_policy,
+            applied=applied,
+            import_hash=import_hash,
+        )
+
+    async def find_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        import_hash: str,
+    ) -> UUID | None:
+        statement = select(AuditLogRecord.id).where(
+            AuditLogRecord.entity_id == portfolio_id,
+            AuditLogRecord.operation == "portfolio_csv_import",
+            AuditLogRecord.metadata_json["import_hash"].astext == import_hash,
+        )
+        return (await self._session.scalars(statement)).first()
+
+    async def apply_import_batch(
+        self,
+        *,
+        portfolio_id: UUID,
+        import_hash: str,
+        conflict_policy: str,
+        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...],
+        applied: tuple[object, ...],
+    ) -> UUID:
+        for instrument_id, core_quantity, tactical_quantity, average_cost in positions:
+            await self.upsert_position(
+                portfolio_id=portfolio_id,
+                instrument_id=instrument_id,
+                core_quantity=core_quantity,
+                tactical_quantity=tactical_quantity,
+                average_cost=average_cost,
+            )
+        return await self._write_import_audit(
+            portfolio_id=portfolio_id,
+            conflict_policy=conflict_policy,
+            applied=applied,
+            import_hash=import_hash,
+            positions=positions,
+        )
+
+    async def _write_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        conflict_policy: str,
+        applied: tuple[object, ...],
+        import_hash: str,
+        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...] | None = None,
     ) -> UUID:
         audit_id = uuid4()
         payload = []
@@ -263,7 +328,21 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             created_by="product_portfolio",
             metadata_json={
                 "conflict_policy": conflict_policy,
+                "import_hash": import_hash,
                 "applied": payload,
+                "positions": (
+                    [
+                        {
+                            "instrument_id": str(item[0]),
+                            "core_quantity": str(item[1]),
+                            "tactical_quantity": str(item[2]),
+                            "average_cost": str(item[3]),
+                        }
+                        for item in positions
+                    ]
+                    if positions is not None
+                    else []
+                ),
             },
         )
         self._session.add(record)
@@ -430,11 +509,46 @@ class SessionPortfolioBookPort:
         portfolio_id: UUID,
         conflict_policy: str,
         applied: tuple[object, ...],
+        import_hash: str = "",
     ) -> UUID:
         async with self._session_factory() as session:
-            audit_id = await SqlPortfolioBookAdapter(session).record_import_audit(
+            adapter = SqlPortfolioBookAdapter(session)
+            audit_id = await adapter.record_import_audit(
                 portfolio_id=portfolio_id,
                 conflict_policy=conflict_policy,
+                applied=applied,
+                import_hash=import_hash,
+            )
+            await session.commit()
+            return audit_id
+
+    async def find_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        import_hash: str,
+    ) -> UUID | None:
+        async with self._session_factory() as session:
+            return await SqlPortfolioBookAdapter(session).find_import_audit(
+                portfolio_id=portfolio_id, import_hash=import_hash
+            )
+
+    async def apply_import_batch(
+        self,
+        *,
+        portfolio_id: UUID,
+        import_hash: str,
+        conflict_policy: str,
+        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...],
+        applied: tuple[object, ...],
+    ) -> UUID:
+        async with self._session_factory() as session:
+            adapter = SqlPortfolioBookAdapter(session)
+            audit_id = await adapter.apply_import_batch(
+                portfolio_id=portfolio_id,
+                import_hash=import_hash,
+                conflict_policy=conflict_policy,
+                positions=positions,
                 applied=applied,
             )
             await session.commit()

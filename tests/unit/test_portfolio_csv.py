@@ -124,11 +124,52 @@ class InMemoryPortfolios:
             positions=(),
         )
 
-    async def record_import_audit(self, *, portfolio_id, conflict_policy, applied):
+    async def record_import_audit(self, *, portfolio_id, conflict_policy, applied, import_hash=""):
         self.audit_calls.append(
-            {"portfolio_id": portfolio_id, "conflict_policy": conflict_policy, "applied": applied}
+            {
+                "portfolio_id": portfolio_id,
+                "conflict_policy": conflict_policy,
+                "applied": applied,
+                "import_hash": import_hash,
+            }
         )
         return uuid4()
+
+    async def find_import_audit(self, *, portfolio_id, import_hash):
+        for call in self.audit_calls:
+            if call.get("import_hash") == import_hash:
+                return uuid4()
+        return None
+
+    async def apply_import_batch(
+        self, *, portfolio_id, import_hash, conflict_policy, positions, applied
+    ):
+        self.writes += len(positions)
+        for instrument_id, core, tactical, avg in positions:
+            self.positions[(portfolio_id, instrument_id)] = PortfolioPositionView(
+                position_id=uuid4(),
+                instrument_id=instrument_id,
+                market="SSE",
+                symbol="BATCH",
+                name="BATCH",
+                asset_type="EQUITY",
+                currency="CNY",
+                sector="",
+                core_quantity=core,
+                tactical_quantity=tactical,
+                average_cost=avg,
+            )
+        audit_id = uuid4()
+        self.audit_calls.append(
+            {
+                "audit_id": audit_id,
+                "portfolio_id": portfolio_id,
+                "conflict_policy": conflict_policy,
+                "applied": applied,
+                "import_hash": import_hash,
+            }
+        )
+        return audit_id
 
 
 def test_csv_preview_marks_valid_invalid_and_duplicate() -> None:

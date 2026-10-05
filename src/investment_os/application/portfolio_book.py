@@ -87,7 +87,27 @@ class PortfolioBookPort(Protocol):
         portfolio_id: UUID,
         conflict_policy: str,
         applied: tuple[object, ...],
+        import_hash: str,
     ) -> UUID: ...
+
+    async def find_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        import_hash: str,
+    ) -> UUID | None: ...
+
+    async def apply_import_batch(
+        self,
+        *,
+        portfolio_id: UUID,
+        import_hash: str,
+        conflict_policy: str,
+        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...],
+        applied: tuple[object, ...],
+    ) -> UUID:
+        """Atomically apply positions and one import audit in a single transaction."""
+        ...
 
 
 class PortfolioBookService:
@@ -244,10 +264,39 @@ class PortfolioBookService:
         portfolio_id: UUID,
         conflict_policy: str,
         applied: tuple[object, ...],
+        import_hash: str = "",
     ) -> UUID:
         return await self._portfolios.record_import_audit(
             portfolio_id=portfolio_id,
             conflict_policy=conflict_policy,
+            applied=applied,
+            import_hash=import_hash,
+        )
+
+    async def find_import_audit(
+        self,
+        *,
+        portfolio_id: UUID,
+        import_hash: str,
+    ) -> UUID | None:
+        return await self._portfolios.find_import_audit(
+            portfolio_id=portfolio_id, import_hash=import_hash
+        )
+
+    async def apply_import_batch(
+        self,
+        *,
+        portfolio_id: UUID,
+        import_hash: str,
+        conflict_policy: str,
+        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...],
+        applied: tuple[object, ...],
+    ) -> UUID:
+        return await self._portfolios.apply_import_batch(
+            portfolio_id=portfolio_id,
+            import_hash=import_hash,
+            conflict_policy=conflict_policy,
+            positions=positions,
             applied=applied,
         )
 

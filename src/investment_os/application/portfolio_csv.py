@@ -7,6 +7,7 @@ must be resolved explicitly (skip / replace / update) and are audited.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 from dataclasses import dataclass
 from decimal import Decimal
@@ -14,6 +15,7 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+from investment_os.application.instrument_catalog import InstrumentCatalogPort
 from investment_os.application.portfolio_book import (
     PortfolioBookService,
     PortfolioPositionInput,
@@ -247,8 +249,15 @@ def parse_portfolio_csv(
 
 
 class PortfolioCsvImportService:
-    def __init__(self, portfolios: PortfolioBookService) -> None:
+    def __init__(
+        self,
+        portfolios: PortfolioBookService,
+        catalog: InstrumentCatalogPort | None = None,
+    ) -> None:
         self._portfolios = portfolios
+        self._catalog = catalog if catalog is not None else getattr(portfolios, "_catalog", None)
+        if self._catalog is None:
+            raise ValueError("catalog is required for csv import")
 
     async def _existing_map(self, portfolio_id: UUID) -> dict[tuple[str, str], dict[str, str]]:
         view = await self._portfolios.get_portfolio(portfolio_id)
@@ -298,9 +307,23 @@ class PortfolioCsvImportService:
                 "冲突处理方式无效",
             )
 
+        import_hash = hashlib.sha256(
+            (raw_text + "|" + (conflict_policy or "NONE")).encode("utf-8")
+        ).hexdigest()
+        existing_audit = await self._portfolios.find_import_audit(
+            portfolio_id=portfolio_id, import_hash=import_hash
+        )
+        if existing_audit is not None:
+            raise ApplicationError(
+                ApplicationErrorCode.IDEMPOTENCY_KEY_CONFLICT,
+                "相同 CSV 与冲突策略已导入过; 请勿重复确认",
+                details={"audit_id": str(existing_audit), "import_hash": import_hash},
+            )
+
         applied: list[CsvImportAppliedRow] = []
         imported = 0
         skipped = 0
+        position_ops: list[tuple[UUID, Decimal, Decimal, Decimal]] = []
 
         def _after(row: PortfolioPositionInput) -> dict[str, str]:
             return {
@@ -309,14 +332,32 @@ class PortfolioCsvImportService:
                 "average_cost": str(row.average_cost),
             }
 
+        async def _queue(row: PortfolioPositionInput) -> UUID:
+            entry = await self._catalog.upsert(
+                InstrumentIdentity(
+                    market=row.market,
+                    symbol=row.symbol,
+                    name=row.name,
+                    asset_type=row.asset_type,
+                    currency=row.currency,
+                    sector=row.sector,
+                )
+            )
+            position_ops.append(
+                (
+                    entry.instrument_id,
+                    row.core_quantity,
+                    row.tactical_quantity,
+                    row.average_cost,
+                )
+            )
+            return entry.instrument_id
+
         for row in preview.valid:
             assert row.normalized is not None
             key = (row.normalized.market, row.normalized.symbol)
             before = existing.get(key)
-            await self._portfolios.record_manual_position(
-                portfolio_id=portfolio_id,
-                position=row.normalized,
-            )
+            await _queue(row.normalized)
             imported += 1
             applied.append(
                 CsvImportAppliedRow(
@@ -363,10 +404,7 @@ class PortfolioCsvImportService:
             else:
                 merged = row.normalized
 
-            await self._portfolios.record_manual_position(
-                portfolio_id=portfolio_id,
-                position=merged,
-            )
+            await _queue(merged)
             imported += 1
             applied.append(
                 CsvImportAppliedRow(
@@ -379,12 +417,14 @@ class PortfolioCsvImportService:
                 )
             )
 
-        portfolio = await self._portfolios.get_portfolio(portfolio_id)
-        audit_id = await self._portfolios.record_import_audit(
+        audit_id = await self._portfolios.apply_import_batch(
             portfolio_id=portfolio_id,
+            import_hash=import_hash,
             conflict_policy=conflict_policy or "NONE",
+            positions=tuple(position_ops),
             applied=tuple(applied),
         )
+        portfolio = await self._portfolios.get_portfolio(portfolio_id)
         return CsvImportCommitResult(
             imported_count=imported,
             skipped_count=skipped + len(preview.duplicates),

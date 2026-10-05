@@ -126,6 +126,15 @@ class PositionRecord(AuditFieldsMixin, Base):
         Numeric(38, 18), nullable=False, default=Decimal(0)
     )
     avg_cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False, default=Decimal(0))
+    core_average_cost: Mapped[Decimal] = mapped_column(
+        Numeric(38, 18), nullable=False, default=Decimal(0)
+    )
+    tactical_average_cost: Mapped[Decimal] = mapped_column(
+        Numeric(38, 18), nullable=False, default=Decimal(0)
+    )
+    core_reason: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    tactical_reason: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    last_operation: Mapped[str] = mapped_column(String(32), nullable=False, default="MANUAL")
     realized_pnl: Mapped[Decimal] = mapped_column(
         Numeric(38, 18), nullable=False, default=Decimal(0)
     )

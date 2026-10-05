@@ -96,3 +96,10 @@
   - P1 对账：导入返回 applied 明细与 audit_id；冲突决策可追溯。
   - P2：CSV 原因中文化、错误带 message、文档状态统一为 IN_PROGRESS。
   - 回归：单元 312 项、集成、`npm run build` 通过。
+- 2026-10-05（复验修复二轮）：
+  - Compose/`.env.example` 传入 `INVESTMENT_OS_API_WRITE_TOKEN`，标准栈可配置写令牌。
+  - CSV 导入改为**单事务原子写入**（持仓批次 + 一条审计）；`import_hash` 幂等，重复确认拒绝。
+  - 冲突策略改为**未选择不可确认**；导入后展示**逐行对账表**（before/after + audit_id）。
+  - Position 补长期/机动分账成本与理由字段（迁移 `20260929_0012`）。
+  - 手工持仓/现金错误信息中文化；项目状态表 P5 统一为 `IN_PROGRESS`。
+  - **阶段归属待确认**：0009/0010 源自受阻 PR-09，仅作升级链修复纳入 P5 分支。
