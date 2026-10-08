@@ -112,6 +112,13 @@ class PortfolioBookPort(Protocol):
         import_hash: str,
     ) -> UUID | None: ...
 
+    async def list_import_audits(
+        self,
+        *,
+        portfolio_id: UUID,
+        limit: int = 20,
+    ) -> list[dict[str, object]]: ...
+
     async def apply_import_batch(
         self,
         *,
@@ -318,6 +325,15 @@ class PortfolioBookService:
         return await self._portfolios.find_import_audit(
             portfolio_id=portfolio_id, import_hash=import_hash
         )
+
+    async def list_import_audits(
+        self,
+        *,
+        portfolio_id: UUID,
+        limit: int = 20,
+    ) -> list[dict[str, object]]:
+        await self.get_portfolio(portfolio_id)
+        return await self._portfolios.list_import_audits(portfolio_id=portfolio_id, limit=limit)
 
     async def apply_import_batch(
         self,

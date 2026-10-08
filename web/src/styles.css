@@ -424,6 +424,51 @@ textarea:focus {
   margin-top: 3px;
 }
 
+.instrument-search {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.search-hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.search-hits button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+}
+
+.search-hits button:hover {
+  border-color: var(--brand-2);
+}
+
+.search-hits span {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background: var(--brand-soft);
+}
+
 /* ---------- Feedback ---------- */
 
 .banner {

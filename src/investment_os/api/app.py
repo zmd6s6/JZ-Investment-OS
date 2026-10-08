@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
+from sqlalchemy import select
 
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
@@ -348,6 +349,7 @@ def create_app(
     settings = get_settings()
     selected_probe = readiness_probe or DatabaseReadinessProbe(settings.database_url)
     reader_engine = None
+    session_factory = None
     selected_thesis_reader = thesis_reader
     selected_decision_journal_reader = decision_journal_reader
     selected_task_run_reader = task_run_reader
@@ -1310,19 +1312,78 @@ def create_app(
         )
 
     @application.get(
+        "/api/v1/portfolios/{portfolio_id}/import-audits",
+        response_model=list[dict[str, object]],
+        tags=["portfolio"],
+    )
+    async def list_import_audits(
+        portfolio_id: UUID, limit: int = Query(default=20, ge=1, le=50)
+    ) -> list[dict[str, object]]:
+        from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+
+        try:
+            return await selected_portfolio_book_service.list_import_audits(
+                portfolio_id=portfolio_id, limit=limit
+            )
+        except ApplicationError as exc:
+            if exc.code is ApplicationErrorCode.PORTFOLIO_NOT_FOUND:
+                raise HTTPException(status_code=404, detail=exc.code.value) from exc
+            raise HTTPException(status_code=422, detail=exc.code.value) from exc
+
+    @application.get(
         "/api/v1/policy/review",
         response_model=PolicyReviewResponse,
         tags=["policy"],
     )
     async def policy_review() -> PolicyReviewResponse:
-        # Read-only P5 surface: never invent or modify real policy limits.
-        return PolicyReviewResponse(
-            active_policy_version="none",
-            policy_status="TEST_DEFAULT",
-            is_test_default=True,
-            limits=[],
-            warning="TEST_DEFAULT 不是投资建议. 真实限额须所有者治理批准后才可变更.",
+        """Read-only policy surface. Uses stored policy when present; never invents limits."""
+
+        from investment_os.infrastructure.persistence.models import (
+            InvestmentPolicyRecord,
+            InvestmentPolicyVersionRecord,
         )
+
+        if reader_engine is None and session_factory is None:
+            return PolicyReviewResponse(
+                active_policy_version="none",
+                policy_status="TEST_DEFAULT",
+                is_test_default=True,
+                limits=[],
+                warning="TEST_DEFAULT 不是投资建议. 真实限额须所有者治理批准后才可变更.",
+            )
+        assert session_factory is not None
+        async with session_factory() as session:
+            statement = (
+                select(InvestmentPolicyRecord)
+                .order_by(InvestmentPolicyRecord.created_at.desc())
+                .limit(1)
+            )
+            policy = (await session.scalars(statement)).first()
+            if policy is None or policy.current_version_id is None:
+                return PolicyReviewResponse(
+                    active_policy_version="none",
+                    policy_status="TEST_DEFAULT",
+                    is_test_default=True,
+                    limits=[],
+                    warning="TEST_DEFAULT 不是投资建议. 尚未激活经批准的投资政策.",
+                )
+            version = await session.get(InvestmentPolicyVersionRecord, policy.current_version_id)
+            limits: list[dict[str, str]] = []
+            if version is not None and isinstance(version.config_json, dict):
+                for key, value in version.config_json.items():
+                    limits.append({"key": str(key), "value": str(value)})
+            policy_label = f"{policy.name}@{version.version if version else policy.version}"
+            return PolicyReviewResponse(
+                active_policy_version=policy_label,
+                policy_status=policy.status,
+                is_test_default=str(policy.name).upper().startswith("TEST"),
+                limits=limits,
+                warning=(
+                    "只读展示已存政策配置; 修改真实限额需所有者治理批准."
+                    if policy.status == "ACTIVE"
+                    else "当前政策未处于 ACTIVE; 请在治理流程中确认."
+                ),
+            )
 
     frontend_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
     if frontend_dist.is_dir():

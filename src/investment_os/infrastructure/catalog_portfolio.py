@@ -355,6 +355,34 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         )
         return (await self._session.scalars(statement)).first()
 
+    async def list_import_audits(
+        self,
+        *,
+        portfolio_id: UUID,
+        limit: int = 20,
+    ) -> list[dict[str, object]]:
+        statement = (
+            select(PortfolioImportClaimRecord, AuditLogRecord)
+            .join(AuditLogRecord, AuditLogRecord.id == PortfolioImportClaimRecord.audit_id)
+            .where(PortfolioImportClaimRecord.portfolio_id == portfolio_id)
+            .order_by(PortfolioImportClaimRecord.created_at.desc())
+            .limit(limit)
+        )
+        rows = (await self._session.execute(statement)).all()
+        results: list[dict[str, object]] = []
+        for claim, audit in rows:
+            applied = (audit.metadata_json or {}).get("applied", [])
+            results.append(
+                {
+                    "audit_id": str(claim.audit_id),
+                    "import_hash": claim.import_hash,
+                    "conflict_policy": claim.conflict_policy,
+                    "created_at": claim.created_at.isoformat(),
+                    "applied": applied,
+                }
+            )
+        return results
+
     async def apply_import_batch(
         self,
         *,
@@ -664,6 +692,17 @@ class SessionPortfolioBookPort:
         async with self._session_factory() as session:
             return await SqlPortfolioBookAdapter(session).find_import_audit(
                 portfolio_id=portfolio_id, import_hash=import_hash
+            )
+
+    async def list_import_audits(
+        self,
+        *,
+        portfolio_id: UUID,
+        limit: int = 20,
+    ) -> list[dict[str, object]]:
+        async with self._session_factory() as session:
+            return await SqlPortfolioBookAdapter(session).list_import_audits(
+                portfolio_id=portfolio_id, limit=limit
             )
 
     async def apply_import_batch(

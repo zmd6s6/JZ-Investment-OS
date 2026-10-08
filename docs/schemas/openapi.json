@@ -3151,6 +3151,7 @@
     },
     "/api/v1/policy/review": {
       "get": {
+        "description": "Read-only policy surface. Uses stored policy when present; never invents limits.",
         "operationId": "policy_review_api_v1_policy_review_get",
         "responses": {
           "200": {
@@ -3431,6 +3432,66 @@
           }
         },
         "summary": "Preview Portfolio Csv",
+        "tags": [
+          "portfolio"
+        ]
+      }
+    },
+    "/api/v1/portfolios/{portfolio_id}/import-audits": {
+      "get": {
+        "operationId": "list_import_audits_api_v1_portfolios__portfolio_id__import_audits_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Import Audits Api V1 Portfolios  Portfolio Id  Import Audits Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Import Audits",
         "tags": [
           "portfolio"
         ]

@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
+import { InstrumentSearchBox } from "./InstrumentSearchBox";
 import { apiFetch, readApiError } from "./writeApi";
 
 type PortfolioPosition = {
@@ -101,6 +102,19 @@ export function PortfolioPage() {
   const [csvText, setCsvText] = useState("");
   const [preview, setPreview] = useState<CsvPreview | null>(null);
   const [conflictPolicy, setConflictPolicy] = useState<"SKIP" | "REPLACE" | "UPDATE" | "">("");
+  const [importHistory, setImportHistory] = useState<
+    {
+      audit_id: string;
+      conflict_policy: string;
+      created_at: string;
+      applied: {
+        line_number: number;
+        market: string;
+        symbol: string;
+        action: string;
+      }[];
+    }[]
+  >([]);
   const [importReport, setImportReport] = useState<null | {
     imported_count: number;
     skipped_count: number;
@@ -129,6 +143,20 @@ export function PortfolioPage() {
         setSelectedId(nextId);
       } else if (data.length > 0) {
         setSelectedId(data[0].portfolio_id);
+      }
+      const historyId =
+        nextId && data.some((item) => item.portfolio_id === nextId)
+          ? nextId
+          : data[0]?.portfolio_id;
+      if (historyId) {
+        const historyResponse = await apiFetch(
+          `/api/v1/portfolios/${historyId}/import-audits?limit=10`,
+        );
+        if (historyResponse.ok) {
+          setImportHistory(
+            (await historyResponse.json()) as typeof importHistory,
+          );
+        }
       }
     },
     [selectedId],
@@ -401,8 +429,21 @@ export function PortfolioPage() {
 
       <Panel
         title="记一笔持仓"
-        description="通常只需代码、名称和数量。市场可自动识别（6 开头沪市，0/3 开头深市）。"
+        description="可用目录搜索选标的；也可手填。市场可自动识别（五位代码为港股）。"
       >
+        <InstrumentSearchBox
+          onSelect={(hit) => {
+            setManual((prev) => ({
+              ...prev,
+              market: hit.market,
+              symbol: hit.symbol,
+              name: hit.name,
+              currency: hit.currency,
+              sector: hit.sector,
+            }));
+            setMessage(`已选择 ${hit.market} ${hit.symbol}`);
+          }}
+        />
         <form className="form-grid" onSubmit={addPosition}>
           <label className="field">
             <span>代码</span>
@@ -735,7 +776,21 @@ export function PortfolioPage() {
         </Panel>
       ) : null}
 
-      <Panel title="持仓一览" description="导入或录入后在这里核对。">
+      {importHistory.length > 0 ? (
+        <Panel title="导入历史" description="从已保存审计记录读取，刷新后仍在。">
+          <ul className="tip-list">
+            {importHistory.map((item) => (
+              <li key={item.audit_id}>
+                {new Date(item.created_at).toLocaleString("zh-CN")} · 策略{" "}
+                {item.conflict_policy} · {item.applied.length} 行 · 审计{" "}
+                {item.audit_id.slice(0, 8)}…
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      ) : null}
+
+      <Panel title="持仓一览" description="点击行可载入编辑。导入或录入后在这里核对。">
         {!selected || selected.positions.length === 0 ? (
           <EmptyState title="暂无持仓" hint="用上面的方式录入后，这里会显示。" />
         ) : (
@@ -753,7 +808,33 @@ export function PortfolioPage() {
             </thead>
             <tbody>
               {selected.positions.map((position) => (
-                <tr key={position.position_id}>
+                <tr
+                  key={position.position_id}
+                  className="clickable-row"
+                  onClick={() => {
+                    setManual({
+                      market: position.market,
+                      symbol: position.symbol,
+                      name: position.name,
+                      core_quantity: String(position.core_quantity),
+                      tactical_quantity: String(position.tactical_quantity),
+                      average_cost: String(position.average_cost),
+                      core_average_cost: String(
+                        (position as { core_average_cost?: string }).core_average_cost ??
+                          position.average_cost,
+                      ),
+                      tactical_average_cost: String(
+                        (position as { tactical_average_cost?: string }).tactical_average_cost ??
+                          position.average_cost,
+                      ),
+                      core_reason: (position as { core_reason?: string }).core_reason ?? "",
+                      tactical_reason: (position as { tactical_reason?: string }).tactical_reason ?? "",
+                      currency: position.currency,
+                      sector: position.sector,
+                    });
+                    setMessage(`已载入 ${position.symbol}，可修改后重新保存`);
+                  }}
+                >
                   <td>
                     <strong>{position.symbol}</strong>
                   </td>

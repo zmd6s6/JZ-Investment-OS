@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
+import { InstrumentSearchBox } from "./InstrumentSearchBox";
 import { apiFetch, readApiError } from "./writeApi";
 
 type WatchlistItem = {
@@ -127,7 +128,14 @@ export function WatchlistPage() {
       </div>
 
       <div className="two-col">
-        <Panel title="加入观察" description="可手动选市场；五位代码识别为港股。">
+        <Panel title="加入观察" description="可搜索目录选标的，或手动填。五位代码识别为港股。">
+          <InstrumentSearchBox
+            onSelect={(hit) => {
+              setMarket(hit.market);
+              setSymbol(hit.symbol);
+              setName(hit.name);
+            }}
+          />
           <form className="form-grid" onSubmit={addItem}>
             <label className="field">
               <span>市场</span>
