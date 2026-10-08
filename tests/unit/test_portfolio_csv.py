@@ -101,6 +101,8 @@ class InMemoryPortfolios:
         core_quantity,
         tactical_quantity,
         average_cost,
+        core_average_cost=None,
+        tactical_average_cost=None,
         core_reason="",
         tactical_reason="",
         operation="MANUAL",
@@ -118,6 +120,10 @@ class InMemoryPortfolios:
             core_quantity=core_quantity,
             tactical_quantity=tactical_quantity,
             average_cost=average_cost,
+            core_average_cost=core_average_cost if core_average_cost is not None else average_cost,
+            tactical_average_cost=(
+                tactical_average_cost if tactical_average_cost is not None else average_cost
+            ),
             core_reason=core_reason,
             tactical_reason=tactical_reason,
             operation=operation,

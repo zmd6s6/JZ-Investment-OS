@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
+import { apiFetch, readApiError } from "./writeApi";
 
 type WatchlistItem = {
   watchlist_item_id: string;
@@ -53,7 +54,7 @@ export function WatchlistPage() {
     setMessage(null);
     try {
       const market = guessMarket(symbol);
-      const response = await fetch("/api/v1/watchlist", {
+      const response = await apiFetch("/api/v1/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -65,7 +66,7 @@ export function WatchlistPage() {
           sector: "",
         }),
       });
-      if (!response.ok) throw new Error("加入失败");
+      if (!response.ok) throw new Error(await readApiError(response));
       setMessage("已加入观察清单");
       setSymbol("");
       setName("");
@@ -82,11 +83,11 @@ export function WatchlistPage() {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/v1/watchlist/${encodeURIComponent(item.market)}/${encodeURIComponent(item.symbol)}`,
         { method: "DELETE" },
       );
-      if (!response.ok) throw new Error("移除失败");
+      if (!response.ok) throw new Error(await readApiError(response));
       setMessage(`已移除 ${item.symbol}`);
       await load();
     } catch (reason) {

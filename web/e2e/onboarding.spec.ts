@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+const WRITE_TOKEN = process.env.INVESTMENT_OS_API_WRITE_TOKEN ?? "e2e-write-token";
+
 test("home onboarding can start and persists non-sensitive state", async ({ page, request }) => {
+  await page.addInitScript((token: string) => {
+    sessionStorage.setItem("investment_os_write_token", token);
+  }, WRITE_TOKEN);
   const initialResponse = await request.get("/api/v1/onboarding");
   expect(initialResponse.ok()).toBeTruthy();
   const initial = await initialResponse.json();

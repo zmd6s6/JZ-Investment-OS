@@ -127,6 +127,8 @@ def _position_view(
         core_quantity=record.core_quantity,
         tactical_quantity=record.tactical_quantity,
         average_cost=record.avg_cost,
+        core_average_cost=record.core_average_cost,
+        tactical_average_cost=record.tactical_average_cost,
         core_reason=record.core_reason,
         tactical_reason=record.tactical_reason,
         operation=record.last_operation,
@@ -197,10 +199,22 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         core_quantity: Decimal,
         tactical_quantity: Decimal,
         average_cost: Decimal,
+        core_average_cost: Decimal | None = None,
+        tactical_average_cost: Decimal | None = None,
         core_reason: str = "",
         tactical_reason: str = "",
         operation: str = "MANUAL",
     ) -> PortfolioPositionView:
+        resolved_core_avg = (
+            core_average_cost
+            if core_average_cost is not None
+            else (average_cost if core_quantity != 0 else Decimal("0"))
+        )
+        resolved_tactical_avg = (
+            tactical_average_cost
+            if tactical_average_cost is not None
+            else (average_cost if tactical_quantity != 0 else Decimal("0"))
+        )
         statement = select(PositionRecord).where(
             PositionRecord.portfolio_id == portfolio_id,
             PositionRecord.instrument_id == instrument_id,
@@ -214,8 +228,8 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 core_quantity=core_quantity,
                 tactical_quantity=tactical_quantity,
                 avg_cost=average_cost,
-                core_average_cost=average_cost if core_quantity != 0 else Decimal("0"),
-                tactical_average_cost=average_cost if tactical_quantity != 0 else Decimal("0"),
+                core_average_cost=resolved_core_avg,
+                tactical_average_cost=resolved_tactical_avg,
                 core_reason=core_reason,
                 tactical_reason=tactical_reason,
                 last_operation=operation,
@@ -228,10 +242,8 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             record.core_quantity = core_quantity
             record.tactical_quantity = tactical_quantity
             record.avg_cost = average_cost
-            if core_quantity != 0:
-                record.core_average_cost = average_cost
-            if tactical_quantity != 0:
-                record.tactical_average_cost = average_cost
+            record.core_average_cost = resolved_core_avg
+            record.tactical_average_cost = resolved_tactical_avg
             record.core_reason = core_reason
             record.tactical_reason = tactical_reason
             record.last_operation = operation
@@ -594,6 +606,8 @@ class SessionPortfolioBookPort:
         core_quantity: Decimal,
         tactical_quantity: Decimal,
         average_cost: Decimal,
+        core_average_cost: Decimal | None = None,
+        tactical_average_cost: Decimal | None = None,
         core_reason: str = "",
         tactical_reason: str = "",
         operation: str = "MANUAL",
@@ -605,6 +619,8 @@ class SessionPortfolioBookPort:
                 core_quantity=core_quantity,
                 tactical_quantity=tactical_quantity,
                 average_cost=average_cost,
+                core_average_cost=core_average_cost,
+                tactical_average_cost=tactical_average_cost,
                 core_reason=core_reason,
                 tactical_reason=tactical_reason,
                 operation=operation,

@@ -75,6 +75,10 @@ const emptyManual = {
   core_quantity: "0",
   tactical_quantity: "0",
   average_cost: "0",
+  core_average_cost: "",
+  tactical_average_cost: "",
+  core_reason: "",
+  tactical_reason: "",
   currency: "CNY",
   sector: "",
 };
@@ -189,6 +193,11 @@ export function PortfolioPage() {
           core_quantity: manual.core_quantity || "0",
           tactical_quantity: manual.tactical_quantity || "0",
           average_cost: manual.average_cost || "0",
+          core_average_cost: manual.core_average_cost || null,
+          tactical_average_cost: manual.tactical_average_cost || null,
+          core_reason: manual.core_reason,
+          tactical_reason: manual.tactical_reason,
+          operation: "MANUAL",
         }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
@@ -397,6 +406,40 @@ export function PortfolioPage() {
               value={manual.average_cost}
               inputMode="decimal"
               onChange={(e) => setManual({ ...manual, average_cost: e.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>长期仓均价</span>
+            <input
+              value={manual.core_average_cost}
+              placeholder="默认同买入均价"
+              inputMode="decimal"
+              onChange={(e) => setManual({ ...manual, core_average_cost: e.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>机动仓均价</span>
+            <input
+              value={manual.tactical_average_cost}
+              placeholder="默认同买入均价"
+              inputMode="decimal"
+              onChange={(e) => setManual({ ...manual, tactical_average_cost: e.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>长期仓理由</span>
+            <input
+              value={manual.core_reason}
+              placeholder="例如：底仓、股息"
+              onChange={(e) => setManual({ ...manual, core_reason: e.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>机动仓理由</span>
+            <input
+              value={manual.tactical_reason}
+              placeholder="例如：波段、事件"
+              onChange={(e) => setManual({ ...manual, tactical_reason: e.target.value })}
             />
           </label>
           <button type="submit" className="btn primary" disabled={busy || !selected}>

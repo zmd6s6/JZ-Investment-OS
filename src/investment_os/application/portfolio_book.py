@@ -27,6 +27,8 @@ class PortfolioPositionInput:
     core_quantity: Decimal
     tactical_quantity: Decimal
     average_cost: Decimal
+    core_average_cost: Decimal | None = None
+    tactical_average_cost: Decimal | None = None
     core_reason: str = ""
     tactical_reason: str = ""
     operation: str = "MANUAL"
@@ -45,6 +47,8 @@ class PortfolioPositionView:
     core_quantity: Decimal
     tactical_quantity: Decimal
     average_cost: Decimal
+    core_average_cost: Decimal = Decimal("0")
+    tactical_average_cost: Decimal = Decimal("0")
     core_reason: str = ""
     tactical_reason: str = ""
     operation: str = "MANUAL"
@@ -81,6 +85,8 @@ class PortfolioBookPort(Protocol):
         core_quantity: Decimal,
         tactical_quantity: Decimal,
         average_cost: Decimal,
+        core_average_cost: Decimal | None = None,
+        tactical_average_cost: Decimal | None = None,
         core_reason: str = "",
         tactical_reason: str = "",
         operation: str = "MANUAL",
@@ -240,12 +246,30 @@ class PortfolioBookService:
                 "zero quantity cannot carry a non-zero average cost",
             )
         entry: InstrumentCatalogEntry = await self._catalog.upsert(identity)
+        try:
+            core_avg = (
+                exact_decimal(position.core_average_cost)
+                if position.core_average_cost is not None
+                else None
+            )
+            tactical_avg = (
+                exact_decimal(position.tactical_average_cost)
+                if position.tactical_average_cost is not None
+                else None
+            )
+        except Exception as exc:
+            raise ApplicationError(
+                ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
+                "分桶均价必须是有效数字",
+            ) from exc
         await self._portfolios.upsert_position(
             portfolio_id=portfolio_id,
             instrument_id=entry.instrument_id,
             core_quantity=buckets.core.value,
             tactical_quantity=buckets.tactical.value,
             average_cost=average_cost,
+            core_average_cost=core_avg,
+            tactical_average_cost=tactical_avg,
             core_reason=(position.core_reason or "").strip()[:255],
             tactical_reason=(position.tactical_reason or "").strip()[:255],
             operation=(position.operation or "MANUAL").strip().upper()[:32] or "MANUAL",

@@ -80,6 +80,96 @@ def test_instrument_identity_rejects_empty_symbol() -> None:
         )
 
 
+def test_instrument_identity_rejects_long_symbol() -> None:
+    with pytest.raises(DomainError):
+        InstrumentIdentity(
+            market="SSE",
+            symbol="X" * 65,
+            name="x",
+            asset_type="EQUITY",
+            currency="CNY",
+            sector="",
+        )
+
+
+def test_instrument_identity_rejects_empty_market() -> None:
+    with pytest.raises(DomainError):
+        InstrumentIdentity(
+            market=" ",
+            symbol="600519",
+            name="x",
+            asset_type="EQUITY",
+            currency="CNY",
+            sector="",
+        )
+
+
+def test_instrument_identity_rejects_long_market() -> None:
+    with pytest.raises(DomainError):
+        InstrumentIdentity(
+            market="M" * 65,
+            symbol="600519",
+            name="x",
+            asset_type="EQUITY",
+            currency="CNY",
+            sector="",
+        )
+
+
+def test_instrument_identity_rejects_bad_currency_length() -> None:
+    with pytest.raises(DomainError):
+        InstrumentIdentity(
+            market="SSE",
+            symbol="600519",
+            name="x",
+            asset_type="EQUITY",
+            currency="CN",
+            sector="",
+        )
+
+
+def test_instrument_identity_rejects_empty_name_and_asset_type() -> None:
+    with pytest.raises(DomainError):
+        InstrumentIdentity(
+            market="SSE",
+            symbol="600519",
+            name="   ",
+            asset_type="EQUITY",
+            currency="CNY",
+            sector="",
+        )
+    with pytest.raises(DomainError):
+        InstrumentIdentity(
+            market="SSE",
+            symbol="600519",
+            name="x",
+            asset_type=" ",
+            currency="CNY",
+            sector="",
+        )
+
+
+def test_instrument_identity_rejects_long_name_and_sector() -> None:
+    with pytest.raises(DomainError):
+        InstrumentIdentity(
+            market="SSE",
+            symbol="600519",
+            name="N" * 256,
+            asset_type="EQUITY",
+            currency="CNY",
+            sector="",
+        )
+    with pytest.raises(DomainError):
+        InstrumentIdentity(
+            market="SSE",
+            symbol="600519",
+            name="n",
+            asset_type="EQUITY",
+            currency="CNY",
+            sector="S" * 65,
+        )
+
+
 @pytest.mark.asyncio
 async def test_catalog_resolve_registers_then_reuses() -> None:
     service = InstrumentCatalogService(InMemoryCatalog())

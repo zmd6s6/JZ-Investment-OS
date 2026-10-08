@@ -68,8 +68,10 @@ describe("product onboarding", () => {
     render(<App />);
 
     expect(screen.getByText("合成只读页面")).toBeInTheDocument();
-    expect(screen.getByText("此页面只使用合成开发数据。它不代表账户、持仓、研究结论或可执行交易建议。")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "返回设置向导" })).toHaveAttribute("href", "/");
+    expect(
+      screen.getByText("仅用于界面结构演示，不代表真实账户或可执行建议。"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "首页" })[0]).toHaveAttribute("href", "/");
     window.history.pushState({}, "", "/");
   });
 

@@ -393,6 +393,11 @@ class ManualPositionRequest(StrictResponse):
     core_quantity: Decimal = Decimal("0")
     tactical_quantity: Decimal = Decimal("0")
     average_cost: Decimal = Decimal("0")
+    core_average_cost: Decimal | None = None
+    tactical_average_cost: Decimal | None = None
+    core_reason: str = Field(default="", max_length=255)
+    tactical_reason: str = Field(default="", max_length=255)
+    operation: str = Field(default="MANUAL", max_length=32)
 
 
 class PortfolioPositionResponse(StrictResponse):
@@ -407,6 +412,11 @@ class PortfolioPositionResponse(StrictResponse):
     core_quantity: Decimal
     tactical_quantity: Decimal
     average_cost: Decimal
+    core_average_cost: Decimal | None = None
+    tactical_average_cost: Decimal | None = None
+    core_reason: str = ""
+    tactical_reason: str = ""
+    operation: str = "MANUAL"
 
 
 class PortfolioResponse(StrictResponse):

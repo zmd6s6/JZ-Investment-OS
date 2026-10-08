@@ -1,11 +1,17 @@
 import { expect, test } from "@playwright/test";
 
+const WRITE_TOKEN = process.env.INVESTMENT_OS_API_WRITE_TOKEN ?? "e2e-write-token";
+
 test("settings keeps a configured credential write-only without contacting the configured endpoint", async ({
   page,
   request,
 }) => {
+  await page.addInitScript((token: string) => {
+    sessionStorage.setItem("investment_os_write_token", token);
+  }, WRITE_TOKEN);
   const profileName = "e2e-model-" + Date.now();
   const created = await request.post("/api/v1/settings/model-providers", {
+    headers: { Authorization: `Bearer ${WRITE_TOKEN}` },
     data: {
       name: profileName,
       provider_type: "OPENAI_COMPATIBLE",

@@ -5,6 +5,7 @@ import { PortfolioPage } from "./PortfolioPage";
 import { WatchlistPage } from "./WatchlistPage";
 import { PolicyReviewPanel } from "./PolicyReviewPanel";
 import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
+import { apiFetch, readApiError } from "./writeApi";
 
 type OnboardingStatus = "NOT_STARTED" | "IN_PROGRESS";
 type CapabilityStatus = "AVAILABLE" | "CONFIGURATION_REQUIRED" | "NOT_IMPLEMENTED";
@@ -113,8 +114,8 @@ function HomePage() {
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/v1/onboarding/start", { method: "POST" });
-      if (!response.ok) throw new Error("无法保存向导进度");
+      const response = await apiFetch("/api/v1/onboarding/start", { method: "POST" });
+      if (!response.ok) throw new Error(await readApiError(response));
       setState((await response.json()) as OnboardingState);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "保存失败");

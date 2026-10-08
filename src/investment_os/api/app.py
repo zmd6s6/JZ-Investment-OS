@@ -1004,6 +1004,11 @@ def create_app(
                     "core_quantity": position.core_quantity,
                     "tactical_quantity": position.tactical_quantity,
                     "average_cost": position.average_cost,
+                    "core_average_cost": position.core_average_cost,
+                    "tactical_average_cost": position.tactical_average_cost,
+                    "core_reason": position.core_reason,
+                    "tactical_reason": position.tactical_reason,
+                    "operation": position.operation,
                 }
                 for position in view.positions
             ],
@@ -1137,6 +1142,11 @@ def create_app(
                     core_quantity=request.core_quantity,
                     tactical_quantity=request.tactical_quantity,
                     average_cost=request.average_cost,
+                    core_average_cost=request.core_average_cost,
+                    tactical_average_cost=request.tactical_average_cost,
+                    core_reason=request.core_reason,
+                    tactical_reason=request.tactical_reason,
+                    operation=request.operation,
                 ),
             )
         except ApplicationError as exc:
