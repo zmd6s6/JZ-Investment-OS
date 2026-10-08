@@ -1346,6 +1346,21 @@
             "default": "0",
             "title": "Average Cost"
           },
+          "core_average_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Average Cost"
+          },
           "core_quantity": {
             "anyOf": [
               {
@@ -1358,6 +1373,12 @@
             ],
             "default": "0",
             "title": "Core Quantity"
+          },
+          "core_reason": {
+            "default": "",
+            "maxLength": 255,
+            "title": "Core Reason",
+            "type": "string"
           },
           "currency": {
             "maxLength": 3,
@@ -1377,6 +1398,12 @@
             "title": "Name",
             "type": "string"
           },
+          "operation": {
+            "default": "MANUAL",
+            "maxLength": 32,
+            "title": "Operation",
+            "type": "string"
+          },
           "sector": {
             "default": "",
             "maxLength": 64,
@@ -1388,6 +1415,21 @@
             "minLength": 1,
             "title": "Symbol",
             "type": "string"
+          },
+          "tactical_average_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Average Cost"
           },
           "tactical_quantity": {
             "anyOf": [
@@ -1401,6 +1443,12 @@
             ],
             "default": "0",
             "title": "Tactical Quantity"
+          },
+          "tactical_reason": {
+            "default": "",
+            "maxLength": 255,
+            "title": "Tactical Reason",
+            "type": "string"
           }
         },
         "required": [
@@ -1822,9 +1870,26 @@
             "title": "Average Cost",
             "type": "string"
           },
+          "core_average_cost": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Average Cost"
+          },
           "core_quantity": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Core Quantity",
+            "type": "string"
+          },
+          "core_reason": {
+            "default": "",
+            "title": "Core Reason",
             "type": "string"
           },
           "currency": {
@@ -1844,6 +1909,11 @@
             "title": "Name",
             "type": "string"
           },
+          "operation": {
+            "default": "MANUAL",
+            "title": "Operation",
+            "type": "string"
+          },
           "position_id": {
             "format": "uuid",
             "title": "Position Id",
@@ -1857,9 +1927,26 @@
             "title": "Symbol",
             "type": "string"
           },
+          "tactical_average_cost": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Average Cost"
+          },
           "tactical_quantity": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Tactical Quantity",
+            "type": "string"
+          },
+          "tactical_reason": {
+            "default": "",
+            "title": "Tactical Reason",
             "type": "string"
           }
         },
