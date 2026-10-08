@@ -393,7 +393,8 @@ def create_app(
             )
         if selected_portfolio_csv_service is None and selected_portfolio_book_service is not None:
             selected_portfolio_csv_service = PortfolioCsvImportService(
-                selected_portfolio_book_service
+                selected_portfolio_book_service,
+                SessionCatalogPort(session_factory),
             )
         if selected_watchlist_service is None:
             selected_watchlist_service = WatchlistService(

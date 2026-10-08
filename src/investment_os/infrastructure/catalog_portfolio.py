@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.instrument_catalog import (
     InstrumentCatalogEntry,
     InstrumentCatalogPort,
@@ -21,6 +22,7 @@ from investment_os.domain.instrument import InstrumentIdentity
 from investment_os.infrastructure.persistence.models import (
     AuditLogRecord,
     InstrumentRecord,
+    PortfolioImportClaimRecord,
     PortfolioRecord,
     PositionRecord,
     WatchlistItemRecord,
@@ -261,10 +263,9 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         portfolio_id: UUID,
         import_hash: str,
     ) -> UUID | None:
-        statement = select(AuditLogRecord.id).where(
-            AuditLogRecord.entity_id == portfolio_id,
-            AuditLogRecord.operation == "portfolio_csv_import",
-            AuditLogRecord.metadata_json["import_hash"].astext == import_hash,
+        statement = select(PortfolioImportClaimRecord.audit_id).where(
+            PortfolioImportClaimRecord.portfolio_id == portfolio_id,
+            PortfolioImportClaimRecord.import_hash == import_hash,
         )
         return (await self._session.scalars(statement)).first()
 
@@ -274,24 +275,58 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         portfolio_id: UUID,
         import_hash: str,
         conflict_policy: str,
-        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...],
+        items: tuple[dict[str, object], ...],
         applied: tuple[object, ...],
     ) -> UUID:
-        for instrument_id, core_quantity, tactical_quantity, average_cost in positions:
+        from sqlalchemy.exc import IntegrityError
+
+        existing = await self.find_import_audit(portfolio_id=portfolio_id, import_hash=import_hash)
+        if existing is not None:
+            raise ApplicationError(
+                ApplicationErrorCode.IDEMPOTENCY_KEY_CONFLICT,
+                "相同 CSV 与冲突策略已导入过; 请勿重复确认",
+                details={"audit_id": str(existing), "import_hash": import_hash},
+            )
+
+        audit_id = uuid4()
+        catalog = SqlInstrumentCatalogAdapter(self._session)
+        for item in items:
+            identity = item["identity"]
+            assert isinstance(identity, InstrumentIdentity)
+            entry = await catalog.upsert(identity)
             await self.upsert_position(
                 portfolio_id=portfolio_id,
-                instrument_id=instrument_id,
-                core_quantity=core_quantity,
-                tactical_quantity=tactical_quantity,
-                average_cost=average_cost,
+                instrument_id=entry.instrument_id,
+                core_quantity=item["core_quantity"],  # type: ignore[arg-type]
+                tactical_quantity=item["tactical_quantity"],  # type: ignore[arg-type]
+                average_cost=item["average_cost"],  # type: ignore[arg-type]
             )
-        return await self._write_import_audit(
+
+        claim = PortfolioImportClaimRecord(
+            id=uuid4(),
+            portfolio_id=portfolio_id,
+            import_hash=import_hash,
+            audit_id=audit_id,
+            conflict_policy=conflict_policy,
+            created_by="product_portfolio",
+        )
+        self._session.add(claim)
+        await self._write_import_audit(
             portfolio_id=portfolio_id,
             conflict_policy=conflict_policy,
             applied=applied,
             import_hash=import_hash,
-            positions=positions,
+            audit_id=audit_id,
         )
+        try:
+            await self._session.flush()
+        except IntegrityError as exc:
+            raise ApplicationError(
+                ApplicationErrorCode.IDEMPOTENCY_KEY_CONFLICT,
+                "相同 CSV 与冲突策略已导入过; 请勿重复确认",
+                details={"import_hash": import_hash},
+            ) from exc
+        return audit_id
 
     async def _write_import_audit(
         self,
@@ -300,9 +335,11 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         conflict_policy: str,
         applied: tuple[object, ...],
         import_hash: str,
+        audit_id: UUID | None = None,
         positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...] | None = None,
     ) -> UUID:
-        audit_id = uuid4()
+        if audit_id is None:
+            audit_id = uuid4()
         payload = []
         for item in applied:
             payload.append(
@@ -539,7 +576,7 @@ class SessionPortfolioBookPort:
         portfolio_id: UUID,
         import_hash: str,
         conflict_policy: str,
-        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...],
+        items: tuple[dict[str, object], ...],
         applied: tuple[object, ...],
     ) -> UUID:
         async with self._session_factory() as session:
@@ -548,7 +585,7 @@ class SessionPortfolioBookPort:
                 portfolio_id=portfolio_id,
                 import_hash=import_hash,
                 conflict_policy=conflict_policy,
-                positions=positions,
+                items=items,
                 applied=applied,
             )
             await session.commit()

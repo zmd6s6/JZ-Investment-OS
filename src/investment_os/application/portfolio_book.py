@@ -103,10 +103,10 @@ class PortfolioBookPort(Protocol):
         portfolio_id: UUID,
         import_hash: str,
         conflict_policy: str,
-        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...],
+        items: tuple[dict[str, object], ...],
         applied: tuple[object, ...],
     ) -> UUID:
-        """Atomically apply positions and one import audit in a single transaction."""
+        """Atomically claim import_hash, upsert instruments/positions, and write one audit."""
         ...
 
 
@@ -289,14 +289,14 @@ class PortfolioBookService:
         portfolio_id: UUID,
         import_hash: str,
         conflict_policy: str,
-        positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...],
+        items: tuple[dict[str, object], ...],
         applied: tuple[object, ...],
     ) -> UUID:
         return await self._portfolios.apply_import_batch(
             portfolio_id=portfolio_id,
             import_hash=import_hash,
             conflict_policy=conflict_policy,
-            positions=positions,
+            items=items,
             applied=applied,
         )
 

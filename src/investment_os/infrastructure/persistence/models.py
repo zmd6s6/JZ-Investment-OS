@@ -713,3 +713,24 @@ class AuditLogRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class PortfolioImportClaimRecord(Base):
+    """Unique idempotency claim so the same CSV import cannot commit twice concurrently."""
+
+    __tablename__ = "portfolio_import_claim"
+    __table_args__ = (
+        UniqueConstraint("portfolio_id", "import_hash", name="uq_portfolio_import_hash"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    portfolio_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    import_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    audit_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    conflict_policy: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_by: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="product_portfolio"
+    )

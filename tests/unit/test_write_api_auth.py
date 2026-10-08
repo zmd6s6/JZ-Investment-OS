@@ -37,10 +37,7 @@ def test_write_requires_matching_bearer_token() -> None:
     client = TestClient(_app("secret-token"))
     assert client.post("/api/v1/items").status_code == 401
     assert (
-        client.post(
-            "/api/v1/items", headers={"Authorization": "Bearer wrong"}
-        ).status_code
-        == 401
+        client.post("/api/v1/items", headers={"Authorization": "Bearer wrong"}).status_code == 401
     )
     ok = client.post("/api/v1/items", headers={"Authorization": "Bearer secret-token"})
     assert ok.status_code == 200

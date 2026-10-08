@@ -37,6 +37,9 @@ def upgrade() -> None:
         "position",
         sa.Column("last_operation", sa.String(32), nullable=False, server_default="MANUAL"),
     )
+    # Backfill historical rows from the previous shared average cost.
+    op.execute("UPDATE position SET core_average_cost = avg_cost WHERE core_quantity <> 0")
+    op.execute("UPDATE position SET tactical_average_cost = avg_cost WHERE tactical_quantity <> 0")
 
 
 def downgrade() -> None:

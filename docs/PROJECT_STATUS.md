@@ -63,7 +63,7 @@ PRODUCT-04 已由 PR #15 合并到 `main`（`ba9b4fa`）：它完成了多提供
 交付 365 天档案配置、未来到期时间映射及 API SecretStore 命名卷；当前本地容器尚未重建迁移，以保护现有凭据。
 
 2026-09-29，所有者重新确认产品执行顺序：P4 已接受，必须先完成并接受 P5、P6、P7、P8、P9，之后才可恢复
-PR-09。因此 `PRODUCT-05 / P5` 是当前下一阶段（`PLANNED`）。任何尚未合并的 PR-09 预研不属于 `main` 的
+PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶段为 `PRODUCT-05`（`IN_PROGRESS`）。任何尚未合并的 PR-09 预研不属于 `main` 的
 已接受交付，不能作为当前活动阶段、可用 Beta 或发布就绪声明。
 
 ## 已记录的范围决定
@@ -89,7 +89,7 @@ PR-09。因此 `PRODUCT-05 / P5` 是当前下一阶段（`PLANNED`）。任何�
 | PRODUCT-02 | ACCEPTED | PR #13 已合并；ADR-0013 已接受 | 设置、密钥存储与提供方档案 |
 | PRODUCT-03 | ACCEPTED | 已由 PR #14 合并；MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过 | 真实模型运行时 |
 | PRODUCT-04 | ACCEPTED | 已由 PR #15 合并到 `main`（`ba9b4fa`） | 多提供方数据运行时 |
-| PRODUCT-05 | PLANNED | 尚未开始；下一阶段 | Portfolio 与 Watchlist 产品 |
+| PRODUCT-05 | IN_PROGRESS | 实现与复验修复中；未合并 | Portfolio 与 Watchlist 产品 |
 | PRODUCT-06 | PLANNED | 依赖 PRODUCT-05 `ACCEPTED` | 端到端 Analysis Orchestration |
 | PRODUCT-07 | PLANNED | 依赖 PRODUCT-06 `ACCEPTED` | 交互式决策与批准 |
 | PRODUCT-08 | PLANNED | 依赖 PRODUCT-07 `ACCEPTED` | 每日 AI 团队运行时 |

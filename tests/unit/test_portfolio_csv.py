@@ -142,22 +142,23 @@ class InMemoryPortfolios:
         return None
 
     async def apply_import_batch(
-        self, *, portfolio_id, import_hash, conflict_policy, positions, applied
+        self, *, portfolio_id, import_hash, conflict_policy, items, applied
     ):
-        self.writes += len(positions)
-        for instrument_id, core, tactical, avg in positions:
-            self.positions[(portfolio_id, instrument_id)] = PortfolioPositionView(
+        self.writes += len(items)
+        for item in items:
+            identity = item["identity"]
+            self.positions[(portfolio_id, id(identity))] = PortfolioPositionView(
                 position_id=uuid4(),
-                instrument_id=instrument_id,
-                market="SSE",
-                symbol="BATCH",
-                name="BATCH",
-                asset_type="EQUITY",
-                currency="CNY",
-                sector="",
-                core_quantity=core,
-                tactical_quantity=tactical,
-                average_cost=avg,
+                instrument_id=uuid4(),
+                market=identity.market,
+                symbol=identity.symbol,
+                name=identity.name,
+                asset_type=identity.asset_type,
+                currency=identity.currency,
+                sector=identity.sector,
+                core_quantity=item["core_quantity"],
+                tactical_quantity=item["tactical_quantity"],
+                average_cost=item["average_cost"],
             )
         audit_id = uuid4()
         self.audit_calls.append(
@@ -209,7 +210,7 @@ def test_csv_preview_all_valid_can_commit() -> None:
 @pytest.mark.asyncio
 async def test_csv_confirm_requires_clean_preview() -> None:
     book = PortfolioBookService(InMemoryPortfolios(), InMemoryCatalog())
-    service = PortfolioCsvImportService(book)
+    service = PortfolioCsvImportService(book, InMemoryCatalog())
     portfolio = await book.create_portfolio(name="p", base_currency="CNY", cash_balance=0)
     with pytest.raises(ApplicationError) as exc:
         await service.confirm(
@@ -222,7 +223,7 @@ async def test_csv_confirm_requires_clean_preview() -> None:
 async def test_csv_confirm_requires_conflict_policy_and_never_silent_overwrite() -> None:
     store = InMemoryPortfolios()
     book = PortfolioBookService(store, InMemoryCatalog())
-    service = PortfolioCsvImportService(book)
+    service = PortfolioCsvImportService(book, InMemoryCatalog())
     portfolio = await book.create_portfolio(name="p", base_currency="CNY", cash_balance=0)
 
     async def fake_existing(_portfolio_id):
@@ -256,7 +257,7 @@ async def test_csv_confirm_requires_conflict_policy_and_never_silent_overwrite()
 async def test_csv_confirm_writes_valid_rows_once() -> None:
     store = InMemoryPortfolios()
     book = PortfolioBookService(store, InMemoryCatalog())
-    service = PortfolioCsvImportService(book)
+    service = PortfolioCsvImportService(book, InMemoryCatalog())
     portfolio = await book.create_portfolio(name="p", base_currency="CNY", cash_balance=0)
     result = await service.confirm(
         portfolio_id=portfolio.portfolio_id,

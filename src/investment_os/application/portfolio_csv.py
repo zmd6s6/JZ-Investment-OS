@@ -252,12 +252,10 @@ class PortfolioCsvImportService:
     def __init__(
         self,
         portfolios: PortfolioBookService,
-        catalog: InstrumentCatalogPort | None = None,
+        catalog: InstrumentCatalogPort,
     ) -> None:
         self._portfolios = portfolios
-        self._catalog = catalog if catalog is not None else getattr(portfolios, "_catalog", None)
-        if self._catalog is None:
-            raise ValueError("catalog is required for csv import")
+        self._catalog = catalog
 
     async def _existing_map(self, portfolio_id: UUID) -> dict[tuple[str, str], dict[str, str]]:
         view = await self._portfolios.get_portfolio(portfolio_id)
@@ -323,7 +321,7 @@ class PortfolioCsvImportService:
         applied: list[CsvImportAppliedRow] = []
         imported = 0
         skipped = 0
-        position_ops: list[tuple[UUID, Decimal, Decimal, Decimal]] = []
+        items: list[dict[str, object]] = []
 
         def _after(row: PortfolioPositionInput) -> dict[str, str]:
             return {
@@ -332,32 +330,28 @@ class PortfolioCsvImportService:
                 "average_cost": str(row.average_cost),
             }
 
-        async def _queue(row: PortfolioPositionInput) -> UUID:
-            entry = await self._catalog.upsert(
-                InstrumentIdentity(
-                    market=row.market,
-                    symbol=row.symbol,
-                    name=row.name,
-                    asset_type=row.asset_type,
-                    currency=row.currency,
-                    sector=row.sector,
-                )
+        def _queue(row: PortfolioPositionInput) -> None:
+            items.append(
+                {
+                    "identity": InstrumentIdentity(
+                        market=row.market,
+                        symbol=row.symbol,
+                        name=row.name,
+                        asset_type=row.asset_type,
+                        currency=row.currency,
+                        sector=row.sector,
+                    ),
+                    "core_quantity": row.core_quantity,
+                    "tactical_quantity": row.tactical_quantity,
+                    "average_cost": row.average_cost,
+                }
             )
-            position_ops.append(
-                (
-                    entry.instrument_id,
-                    row.core_quantity,
-                    row.tactical_quantity,
-                    row.average_cost,
-                )
-            )
-            return entry.instrument_id
 
         for row in preview.valid:
             assert row.normalized is not None
             key = (row.normalized.market, row.normalized.symbol)
             before = existing.get(key)
-            await _queue(row.normalized)
+            _queue(row.normalized)
             imported += 1
             applied.append(
                 CsvImportAppliedRow(
@@ -404,7 +398,7 @@ class PortfolioCsvImportService:
             else:
                 merged = row.normalized
 
-            await _queue(merged)
+            _queue(merged)
             imported += 1
             applied.append(
                 CsvImportAppliedRow(
@@ -421,7 +415,7 @@ class PortfolioCsvImportService:
             portfolio_id=portfolio_id,
             import_hash=import_hash,
             conflict_policy=conflict_policy or "NONE",
-            positions=tuple(position_ops),
+            items=tuple(items),
             applied=tuple(applied),
         )
         portfolio = await self._portfolios.get_portfolio(portfolio_id)
