@@ -29,6 +29,7 @@ COPY migrations ./migrations
 COPY --from=web-build /web/dist ./web/dist
 
 RUN uv sync --frozen --no-dev \
+    && mkdir -p /app/.runtime \
     && chown -R investment-os:investment-os /app
 
 USER investment-os

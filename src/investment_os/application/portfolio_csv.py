@@ -93,6 +93,7 @@ class CsvImportPreview:
     conflicts: tuple[CsvRowResult, ...]
     can_commit: bool
     requires_conflict_policy: bool
+    content_hash: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +104,7 @@ class CsvImportAppliedRow:
     action: Literal["CREATED", "REPLACED", "UPDATED", "SKIPPED"]
     before: dict[str, str] | None
     after: dict[str, str]
+    proposed: dict[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +247,7 @@ def parse_portfolio_csv(
         conflicts=tuple(conflicts),
         can_commit=bool(valid or conflicts) and not invalid,
         requires_conflict_policy=bool(conflicts),
+        content_hash=hashlib.sha256(raw_text.encode("utf-8")).hexdigest(),
     )
 
 
@@ -266,6 +269,11 @@ class PortfolioCsvImportService:
                 "tactical_quantity": str(position.tactical_quantity),
                 "average_cost": str(position.average_cost),
                 "name": position.name,
+                "core_average_cost": str(position.core_average_cost),
+                "tactical_average_cost": str(position.tactical_average_cost),
+                "core_reason": position.core_reason,
+                "tactical_reason": position.tactical_reason,
+                "operation": position.operation,
             }
         return mapping
 
@@ -279,9 +287,16 @@ class PortfolioCsvImportService:
         portfolio_id: UUID,
         raw_text: str,
         conflict_policy: ConflictPolicy | None = None,
+        expected_preview_hash: str | None = None,
     ) -> CsvImportCommitResult:
         existing = await self._existing_map(portfolio_id)
         preview = parse_portfolio_csv(raw_text, existing=existing)
+
+        if expected_preview_hash is not None and expected_preview_hash != preview.content_hash:
+            raise ApplicationError(
+                ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
+                "CSV 内容已修改; 请重新预览后再确认",
+            )
 
         if preview.invalid:
             raise ApplicationError(
@@ -328,6 +343,14 @@ class PortfolioCsvImportService:
                 "core_quantity": str(row.core_quantity),
                 "tactical_quantity": str(row.tactical_quantity),
                 "average_cost": str(row.average_cost),
+                "core_average_cost": (
+                    str(row.core_average_cost) if row.core_average_cost is not None else ""
+                ),
+                "tactical_average_cost": (
+                    str(row.tactical_average_cost) if row.tactical_average_cost is not None else ""
+                ),
+                "core_reason": row.core_reason,
+                "tactical_reason": row.tactical_reason,
             }
 
         def _queue(row: PortfolioPositionInput) -> None:
@@ -361,6 +384,7 @@ class PortfolioCsvImportService:
                     action="REPLACED" if before else "CREATED",
                     before=before,
                     after=_after(row.normalized),
+                    proposed=_after(row.normalized),
                 )
             )
 
@@ -370,6 +394,7 @@ class PortfolioCsvImportService:
             before = existing.get(key)
             if conflict_policy == "SKIP" or conflict_policy is None:
                 skipped += 1
+                # After must reflect the actual landed state (unchanged), not the CSV proposal.
                 applied.append(
                     CsvImportAppliedRow(
                         line_number=row.line_number,
@@ -377,12 +402,15 @@ class PortfolioCsvImportService:
                         symbol=row.normalized.symbol,
                         action="SKIPPED",
                         before=before,
-                        after=_after(row.normalized),
+                        after=dict(before) if before else {},
+                        proposed=_after(row.normalized),
                     )
                 )
                 continue
 
             if conflict_policy == "UPDATE" and before is not None:
+                before_core = Decimal(before["core_quantity"])
+                before_tactical = Decimal(before["tactical_quantity"])
                 merged = PortfolioPositionInput(
                     market=row.normalized.market,
                     symbol=row.normalized.symbol,
@@ -390,10 +418,22 @@ class PortfolioCsvImportService:
                     asset_type=row.normalized.asset_type,
                     currency=row.normalized.currency,
                     sector=row.normalized.sector,
-                    core_quantity=Decimal(before["core_quantity"]) + row.normalized.core_quantity,
-                    tactical_quantity=Decimal(before["tactical_quantity"])
-                    + row.normalized.tactical_quantity,
+                    core_quantity=before_core + row.normalized.core_quantity,
+                    tactical_quantity=before_tactical + row.normalized.tactical_quantity,
                     average_cost=row.normalized.average_cost,
+                    core_average_cost=(
+                        Decimal(before["core_average_cost"])
+                        if before.get("core_average_cost")
+                        else row.normalized.core_average_cost
+                    ),
+                    tactical_average_cost=(
+                        Decimal(before["tactical_average_cost"])
+                        if before.get("tactical_average_cost")
+                        else row.normalized.tactical_average_cost
+                    ),
+                    core_reason=before.get("core_reason") or row.normalized.core_reason,
+                    tactical_reason=before.get("tactical_reason") or row.normalized.tactical_reason,
+                    operation="UPDATE",
                 )
             else:
                 merged = row.normalized
@@ -408,6 +448,7 @@ class PortfolioCsvImportService:
                     action="UPDATED" if conflict_policy == "UPDATE" else "REPLACED",
                     before=before,
                     after=_after(merged),
+                    proposed=_after(row.normalized),
                 )
             )
 

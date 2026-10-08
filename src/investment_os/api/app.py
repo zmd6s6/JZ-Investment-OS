@@ -1228,6 +1228,7 @@ def create_app(
             total_rows=preview.total_rows,
             can_commit=preview.can_commit,
             requires_conflict_policy=preview.requires_conflict_policy,
+            content_hash=preview.content_hash,
             valid=[_csv_row_response(row) for row in preview.valid],
             invalid=[_csv_row_response(row) for row in preview.invalid],
             duplicates=[_csv_row_response(row) for row in preview.duplicates],
@@ -1285,6 +1286,7 @@ def create_app(
                 portfolio_id=portfolio_id,
                 raw_text=request.csv_text,
                 conflict_policy=request.conflict_policy,
+                expected_preview_hash=request.expected_preview_hash,
             )
         except ApplicationError as exc:
             raise _app_error_to_http(exc) from exc

@@ -60,7 +60,10 @@ describe("product onboarding", () => {
     await waitFor(() => {
       expect(screen.getByRole("status")).toHaveTextContent("设置已开始");
     });
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/onboarding/start", { method: "POST" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/onboarding/start",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("keeps the PR-08 synthetic demo at a clearly labelled separate route", () => {

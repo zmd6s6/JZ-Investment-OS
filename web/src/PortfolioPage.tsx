@@ -47,6 +47,7 @@ type CsvPreview = {
   total_rows: number;
   can_commit: boolean;
   requires_conflict_policy: boolean;
+  content_hash: string;
   valid: CsvRow[];
   invalid: CsvRow[];
   duplicates: CsvRow[];
@@ -62,9 +63,10 @@ function num(value: string | number | null | undefined) {
 
 function guessMarket(symbol: string) {
   const s = symbol.trim();
+  // 5-digit codes are HKEX; must be checked before A-share prefix rules
+  if (/^\d{5}$/.test(s)) return "HKEX";
   if (/^[69]/.test(s)) return "SSE";
   if (/^[03]/.test(s)) return "SZSE";
-  if (/^\d{5}$/.test(s)) return "HKEX";
   return "";
 }
 
@@ -246,6 +248,7 @@ export function PortfolioPage() {
         body: JSON.stringify({
           csv_text: csvText,
           conflict_policy: preview?.requires_conflict_policy ? conflictPolicy : undefined,
+          expected_preview_hash: preview?.content_hash,
         }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
@@ -353,6 +356,46 @@ export function PortfolioPage() {
               创建组合
             </button>
           </form>
+          {selected ? (
+            <form
+              className="form-grid more-grid"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setBusy(true);
+                setError(null);
+                setMessage(null);
+                try {
+                  const response = await apiFetch(
+                    `/api/v1/portfolios/${selected.portfolio_id}/cash`,
+                    {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ cash_balance: cashBalance }),
+                    },
+                  );
+                  if (!response.ok) throw new Error(await readApiError(response));
+                  setMessage("现金已更新");
+                  await load(selected.portfolio_id);
+                } catch (reason) {
+                  setError(reason instanceof Error ? reason.message : "现金更新失败");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label className="field">
+                <span>更新现金（当前组合）</span>
+                <input
+                  value={cashBalance}
+                  inputMode="decimal"
+                  onChange={(e) => setCashBalance(e.target.value)}
+                />
+              </label>
+              <button type="submit" className="btn" disabled={busy}>
+                更新现金
+              </button>
+            </form>
+          ) : null}
         </Panel>
       </div>
 
@@ -507,7 +550,11 @@ export function PortfolioPage() {
         <textarea
           className="csv-input"
           value={csvText}
-          onChange={(e) => setCsvText(e.target.value)}
+          onChange={(e) => {
+            setCsvText(e.target.value);
+            setPreview(null);
+            setMessage(null);
+          }}
           rows={6}
           aria-label="CSV 内容"
           placeholder="粘贴 CSV 文本…"

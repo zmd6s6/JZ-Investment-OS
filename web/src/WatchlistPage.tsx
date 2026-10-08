@@ -21,9 +21,9 @@ type WatchlistItem = {
 
 function guessMarket(symbol: string) {
   const s = symbol.trim();
+  if (/^\d{5}$/.test(s)) return "HKEX";
   if (/^[69]/.test(s)) return "SSE";
   if (/^[03]/.test(s)) return "SZSE";
-  if (/^\d{5}$/.test(s)) return "HKEX";
   return "SSE";
 }
 
@@ -31,6 +31,7 @@ export function WatchlistPage() {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
+  const [market, setMarket] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,16 +54,17 @@ export function WatchlistPage() {
     setError(null);
     setMessage(null);
     try {
-      const market = guessMarket(symbol);
+      const resolvedMarket = market || guessMarket(symbol);
+      if (!resolvedMarket) throw new Error("请选择市场，或输入可识别的代码");
       const response = await apiFetch("/api/v1/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          market,
+          market: resolvedMarket,
           symbol,
           name,
           asset_type: "EQUITY",
-          currency: market === "HKEX" ? "HKD" : "CNY",
+          currency: resolvedMarket === "HKEX" ? "HKD" : "CNY",
           sector: "",
         }),
       });
@@ -125,8 +127,17 @@ export function WatchlistPage() {
       </div>
 
       <div className="two-col">
-        <Panel title="加入观察" description="填代码和名称即可，市场按代码自动识别。">
+        <Panel title="加入观察" description="可手动选市场；五位代码识别为港股。">
           <form className="form-grid" onSubmit={addItem}>
+            <label className="field">
+              <span>市场</span>
+              <select value={market} onChange={(e) => setMarket(e.target.value)}>
+                <option value="">自动识别</option>
+                <option value="SSE">上海 SSE</option>
+                <option value="SZSE">深圳 SZSE</option>
+                <option value="HKEX">香港 HKEX</option>
+              </select>
+            </label>
             <label className="field">
               <span>代码</span>
               <input

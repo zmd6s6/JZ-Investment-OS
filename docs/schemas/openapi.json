@@ -115,6 +115,10 @@
             "title": "Conflicts",
             "type": "array"
           },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
           "duplicates": {
             "items": {
               "$ref": "#/components/schemas/CsvRowResultResponse"
@@ -149,6 +153,7 @@
           "total_rows",
           "can_commit",
           "requires_conflict_policy",
+          "content_hash",
           "valid",
           "invalid",
           "duplicates",
@@ -180,6 +185,17 @@
             "minLength": 1,
             "title": "Csv Text",
             "type": "string"
+          },
+          "expected_preview_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Preview Hash"
           }
         },
         "required": [
