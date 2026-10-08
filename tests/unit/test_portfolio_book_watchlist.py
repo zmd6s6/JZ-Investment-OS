@@ -91,7 +91,16 @@ class InMemoryPortfolios:
         return tuple(v for v in views if v is not None)
 
     async def upsert_position(
-        self, *, portfolio_id, instrument_id, core_quantity, tactical_quantity, average_cost
+        self,
+        *,
+        portfolio_id,
+        instrument_id,
+        core_quantity,
+        tactical_quantity,
+        average_cost,
+        core_reason="",
+        tactical_reason="",
+        operation="MANUAL",
     ):
         view = PortfolioPositionView(
             position_id=uuid4(),
@@ -105,6 +114,9 @@ class InMemoryPortfolios:
             core_quantity=core_quantity,
             tactical_quantity=tactical_quantity,
             average_cost=average_cost,
+            core_reason=core_reason,
+            tactical_reason=tactical_reason,
+            operation=operation,
         )
         self.positions[(portfolio_id, instrument_id)] = view
         return view

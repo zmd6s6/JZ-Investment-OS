@@ -715,7 +715,7 @@ PR-08 必须审查并合并后才能实施 P1。
 
 ### P5 — Portfolio 与 Watchlist 产品
 
-状态：`PLANNED`。具体范围和验收条件见 `docs/stages/PRODUCT-05.md`。
+状态：`IN_PROGRESS`。具体范围和验收条件见 `docs/stages/PRODUCT-05.md`。
 
 交付：
 

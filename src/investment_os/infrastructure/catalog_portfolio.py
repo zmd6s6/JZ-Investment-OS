@@ -127,6 +127,9 @@ def _position_view(
         core_quantity=record.core_quantity,
         tactical_quantity=record.tactical_quantity,
         average_cost=record.avg_cost,
+        core_reason=record.core_reason,
+        tactical_reason=record.tactical_reason,
+        operation=record.last_operation,
     )
 
 
@@ -194,6 +197,9 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         core_quantity: Decimal,
         tactical_quantity: Decimal,
         average_cost: Decimal,
+        core_reason: str = "",
+        tactical_reason: str = "",
+        operation: str = "MANUAL",
     ) -> PortfolioPositionView:
         statement = select(PositionRecord).where(
             PositionRecord.portfolio_id == portfolio_id,
@@ -210,9 +216,9 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 avg_cost=average_cost,
                 core_average_cost=average_cost if core_quantity != 0 else Decimal("0"),
                 tactical_average_cost=average_cost if tactical_quantity != 0 else Decimal("0"),
-                core_reason="",
-                tactical_reason="",
-                last_operation="MANUAL",
+                core_reason=core_reason,
+                tactical_reason=tactical_reason,
+                last_operation=operation,
                 realized_pnl=Decimal("0"),
                 version=1,
                 **_audit_kwargs("portfolio_book"),
@@ -226,13 +232,81 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 record.core_average_cost = average_cost
             if tactical_quantity != 0:
                 record.tactical_average_cost = average_cost
-            record.last_operation = "MANUAL"
+            record.core_reason = core_reason
+            record.tactical_reason = tactical_reason
+            record.last_operation = operation
             record.version = record.version + 1
         await self._session.flush()
+        await self._emit_position_event(
+            portfolio_id=portfolio_id,
+            instrument_id=instrument_id,
+            core_quantity=core_quantity,
+            tactical_quantity=tactical_quantity,
+            average_cost=average_cost,
+            core_reason=core_reason,
+            tactical_reason=tactical_reason,
+            operation=operation,
+        )
         instrument = await self._session.get(InstrumentRecord, instrument_id)
         if instrument is None:
             raise RuntimeError("instrument disappeared while writing position")
         return _position_view(record, instrument)
+
+    async def _emit_position_event(
+        self,
+        *,
+        portfolio_id: UUID,
+        instrument_id: UUID,
+        core_quantity: Decimal,
+        tactical_quantity: Decimal,
+        average_cost: Decimal,
+        core_reason: str,
+        tactical_reason: str,
+        operation: str,
+    ) -> None:
+        from investment_os.infrastructure.persistence.models import (
+            EventLogRecord,
+            OutboxEventRecord,
+        )
+
+        correlation_id = uuid4()
+        event = EventLogRecord(
+            event_type="portfolio.position_upserted",
+            aggregate_type="Portfolio",
+            aggregate_id=portfolio_id,
+            payload_json={
+                "instrument_id": str(instrument_id),
+                "core_quantity": str(core_quantity),
+                "tactical_quantity": str(tactical_quantity),
+                "average_cost": str(average_cost),
+                "core_reason": core_reason,
+                "tactical_reason": tactical_reason,
+                "operation": operation,
+            },
+            occurred_at=datetime.now(UTC),
+            correlation_id=correlation_id,
+            causation_id=None,
+            schema_version="1.0",
+            metadata_json={},
+            created_by="portfolio_book",
+        )
+        self._session.add(event)
+        await self._session.flush()
+        self._session.add(
+            OutboxEventRecord(
+                event_id=event.id,
+                topic="portfolio.position_upserted",
+                payload_json={"event_id": str(event.id), "portfolio_id": str(portfolio_id)},
+                published_at=None,
+                attempts=0,
+                last_error=None,
+                correlation_id=correlation_id,
+                causation_id=event.id,
+                schema_version="1.0",
+                metadata_json={},
+                created_by="portfolio_book",
+            )
+        )
 
     async def set_cash_balance(self, portfolio_id: UUID, cash_balance: Decimal) -> PortfolioView:
         record = await self._session.get(PortfolioRecord, portfolio_id)
@@ -520,6 +594,9 @@ class SessionPortfolioBookPort:
         core_quantity: Decimal,
         tactical_quantity: Decimal,
         average_cost: Decimal,
+        core_reason: str = "",
+        tactical_reason: str = "",
+        operation: str = "MANUAL",
     ) -> PortfolioPositionView:
         async with self._session_factory() as session:
             view = await SqlPortfolioBookAdapter(session).upsert_position(
@@ -528,6 +605,9 @@ class SessionPortfolioBookPort:
                 core_quantity=core_quantity,
                 tactical_quantity=tactical_quantity,
                 average_cost=average_cost,
+                core_reason=core_reason,
+                tactical_reason=tactical_reason,
+                operation=operation,
             )
             await session.commit()
             return view

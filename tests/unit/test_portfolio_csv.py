@@ -94,7 +94,16 @@ class InMemoryPortfolios:
         return tuple(self.portfolios.values())
 
     async def upsert_position(
-        self, *, portfolio_id, instrument_id, core_quantity, tactical_quantity, average_cost
+        self,
+        *,
+        portfolio_id,
+        instrument_id,
+        core_quantity,
+        tactical_quantity,
+        average_cost,
+        core_reason="",
+        tactical_reason="",
+        operation="MANUAL",
     ):
         self.writes += 1
         view = PortfolioPositionView(
@@ -109,6 +118,9 @@ class InMemoryPortfolios:
             core_quantity=core_quantity,
             tactical_quantity=tactical_quantity,
             average_cost=average_cost,
+            core_reason=core_reason,
+            tactical_reason=tactical_reason,
+            operation=operation,
         )
         self.positions[(portfolio_id, instrument_id)] = view
         return view

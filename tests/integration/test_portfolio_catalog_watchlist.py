@@ -29,7 +29,7 @@ def _services(database_engine: AsyncEngine):
     catalog = InstrumentCatalogService(catalog_port)
     book = PortfolioBookService(SessionPortfolioBookPort(factory), catalog_port)
     watchlist = WatchlistService(SessionWatchlistPort(factory), catalog_port)
-    csv_service = PortfolioCsvImportService(book)
+    csv_service = PortfolioCsvImportService(book, catalog_port)
     return catalog, book, watchlist, csv_service
 
 

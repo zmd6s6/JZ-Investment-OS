@@ -6,9 +6,20 @@ type PolicyReview = {
   active_policy_version: string;
   policy_status: string;
   is_test_default: boolean;
-  limits: { key: string; value: string }[];
-  warning: string;
+  limits?: { key: string; value: string }[] | null;
+  warning?: string | null;
 };
+
+function normalizePolicy(raw: unknown): PolicyReview {
+  const obj = (raw ?? {}) as Partial<PolicyReview>;
+  return {
+    active_policy_version: obj.active_policy_version ?? "none",
+    policy_status: obj.policy_status ?? "TEST_DEFAULT",
+    is_test_default: Boolean(obj.is_test_default),
+    limits: Array.isArray(obj.limits) ? obj.limits : [],
+    warning: obj.warning ?? "TEST_DEFAULT 不是投资建议.",
+  };
+}
 
 export function PolicyReviewPanel() {
   const [policy, setPolicy] = useState<PolicyReview | null>(null);
@@ -17,15 +28,17 @@ export function PolicyReviewPanel() {
 
   useEffect(() => {
     void fetch("/api/v1/policy/review")
-      .then((response) => {
+      .then(async (response) => {
         if (!response.ok) throw new Error("无法读取投资政策");
-        return response.json() as Promise<PolicyReview>;
+        return normalizePolicy(await response.json());
       })
       .then(setPolicy)
       .catch((reason: unknown) =>
         setError(reason instanceof Error ? reason.message : "加载失败"),
       );
   }, []);
+
+  const limits = policy?.limits ?? [];
 
   return (
     <Panel
@@ -56,11 +69,11 @@ export function PolicyReviewPanel() {
 
           <p className="banner banner-info">{policy.warning}</p>
 
-          {policy.limits.length === 0 ? (
+          {limits.length === 0 ? (
             <p className="muted">未提供具体限额（不伪造数值）</p>
           ) : (
             <ul className="limit-list">
-              {policy.limits.map((limit) => (
+              {limits.map((limit) => (
                 <li key={limit.key}>
                   <span>{limit.key}</span>
                   <strong>{limit.value}</strong>

@@ -27,6 +27,9 @@ class PortfolioPositionInput:
     core_quantity: Decimal
     tactical_quantity: Decimal
     average_cost: Decimal
+    core_reason: str = ""
+    tactical_reason: str = ""
+    operation: str = "MANUAL"
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +45,9 @@ class PortfolioPositionView:
     core_quantity: Decimal
     tactical_quantity: Decimal
     average_cost: Decimal
+    core_reason: str = ""
+    tactical_reason: str = ""
+    operation: str = "MANUAL"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +81,9 @@ class PortfolioBookPort(Protocol):
         core_quantity: Decimal,
         tactical_quantity: Decimal,
         average_cost: Decimal,
+        core_reason: str = "",
+        tactical_reason: str = "",
+        operation: str = "MANUAL",
     ) -> PortfolioPositionView: ...
 
     async def set_cash_balance(
@@ -237,6 +246,9 @@ class PortfolioBookService:
             core_quantity=buckets.core.value,
             tactical_quantity=buckets.tactical.value,
             average_cost=average_cost,
+            core_reason=(position.core_reason or "").strip()[:255],
+            tactical_reason=(position.tactical_reason or "").strip()[:255],
+            operation=(position.operation or "MANUAL").strip().upper()[:32] or "MANUAL",
         )
         return await self.get_portfolio(portfolio_id)
 
