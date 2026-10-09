@@ -76,7 +76,11 @@ test("watchlist is simple add/remove with Chinese empty states", async ({ page }
   await page.getByRole("button", { name: "加入清单" }).click();
   await expect(page.getByText("已加入观察清单")).toBeVisible();
   await expect(page.getByRole("cell", { name: "未提供" }).first()).toBeVisible();
-  await page.getByRole("button", { name: "移除" }).click();
+  await page
+    .getByRole("row")
+    .filter({ hasText: "000001" })
+    .getByRole("button", { name: "移除" })
+    .click();
   await expect(page.getByText(/已移除/)).toBeVisible();
 });
 

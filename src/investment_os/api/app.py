@@ -1231,6 +1231,7 @@ def create_app(
             can_commit=preview.can_commit,
             requires_conflict_policy=preview.requires_conflict_policy,
             content_hash=preview.content_hash,
+            positions_hash=preview.positions_hash,
             valid=[_csv_row_response(row) for row in preview.valid],
             invalid=[_csv_row_response(row) for row in preview.invalid],
             duplicates=[_csv_row_response(row) for row in preview.duplicates],
@@ -1289,6 +1290,7 @@ def create_app(
                 raw_text=request.csv_text,
                 conflict_policy=request.conflict_policy,
                 expected_preview_hash=request.expected_preview_hash,
+                expected_positions_hash=request.expected_positions_hash,
             )
         except ApplicationError as exc:
             raise _app_error_to_http(exc) from exc
@@ -1355,17 +1357,35 @@ def create_app(
         async with session_factory() as session:
             statement = (
                 select(InvestmentPolicyRecord)
+                .where(InvestmentPolicyRecord.status == "ACTIVE")
                 .order_by(InvestmentPolicyRecord.created_at.desc())
-                .limit(1)
+                .limit(2)
             )
-            policy = (await session.scalars(statement)).first()
-            if policy is None or policy.current_version_id is None:
+            policies = (await session.scalars(statement)).all()
+            if not policies:
                 return PolicyReviewResponse(
                     active_policy_version="none",
                     policy_status="TEST_DEFAULT",
                     is_test_default=True,
                     limits=[],
                     warning="TEST_DEFAULT 不是投资建议. 尚未激活经批准的投资政策.",
+                )
+            if len(policies) > 1:
+                return PolicyReviewResponse(
+                    active_policy_version="ambiguous",
+                    policy_status="AMBIGUOUS",
+                    is_test_default=False,
+                    limits=[],
+                    warning="检测到多条 ACTIVE 政策; 请治理流程消歧后再使用.",
+                )
+            policy = policies[0]
+            if policy.current_version_id is None:
+                return PolicyReviewResponse(
+                    active_policy_version=policy.name,
+                    policy_status=policy.status,
+                    is_test_default=str(policy.name).upper().startswith("TEST"),
+                    limits=[],
+                    warning="当前 ACTIVE 政策缺少已批准版本; 请在治理流程中确认.",
                 )
             version = await session.get(InvestmentPolicyVersionRecord, policy.current_version_id)
             limits: list[dict[str, str]] = []

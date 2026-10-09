@@ -133,6 +133,10 @@
             "title": "Invalid",
             "type": "array"
           },
+          "positions_hash": {
+            "title": "Positions Hash",
+            "type": "string"
+          },
           "requires_conflict_policy": {
             "title": "Requires Conflict Policy",
             "type": "boolean"
@@ -154,6 +158,7 @@
           "can_commit",
           "requires_conflict_policy",
           "content_hash",
+          "positions_hash",
           "valid",
           "invalid",
           "duplicates",
@@ -185,6 +190,17 @@
             "minLength": 1,
             "title": "Csv Text",
             "type": "string"
+          },
+          "expected_positions_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Positions Hash"
           },
           "expected_preview_hash": {
             "anyOf": [

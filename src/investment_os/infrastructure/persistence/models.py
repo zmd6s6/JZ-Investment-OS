@@ -84,6 +84,20 @@ class InstrumentRecord(AuditFieldsMixin, Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
 
 
+class InstrumentStateRecord(AuditFieldsMixin, Base):
+    """Current lifecycle state for one instrument (read for product display)."""
+
+    __tablename__ = "instrument_state"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, unique=True)
+    lifecycle_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    effective_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    thesis_version_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    decision_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
 class PortfolioRecord(AuditFieldsMixin, Base):
     __tablename__ = "portfolio"
 

@@ -33,6 +33,9 @@ export function WatchlistPage() {
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
   const [market, setMarket] = useState("");
+  const [assetType, setAssetType] = useState("EQUITY");
+  const [currency, setCurrency] = useState("");
+  const [sector, setSector] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +60,8 @@ export function WatchlistPage() {
     try {
       const resolvedMarket = market || guessMarket(symbol);
       if (!resolvedMarket) throw new Error("请选择市场，或输入可识别的代码");
+      const resolvedCurrency =
+        currency || (resolvedMarket === "HKEX" ? "HKD" : "CNY");
       const response = await apiFetch("/api/v1/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,9 +69,9 @@ export function WatchlistPage() {
           market: resolvedMarket,
           symbol,
           name,
-          asset_type: "EQUITY",
-          currency: resolvedMarket === "HKEX" ? "HKD" : "CNY",
-          sector: "",
+          asset_type: assetType || "EQUITY",
+          currency: resolvedCurrency,
+          sector,
         }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
@@ -134,6 +139,9 @@ export function WatchlistPage() {
               setMarket(hit.market);
               setSymbol(hit.symbol);
               setName(hit.name);
+              setAssetType(hit.asset_type);
+              setCurrency(hit.currency);
+              setSector(hit.sector);
             }}
           />
           <form className="form-grid" onSubmit={addItem}>

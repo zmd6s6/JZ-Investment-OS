@@ -49,6 +49,7 @@ type CsvPreview = {
   can_commit: boolean;
   requires_conflict_policy: boolean;
   content_hash: string;
+  positions_hash: string;
   valid: CsvRow[];
   invalid: CsvRow[];
   duplicates: CsvRow[];
@@ -98,6 +99,7 @@ export function PortfolioPage() {
   const [name, setName] = useState("我的组合");
   const [baseCurrency, setBaseCurrency] = useState("CNY");
   const [cashBalance, setCashBalance] = useState("0");
+  const [cashEdit, setCashEdit] = useState("");
   const [manual, setManual] = useState(emptyManual);
   const [showMore, setShowMore] = useState(false);
   const [csvText, setCsvText] = useState("");
@@ -161,6 +163,8 @@ export function PortfolioPage() {
           /* ignore */
         }
       }
+      const active = data.find((item) => item.portfolio_id === (nextId || data[0]?.portfolio_id));
+      if (active) setCashEdit(String(active.cash_balance));
       const historyId =
         nextId && data.some((item) => item.portfolio_id === nextId)
           ? nextId
@@ -300,6 +304,7 @@ export function PortfolioPage() {
           csv_text: csvText,
           conflict_policy: preview?.requires_conflict_policy ? conflictPolicy : undefined,
           expected_preview_hash: preview?.content_hash,
+          expected_positions_hash: preview?.positions_hash,
         }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
@@ -429,7 +434,7 @@ export function PortfolioPage() {
                     {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ cash_balance: cashBalance }),
+                      body: JSON.stringify({ cash_balance: cashEdit }),
                     },
                   );
                   if (!response.ok) throw new Error(await readApiError(response));
@@ -445,9 +450,9 @@ export function PortfolioPage() {
               <label className="field">
                 <span>更新现金（当前组合）</span>
                 <input
-                  value={cashBalance}
+                  value={cashEdit}
                   inputMode="decimal"
-                  onChange={(e) => setCashBalance(e.target.value)}
+                  onChange={(e) => setCashEdit(e.target.value)}
                 />
               </label>
               <button type="submit" className="btn" disabled={busy}>

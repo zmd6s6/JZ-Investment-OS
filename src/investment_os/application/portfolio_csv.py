@@ -94,6 +94,7 @@ class CsvImportPreview:
     can_commit: bool
     requires_conflict_policy: bool
     content_hash: str = ""
+    positions_hash: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,7 +249,19 @@ def parse_portfolio_csv(
         can_commit=bool(valid or conflicts) and not invalid,
         requires_conflict_policy=bool(conflicts),
         content_hash=hashlib.sha256(raw_text.encode("utf-8")).hexdigest(),
+        positions_hash=_positions_hash(existing),
     )
+
+
+def _positions_hash(existing: dict[tuple[str, str], dict[str, str]] | None) -> str:
+    import json
+
+    payload = {
+        f"{market}|{symbol}": data for (market, symbol), data in sorted((existing or {}).items())
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 class PortfolioCsvImportService:
@@ -288,6 +301,7 @@ class PortfolioCsvImportService:
         raw_text: str,
         conflict_policy: ConflictPolicy | None = None,
         expected_preview_hash: str | None = None,
+        expected_positions_hash: str | None = None,
     ) -> CsvImportCommitResult:
         existing = await self._existing_map(portfolio_id)
         preview = parse_portfolio_csv(raw_text, existing=existing)
@@ -296,6 +310,15 @@ class PortfolioCsvImportService:
             raise ApplicationError(
                 ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
                 "CSV 内容已修改; 请重新预览后再确认",
+            )
+        if (
+            expected_positions_hash is not None
+            and expected_positions_hash != preview.positions_hash
+        ):
+            raise ApplicationError(
+                ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
+                "持仓已在预览后发生变更; 请重新预览后再确认",
+                details={"positions_hash": preview.positions_hash},
             )
 
         if preview.invalid:
@@ -339,21 +362,29 @@ class PortfolioCsvImportService:
         items: list[dict[str, object]] = []
 
         def _after(row: PortfolioPositionInput) -> dict[str, str]:
+            core_avg = row.core_average_cost
+            if core_avg is None:
+                core_avg = row.average_cost if row.core_quantity != 0 else Decimal("0")
+            tactical_avg = row.tactical_average_cost
+            if tactical_avg is None:
+                tactical_avg = row.average_cost if row.tactical_quantity != 0 else Decimal("0")
             return {
                 "core_quantity": str(row.core_quantity),
                 "tactical_quantity": str(row.tactical_quantity),
                 "average_cost": str(row.average_cost),
-                "core_average_cost": (
-                    str(row.core_average_cost) if row.core_average_cost is not None else ""
-                ),
-                "tactical_average_cost": (
-                    str(row.tactical_average_cost) if row.tactical_average_cost is not None else ""
-                ),
+                "core_average_cost": str(core_avg),
+                "tactical_average_cost": str(tactical_avg),
                 "core_reason": row.core_reason,
                 "tactical_reason": row.tactical_reason,
             }
 
         def _queue(row: PortfolioPositionInput) -> None:
+            core_avg = row.core_average_cost
+            if core_avg is None:
+                core_avg = row.average_cost if row.core_quantity != 0 else Decimal("0")
+            tactical_avg = row.tactical_average_cost
+            if tactical_avg is None:
+                tactical_avg = row.average_cost if row.tactical_quantity != 0 else Decimal("0")
             items.append(
                 {
                     "identity": InstrumentIdentity(
@@ -367,8 +398,8 @@ class PortfolioCsvImportService:
                     "core_quantity": row.core_quantity,
                     "tactical_quantity": row.tactical_quantity,
                     "average_cost": row.average_cost,
-                    "core_average_cost": row.core_average_cost,
-                    "tactical_average_cost": row.tactical_average_cost,
+                    "core_average_cost": core_avg,
+                    "tactical_average_cost": tactical_avg,
                     "core_reason": row.core_reason,
                     "tactical_reason": row.tactical_reason,
                     "operation": row.operation,

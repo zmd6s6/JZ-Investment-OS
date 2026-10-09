@@ -450,6 +450,7 @@ class CsvImportRequest(StrictResponse):
     csv_text: str = Field(min_length=1)
     conflict_policy: Literal["SKIP", "REPLACE", "UPDATE"] | None = None
     expected_preview_hash: str | None = None
+    expected_positions_hash: str | None = None
 
 
 class CsvRowResultResponse(StrictResponse):
@@ -472,6 +473,7 @@ class CsvImportPreviewResponse(StrictResponse):
     can_commit: bool
     requires_conflict_policy: bool
     content_hash: str
+    positions_hash: str
     valid: list[CsvRowResultResponse]
     invalid: list[CsvRowResultResponse]
     duplicates: list[CsvRowResultResponse]

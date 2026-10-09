@@ -74,10 +74,16 @@ class SqlInstrumentCatalogAdapter(InstrumentCatalogPort):
             )
             self._session.add(record)
         else:
-            record.name = identity.name
-            record.asset_type = identity.asset_type
-            record.currency = identity.currency
-            record.sector = identity.sector
+            # Preserve known catalog identity; only fill blanks. Do not let
+            # watchlist/position writes silently recode asset_type/currency/sector.
+            if not record.name and identity.name:
+                record.name = identity.name
+            if not record.asset_type and identity.asset_type:
+                record.asset_type = identity.asset_type
+            if not record.currency and identity.currency:
+                record.currency = identity.currency
+            if not record.sector and identity.sector:
+                record.sector = identity.sector
         await self._session.flush()
         return _catalog_entry(record)
 
@@ -562,6 +568,7 @@ class SqlWatchlistAdapter(WatchlistPort):
     ) -> WatchlistItemView:
         from investment_os.infrastructure.persistence.models import (
             EvidenceRecord,
+            InstrumentStateRecord,
             InvestmentThesisRecord,
             ThesisVersionRecord,
         )
@@ -570,6 +577,13 @@ class SqlWatchlistAdapter(WatchlistPort):
         lifecycle_state: str | None = None
         freshness: datetime | None = None
         monitoring: str | None = None
+
+        state_stmt = select(InstrumentStateRecord).where(
+            InstrumentStateRecord.instrument_id == record.instrument_id
+        )
+        instrument_state = (await self._session.scalars(state_stmt)).first()
+        if instrument_state is not None:
+            lifecycle_state = instrument_state.lifecycle_state
 
         thesis_stmt = select(InvestmentThesisRecord).where(
             InvestmentThesisRecord.instrument_id == record.instrument_id
@@ -585,16 +599,20 @@ class SqlWatchlistAdapter(WatchlistPort):
                 elif isinstance(conditions, dict) and conditions:
                     monitoring = str(next(iter(conditions.values())))
 
+        # Business freshness uses source/observed time, not ingestion created_at.
         evidence_stmt = (
             select(EvidenceRecord)
-            .where(EvidenceRecord.instrument_id == record.instrument_id)
-            .order_by(EvidenceRecord.created_at.desc())
+            .where(
+                EvidenceRecord.instrument_id == record.instrument_id,
+                EvidenceRecord.freshness_status != "EXPIRED",
+            )
+            .order_by(EvidenceRecord.observed_at.desc())
             .limit(1)
         )
         latest_evidence = (await self._session.scalars(evidence_stmt)).first()
         if latest_evidence is not None:
-            created = latest_evidence.created_at
-            freshness = created if created.tzinfo else created.replace(tzinfo=UTC)
+            observed = latest_evidence.observed_at
+            freshness = observed if observed.tzinfo else observed.replace(tzinfo=UTC)
 
         return WatchlistItemView(
             watchlist_item_id=record.id,
