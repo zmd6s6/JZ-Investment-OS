@@ -75,6 +75,7 @@ const emptyManual = {
   market: "",
   symbol: "",
   name: "",
+  asset_type: "EQUITY",
   core_quantity: "0",
   tactical_quantity: "0",
   average_cost: "0",
@@ -138,11 +139,27 @@ export function PortfolioPage() {
       if (!response.ok) throw new Error(await readApiError(response));
       const data = (await response.json()) as Portfolio[];
       setPortfolios(data);
-      const nextId = preferredId || selectedId;
+      let remembered = "";
+      try {
+        remembered = sessionStorage.getItem("selected_portfolio_id") ?? "";
+      } catch {
+        /* ignore */
+      }
+      const nextId = preferredId || selectedId || remembered;
       if (nextId && data.some((item) => item.portfolio_id === nextId)) {
         setSelectedId(nextId);
+        try {
+          sessionStorage.setItem("selected_portfolio_id", nextId);
+        } catch {
+          /* ignore */
+        }
       } else if (data.length > 0) {
         setSelectedId(data[0].portfolio_id);
+        try {
+          sessionStorage.setItem("selected_portfolio_id", data[0].portfolio_id);
+        } catch {
+          /* ignore */
+        }
       }
       const historyId =
         nextId && data.some((item) => item.portfolio_id === nextId)
@@ -217,7 +234,7 @@ export function PortfolioPage() {
           market,
           symbol: manual.symbol,
           name: manual.name,
-          asset_type: "EQUITY",
+          asset_type: manual.asset_type || "EQUITY",
           currency: manual.currency || selected.base_currency,
           sector: manual.sector,
           core_quantity: manual.core_quantity || "0",
@@ -310,7 +327,7 @@ export function PortfolioPage() {
           <strong>{selected?.name || "未选择"}</strong>
           <small>
             {selected
-              ? `${selected.base_currency} · 更新于 ${new Date(selected.as_of).toLocaleString("zh-CN")}`
+              ? `${selected.base_currency} · 读取于 ${new Date(selected.as_of).toLocaleString("zh-CN")}`
               : "先创建一个组合"}
           </small>
         </article>
@@ -467,6 +484,19 @@ export function PortfolioPage() {
               placeholder="贵州茅台"
               onChange={(e) => setManual({ ...manual, name: e.target.value })}
             />
+          </label>
+          <label className="field">
+            <span>资产类型</span>
+            <select
+              value={manual.asset_type}
+              onChange={(e) => setManual({ ...manual, asset_type: e.target.value })}
+            >
+              <option value="EQUITY">股票</option>
+              <option value="ETF">ETF / 基金</option>
+              <option value="BOND">债券</option>
+              <option value="CASH">现金类</option>
+              <option value="OTHER">其他</option>
+            </select>
           </label>
           <label className="field">
             <span title="长期持有的底仓">长期仓数量</span>
@@ -803,6 +833,7 @@ export function PortfolioPage() {
                 <th title="长期持有的底仓">长期仓</th>
                 <th title="可灵活进出的机动仓">机动仓</th>
                 <th>均价</th>
+                <th>分仓信息</th>
                 <th>币种</th>
               </tr>
             </thead>
@@ -816,6 +847,7 @@ export function PortfolioPage() {
                       market: position.market,
                       symbol: position.symbol,
                       name: position.name,
+                      asset_type: (position as { asset_type?: string }).asset_type || "EQUITY",
                       core_quantity: String(position.core_quantity),
                       tactical_quantity: String(position.tactical_quantity),
                       average_cost: String(position.average_cost),
@@ -843,6 +875,32 @@ export function PortfolioPage() {
                   <td>{num(position.core_quantity)}</td>
                   <td>{num(position.tactical_quantity)}</td>
                   <td>{num(position.average_cost)}</td>
+                  <td>
+                    <div className="muted">
+                      长期均价{" "}
+                      {num(
+                        String(
+                          (position as { core_average_cost?: string }).core_average_cost ??
+                            position.average_cost,
+                        ),
+                      )}
+                      {(position as { core_reason?: string }).core_reason
+                        ? ` · ${(position as { core_reason?: string }).core_reason}`
+                        : ""}
+                    </div>
+                    <div className="muted">
+                      机动均价{" "}
+                      {num(
+                        String(
+                          (position as { tactical_average_cost?: string }).tactical_average_cost ??
+                            position.average_cost,
+                        ),
+                      )}
+                      {(position as { tactical_reason?: string }).tactical_reason
+                        ? ` · ${(position as { tactical_reason?: string }).tactical_reason}`
+                        : ""}
+                    </div>
+                  </td>
                   <td>{position.currency}</td>
                 </tr>
               ))}
