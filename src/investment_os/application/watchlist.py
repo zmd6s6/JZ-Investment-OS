@@ -25,6 +25,7 @@ class WatchlistItemView:
     lifecycle_state: str | None
     thesis_state: str | None
     data_freshness_as_of: datetime | None
+    data_freshness_status: str | None
     next_monitoring_condition: str | None
 
 

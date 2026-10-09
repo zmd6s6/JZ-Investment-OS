@@ -159,6 +159,7 @@ class InMemoryWatchlist:
             lifecycle_state=None,
             thesis_state=None,
             data_freshness_as_of=None,
+            data_freshness_status=None,
             next_monitoring_condition=None,
         )
         self.items[instrument_id] = view

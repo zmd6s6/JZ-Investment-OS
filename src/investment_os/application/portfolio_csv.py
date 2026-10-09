@@ -494,6 +494,7 @@ class PortfolioCsvImportService:
             conflict_policy=conflict_policy or "NONE",
             items=tuple(items),
             applied=tuple(applied),
+            expected_positions_hash=expected_positions_hash,
         )
         portfolio = await self._portfolios.get_portfolio(portfolio_id)
         return CsvImportCommitResult(

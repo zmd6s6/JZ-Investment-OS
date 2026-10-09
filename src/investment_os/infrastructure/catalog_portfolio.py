@@ -389,6 +389,35 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             )
         return results
 
+    async def _positions_hash(self, portfolio_id: UUID) -> str:
+        import hashlib
+        import json
+
+        statement = (
+            select(PositionRecord, InstrumentRecord)
+            .join(InstrumentRecord, InstrumentRecord.id == PositionRecord.instrument_id)
+            .where(PositionRecord.portfolio_id == portfolio_id)
+        )
+        rows = (await self._session.execute(statement)).all()
+        payload: dict[str, object] = {}
+        for position, instrument in rows:
+            key = f"{instrument.exchange}|{instrument.symbol}"
+            payload[key] = {
+                "core_quantity": str(position.core_quantity),
+                "tactical_quantity": str(position.tactical_quantity),
+                "average_cost": str(position.avg_cost),
+                "name": instrument.name,
+                "core_average_cost": str(position.core_average_cost),
+                "tactical_average_cost": str(position.tactical_average_cost),
+                "core_reason": position.core_reason,
+                "tactical_reason": position.tactical_reason,
+                "operation": position.last_operation,
+            }
+        ordered = {k: payload[k] for k in sorted(payload)}
+        return hashlib.sha256(
+            json.dumps(ordered, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+
     async def apply_import_batch(
         self,
         *,
@@ -397,6 +426,7 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         conflict_policy: str,
         items: tuple[dict[str, object], ...],
         applied: tuple[object, ...],
+        expected_positions_hash: str | None = None,
     ) -> UUID:
         from sqlalchemy.exc import IntegrityError
 
@@ -407,6 +437,17 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 "相同 CSV 与冲突策略已导入过; 请勿重复确认",
                 details={"audit_id": str(existing), "import_hash": import_hash},
             )
+
+        # Re-check position snapshot inside the write unit of work so a concurrent
+        # manual edit cannot be silently overwritten after the pre-check.
+        if expected_positions_hash is not None:
+            current_hash = await self._positions_hash(portfolio_id)
+            if current_hash != expected_positions_hash:
+                raise ApplicationError(
+                    ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
+                    "持仓已在预览后发生变更; 请重新预览后再确认",
+                    details={"positions_hash": current_hash},
+                )
 
         audit_id = uuid4()
         catalog = SqlInstrumentCatalogAdapter(self._session)
@@ -599,20 +640,19 @@ class SqlWatchlistAdapter(WatchlistPort):
                 elif isinstance(conditions, dict) and conditions:
                     monitoring = str(next(iter(conditions.values())))
 
-        # Business freshness uses source/observed time, not ingestion created_at.
+        # Business freshness uses source/observed time + status, not ingestion created_at.
         evidence_stmt = (
             select(EvidenceRecord)
-            .where(
-                EvidenceRecord.instrument_id == record.instrument_id,
-                EvidenceRecord.freshness_status != "EXPIRED",
-            )
+            .where(EvidenceRecord.instrument_id == record.instrument_id)
             .order_by(EvidenceRecord.observed_at.desc())
             .limit(1)
         )
         latest_evidence = (await self._session.scalars(evidence_stmt)).first()
+        freshness_status: str | None = None
         if latest_evidence is not None:
             observed = latest_evidence.observed_at
             freshness = observed if observed.tzinfo else observed.replace(tzinfo=UTC)
+            freshness_status = latest_evidence.freshness_status
 
         return WatchlistItemView(
             watchlist_item_id=record.id,
@@ -629,6 +669,7 @@ class SqlWatchlistAdapter(WatchlistPort):
             lifecycle_state=lifecycle_state,
             thesis_state=thesis_state,
             data_freshness_as_of=freshness,
+            data_freshness_status=freshness_status,
             next_monitoring_condition=monitoring,
         )
 
@@ -773,6 +814,7 @@ class SessionPortfolioBookPort:
         conflict_policy: str,
         items: tuple[dict[str, object], ...],
         applied: tuple[object, ...],
+        expected_positions_hash: str | None = None,
     ) -> UUID:
         async with self._session_factory() as session:
             adapter = SqlPortfolioBookAdapter(session)
@@ -782,6 +824,7 @@ class SessionPortfolioBookPort:
                 conflict_policy=conflict_policy,
                 items=items,
                 applied=applied,
+                expected_positions_hash=expected_positions_hash,
             )
             await session.commit()
             return audit_id

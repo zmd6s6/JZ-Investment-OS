@@ -160,7 +160,14 @@ class InMemoryPortfolios:
         return None
 
     async def apply_import_batch(
-        self, *, portfolio_id, import_hash, conflict_policy, items, applied
+        self,
+        *,
+        portfolio_id,
+        import_hash,
+        conflict_policy,
+        items,
+        applied,
+        expected_positions_hash=None,
     ):
         self.writes += len(items)
         for item in items:

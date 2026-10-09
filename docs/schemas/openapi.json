@@ -2892,6 +2892,17 @@
             ],
             "title": "Data Freshness As Of"
           },
+          "data_freshness_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Freshness Status"
+          },
           "instrument_id": {
             "format": "uuid",
             "title": "Instrument Id",
@@ -2965,6 +2976,7 @@
           "lifecycle_state",
           "thesis_state",
           "data_freshness_as_of",
+          "data_freshness_status",
           "next_monitoring_condition"
         ],
         "title": "WatchlistItemResponse",

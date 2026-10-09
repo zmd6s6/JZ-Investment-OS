@@ -17,6 +17,7 @@ type WatchlistItem = {
   lifecycle_state: string | null;
   thesis_state: string | null;
   data_freshness_as_of: string | null;
+  data_freshness_status: string | null;
   next_monitoring_condition: string | null;
 };
 
@@ -218,7 +219,14 @@ export function WatchlistPage() {
                     <span className="pill missing">{item.thesis_state ?? "未提供"}</span>
                   </td>
                   <td>
-                    <span className="pill missing">{item.data_freshness_as_of ?? "未提供"}</span>
+                    <span className="pill missing">
+                      {!item.data_freshness_as_of
+                        ? "未提供"
+                        : item.data_freshness_status === "STALE" ||
+                            item.data_freshness_status === "EXPIRED"
+                          ? `${item.data_freshness_status} · ${item.data_freshness_as_of}`
+                          : item.data_freshness_as_of}
+                    </span>
                   </td>
                   <td>
                     <span className="pill missing">

@@ -127,8 +127,9 @@ class PortfolioBookPort(Protocol):
         conflict_policy: str,
         items: tuple[dict[str, object], ...],
         applied: tuple[object, ...],
+        expected_positions_hash: str | None = None,
     ) -> UUID:
-        """Atomically claim import_hash, upsert instruments/positions, and write one audit."""
+        """Atomically claim import_hash, verify snapshot, upsert, and write one audit."""
         ...
 
 
@@ -343,6 +344,7 @@ class PortfolioBookService:
         conflict_policy: str,
         items: tuple[dict[str, object], ...],
         applied: tuple[object, ...],
+        expected_positions_hash: str | None = None,
     ) -> UUID:
         return await self._portfolios.apply_import_batch(
             portfolio_id=portfolio_id,
@@ -350,6 +352,7 @@ class PortfolioBookService:
             conflict_policy=conflict_policy,
             items=items,
             applied=applied,
+            expected_positions_hash=expected_positions_hash,
         )
 
 
