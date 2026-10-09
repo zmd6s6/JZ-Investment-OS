@@ -109,6 +109,82 @@ class CsvImportAppliedRow:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportAuditRow:
+    """Validated per-line audit payload persisted with import claims."""
+
+    line_number: int
+    market: str
+    symbol: str
+    action: str
+    before: dict[str, str] | None
+    after: dict[str, str] | None
+    proposed: dict[str, str] | None = None
+
+    @classmethod
+    def from_source(cls, source: object) -> ImportAuditRow:
+        if isinstance(source, ImportAuditRow):
+            return source
+        if isinstance(source, CsvImportAppliedRow):
+            return cls(
+                line_number=source.line_number,
+                market=source.market,
+                symbol=source.symbol,
+                action=source.action,
+                before=source.before,
+                after=source.after,
+                proposed=source.proposed,
+            )
+        if isinstance(source, dict):
+            required = ("line_number", "market", "symbol", "action", "before", "after")
+            missing = [key for key in required if key not in source]
+            if missing:
+                raise ApplicationError(
+                    ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
+                    "import audit row is missing required fields",
+                    details={"missing": missing},
+                )
+            line_number = source["line_number"]
+            market = source["market"]
+            symbol = source["symbol"]
+            action = source["action"]
+            if not isinstance(line_number, int) or not market or not symbol or not action:
+                raise ApplicationError(
+                    ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
+                    "import audit row has invalid field types or empty values",
+                    details={"line_number": line_number, "market": market, "symbol": symbol},
+                )
+            return cls(
+                line_number=line_number,
+                market=str(market),
+                symbol=str(symbol),
+                action=str(action),
+                before=source.get("before"),
+                after=source.get("after"),
+                proposed=source.get("proposed"),
+            )
+        # Attribute-bearing objects (dataclasses) only; never silent getattr defaults.
+        try:
+            line_number = int(source.line_number)  # type: ignore[attr-defined]
+            market = str(source.market)  # type: ignore[attr-defined]
+            symbol = str(source.symbol)  # type: ignore[attr-defined]
+            action = str(source.action)  # type: ignore[attr-defined]
+        except AttributeError as exc:
+            raise ApplicationError(
+                ApplicationErrorCode.PORTFOLIO_WRITE_INVALID,
+                "import audit row is not a supported row payload",
+            ) from exc
+        return cls(
+            line_number=line_number,
+            market=market,
+            symbol=symbol,
+            action=action,
+            before=getattr(source, "before", None),
+            after=getattr(source, "after", None),
+            proposed=getattr(source, "proposed", None),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CsvImportCommitResult:
     imported_count: int
     skipped_count: int

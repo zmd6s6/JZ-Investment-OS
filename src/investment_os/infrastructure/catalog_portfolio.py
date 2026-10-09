@@ -551,7 +551,7 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         audit_id = uuid4()
         catalog = SqlInstrumentCatalogAdapter(self._session)
         # Rebuild write rows from the same locked transaction as the writes.
-        write_actual: dict[tuple[str, str], dict[str, object]] = {}
+        write_actual: dict[tuple[str, str], dict[str, dict[str, str] | None]] = {}
         for item in items:
             identity = item["identity"]
             assert isinstance(identity, InstrumentIdentity)
@@ -582,37 +582,35 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 "after": after_snapshot,
             }
 
-        actual_applied: list[dict[str, object]] = []
+        actual_applied: list[object] = []
+        from investment_os.application.portfolio_csv import ImportAuditRow
+
         for planned in applied:
-            market = getattr(planned, "market", "")
-            symbol = getattr(planned, "symbol", "")
-            action = getattr(planned, "action", "UPDATED")
-            write_info = write_actual.get((market, symbol))
+            base = ImportAuditRow.from_source(planned)
+            write_info = write_actual.get((base.market, base.symbol))
             if write_info is not None:
                 actual_applied.append(
-                    {
-                        "line_number": getattr(planned, "line_number", 0),
-                        "market": market,
-                        "symbol": symbol,
-                        "action": action,
-                        "before": write_info["before"],
-                        "after": write_info["after"],
-                        "proposed": getattr(planned, "proposed", None),
-                    }
+                    ImportAuditRow(
+                        line_number=base.line_number,
+                        market=base.market,
+                        symbol=base.symbol,
+                        action=base.action,
+                        before=write_info["before"],
+                        after=write_info["after"],
+                        proposed=base.proposed,
+                    )
                 )
             else:
-                # SKIPPED rows: after must equal the untouched actual state.
-                skipped_before = getattr(planned, "before", None)
                 actual_applied.append(
-                    {
-                        "line_number": getattr(planned, "line_number", 0),
-                        "market": market,
-                        "symbol": symbol,
-                        "action": action,
-                        "before": skipped_before,
-                        "after": skipped_before,
-                        "proposed": getattr(planned, "proposed", None),
-                    }
+                    ImportAuditRow(
+                        line_number=base.line_number,
+                        market=base.market,
+                        symbol=base.symbol,
+                        action=base.action,
+                        before=base.before,
+                        after=base.before,
+                        proposed=base.proposed,
+                    )
                 )
 
         claim = PortfolioImportClaimRecord(
@@ -651,18 +649,22 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         audit_id: UUID | None = None,
         positions: tuple[tuple[UUID, Decimal, Decimal, Decimal], ...] | None = None,
     ) -> UUID:
+        from investment_os.application.portfolio_csv import ImportAuditRow
+
         if audit_id is None:
             audit_id = uuid4()
         payload = []
         for item in applied:
+            row = ImportAuditRow.from_source(item)
             payload.append(
                 {
-                    "line_number": getattr(item, "line_number", None),
-                    "market": getattr(item, "market", None),
-                    "symbol": getattr(item, "symbol", None),
-                    "action": getattr(item, "action", None),
-                    "before": getattr(item, "before", None),
-                    "after": getattr(item, "after", None),
+                    "line_number": row.line_number,
+                    "market": row.market,
+                    "symbol": row.symbol,
+                    "action": row.action,
+                    "before": row.before,
+                    "after": row.after,
+                    "proposed": row.proposed,
                 }
             )
         record = AuditLogRecord(

@@ -127,3 +127,11 @@
     具名单元测试覆盖边界与跨时段场景。
   - 验证：单元 325、集成 9（含并发）、`ruff`/`mypy src`、`npm run build`、OpenAPI。
   - **NOT VERIFIED**：浏览器 E2E、密钥扫描、完整 374 套件、并发复现脚本在本环境重跑。
+- 2026-10-09（审计逐行字段 P1 修复）：
+  - 根因：`actual_applied` 改为 dict 后 `_write_import_audit` 仍用 `getattr`，字段全落 null。
+  - 方案：新增 `ImportAuditRow` DTO + `from_source` 校验；缺字段/非法类型显式失败，不静默 null。
+  - 调用方：批量导入 `apply_import_batch` 与 `record_import_audit` 经同一契约写入；保持组合锁/CAS/同事务回滚。
+  - 具名测试 `test_import_audit_row_fields`：CREATED/REPLACED/UPDATED/SKIPPED 四路径
+    确认后查库审计 + 历史 API，逐字段断言（4 passed）。
+  - 回归：并发/R3/原有 CSV/组合测试通过；`tests.unit 325`、`tests.integration 49`、`ruff`/`mypy`、前端 4/4、构建通过。
+  - **NOT VERIFIED**：浏览器 E2E、密钥扫描、原仓库外审计复现脚本对本 head 重跑。
