@@ -397,6 +397,7 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             select(PositionRecord, InstrumentRecord)
             .join(InstrumentRecord, InstrumentRecord.id == PositionRecord.instrument_id)
             .where(PositionRecord.portfolio_id == portfolio_id)
+            .with_for_update()
         )
         rows = (await self._session.execute(statement)).all()
         payload: dict[str, object] = {}
@@ -641,6 +642,7 @@ class SqlWatchlistAdapter(WatchlistPort):
                     monitoring = str(next(iter(conditions.values())))
 
         # Business freshness uses source/observed time + status, not ingestion created_at.
+        # Recompute expiry at read time so late-ingested evidence cannot look fresh.
         evidence_stmt = (
             select(EvidenceRecord)
             .where(EvidenceRecord.instrument_id == record.instrument_id)
@@ -652,7 +654,13 @@ class SqlWatchlistAdapter(WatchlistPort):
         if latest_evidence is not None:
             observed = latest_evidence.observed_at
             freshness = observed if observed.tzinfo else observed.replace(tzinfo=UTC)
-            freshness_status = latest_evidence.freshness_status
+            now = datetime.now(UTC)
+            if latest_evidence.expires_at is not None and latest_evidence.expires_at <= now:
+                freshness_status = "EXPIRED"
+            elif observed > now:
+                freshness_status = "NOT_YET_AVAILABLE"
+            else:
+                freshness_status = latest_evidence.freshness_status
 
         return WatchlistItemView(
             watchlist_item_id=record.id,

@@ -219,12 +219,23 @@ export function WatchlistPage() {
                     <span className="pill missing">{item.thesis_state ?? "未提供"}</span>
                   </td>
                   <td>
-                    <span className="pill missing">
-                      {!item.data_freshness_as_of
+                    <span
+                      className={`pill ${
+                        item.data_freshness_status === "STALE" ||
+                        item.data_freshness_status === "EXPIRED" ||
+                        item.data_freshness_status === "NOT_YET_AVAILABLE"
+                          ? "warn"
+                          : "missing"
+                      }`}
+                    >
+                      {!item.data_freshness_as_of && !item.data_freshness_status
                         ? "未提供"
-                        : item.data_freshness_status === "STALE" ||
-                            item.data_freshness_status === "EXPIRED"
-                          ? `${item.data_freshness_status} · ${item.data_freshness_as_of}`
+                        : item.data_freshness_status
+                          ? `${item.data_freshness_status}${
+                              item.data_freshness_as_of
+                                ? ` · ${item.data_freshness_as_of}`
+                                : ""
+                            }`
                           : item.data_freshness_as_of}
                     </span>
                   </td>
