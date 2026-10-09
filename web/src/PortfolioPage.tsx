@@ -185,6 +185,12 @@ export function PortfolioPage() {
     );
   }, [load]);
 
+  useEffect(() => {
+    setPreview(null);
+    setImportReport(null);
+    setConflictPolicy("");
+  }, [selectedId]);
+
   const selected = useMemo(
     () => portfolios.find((item) => item.portfolio_id === selectedId) || portfolios[0],
     [portfolios, selectedId],
@@ -361,6 +367,14 @@ export function PortfolioPage() {
                     className={item.portfolio_id === selected?.portfolio_id ? "selected" : ""}
                     onClick={() => {
                       setSelectedId(item.portfolio_id);
+                      setPreview(null);
+                      setImportReport(null);
+                      setConflictPolicy("");
+                      try {
+                        sessionStorage.setItem("selected_portfolio_id", item.portfolio_id);
+                      } catch {
+                        /* ignore */
+                      }
                       setManual((prev) => ({ ...prev, currency: item.base_currency }));
                     }}
                   >

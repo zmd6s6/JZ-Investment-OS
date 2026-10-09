@@ -367,6 +367,11 @@ class PortfolioCsvImportService:
                     "core_quantity": row.core_quantity,
                     "tactical_quantity": row.tactical_quantity,
                     "average_cost": row.average_cost,
+                    "core_average_cost": row.core_average_cost,
+                    "tactical_average_cost": row.tactical_average_cost,
+                    "core_reason": row.core_reason,
+                    "tactical_reason": row.tactical_reason,
+                    "operation": row.operation,
                 }
             )
 

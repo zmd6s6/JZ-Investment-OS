@@ -110,7 +110,8 @@
   - NOT VERIFIED：本机 Docker 未运行，完整集成与浏览器回归未在本提交执行。
 - 2026-10-08（产品实操收口）：
   - 目录搜索 UI、持仓点击回填编辑、导入历史、现金更新、资产类型选择、选中组合保持。
-  - CSV：UPDATE 保留分仓成本/理由；SKIP 对账 after=实际值；预览 hash 绑定确认。
+  - CSV：UPDATE 在**写入链路**保留分仓均价/理由/操作（apply_import_batch 全字段）；SKIP 对账 after=实际值；预览 hash 绑定确认；切换组合清预览。
+  - Watchlist 研究字段读取已有 Thesis/Evidence（无数据仍为「未提供」）。
   - 市场识别：五位代码优先 HKEX；观察清单可手动选市场。
   - 政策审阅读取库内政策/版本/配置；无数据仍显示 TEST_DEFAULT。
   - 凭据卷权限：运行手册 `docs/runbooks/secret-volume-ownership.md`；不以 root/777 规避。

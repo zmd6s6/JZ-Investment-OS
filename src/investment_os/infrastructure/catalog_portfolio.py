@@ -414,6 +414,11 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 core_quantity=item["core_quantity"],  # type: ignore[arg-type]
                 tactical_quantity=item["tactical_quantity"],  # type: ignore[arg-type]
                 average_cost=item["average_cost"],  # type: ignore[arg-type]
+                core_average_cost=item.get("core_average_cost"),  # type: ignore[arg-type]
+                tactical_average_cost=item.get("tactical_average_cost"),  # type: ignore[arg-type]
+                core_reason=str(item.get("core_reason") or ""),
+                tactical_reason=str(item.get("tactical_reason") or ""),
+                operation=str(item.get("operation") or "IMPORT"),
             )
 
         claim = PortfolioImportClaimRecord(
@@ -534,7 +539,7 @@ class SqlWatchlistAdapter(WatchlistPort):
         rows = (await self._session.execute(statement)).all()
         views: list[WatchlistItemView] = []
         for record, instrument in rows:
-            views.append(self._view(record, instrument))
+            views.append(await self._view_with_research(record, instrument))
         return tuple(views)
 
     async def contains(self, instrument_id: UUID) -> bool:
@@ -550,10 +555,47 @@ class SqlWatchlistAdapter(WatchlistPort):
         instrument = await self._session.get(InstrumentRecord, record.instrument_id)
         if instrument is None:
             raise RuntimeError("instrument disappeared from watchlist")
-        return self._view(record, instrument)
+        return await self._view_with_research(record, instrument)
 
-    def _view(self, record: WatchlistItemRecord, instrument: InstrumentRecord) -> WatchlistItemView:
-        # PRODUCT-05 product fields: never fabricate lifecycle/thesis/freshness/monitoring.
+    async def _view_with_research(
+        self, record: WatchlistItemRecord, instrument: InstrumentRecord
+    ) -> WatchlistItemView:
+        from investment_os.infrastructure.persistence.models import (
+            EvidenceRecord,
+            InvestmentThesisRecord,
+            ThesisVersionRecord,
+        )
+
+        thesis_state: str | None = None
+        lifecycle_state: str | None = None
+        freshness: datetime | None = None
+        monitoring: str | None = None
+
+        thesis_stmt = select(InvestmentThesisRecord).where(
+            InvestmentThesisRecord.instrument_id == record.instrument_id
+        )
+        thesis = (await self._session.scalars(thesis_stmt)).first()
+        if thesis is not None and thesis.current_version_id is not None:
+            version = await self._session.get(ThesisVersionRecord, thesis.current_version_id)
+            if version is not None:
+                thesis_state = version.thesis_state
+                conditions = version.monitoring_conditions_json
+                if isinstance(conditions, list) and conditions:
+                    monitoring = str(conditions[0])
+                elif isinstance(conditions, dict) and conditions:
+                    monitoring = str(next(iter(conditions.values())))
+
+        evidence_stmt = (
+            select(EvidenceRecord)
+            .where(EvidenceRecord.instrument_id == record.instrument_id)
+            .order_by(EvidenceRecord.created_at.desc())
+            .limit(1)
+        )
+        latest_evidence = (await self._session.scalars(evidence_stmt)).first()
+        if latest_evidence is not None:
+            created = latest_evidence.created_at
+            freshness = created if created.tzinfo else created.replace(tzinfo=UTC)
+
         return WatchlistItemView(
             watchlist_item_id=record.id,
             instrument_id=record.instrument_id,
@@ -566,10 +608,10 @@ class SqlWatchlistAdapter(WatchlistPort):
             added_at=record.added_at
             if record.added_at.tzinfo
             else record.added_at.replace(tzinfo=UTC),
-            lifecycle_state=None,
-            thesis_state=None,
-            data_freshness_as_of=None,
-            next_monitoring_condition=None,
+            lifecycle_state=lifecycle_state,
+            thesis_state=thesis_state,
+            data_freshness_as_of=freshness,
+            next_monitoring_condition=monitoring,
         )
 
 
