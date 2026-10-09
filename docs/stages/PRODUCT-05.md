@@ -116,3 +116,14 @@
   - 政策审阅读取库内政策/版本/配置；无数据仍显示 TEST_DEFAULT。
   - 凭据卷权限：运行手册 `docs/runbooks/secret-volume-ownership.md`；不以 root/777 规避。
   - 仍缺：观察清单研究状态（依赖 P6 分析）、完整并发压测。
+- 2026-10-09（R1/R3 完整收口）：
+  - **R1 并发**：所有持仓写入先锁 `portfolio` 行（含新增目标）；`Position` 更新用 version CAS
+    （`WHERE version = expected`），失败抛 `POSITION_VERSION_CONFLICT` 且整批回滚；导入审计
+    before/after 取自同一锁定事务内的实际读写。具名集成测试覆盖：预览后修改、空组合新增竞争、
+    无关持仓+新增竞争、已有目标竞争、版本 CAS、混合批次回滚、正常导入。
+  - **R3 新鲜度**：`derive_display_freshness(as_of, available_at, expires_at, ingested_status)`
+    在读取时刻派生；`available_at` 含等于即为可用，`expires_at` 含等于即为 EXPIRED；
+    摄取时 NOT_YET_AVAILABLE 跨过 available_at 后显示 FRESH；不改写 Evidence 历史。
+    具名单元测试覆盖边界与跨时段场景。
+  - 验证：单元 325、集成 9（含并发）、`ruff`/`mypy src`、`npm run build`、OpenAPI。
+  - **NOT VERIFIED**：浏览器 E2E、密钥扫描、完整 374 套件、并发复现脚本在本环境重跑。

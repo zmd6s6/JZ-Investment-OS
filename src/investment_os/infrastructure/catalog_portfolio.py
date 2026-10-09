@@ -55,6 +55,8 @@ class SqlInstrumentCatalogAdapter(InstrumentCatalogPort):
         self._session = session
 
     async def upsert(self, identity: InstrumentIdentity) -> InstrumentCatalogEntry:
+        from sqlalchemy.exc import IntegrityError
+
         statement = select(InstrumentRecord).where(
             InstrumentRecord.symbol == identity.symbol,
             InstrumentRecord.exchange == identity.market,
@@ -72,7 +74,16 @@ class SqlInstrumentCatalogAdapter(InstrumentCatalogPort):
                 status="ACTIVE",
                 **_audit_kwargs("instrument_catalog"),
             )
-            self._session.add(record)
+            try:
+                async with self._session.begin_nested():
+                    self._session.add(record)
+                    await self._session.flush()
+            except IntegrityError:
+                # Concurrent insert of the same natural key: reuse the winner.
+                record = (await self._session.scalars(statement)).one_or_none()
+                if record is None:
+                    raise
+                return _catalog_entry(record)
         else:
             # Preserve known catalog identity; only fill blanks. Do not let
             # watchlist/position writes silently recode asset_type/currency/sector.
@@ -84,7 +95,7 @@ class SqlInstrumentCatalogAdapter(InstrumentCatalogPort):
                 record.currency = identity.currency
             if not record.sector and identity.sector:
                 record.sector = identity.sector
-        await self._session.flush()
+            await self._session.flush()
         return _catalog_entry(record)
 
     async def get(self, instrument_id: UUID) -> InstrumentCatalogEntry | None:
@@ -197,6 +208,42 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             positions=positions,
         )
 
+    async def _read_position_fields(
+        self, *, portfolio_id: UUID, instrument_id: UUID
+    ) -> dict[str, str] | None:
+        statement = select(PositionRecord).where(
+            PositionRecord.portfolio_id == portfolio_id,
+            PositionRecord.instrument_id == instrument_id,
+        )
+        record = (await self._session.scalars(statement)).one_or_none()
+        if record is None:
+            return None
+        return {
+            "core_quantity": str(record.core_quantity),
+            "tactical_quantity": str(record.tactical_quantity),
+            "average_cost": str(record.avg_cost),
+            "core_average_cost": str(record.core_average_cost),
+            "tactical_average_cost": str(record.tactical_average_cost),
+            "core_reason": record.core_reason,
+            "tactical_reason": record.tactical_reason,
+            "operation": record.last_operation,
+            "version": str(record.version),
+        }
+
+    async def _lock_portfolio(self, portfolio_id: UUID) -> None:
+        """Serialize all position writers for one portfolio (including inserts)."""
+
+        statement = (
+            select(PortfolioRecord.id).where(PortfolioRecord.id == portfolio_id).with_for_update()
+        )
+        locked = (await self._session.scalars(statement)).first()
+        if locked is None:
+            raise ApplicationError(
+                ApplicationErrorCode.PORTFOLIO_NOT_FOUND,
+                "portfolio was not found",
+                details={"portfolio_id": str(portfolio_id)},
+            )
+
     async def upsert_position(
         self,
         *,
@@ -210,7 +257,10 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         core_reason: str = "",
         tactical_reason: str = "",
         operation: str = "MANUAL",
+        expected_version: int | None = None,
     ) -> PortfolioPositionView:
+        from sqlalchemy import update as sa_update
+
         resolved_core_avg = (
             core_average_cost
             if core_average_cost is not None
@@ -221,12 +271,25 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             if tactical_average_cost is not None
             else (average_cost if tactical_quantity != 0 else Decimal("0"))
         )
+
+        # Portfolio row lock serializes concurrent insert and update of positions.
+        await self._lock_portfolio(portfolio_id)
+
         statement = select(PositionRecord).where(
             PositionRecord.portfolio_id == portfolio_id,
             PositionRecord.instrument_id == instrument_id,
         )
         record = (await self._session.scalars(statement)).one_or_none()
         if record is None:
+            if expected_version not in (None, 0):
+                raise ApplicationError(
+                    ApplicationErrorCode.POSITION_VERSION_CONFLICT,
+                    "position was created concurrently; re-read before write",
+                    details={
+                        "portfolio_id": str(portfolio_id),
+                        "instrument_id": str(instrument_id),
+                    },
+                )
             record = PositionRecord(
                 id=uuid4(),
                 portfolio_id=portfolio_id,
@@ -245,15 +308,47 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
             )
             self._session.add(record)
         else:
-            record.core_quantity = core_quantity
-            record.tactical_quantity = tactical_quantity
-            record.avg_cost = average_cost
-            record.core_average_cost = resolved_core_avg
-            record.tactical_average_cost = resolved_tactical_avg
-            record.core_reason = core_reason
-            record.tactical_reason = tactical_reason
-            record.last_operation = operation
-            record.version = record.version + 1
+            if expected_version is not None and record.version != expected_version:
+                raise ApplicationError(
+                    ApplicationErrorCode.POSITION_VERSION_CONFLICT,
+                    "position version changed; re-read before write",
+                    details={
+                        "portfolio_id": str(portfolio_id),
+                        "instrument_id": str(instrument_id),
+                        "expected_version": expected_version,
+                        "current_version": record.version,
+                    },
+                )
+            # Optimistic CAS: only bump version when the row still matches.
+            result = await self._session.execute(
+                sa_update(PositionRecord)
+                .where(
+                    PositionRecord.id == record.id,
+                    PositionRecord.version == record.version,
+                )
+                .values(
+                    core_quantity=core_quantity,
+                    tactical_quantity=tactical_quantity,
+                    avg_cost=average_cost,
+                    core_average_cost=resolved_core_avg,
+                    tactical_average_cost=resolved_tactical_avg,
+                    core_reason=core_reason,
+                    tactical_reason=tactical_reason,
+                    last_operation=operation,
+                    version=record.version + 1,
+                )
+            )
+            if getattr(result, "rowcount", 0) != 1:
+                raise ApplicationError(
+                    ApplicationErrorCode.POSITION_VERSION_CONFLICT,
+                    "position was modified concurrently; re-read before write",
+                    details={
+                        "portfolio_id": str(portfolio_id),
+                        "instrument_id": str(instrument_id),
+                        "expected_version": record.version,
+                    },
+                )
+            await self._session.refresh(record)
         await self._session.flush()
         await self._emit_position_event(
             portfolio_id=portfolio_id,
@@ -431,6 +526,9 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
     ) -> UUID:
         from sqlalchemy.exc import IntegrityError
 
+        # Portfolio lock first: serializes inserts of not-yet-existing positions.
+        await self._lock_portfolio(portfolio_id)
+
         existing = await self.find_import_audit(portfolio_id=portfolio_id, import_hash=import_hash)
         if existing is not None:
             raise ApplicationError(
@@ -439,8 +537,8 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 details={"audit_id": str(existing), "import_hash": import_hash},
             )
 
-        # Re-check position snapshot inside the write unit of work so a concurrent
-        # manual edit cannot be silently overwritten after the pre-check.
+        # Snapshot check after the portfolio lock so concurrent writers cannot
+        # slip a new target position in between check and write.
         if expected_positions_hash is not None:
             current_hash = await self._positions_hash(portfolio_id)
             if current_hash != expected_positions_hash:
@@ -452,10 +550,15 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
 
         audit_id = uuid4()
         catalog = SqlInstrumentCatalogAdapter(self._session)
+        # Rebuild write rows from the same locked transaction as the writes.
+        write_actual: dict[tuple[str, str], dict[str, object]] = {}
         for item in items:
             identity = item["identity"]
             assert isinstance(identity, InstrumentIdentity)
             entry = await catalog.upsert(identity)
+            before_snapshot = await self._read_position_fields(
+                portfolio_id=portfolio_id, instrument_id=entry.instrument_id
+            )
             await self.upsert_position(
                 portfolio_id=portfolio_id,
                 instrument_id=entry.instrument_id,
@@ -467,7 +570,50 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
                 core_reason=str(item.get("core_reason") or ""),
                 tactical_reason=str(item.get("tactical_reason") or ""),
                 operation=str(item.get("operation") or "IMPORT"),
+                expected_version=None
+                if before_snapshot is None
+                else int(str(before_snapshot["version"])),
             )
+            after_snapshot = await self._read_position_fields(
+                portfolio_id=portfolio_id, instrument_id=entry.instrument_id
+            )
+            write_actual[(identity.market, identity.symbol)] = {
+                "before": before_snapshot,
+                "after": after_snapshot,
+            }
+
+        actual_applied: list[dict[str, object]] = []
+        for planned in applied:
+            market = getattr(planned, "market", "")
+            symbol = getattr(planned, "symbol", "")
+            action = getattr(planned, "action", "UPDATED")
+            write_info = write_actual.get((market, symbol))
+            if write_info is not None:
+                actual_applied.append(
+                    {
+                        "line_number": getattr(planned, "line_number", 0),
+                        "market": market,
+                        "symbol": symbol,
+                        "action": action,
+                        "before": write_info["before"],
+                        "after": write_info["after"],
+                        "proposed": getattr(planned, "proposed", None),
+                    }
+                )
+            else:
+                # SKIPPED rows: after must equal the untouched actual state.
+                skipped_before = getattr(planned, "before", None)
+                actual_applied.append(
+                    {
+                        "line_number": getattr(planned, "line_number", 0),
+                        "market": market,
+                        "symbol": symbol,
+                        "action": action,
+                        "before": skipped_before,
+                        "after": skipped_before,
+                        "proposed": getattr(planned, "proposed", None),
+                    }
+                )
 
         claim = PortfolioImportClaimRecord(
             id=uuid4(),
@@ -481,7 +627,7 @@ class SqlPortfolioBookAdapter(PortfolioBookPort):
         await self._write_import_audit(
             portfolio_id=portfolio_id,
             conflict_policy=conflict_policy,
-            applied=applied,
+            applied=tuple(actual_applied),
             import_hash=import_hash,
             audit_id=audit_id,
         )
@@ -641,8 +787,7 @@ class SqlWatchlistAdapter(WatchlistPort):
                 elif isinstance(conditions, dict) and conditions:
                     monitoring = str(next(iter(conditions.values())))
 
-        # Business freshness uses source/observed time + status, not ingestion created_at.
-        # Recompute expiry at read time so late-ingested evidence cannot look fresh.
+        # Display freshness is derived at read time from business times.
         evidence_stmt = (
             select(EvidenceRecord)
             .where(EvidenceRecord.instrument_id == record.instrument_id)
@@ -652,15 +797,22 @@ class SqlWatchlistAdapter(WatchlistPort):
         latest_evidence = (await self._session.scalars(evidence_stmt)).first()
         freshness_status: str | None = None
         if latest_evidence is not None:
+            from investment_os.application.evidence import derive_display_freshness
+
             observed = latest_evidence.observed_at
             freshness = observed if observed.tzinfo else observed.replace(tzinfo=UTC)
-            now = datetime.now(UTC)
-            if latest_evidence.expires_at is not None and latest_evidence.expires_at <= now:
-                freshness_status = "EXPIRED"
-            elif observed > now:
-                freshness_status = "NOT_YET_AVAILABLE"
-            else:
-                freshness_status = latest_evidence.freshness_status
+            available = latest_evidence.available_at
+            if available.tzinfo is None:
+                available = available.replace(tzinfo=UTC)
+            expires = latest_evidence.expires_at
+            if expires is not None and expires.tzinfo is None:
+                expires = expires.replace(tzinfo=UTC)
+            freshness_status = derive_display_freshness(
+                as_of=datetime.now(UTC),
+                available_at=available,
+                expires_at=expires,
+                ingested_status=latest_evidence.freshness_status,
+            ).value
 
         return WatchlistItemView(
             watchlist_item_id=record.id,
@@ -748,6 +900,7 @@ class SessionPortfolioBookPort:
         core_reason: str = "",
         tactical_reason: str = "",
         operation: str = "MANUAL",
+        expected_version: int | None = None,
     ) -> PortfolioPositionView:
         async with self._session_factory() as session:
             view = await SqlPortfolioBookAdapter(session).upsert_position(
@@ -761,6 +914,7 @@ class SessionPortfolioBookPort:
                 core_reason=core_reason,
                 tactical_reason=tactical_reason,
                 operation=operation,
+                expected_version=expected_version,
             )
             await session.commit()
             return view

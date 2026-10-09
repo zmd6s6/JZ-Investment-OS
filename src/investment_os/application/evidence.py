@@ -26,6 +26,45 @@ class FreshnessStatus(StrEnum):
     FRESH = "FRESH"
     STALE = "STALE"
     NOT_YET_AVAILABLE = "NOT_YET_AVAILABLE"
+    EXPIRED = "EXPIRED"
+
+
+def derive_display_freshness(
+    *,
+    as_of: datetime,
+    available_at: datetime,
+    expires_at: datetime | None,
+    ingested_status: str | FreshnessStatus | None = None,
+) -> FreshnessStatus:
+    """Derive current display freshness at a UTC as-of instant.
+
+    Stored `freshness_status` is an ingestion-time fact and is never rewritten.
+    Display status is recomputed from business times at read time:
+
+    - ``as_of < available_at``  → NOT_YET_AVAILABLE (data not usable yet)
+    - ``as_of >= expires_at``   → EXPIRED
+    - otherwise                 → STALE if ingest marked STALE, else FRESH
+
+    Equality: ``available_at`` is inclusive (usable at that instant);
+    ``expires_at`` is inclusive for expiry (expired at that instant).
+    """
+
+    def _as_utc(value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("freshness timestamps must be timezone-aware")
+        return value
+
+    now = _as_utc(as_of)
+    available = _as_utc(available_at)
+    if expires_at is not None:
+        expires = _as_utc(expires_at)
+        if now >= expires:
+            return FreshnessStatus.EXPIRED
+    if now < available:
+        return FreshnessStatus.NOT_YET_AVAILABLE
+    if ingested_status is not None and str(ingested_status) == FreshnessStatus.STALE:
+        return FreshnessStatus.STALE
+    return FreshnessStatus.FRESH
 
 
 @dataclass(frozen=True, slots=True)
