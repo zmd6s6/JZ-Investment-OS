@@ -13,6 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 from sqlalchemy import select
 
+from investment_os.application.analysis_product import ProductAnalysisService
+from investment_os.application.analysis_run import AnalysisRunService
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
@@ -67,6 +69,8 @@ from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
 from .schemas import (
+    AnalysisRunDetailResponse,
+    AnalysisRunSummaryResponse,
     CsvImportCommitResponse,
     CsvImportPreviewResponse,
     CsvImportRequest,
@@ -100,6 +104,7 @@ from .schemas import (
     ResearchIngestResponse,
     RoleModelAssignmentRequest,
     RoleModelAssignmentResponse,
+    StartAnalysisRequest,
     SystemSettingsResponse,
     SystemSettingsUpdateRequest,
     TaskRunResponse,
@@ -343,6 +348,8 @@ def create_app(
     watchlist_service: WatchlistService | None = None,
     portfolio_csv_service: PortfolioCsvImportService | None = None,
     write_api_token: str | None = None,
+    analysis_product_service: "ProductAnalysisService | None" = None,
+    analysis_run_service: "AnalysisRunService | None" = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -364,6 +371,8 @@ def create_app(
     selected_portfolio_book_service = portfolio_book_service
     selected_watchlist_service = watchlist_service
     selected_portfolio_csv_service = portfolio_csv_service
+    selected_analysis_product_service = analysis_product_service
+    selected_analysis_run_service = analysis_run_service
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
@@ -1332,6 +1341,111 @@ def create_app(
                 raise HTTPException(status_code=404, detail=exc.code.value) from exc
             raise HTTPException(status_code=422, detail=exc.code.value) from exc
 
+    def _analysis_service_or_503() -> tuple[ProductAnalysisService, AnalysisRunService]:
+        if selected_analysis_product_service is None or selected_analysis_run_service is None:
+            raise HTTPException(status_code=503, detail="analysis_unavailable")
+        return selected_analysis_product_service, selected_analysis_run_service
+
+    @application.post(
+        "/api/v1/analysis-runs",
+        response_model=AnalysisRunDetailResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["analysis"],
+    )
+    async def start_analysis(request: StartAnalysisRequest) -> AnalysisRunDetailResponse:
+        from investment_os.application.analysis_product import StartAnalysisInput
+        from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+
+        product, _runs = _analysis_service_or_503()
+        try:
+            run = await product.start(
+                StartAnalysisInput(
+                    instrument_id=request.instrument_id,
+                    portfolio_id=request.portfolio_id,
+                    source=request.source,
+                )
+            )
+        except ApplicationError as exc:
+            if exc.code is ApplicationErrorCode.PORTFOLIO_NOT_FOUND:
+                raise HTTPException(status_code=404, detail=exc.code.value) from exc
+            raise HTTPException(status_code=422, detail=exc.code.value) from exc
+        return AnalysisRunDetailResponse(
+            id=run.id,
+            instrument_id=run.instrument_id,
+            portfolio_id=run.portfolio_id,
+            source=run.source,
+            status=run.status,
+            as_of=run.as_of,
+            policy_version_label=run.policy_version_label,
+            failure_code=run.failure_code,
+            failure_detail=run.failure_detail,
+            payload=run.payload,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+        )
+
+    @application.get(
+        "/api/v1/analysis-runs",
+        response_model=list[AnalysisRunSummaryResponse],
+        tags=["analysis"],
+    )
+    async def list_analysis_runs(
+        portfolio_id: UUID | None = None,
+        limit: int = Query(default=20, ge=1, le=50),
+    ) -> list[AnalysisRunSummaryResponse]:
+        _product, runs = _analysis_service_or_503()
+        rows = (
+            await runs.list_for_portfolio(portfolio_id=portfolio_id, limit=limit)
+            if portfolio_id
+            else ()
+        )
+        return [
+            AnalysisRunSummaryResponse(
+                id=row.id,
+                instrument_id=row.instrument_id,
+                portfolio_id=row.portfolio_id,
+                source=row.source,
+                status=row.status,
+                as_of=row.as_of,
+                policy_version_label=row.policy_version_label,
+                failure_code=row.failure_code,
+                failure_detail=row.failure_detail,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+            )
+            for row in rows
+        ]
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}",
+        response_model=AnalysisRunDetailResponse,
+        tags=["analysis"],
+    )
+    async def get_analysis_run(run_id: UUID) -> AnalysisRunDetailResponse:
+        from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+
+        _product, runs = _analysis_service_or_503()
+        try:
+            run = await runs.get(run_id)
+        except ApplicationError as exc:
+            if exc.code is ApplicationErrorCode.PORTFOLIO_NOT_FOUND:
+                raise HTTPException(status_code=404, detail=exc.code.value) from exc
+            raise HTTPException(status_code=422, detail=exc.code.value) from exc
+        return AnalysisRunDetailResponse(
+            id=run.id,
+            instrument_id=run.instrument_id,
+            portfolio_id=run.portfolio_id,
+            source=run.source,
+            status=run.status,
+            as_of=run.as_of,
+            policy_version_label=run.policy_version_label,
+            failure_code=run.failure_code,
+            failure_detail=run.failure_detail,
+            payload=run.payload,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+        )
+
     @application.get(
         "/api/v1/policy/review",
         response_model=PolicyReviewResponse,
@@ -1435,6 +1549,10 @@ def create_app(
 
         @application.get("/opportunities", include_in_schema=False)
         async def opportunities_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/analysis", include_in_schema=False)
+        async def analysis_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
     return application

@@ -349,6 +349,36 @@ export function PortfolioPage() {
     }
   }
 
+  async function startAnalysis(instrumentId: string) {
+    if (!selected) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await apiFetch("/api/v1/analysis-runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instrument_id: instrumentId,
+          portfolio_id: selected.portfolio_id,
+          source: "PORTFOLIO",
+        }),
+      });
+      if (!response.ok) throw new Error(await readApiError(response));
+      const run = (await response.json()) as { status: string; failure_code: string | null };
+      setMessage(
+        run.status === "SUCCEEDED"
+          ? "分析完成，正在打开运行列表"
+          : `分析未成功：${run.failure_code ?? run.status}`,
+      );
+      window.location.href = "/analysis";
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "启动分析失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <ProductChrome
       eyebrow="资产组合"
@@ -943,6 +973,16 @@ export function PortfolioPage() {
                     </div>
                   </td>
                   <td>{position.currency}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={!selected || busy}
+                      onClick={() => void startAnalysis(position.instrument_id)}
+                    >
+                      立即分析
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

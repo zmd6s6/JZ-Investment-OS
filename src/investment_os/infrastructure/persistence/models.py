@@ -748,3 +748,28 @@ class PortfolioImportClaimRecord(Base):
     created_by: Mapped[str] = mapped_column(
         String(255), nullable=False, default="product_portfolio"
     )
+
+
+class AnalysisRunRecord(Base):
+    """One product analysis run: QUEUED/RUNNING/SUCCEEDED/FAILED with JSON payload."""
+
+    __tablename__ = "analysis_run"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    portfolio_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    policy_version_label: Mapped[str] = mapped_column(String(128), nullable=False, default="none")
+    failure_code: Mapped[str | None] = mapped_column(String(64))
+    failure_detail: Mapped[str | None] = mapped_column(Text)
+    payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False, default=dict)
+    schema_version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="product_ui")

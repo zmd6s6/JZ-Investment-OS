@@ -1,6 +1,6 @@
 # PRODUCT-06 — 端到端 Analysis Orchestration
 
-- 状态：`PLANNED`
+- 状态：`IN_PROGRESS`
 - 前置条件：`PRODUCT-05` 已由所有者接受；可用的已授权模型与数据档案、Portfolio/Watchlist 产品流均已验证
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md` §2、§4、§6、§9、§11、§12、§16 至 §19
 - 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0004`、`ADR-0005`、`ADR-0006`、`ADR-0007`、`ADR-0010`、
@@ -70,3 +70,13 @@
 
 运行受影响的格式、lint、类型、单元/属性/契约/集成/迁移、API/OpenAPI、前端构建和浏览器 E2E；真实网络验证仅在
 所有者已明确授权的 profile 上进行，并记录脱敏结果。完成定义和证据齐备后方可 `READY_FOR_REVIEW`。
+
+## 实施记录
+
+- 2026-10-10（首个可用纵切）：
+  - `AnalysisRun` 持久化（迁移 `20261010_0015`）、`InvestmentAnalysisOrchestrator` 通过既有委员会/Agent/CIO 门执行；
+    无 Evidence 失败关闭；跨币种缺 FX 失败关闭；缺行情显式 `MISSING_REFERENCE_QUOTES`。
+  - MarketDataPort + 合成/内存适配器；确定性 NAV/估值字段与 `TEST_DEFAULT` 固定 policy_version_label。
+  - API：`POST/GET /api/v1/analysis-runs`；UI：`/analysis` 运行列表与详情、组合持仓「立即分析」。
+  - 验证：`tests.unit 327`（含编排 2 项）、`ruff`/`mypy`、`npm run build`、前端 7/7、OpenAPI、迁移+P5 集成 6 项通过。
+  - **NOT VERIFIED**：浏览器 E2E、真实模型网络调用、密钥扫描、完整 pytest 中与分析无关的旧集成在本环境未全部重跑。

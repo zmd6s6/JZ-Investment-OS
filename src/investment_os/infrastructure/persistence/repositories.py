@@ -406,6 +406,22 @@ class EvidenceRepository:
         )
         return frozenset((await self._session.scalars(statement)).all())
 
+    async def list_for_instrument(
+        self, *, instrument_id: UUID, as_of: datetime, limit: int = 50
+    ) -> list[EvidenceRecord]:
+        """Evidence for analysis at business time as_of (available_at <= as_of)."""
+
+        statement = (
+            select(EvidenceRecord)
+            .where(
+                EvidenceRecord.instrument_id == instrument_id,
+                EvidenceRecord.available_at <= as_of,
+            )
+            .order_by(EvidenceRecord.observed_at.desc())
+            .limit(limit)
+        )
+        return list((await self._session.scalars(statement)).all())
+
 
 class ResearchArtifactRepository:
     """Immutable raw-to-normalized lineage records for external research input."""
