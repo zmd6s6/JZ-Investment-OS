@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
@@ -134,66 +134,87 @@ export function PortfolioPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const load = useCallback(
-    async (preferredId?: string) => {
-      const response = await apiFetch("/api/v1/portfolios");
-      if (!response.ok) throw new Error(await readApiError(response));
-      const data = (await response.json()) as Portfolio[];
-      setPortfolios(data);
-      let remembered = "";
-      try {
-        remembered = sessionStorage.getItem("selected_portfolio_id") ?? "";
-      } catch {
-        /* ignore */
-      }
-      const nextId = preferredId || selectedId || remembered;
-      if (nextId && data.some((item) => item.portfolio_id === nextId)) {
-        setSelectedId(nextId);
-        try {
-          sessionStorage.setItem("selected_portfolio_id", nextId);
-        } catch {
-          /* ignore */
-        }
-      } else if (data.length > 0) {
-        setSelectedId(data[0].portfolio_id);
-        try {
-          sessionStorage.setItem("selected_portfolio_id", data[0].portfolio_id);
-        } catch {
-          /* ignore */
-        }
-      }
-      const active = data.find((item) => item.portfolio_id === (nextId || data[0]?.portfolio_id));
-      if (active) setCashEdit(String(active.cash_balance));
-      const historyId =
-        nextId && data.some((item) => item.portfolio_id === nextId)
-          ? nextId
-          : data[0]?.portfolio_id;
-      if (historyId) {
-        const historyResponse = await apiFetch(
-          `/api/v1/portfolios/${historyId}/import-audits?limit=10`,
-        );
-        if (historyResponse.ok) {
-          setImportHistory(
-            (await historyResponse.json()) as typeof importHistory,
-          );
-        }
-      }
-    },
-    [selectedId],
-  );
+  const listSeqRef = useRef(0);
+  const selectedIdRef = useRef("");
+  const intentIdRef = useRef("");
 
   useEffect(() => {
-    void load().catch((reason: unknown) =>
-      setError(reason instanceof Error ? reason.message : "加载失败"),
-    );
-  }, [load]);
-
-  useEffect(() => {
-    setPreview(null);
-    setImportReport(null);
-    setConflictPolicy("");
+    selectedIdRef.current = selectedId;
   }, [selectedId]);
+
+  const persistSelection = useCallback((id: string) => {
+    selectedIdRef.current = id;
+    intentIdRef.current = id;
+    setSelectedId(id);
+    try {
+      sessionStorage.setItem("selected_portfolio_id", id);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const refreshList = useCallback(async (preferredId?: string) => {
+    const seq = ++listSeqRef.current;
+    const preferred = preferredId || intentIdRef.current;
+    const response = await apiFetch("/api/v1/portfolios");
+    if (!response.ok) throw new Error(await readApiError(response));
+    const data = (await response.json()) as Portfolio[];
+    // Drop stale list responses; they must not overwrite newer selection or list.
+    if (seq !== listSeqRef.current) return;
+    setPortfolios(data);
+    const preferredExists = preferred && data.some((item) => item.portfolio_id === preferred);
+    if (preferredExists && preferred) {
+      // Prefer explicit/user-intent id over captured selectedId from request start.
+      if (selectedIdRef.current !== preferred) {
+        persistSelection(preferred);
+      }
+      const active = data.find((item) => item.portfolio_id === preferred);
+      if (active) setCashEdit(String(active.cash_balance));
+      return;
+    }
+    // No valid intent in this payload: do not steal selection from a newer choice.
+    if (!intentIdRef.current && data.length > 0) {
+      persistSelection(data[0].portfolio_id);
+      setCashEdit(String(data[0].cash_balance));
+    }
+  }, [persistSelection]);
+
+  const loadHistory = useCallback(async (portfolioId: string) => {
+    if (!portfolioId) {
+      setImportHistory([]);
+      return;
+    }
+    const historyResponse = await apiFetch(
+      `/api/v1/portfolios/${portfolioId}/import-audits?limit=10`,
+    );
+    if (historyResponse.ok) {
+      const rows = (await historyResponse.json()) as typeof importHistory;
+      // Only apply history if this portfolio is still selected.
+      if (selectedIdRef.current === portfolioId) {
+        setImportHistory(rows);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void refreshList().catch((reason: unknown) => {
+      if (!cancelled) {
+        setError(reason instanceof Error ? reason.message : "加载失败");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshList]);
+
+  useEffect(() => {
+    // Do not clear CSV preview here: selection-driven history reload must not
+    // drop a preview the user just completed for the same portfolio.
+    void loadHistory(selectedId).catch(() => {
+      /* keep prior history on transient errors */
+    });
+  }, [selectedId, loadHistory]);
 
   const selected = useMemo(
     () => portfolios.find((item) => item.portfolio_id === selectedId) || portfolios[0],
@@ -218,9 +239,13 @@ export function PortfolioPage() {
       if (!response.ok) throw new Error(await readApiError(response));
       const created = (await response.json()) as Portfolio;
       setMessage("组合已创建");
-      setSelectedId(created.portfolio_id);
+      persistSelection(created.portfolio_id);
+      setPreview(null);
+      setImportReport(null);
+      setConflictPolicy("");
       setManual((prev) => ({ ...prev, currency: created.base_currency }));
-      await load(created.portfolio_id);
+      setCashEdit(String(created.cash_balance));
+      await refreshList(created.portfolio_id);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "创建组合失败");
     } finally {
@@ -263,7 +288,7 @@ export function PortfolioPage() {
         ...emptyManual,
         currency: prev.currency,
       }));
-      await load(selected.portfolio_id);
+      await refreshList(selected.portfolio_id);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "持仓写入失败");
     } finally {
@@ -315,7 +340,7 @@ export function PortfolioPage() {
       );
       setPreview(null);
       setCsvText("");
-      await load(selected.portfolio_id);
+      await refreshList(selected.portfolio_id);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "导入失败");
     } finally {
@@ -371,15 +396,11 @@ export function PortfolioPage() {
                     type="button"
                     className={item.portfolio_id === selected?.portfolio_id ? "selected" : ""}
                     onClick={() => {
-                      setSelectedId(item.portfolio_id);
+                      persistSelection(item.portfolio_id);
                       setPreview(null);
                       setImportReport(null);
                       setConflictPolicy("");
-                      try {
-                        sessionStorage.setItem("selected_portfolio_id", item.portfolio_id);
-                      } catch {
-                        /* ignore */
-                      }
+                      setCashEdit(String(item.cash_balance));
                       setManual((prev) => ({ ...prev, currency: item.base_currency }));
                     }}
                   >
@@ -439,7 +460,7 @@ export function PortfolioPage() {
                   );
                   if (!response.ok) throw new Error(await readApiError(response));
                   setMessage("现金已更新");
-                  await load(selected.portfolio_id);
+                  await refreshList(selected.portfolio_id);
                 } catch (reason) {
                   setError(reason instanceof Error ? reason.message : "现金更新失败");
                 } finally {

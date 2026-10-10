@@ -53,16 +53,18 @@ test("csv import blocks dirty rows and accepts clean file", async ({ page }) => 
 
   const header =
     "market,symbol,name,asset_type,currency,sector,core_quantity,tactical_quantity,average_cost";
-  const dirty = [header, "SSE,600519,贵州茅台,EQUITY,CNY,Consumer,x,0,1"].join("\n");
+  const dirty = [header, "SSE,629911,合成无效,EQUITY,CNY,Consumer,x,0,1"].join("\n");
   await page.getByLabel("CSV 内容").fill(dirty);
   await page.getByRole("button", { name: "预览" }).click();
+  await expect(page.getByText("预览完成")).toBeVisible();
   await expect(page.getByText("存在无效行，禁止写入")).toBeVisible();
   await expect(page.getByRole("button", { name: "确认导入" })).toBeDisabled();
 
-  const clean = [header, "SSE,600519,贵州茅台,EQUITY,CNY,Consumer,1,0,1600"].join("\n");
+  const clean = [header, "SSE,629911,合成无效,EQUITY,CNY,Consumer,1,0,1600"].join("\n");
   await page.getByLabel("CSV 内容").fill(clean);
   await page.getByRole("button", { name: "预览" }).click();
   await expect(page.getByText("可以导入", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "确认导入" })).toBeEnabled();
   await page.getByRole("button", { name: "确认导入" }).click();
   await expect(page.getByText("已导入", { exact: false }).first()).toBeVisible();
 });
