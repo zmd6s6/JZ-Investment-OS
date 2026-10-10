@@ -64,6 +64,36 @@ def create_production_app() -> FastAPI:
             {"BOCHA_WEB_SEARCH": data_connection_tester.provider_for}
         ),
     )
+
+    from investment_os.application.agent_runtime import AgentRuntime
+    from investment_os.application.analysis_orchestrator import default_registry
+    from investment_os.application.analysis_product import ProductAnalysisService
+    from investment_os.application.analysis_run import AnalysisRunService
+    from investment_os.application.committee_runtime import CommitteeRuntime
+    from investment_os.application.instrument_catalog import InstrumentCatalogService
+    from investment_os.application.market_data import InMemoryMarketDataAdapter
+    from investment_os.application.portfolio_book import PortfolioBookService
+    from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
+    from investment_os.infrastructure.catalog_portfolio import (
+        SessionCatalogPort,
+        SessionPortfolioBookPort,
+    )
+
+    catalog_adapter = SessionCatalogPort(session_factory)
+    agent_runtime = AgentRuntime(registry=default_registry(), gateway=model_gateway)
+    committee = CommitteeRuntime(agent_runtime=agent_runtime)
+    portfolio_book = PortfolioBookService(
+        SessionPortfolioBookPort(session_factory), catalog_adapter
+    )
+    analysis_runs = AnalysisRunService(SessionAnalysisRunPort(session_factory))
+    analysis_product = ProductAnalysisService(
+        session_factory=session_factory,
+        portfolios=portfolio_book,
+        analysis_runs=analysis_runs,
+        committee=committee,
+        market_data=InMemoryMarketDataAdapter(),
+    )
+
     return create_app(
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
@@ -76,6 +106,10 @@ def create_production_app() -> FastAPI:
         ),
         llm_budget_service=budget_service,
         onboarding_lifecycle=onboarding_runtime,
+        portfolio_book_service=portfolio_book,
+        instrument_catalog_service=InstrumentCatalogService(catalog_adapter),
+        analysis_product_service=analysis_product,
+        analysis_run_service=analysis_runs,
     )
 
 

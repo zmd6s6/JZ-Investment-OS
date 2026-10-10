@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
@@ -505,3 +505,45 @@ class PolicyReviewResponse(StrictResponse):
     is_test_default: bool
     limits: list[dict[str, str]]
     warning: str
+
+
+class StartAnalysisRequest(StrictResponse):
+    instrument_id: UUID
+    portfolio_id: UUID
+    source: Literal["PORTFOLIO", "WATCHLIST"] = "PORTFOLIO"
+
+
+class AnalysisRunSummaryResponse(StrictResponse):
+    id: UUID
+    instrument_id: UUID
+    portfolio_id: UUID
+    source: str
+    status: str
+    as_of: datetime
+    policy_version_label: str
+    failure_code: str | None
+    failure_detail: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AnalysisRunDetailResponse(StrictResponse):
+    id: UUID
+    instrument_id: UUID
+    portfolio_id: UUID
+    source: str
+    status: str
+    as_of: datetime
+    policy_version_label: str
+    failure_code: str | None
+    failure_detail: str | None
+    payload: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+
+class SyntheticQuoteRequest(StrictResponse):
+    instrument_id: UUID
+    reference_price: Decimal
+    currency: str
+    volatility: Decimal = Decimal("0.20")

@@ -4,6 +4,7 @@ import { SettingsPage } from "./SettingsPage";
 import { PortfolioPage } from "./PortfolioPage";
 import { WatchlistPage } from "./WatchlistPage";
 import { PolicyReviewPanel } from "./PolicyReviewPanel";
+import { AnalysisPage } from "./AnalysisPage";
 import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
 
@@ -232,6 +233,7 @@ export function App() {
   if (path === "/settings") return <SettingsPage />;
   if (path === "/portfolio") return <PortfolioPage />;
   if (path === "/watchlist") return <WatchlistPage />;
+  if (path === "/analysis") return <AnalysisPage />;
   return <HomePage />;
 }
 

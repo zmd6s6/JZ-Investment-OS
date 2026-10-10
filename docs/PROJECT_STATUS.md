@@ -6,11 +6,11 @@
 
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
-- 活跃路线图阶段：`PRODUCT-05 / P5 — Portfolio 与 Watchlist 产品`
-- 阶段状态：`IN_PROGRESS`（首个纵切：Instrument 目录 + Portfolio 手工持仓 + Watchlist）
+- 活跃路线图阶段：`PRODUCT-06 / P6 — Analysis Orchestration`
+- 阶段状态：`IN_PROGRESS`（首个纵切：AnalysisRun + 委员会编排 + 只读分析报告）
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
-- 上次状态更新：`2026-09-29`
+- 上次状态更新：`2026-10-10`
 
 ## 已建立
 
@@ -25,7 +25,7 @@
 
 ## 尚未实现或尚未验证
 
-- P5 收尾与验收合并（功能可用；已补写鉴权、CSV 冲突决策、迁移链 0009–0011、导入审计）。
+- P6 浏览器 E2E、真实已授权模型验收与完整失败路径矩阵（预算/超时/Schema）。
 - P6：产品工作流中的端到端分析编排、持久化 AnalysisRun 以及完整 Evidence → Decision 影子链路。
 - P7：Decision 审阅、批准/拒绝/撤销 UI 与只记录事实的手工执行产品流。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。
@@ -89,8 +89,8 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
 | PRODUCT-02 | ACCEPTED | PR #13 已合并；ADR-0013 已接受 | 设置、密钥存储与提供方档案 |
 | PRODUCT-03 | ACCEPTED | 已由 PR #14 合并；MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过 | 真实模型运行时 |
 | PRODUCT-04 | ACCEPTED | 已由 PR #15 合并到 `main`（`ba9b4fa`） | 多提供方数据运行时 |
-| PRODUCT-05 | IN_PROGRESS | 实现与复验修复中；未合并 | Portfolio 与 Watchlist 产品 |
-| PRODUCT-06 | PLANNED | 依赖 PRODUCT-05 `ACCEPTED` | 端到端 Analysis Orchestration |
+| PRODUCT-05 | ACCEPTED | 已由 PR #17 合并到 `main`（`8be5d87`） | Portfolio 与 Watchlist 产品 |
+| PRODUCT-06 | IN_PROGRESS | 实现与首个纵切验证中 | 端到端 Analysis Orchestration |
 | PRODUCT-07 | PLANNED | 依赖 PRODUCT-06 `ACCEPTED` | 交互式决策与批准 |
 | PRODUCT-08 | PLANNED | 依赖 PRODUCT-07 `ACCEPTED` | 每日 AI 团队运行时 |
 | PRODUCT-09 | PLANNED | 依赖 PRODUCT-08 `ACCEPTED` | Beta 验收 |
