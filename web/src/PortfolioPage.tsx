@@ -155,24 +155,25 @@ export function PortfolioPage() {
 
   const refreshList = useCallback(async (preferredId?: string) => {
     const seq = ++listSeqRef.current;
-    const preferred = preferredId || intentIdRef.current;
     const response = await apiFetch("/api/v1/portfolios");
     if (!response.ok) throw new Error(await readApiError(response));
     const data = (await response.json()) as Portfolio[];
     // Drop stale list responses; they must not overwrite newer selection or list.
     if (seq !== listSeqRef.current) return;
     setPortfolios(data);
-    const preferredExists = preferred && data.some((item) => item.portfolio_id === preferred);
-    if (preferredExists && preferred) {
-      // Prefer explicit/user-intent id over captured selectedId from request start.
-      if (selectedIdRef.current !== preferred) {
-        persistSelection(preferred);
+
+    // Re-read user intent at completion time. Captured preferredId from request
+    // start must not force selection after the user switched portfolios.
+    const currentIntent = intentIdRef.current || preferredId || "";
+    if (currentIntent && data.some((item) => item.portfolio_id === currentIntent)) {
+      if (selectedIdRef.current !== currentIntent) {
+        persistSelection(currentIntent);
       }
-      const active = data.find((item) => item.portfolio_id === preferred);
+      const active = data.find((item) => item.portfolio_id === currentIntent);
       if (active) setCashEdit(String(active.cash_balance));
       return;
     }
-    // No valid intent in this payload: do not steal selection from a newer choice.
+    // Only auto-select first item when the user has never chosen one.
     if (!intentIdRef.current && data.length > 0) {
       persistSelection(data[0].portfolio_id);
       setCashEdit(String(data[0].cash_balance));

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PortfolioPage } from "./PortfolioPage";
@@ -112,25 +112,30 @@ describe("PortfolioPage stale response protection", () => {
     expect(currentPortfolioName()).toBe("新组合");
   });
 
-  it("does not flip selection from B back to A when a late list response arrives", async () => {
-    const portfolioA = portfolio("aaa", "组合A");
-    const portfolioB = portfolio("bbb", "组合B");
-    const both = [portfolioA, portfolioB];
-    const pendingLists: ((value: unknown) => void)[] = [];
+  it("keeps B when a real pending list refresh started for A finishes after user selects B", async () => {
+    const portfolioA = portfolio("aaa", "合成组合A", "100");
+    const portfolioB = portfolio("bbb", "合成组合B", "200");
+    let listCalls = 0;
+    let finishRefresh!: (value: unknown) => void;
+    const lateRefresh = new Promise((resolve) => {
+      finishRefresh = resolve;
+    });
 
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string, init?: RequestInit) => {
-        if (init?.method === "POST" && url === "/api/v1/portfolios") {
-          return Promise.resolve(jsonBody(portfolioB, true, 201));
+        if (url === "/api/v1/portfolios" && !url.includes("import-audits")) {
+          listCalls += 1;
+          if (listCalls === 1) {
+            return Promise.resolve(jsonBody([portfolioA, portfolioB]));
+          }
+          return lateRefresh as unknown as Response;
+        }
+        if (init?.method === "PUT" && url === "/api/v1/portfolios/aaa/cash") {
+          return Promise.resolve(jsonBody(portfolioA));
         }
         if (typeof url === "string" && url.includes("import-audits")) {
           return Promise.resolve(jsonBody([]));
-        }
-        if (url === "/api/v1/portfolios") {
-          const p = deferred<unknown>();
-          pendingLists.push(p.resolve);
-          return p.promise as Promise<Response>;
         }
         if (typeof url === "string" && url.includes("/policy/review")) {
           return Promise.resolve(
@@ -148,19 +153,27 @@ describe("PortfolioPage stale response protection", () => {
     );
 
     render(<PortfolioPage />);
-    await waitFor(() => expect(pendingLists.length).toBeGreaterThanOrEqual(1));
-    for (const resolve of [...pendingLists]) resolve(jsonBody(both));
-    await waitFor(() => expect(currentPortfolioName()).toBe("组合A"));
+    await waitFor(() => expect(currentPortfolioName()).toBe("合成组合A"));
 
-    fireEvent.click(screen.getByRole("button", { name: /组合B/ }));
-    await waitFor(() => expect(currentPortfolioName()).toBe("组合B"));
+    // Start a real in-flight list refresh via 更新现金 → refreshList().
+    fireEvent.change(screen.getByLabelText("更新现金（当前组合）"), {
+      target: { value: "100" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "更新现金", exact: true }));
+    await waitFor(() => expect(listCalls).toBe(2));
 
-    // Deliver another list payload (A first in array); selection must stay on B.
-    const p = deferred<unknown>();
-    pendingLists.push(p.resolve);
-    p.resolve(jsonBody(both));
-    await new Promise((r) => setTimeout(r, 40));
-    expect(currentPortfolioName()).toBe("组合B");
+    // User switches to B while the GET is still pending.
+    const chooseB = screen.getByRole("button", { name: /合成组合B/ });
+    expect(chooseB).not.toBeDisabled();
+    fireEvent.click(chooseB);
+    await waitFor(() => expect(currentPortfolioName()).toBe("合成组合B"));
+
+    // Deliver the still-pending GET with both portfolios (A first).
+    await act(async () => {
+      finishRefresh(jsonBody([portfolioA, portfolioB]));
+      await lateRefresh;
+    });
+    expect(currentPortfolioName()).toBe("合成组合B");
   });
 
   it("sends csv preview only to the selected portfolio and does not loop list loads", async () => {
