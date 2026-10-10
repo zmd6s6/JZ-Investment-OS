@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { SettingsPage } from "./SettingsPage";
+import { PortfolioPage } from "./PortfolioPage";
+import { WatchlistPage } from "./WatchlistPage";
+import { PolicyReviewPanel } from "./PolicyReviewPanel";
+import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
+import { apiFetch, readApiError } from "./writeApi";
 
 type OnboardingStatus = "NOT_STARTED" | "IN_PROGRESS";
 type CapabilityStatus = "AVAILABLE" | "CONFIGURATION_REQUIRED" | "NOT_IMPLEMENTED";
@@ -19,11 +24,11 @@ type Capability = {
 };
 
 const setupSteps = [
-  ["01", "市场范围", "先确认研究市场与交易时区；此版本只记录向导进度。"],
-  ["02", "模型与数据提供方", "P3 已提供受控配置、本地加密凭据与显式模型连接测试。"],
-  ["03", "组合与观察清单", "组合导入和观察标的维护尚未开放。"],
-  ["04", "投资政策复核", "政策阈值必须经所有者明确批准后才可变更。"],
-  ["05", "分析就绪", "仅在配置与证据链完整后，才进入受控分析流程。"],
+  ["01", "市场与时区", "确认研究市场；此版本只记录向导进度。"],
+  ["02", "模型与数据源", "配置已授权的模型与研究数据提供方。"],
+  ["03", "组合与观察", "录入持仓、维护观察清单。"],
+  ["04", "投资政策", "只读审阅当前纪律；真实限额由你治理决定。"],
+  ["05", "开始分析", "配置与证据就绪后，进入受控分析。"],
 ] as const;
 
 const capabilityLabel: Record<CapabilityStatus, string> = {
@@ -53,18 +58,12 @@ function LegacyDemo() {
   const [selectedView, setSelectedView] = useState<(typeof legacyViews)[number]>("概览");
 
   return (
-    <main className="product-shell">
-      <header className="product-header">
-        <div>
-          <p className="eyebrow">PR-08 · 开发演示</p>
-          <h1>合成只读页面</h1>
-        </div>
-        <a className="back-link" href="/">返回设置向导</a>
-      </header>
-      <section className="legacy-page" aria-labelledby="legacy-page-title">
-        <p className="legacy-warning">
-          此页面只使用合成开发数据。它不代表账户、持仓、研究结论或可执行交易建议。
-        </p>
+    <ProductChrome
+      eyebrow="开发演示"
+      title="合成只读页面"
+      subtitle="仅用于界面结构演示，不代表真实账户或可执行建议。"
+    >
+      <Panel title="演示视图" tone="muted">
         <div className="legacy-tabs" aria-label="PR-08 演示页面导航">
           {legacyViews.map((view) => (
             <button
@@ -77,22 +76,15 @@ function LegacyDemo() {
             </button>
           ))}
         </div>
-        <article className="legacy-demo-content">
-          <p className="eyebrow">已选择：{selectedView}</p>
-          <h2 id="legacy-page-title">{selectedView}合成演示</h2>
-          <p>
-            PR-08 的展示结构保留在此处，仅用于验证只读界面的信息组织。真实组合、提供方配置和分析工作流尚未开放。
-          </p>
-        </article>
-      </section>
-    </main>
+        <p className="eyebrow">已选择：{selectedView}</p>
+        <h2>{selectedView}</h2>
+        <p className="page-subtitle">此区域只保留合成演示结构，真实功能请用「资产组合 / 观察清单」。</p>
+      </Panel>
+    </ProductChrome>
   );
 }
 
-export function App() {
-  if (window.location.pathname === "/demo/pr-08") return <LegacyDemo />;
-  if (window.location.pathname === "/settings") return <SettingsPage />;
-
+function HomePage() {
   const [state, setState] = useState<OnboardingState | null>(null);
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -122,8 +114,8 @@ export function App() {
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/v1/onboarding/start", { method: "POST" });
-      if (!response.ok) throw new Error("无法保存向导进度");
+      const response = await apiFetch("/api/v1/onboarding/start", { method: "POST" });
+      if (!response.ok) throw new Error(await readApiError(response));
       setState((await response.json()) as OnboardingState);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "保存失败");
@@ -135,59 +127,89 @@ export function App() {
   const started = state?.status === "IN_PROGRESS";
 
   return (
-    <main className="product-shell">
-      <header className="product-header">
-        <div>
-          <p className="eyebrow">PERSONAL AI INVESTMENT OS · P3</p>
-          <h1>开始搭建你的研究工作台</h1>
-        </div>
-        <nav aria-label="产品导航">
-          <a href="#setup">设置向导</a>
-          <a href="/settings">设置与提供方</a>
-          <a href="#status">产品状态</a>
-        </nav>
-      </header>
+    <ProductChrome
+      eyebrow="个人投资工作台"
+      title="先搭好底座，再开始研究"
+      subtitle="这不是交易终端。系统默认关闭自动交易；买入加仓需风险关卡与你本人批准。"
+    >
+      <StatusBanner kind="error" text={error} />
 
-      <section id="setup" className="onboarding-card" aria-labelledby="setup-title">
-        <div className="onboarding-intro">
-          <p className="eyebrow">首次使用</p>
-          <h2 id="setup-title">先完成受控设置，再开始分析</h2>
-          <p>
-            这不是交易终端。系统始终默认关闭自动交易，任何真实执行都需要有效的人类审批。
-          </p>
-          {error ? <p role="alert" className="error-message">{error}</p> : null}
-          {state === null ? <p>正在读取本机初始化状态…</p> : null}
-          {state?.status === "NOT_STARTED" ? (
-            <button type="button" onClick={() => void startSetup()} disabled={saving}>
-              {saving ? "正在保存…" : "开始设置"}
-            </button>
-          ) : null}
+      <div className="stat-row">
+        <article className="stat-card">
+          <span>向导</span>
+          <strong>{started ? "进行中" : "未开始"}</strong>
+          <small>首次使用从这里启动</small>
+        </article>
+        <article className="stat-card">
+          <span>自动交易</span>
+          <strong>始终关闭</strong>
+          <small>建议 ≠ 成交</small>
+        </article>
+        <article className="stat-card">
+          <span>数据原则</span>
+          <strong>证据优先</strong>
+          <small>缺数据会标未提供</small>
+        </article>
+        <article className="stat-card warn">
+          <span>政策</span>
+          <strong>TEST_DEFAULT</strong>
+          <small>真实限额需你批准</small>
+        </article>
+      </div>
+
+      <div className="two-col">
+        <Panel
+          title="开始设置"
+          description="完成向导后，再配置供应商与持仓。"
+          actions={
+            state?.status === "NOT_STARTED" ? (
+              <button type="button" className="btn primary" onClick={() => void startSetup()} disabled={saving}>
+                {saving ? "保存中…" : "开始设置"}
+              </button>
+            ) : null
+          }
+        >
+          {state === null ? <p>正在读取本机状态…</p> : null}
           {started ? (
-            <p className="status-note" role="status">
-              设置已开始。后续配置项会随经过审核的阶段逐步开放。
+            <p className="banner banner-ok" role="status">
+              设置已开始。下一步：录入组合，或去设置里配置模型与数据源。
             </p>
-          ) : null}
-        </div>
+          ) : (
+            <p className="page-subtitle">点击右上角「开始设置」，记录你的使用进度。</p>
+          )}
+          <div className="btn-row">
+            <a className="btn" href="/portfolio">
+              去录入持仓
+            </a>
+            <a className="btn" href="/watchlist">
+              去维护观察
+            </a>
+            <a className="btn" href="/settings">
+              去配置提供方
+            </a>
+          </div>
+        </Panel>
 
-        <ol className="setup-steps">
-          {setupSteps.map(([number, title, detail]) => (
-            <li key={number}>
-              <span>{number}</span>
-              <div>
-                <h3>{title}</h3>
-                <p>{detail}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
+        <Panel title="推荐路径" description="按顺序做，不容易绕晕。">
+          <ol className="setup-steps">
+            {setupSteps.map(([number, title, detail]) => (
+              <li key={number}>
+                <span>{number}</span>
+                <div>
+                  <h3>{title}</h3>
+                  <p>{detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Panel>
+      </div>
 
-      <section id="status" className="capability-section" aria-labelledby="status-title">
-        <div>
-          <p className="eyebrow">系统设置</p>
-          <h2 id="status-title">产品功能状态</h2>
-          <p>状态由服务端能力矩阵提供，避免把未接入的功能伪装成可操作页面。</p>
-        </div>
+      <div id="policy">
+        <PolicyReviewPanel />
+      </div>
+
+      <Panel title="功能状态" description="由服务端能力矩阵提供，不假装未完成的功能可用。">
         <div className="capability-grid">
           {capabilities.map((item) => (
             <article key={item.key} className="capability-card">
@@ -199,17 +221,18 @@ export function App() {
             </article>
           ))}
         </div>
-      </section>
-
-      <section className="legacy-section" aria-labelledby="legacy-title">
-        <h2 id="legacy-title">PR-08 合成演示</h2>
-        <p>
-          旧版的组合、机会池、观察清单和决策日志页面仅用于合成数据演示，不代表账户、持仓或可执行建议。
-        </p>
-        <a className="secondary-button" href="/demo/pr-08">进入合成演示页</a>
-      </section>
-    </main>
+      </Panel>
+    </ProductChrome>
   );
+}
+
+export function App() {
+  const path = window.location.pathname;
+  if (path === "/demo/pr-08") return <LegacyDemo />;
+  if (path === "/settings") return <SettingsPage />;
+  if (path === "/portfolio") return <PortfolioPage />;
+  if (path === "/watchlist") return <WatchlistPage />;
+  return <HomePage />;
 }
 
 export default App;

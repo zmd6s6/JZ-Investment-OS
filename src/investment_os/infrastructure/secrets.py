@@ -67,6 +67,11 @@ class EncryptedFileSecretStore:
     def _write(self, values: dict[str, str]) -> None:
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
+            if not os.access(self._path.parent, os.W_OK):
+                raise SecretStoreUnavailable(
+                    "secret store directory is not writable; "
+                    "fix volume ownership for the application user"
+                )
             temporary_path = self._path.with_name(f"{self._path.name}.tmp")
             temporary_path.write_text(
                 json.dumps(values, sort_keys=True, separators=(",", ":")),
@@ -74,5 +79,12 @@ class EncryptedFileSecretStore:
             )
             os.replace(temporary_path, self._path)
             self._path.chmod(0o600)
+        except SecretStoreUnavailable:
+            raise
+        except PermissionError as exc:
+            raise SecretStoreUnavailable(
+                "secret store path is not writable by the application user; "
+                "restore volume ownership instead of running as root"
+            ) from exc
         except OSError as exc:
             raise SecretStoreUnavailable("secret store file cannot be written") from exc

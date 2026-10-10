@@ -66,6 +66,66 @@ class InvestmentPolicyVersionRecord(AuditFieldsMixin, Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class InstrumentRecord(AuditFieldsMixin, Base):
+    """Local catalog identity for one listed instrument (PRODUCT-05)."""
+
+    __tablename__ = "instrument"
+    __table_args__ = (UniqueConstraint("symbol", "exchange", name="uq_instrument_symbol_exchange"),)
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    symbol: Mapped[str] = mapped_column(String(64), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    asset_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False)
+    sector: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    lot_size: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False, default=Decimal(1))
+    sector_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+
+
+class InstrumentStateRecord(AuditFieldsMixin, Base):
+    """Current lifecycle state for one instrument (read for product display)."""
+
+    __tablename__ = "instrument_state"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, unique=True)
+    lifecycle_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    effective_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    thesis_version_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    decision_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class PortfolioRecord(AuditFieldsMixin, Base):
+    __tablename__ = "portfolio"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    base_currency: Mapped[str] = mapped_column(String(16), nullable=False)
+    cash_balance: Mapped[Decimal] = mapped_column(
+        Numeric(38, 18), nullable=False, default=Decimal(0)
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+    policy_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("investment_policy.id", ondelete="RESTRICT")
+    )
+
+
+class WatchlistItemRecord(AuditFieldsMixin, Base):
+    __tablename__ = "watchlist_item"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("instrument.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class PositionRecord(AuditFieldsMixin, Base):
     __tablename__ = "position"
     __table_args__ = (UniqueConstraint("portfolio_id", "instrument_id"),)
@@ -80,6 +140,15 @@ class PositionRecord(AuditFieldsMixin, Base):
         Numeric(38, 18), nullable=False, default=Decimal(0)
     )
     avg_cost: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False, default=Decimal(0))
+    core_average_cost: Mapped[Decimal] = mapped_column(
+        Numeric(38, 18), nullable=False, default=Decimal(0)
+    )
+    tactical_average_cost: Mapped[Decimal] = mapped_column(
+        Numeric(38, 18), nullable=False, default=Decimal(0)
+    )
+    core_reason: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    tactical_reason: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    last_operation: Mapped[str] = mapped_column(String(32), nullable=False, default="MANUAL")
     realized_pnl: Mapped[Decimal] = mapped_column(
         Numeric(38, 18), nullable=False, default=Decimal(0)
     )
@@ -657,4 +726,25 @@ class AuditLogRecord(Base):
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class PortfolioImportClaimRecord(Base):
+    """Unique idempotency claim so the same CSV import cannot commit twice concurrently."""
+
+    __tablename__ = "portfolio_import_claim"
+    __table_args__ = (
+        UniqueConstraint("portfolio_id", "import_hash", name="uq_portfolio_import_hash"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    portfolio_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    import_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    audit_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    conflict_policy: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_by: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="product_portfolio"
     )

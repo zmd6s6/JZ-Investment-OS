@@ -352,3 +352,156 @@ class DecisionJournalResponse(StrictResponse):
     approvals: list[DecisionApprovalResponse]
     executions: list[DecisionExecutionResponse]
     created_at: datetime
+
+
+class InstrumentIdentityRequest(StrictResponse):
+    market: str = Field(min_length=1, max_length=64)
+    symbol: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=255)
+    asset_type: str = Field(min_length=1, max_length=64)
+    currency: str = Field(min_length=3, max_length=3)
+    sector: str = Field(default="", max_length=64)
+
+
+class InstrumentCatalogResponse(StrictResponse):
+    instrument_id: UUID
+    market: str
+    symbol: str
+    name: str
+    asset_type: str
+    currency: str
+    sector: str
+
+
+class PortfolioCreateRequest(StrictResponse):
+    name: str = Field(min_length=1, max_length=255)
+    base_currency: str = Field(min_length=3, max_length=3)
+    cash_balance: Decimal = Decimal("0")
+
+
+class PortfolioCashUpdateRequest(StrictResponse):
+    cash_balance: Decimal
+
+
+class ManualPositionRequest(StrictResponse):
+    market: str = Field(min_length=1, max_length=64)
+    symbol: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=255)
+    asset_type: str = Field(min_length=1, max_length=64)
+    currency: str = Field(min_length=3, max_length=3)
+    sector: str = Field(default="", max_length=64)
+    core_quantity: Decimal = Decimal("0")
+    tactical_quantity: Decimal = Decimal("0")
+    average_cost: Decimal = Decimal("0")
+    core_average_cost: Decimal | None = None
+    tactical_average_cost: Decimal | None = None
+    core_reason: str = Field(default="", max_length=255)
+    tactical_reason: str = Field(default="", max_length=255)
+    operation: str = Field(default="MANUAL", max_length=32)
+
+
+class PortfolioPositionResponse(StrictResponse):
+    position_id: UUID
+    instrument_id: UUID
+    market: str
+    symbol: str
+    name: str
+    asset_type: str
+    currency: str
+    sector: str
+    core_quantity: Decimal
+    tactical_quantity: Decimal
+    average_cost: Decimal
+    core_average_cost: Decimal | None = None
+    tactical_average_cost: Decimal | None = None
+    core_reason: str = ""
+    tactical_reason: str = ""
+    operation: str = "MANUAL"
+
+
+class PortfolioResponse(StrictResponse):
+    portfolio_id: UUID
+    name: str
+    base_currency: str
+    cash_balance: Decimal
+    status: str
+    as_of: datetime
+    missing_pricing: bool = True
+    positions: list[PortfolioPositionResponse]
+
+
+class WatchlistItemResponse(StrictResponse):
+    watchlist_item_id: UUID
+    instrument_id: UUID
+    market: str
+    symbol: str
+    name: str
+    asset_type: str
+    currency: str
+    sector: str
+    added_at: datetime
+    lifecycle_state: str | None
+    thesis_state: str | None
+    data_freshness_as_of: datetime | None
+    data_freshness_status: str | None
+    next_monitoring_condition: str | None
+
+
+class CsvImportRequest(StrictResponse):
+    csv_text: str = Field(min_length=1)
+    conflict_policy: Literal["SKIP", "REPLACE", "UPDATE"] | None = None
+    expected_preview_hash: str | None = None
+    expected_positions_hash: str | None = None
+
+
+class CsvRowResultResponse(StrictResponse):
+    line_number: int
+    status: Literal["VALID", "INVALID", "DUPLICATE", "CONFLICT"]
+    reason: str | None
+    market: str | None = None
+    symbol: str | None = None
+    name: str | None = None
+    core_quantity: Decimal | None = None
+    tactical_quantity: Decimal | None = None
+    average_cost: Decimal | None = None
+    existing_core_quantity: str | None = None
+    existing_tactical_quantity: str | None = None
+    existing_average_cost: str | None = None
+
+
+class CsvImportPreviewResponse(StrictResponse):
+    total_rows: int
+    can_commit: bool
+    requires_conflict_policy: bool
+    content_hash: str
+    positions_hash: str
+    valid: list[CsvRowResultResponse]
+    invalid: list[CsvRowResultResponse]
+    duplicates: list[CsvRowResultResponse]
+    conflicts: list[CsvRowResultResponse]
+
+
+class CsvImportAppliedRowResponse(StrictResponse):
+    line_number: int
+    market: str
+    symbol: str
+    action: Literal["CREATED", "REPLACED", "UPDATED", "SKIPPED"]
+    before: dict[str, str] | None
+    after: dict[str, str]
+
+
+class CsvImportCommitResponse(StrictResponse):
+    imported_count: int
+    skipped_count: int
+    conflict_policy: str
+    audit_id: UUID
+    applied: list[CsvImportAppliedRowResponse]
+    portfolio: PortfolioResponse
+
+
+class PolicyReviewResponse(StrictResponse):
+    active_policy_version: str
+    policy_status: str
+    is_test_default: bool
+    limits: list[dict[str, str]]
+    warning: str

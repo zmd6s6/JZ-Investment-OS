@@ -140,9 +140,13 @@ async def test_ingest_api_persists_and_deduplicates_evidence(database_engine: As
         "source_schema_version": "1.0",
     }
 
+    from investment_os.infrastructure.settings import get_settings
+
+    write_token = get_settings().api_write_token
+    headers = {"Authorization": f"Bearer {write_token}"} if write_token else {}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        first = await client.post("/api/v1/research/ingest", json=payload)
-        second = await client.post("/api/v1/research/ingest", json=payload)
+        first = await client.post("/api/v1/research/ingest", json=payload, headers=headers)
+        second = await client.post("/api/v1/research/ingest", json=payload, headers=headers)
 
     assert first.status_code == 200
     assert first.json()["reused"] is False

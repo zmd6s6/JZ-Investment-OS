@@ -1,6 +1,6 @@
 # PRODUCT-05 — Portfolio 与 Watchlist 产品
 
-- 状态：`PLANNED`
+- 状态：`IN_PROGRESS`
 - 前置条件：`PRODUCT-04` 已接受；既有 Portfolio 领域模型、确定性仓位规模计算、Evidence 边界与受支持的 Web UI 基线可用
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md` §5、§8、§10、§11、§12、§16 至 §19
 - 相关 ADR：`ADR-0003`、`ADR-0006`、`ADR-0007`、`ADR-0010`
@@ -64,3 +64,85 @@
 
 至少运行受影响的格式、lint、类型、后端单元/集成/迁移、API/OpenAPI、前端单元/生产构建、浏览器 E2E、密钥扫描和
 `docker compose config`。记录实际命令、结果和仍未验证项；只有全部验收标准有证据时才能转为 `READY_FOR_REVIEW`。
+
+## 实施记录
+
+- 2026-09-29：首个纵切已实现 **Instrument 目录 + Portfolio 手工持仓 + Watchlist 写路径**（应用/领域/SQL/API）。
+  - 领域：`InstrumentIdentity` 规范化 market/symbol/currency/name/asset_type/sector。
+  - 应用：`InstrumentCatalogService`、`PortfolioBookService`（base currency/现金/Core+Tactical/平均成本）、
+    `WatchlistService`（幂等加入；缺失产品字段显式 `None`，不伪造）。
+  - 持久化：`InstrumentRecord`/`PortfolioRecord`/`WatchlistItemRecord` 与迁移 `20260929_0011`。
+  - API：`/api/v1/instruments`、`/api/v1/portfolios`、`/api/v1/watchlist` 写读路径；组合响应 `missing_pricing=true`。
+  - 定向单元测试 9 项通过（身份规范化、目录注册复用、现金/持仓、float 拒绝、Watchlist 幂等与空状态）。
+  - `ruff check` 与针对新增模块的 `mypy` 通过。
+  - **尚未完成**：CSV 导入预览/确认、对账、Watchlist 页面产品 UI、Policy 审阅 UI、集成/E2E、全量测试与
+    OpenAPI 基线更新。不得据此标 `READY_FOR_REVIEW`。
+- 2026-09-29（续）：并行交付 CSV 导入与产品 UI。
+  - CSV：预览（VALID/INVALID/DUPLICATE）与确认写入；存在无效行时禁止 commit；单元测试 5 项。
+  - UI：`/portfolio`（创建/手工持仓/CSV/对账表）、`/watchlist`（增删与四项空状态）、首页只读 Policy 审阅。
+  - API：`POST /portfolios/{id}/csv/preview|confirm`、`GET /policy/review`。
+  - 验证：定向单元测试合计 15 项通过；`ruff`/`mypy` 通过；`npm run build` 通过。
+  - 仍缺：浏览器 E2E、集成/迁移全量、OpenAPI 基线。不得标 `READY_FOR_REVIEW`。
+- 2026-09-29（收口）：
+  - 集成：隔离库 `investment_os_p5_test` 3 项通过；修复迁移 revision、审计字段、SPA 路由与创建后选中组合。
+  - E2E：`portfolio_watchlist.spec.ts` 4 项通过（Chrome channel）。
+  - OpenAPI check、`tests.unit+集成 310`、`ruff`/`mypy src` 通过。
+  - NOT VERIFIED：detect-secrets 本机未装；`docker compose` CLI 本机不可用。
+  - 保持 `IN_PROGRESS`，待所有者验收。
+- 2026-10-05（按所有者验收问题修复）：
+  - P0 写鉴权：`/api/v1/` 写请求强制 Bearer；未配置令牌 503 失败关闭，错误令牌 401；UI 可配置写令牌。
+  - P0 CSV 冲突：预览识别已有持仓冲突；必须显式跳过/替换/累加；写入 audit_log（before/after）。
+  - P1 迁移链：补 `20260923_0009`/`0010`，`0011` 接到 `20260923_0010`，可从现有 0010 库升级。
+  - P1 对账：导入返回 applied 明细与 audit_id；冲突决策可追溯。
+  - P2：CSV 原因中文化、错误带 message、文档状态统一为 IN_PROGRESS。
+  - 回归：单元 312 项、集成、`npm run build` 通过。
+- 2026-10-05（复验修复二轮）：
+  - Compose/`.env.example` 传入 `INVESTMENT_OS_API_WRITE_TOKEN`，标准栈可配置写令牌。
+  - CSV 导入改为**单事务原子写入**（持仓批次 + 一条审计）；`import_hash` 幂等，重复确认拒绝。
+  - 冲突策略改为**未选择不可确认**；导入后展示**逐行对账表**（before/after + audit_id）。
+  - Position 补长期/机动分账成本与理由字段（迁移 `20260929_0012`）。
+  - 手工持仓/现金错误信息中文化；项目状态表 P5 统一为 `IN_PROGRESS`。
+  - **阶段归属待确认**：0009/0010 源自受阻 PR-09，仅作升级链修复纳入 P5 分支。
+- 2026-10-05（复验修复三轮）：
+  - `ruff format --check .` / `mypy src` 通过；0012 回填历史分桶均价；0013 `portfolio_import_claim`
+    唯一约束保证并发幂等；目录 upsert 与持仓/审计同事务。
+  - 文档 P5 状态统一为 `IN_PROGRESS`。
+  - NOT VERIFIED：本机 Docker 未运行，完整集成与浏览器回归未在本提交执行。
+- 2026-10-08（产品实操收口）：
+  - 目录搜索 UI、持仓点击回填编辑、导入历史、现金更新、资产类型选择、选中组合保持。
+  - CSV：UPDATE 在**写入链路**保留分仓均价/理由/操作（apply_import_batch 全字段）；SKIP 对账 after=实际值；预览 hash 绑定确认；切换组合清预览。
+  - Watchlist 研究字段读取已有 Thesis/Evidence（无数据仍为「未提供」）。
+  - 市场识别：五位代码优先 HKEX；观察清单可手动选市场。
+  - 政策审阅读取库内政策/版本/配置；无数据仍显示 TEST_DEFAULT。
+  - 凭据卷权限：运行手册 `docs/runbooks/secret-volume-ownership.md`；不以 root/777 规避。
+  - 仍缺：观察清单研究状态（依赖 P6 分析）、完整并发压测。
+- 2026-10-09（R1/R3 完整收口）：
+  - **R1 并发**：所有持仓写入先锁 `portfolio` 行（含新增目标）；`Position` 更新用 version CAS
+    （`WHERE version = expected`），失败抛 `POSITION_VERSION_CONFLICT` 且整批回滚；导入审计
+    before/after 取自同一锁定事务内的实际读写。具名集成测试覆盖：预览后修改、空组合新增竞争、
+    无关持仓+新增竞争、已有目标竞争、版本 CAS、混合批次回滚、正常导入。
+  - **R3 新鲜度**：`derive_display_freshness(as_of, available_at, expires_at, ingested_status)`
+    在读取时刻派生；`available_at` 含等于即为可用，`expires_at` 含等于即为 EXPIRED；
+    摄取时 NOT_YET_AVAILABLE 跨过 available_at 后显示 FRESH；不改写 Evidence 历史。
+    具名单元测试覆盖边界与跨时段场景。
+  - 验证：单元 325、集成 9（含并发）、`ruff`/`mypy src`、`npm run build`、OpenAPI。
+  - **NOT VERIFIED**：浏览器 E2E、密钥扫描、完整 374 套件、并发复现脚本在本环境重跑。
+- 2026-10-09（审计逐行字段 P1 修复）：
+  - 根因：`actual_applied` 改为 dict 后 `_write_import_audit` 仍用 `getattr`，字段全落 null。
+  - 方案：新增 `ImportAuditRow` DTO + `from_source` 校验；缺字段/非法类型显式失败，不静默 null。
+  - 调用方：批量导入 `apply_import_batch` 与 `record_import_audit` 经同一契约写入；保持组合锁/CAS/同事务回滚。
+  - 具名测试 `test_import_audit_row_fields`：CREATED/REPLACED/UPDATED/SKIPPED 四路径
+    确认后查库审计 + 历史 API，逐字段断言（4 passed）。
+  - 回归：并发/R3/原有 CSV/组合测试通过；`tests.unit 325`、`tests.integration 49`、`ruff`/`mypy`、前端 4/4、构建通过。
+  - **NOT VERIFIED**：浏览器 E2E、密钥扫描、原仓库外审计复现脚本对本 head 重跑。
+- 2026-10-10（组合选择竞态修复）：
+  - 根因：`load` 依赖 `selectedId` 且完成时回写选择，造成循环读取与旧响应覆盖新选择。
+  - 方案：列表刷新用请求序号丢弃过期响应；用户意图 ref 不被 `data[0]` 偷走；历史加载与列表刷新分离；
+    点击/创建走 `persistSelection`。不引入新状态库。
+  - 回归：`PortfolioPage.test.tsx` 3 项（新建后旧响应、A→B 迟到响应、预览目标与读取次数）修复前失败、后通过。
+  - 前端全量 7 passed；构建通过；隔离栈浏览器 E2E **6/6 串行通过**。
+  - 保持 R1/R3/审计四项契约与既有测试不变。
+- 2026-10-10（迟到刷新覆盖最新选择，复验 bede87d）：
+  - 根因：`refreshList` 在**请求开始**捕获 `preferred`，响应时若用户已切走，仍把旧 preferred 写回选择。
+  - 方案：完成时改读 `intentIdRef.current` 最新用户意图；序号仅丢弃更新的过期响应。
+  - 回归：真实 pending GET（更新现金触发刷新 → 用户点 B → 暂停的 GET 返回）**PASS**；前端 7/7；E2E 6/6 串行。

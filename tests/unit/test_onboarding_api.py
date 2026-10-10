@@ -34,8 +34,12 @@ async def test_onboarding_api_is_persistent_boundary_and_exposes_no_secrets() ->
     assert repeated.json() == started.json()
     assert {item["status"] for item in capabilities.json()} == {
         "AVAILABLE",
+        "CONFIGURATION_REQUIRED",
         "NOT_IMPLEMENTED",
     }
+    assert next(item for item in capabilities.json() if item["key"] == "portfolio")["status"] == (
+        "CONFIGURATION_REQUIRED"
+    )
     assert next(item for item in capabilities.json() if item["key"] == "providers")["status"] == (
         "NOT_IMPLEMENTED"
     )
