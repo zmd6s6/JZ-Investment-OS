@@ -159,7 +159,7 @@ describe("PortfolioPage stale response protection", () => {
     fireEvent.change(screen.getByLabelText("更新现金（当前组合）"), {
       target: { value: "100" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "更新现金", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "更新现金" }));
     await waitFor(() => expect(listCalls).toBe(2));
 
     // User switches to B while the GET is still pending.
