@@ -18,6 +18,7 @@ from investment_os.application.analysis_orchestrator import (
 from investment_os.application.analysis_run import AnalysisRunRead, AnalysisRunService
 from investment_os.application.committee_runtime import CommitteeRuntime
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+from investment_os.application.instrument_catalog import InstrumentCatalogPort
 from investment_os.application.market_data import MarketDataPort
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.infrastructure.persistence.models import EvidenceRecord
@@ -42,6 +43,7 @@ class ProductAnalysisService:
         analysis_runs: AnalysisRunService,
         committee: CommitteeRuntime,
         market_data: MarketDataPort,
+        catalog: InstrumentCatalogPort | None = None,
         policy_version_label: str = "TEST_DEFAULT",
     ) -> None:
         self._session_factory = session_factory
@@ -49,6 +51,7 @@ class ProductAnalysisService:
         self._runs = analysis_runs
         self._committee = committee
         self._market_data = market_data
+        self._catalog = catalog
         self._policy_version_label = policy_version_label
 
     async def start(self, inp: StartAnalysisInput) -> AnalysisRunRead:
@@ -86,6 +89,22 @@ class ProductAnalysisService:
             for row in evidence_rows
         )
 
+        pos = next(
+            (p for p in portfolio.positions if p.instrument_id == inp.instrument_id),
+            None,
+        )
+        if pos is not None:
+            market, symbol, currency = pos.market, pos.symbol, pos.currency
+        else:
+            catalog_entry = await self._catalog.get(inp.instrument_id) if self._catalog else None
+            if catalog_entry is None:
+                market = symbol = ""
+                currency = portfolio.base_currency
+            else:
+                market = catalog_entry.market
+                symbol = catalog_entry.symbol
+                currency = catalog_entry.currency
+
         request = AnalysisRequest(
             instrument_id=inp.instrument_id,
             portfolio_id=inp.portfolio_id,
@@ -94,6 +113,9 @@ class ProductAnalysisService:
             policy_version_label=self._policy_version_label,
             evidence=evidence,
             source=inp.source,
+            instrument_market=market,
+            instrument_symbol=symbol,
+            instrument_currency=currency or portfolio.base_currency,
         )
 
         result: AnalysisRunResult = await execute_analysis(

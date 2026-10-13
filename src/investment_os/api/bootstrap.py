@@ -1,5 +1,6 @@
 """Production composition root for the HTTP application."""
 
+import asyncio
 from datetime import UTC, datetime
 
 from fastapi import FastAPI
@@ -71,12 +72,20 @@ def create_production_app() -> FastAPI:
     from investment_os.application.analysis_run import AnalysisRunService
     from investment_os.application.committee_runtime import CommitteeRuntime
     from investment_os.application.instrument_catalog import InstrumentCatalogService
-    from investment_os.application.market_data import InMemoryMarketDataAdapter
+    from investment_os.application.market_data import (
+        ChainedMarketDataPort,
+        InMemoryMarketDataAdapter,
+        MarketDataSourcePort,
+    )
     from investment_os.application.portfolio_book import PortfolioBookService
     from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
     from investment_os.infrastructure.catalog_portfolio import (
         SessionCatalogPort,
         SessionPortfolioBookPort,
+    )
+    from investment_os.infrastructure.tushare.market_data import (
+        TUSHARE_PROVIDER_TYPE,
+        TushareMarketDataAdapter,
     )
 
     catalog_adapter = SessionCatalogPort(session_factory)
@@ -86,12 +95,41 @@ def create_production_app() -> FastAPI:
         SessionPortfolioBookPort(session_factory), catalog_adapter
     )
     analysis_runs = AnalysisRunService(SessionAnalysisRunPort(session_factory))
+
+    async def _build_market_sources() -> list[MarketDataSourcePort]:
+        sources: list[MarketDataSourcePort] = []
+        try:
+            profiles = await provider_settings_service.list_data_profiles()
+        except Exception:
+            profiles = []
+        for profile in sorted(profiles, key=lambda item: item.name):
+            if not profile.enabled or profile.provider_type != TUSHARE_PROVIDER_TYPE:
+                continue
+            if profile.credential_ref is None:
+                continue
+            try:
+                credential = await secret_store.get(profile.credential_ref)
+            except Exception:
+                credential = None
+            if not credential:
+                continue
+            sources.append(TushareMarketDataAdapter(token=credential, profile_id=profile.id))
+        sources.append(InMemoryMarketDataAdapter())
+        return sources
+
+    try:
+        market_sources = asyncio.run(_build_market_sources())
+    except RuntimeError:
+        market_sources = [InMemoryMarketDataAdapter()]
+    market_data = ChainedMarketDataPort(tuple(market_sources))
+
     analysis_product = ProductAnalysisService(
         session_factory=session_factory,
         portfolios=portfolio_book,
         analysis_runs=analysis_runs,
         committee=committee,
-        market_data=InMemoryMarketDataAdapter(),
+        market_data=market_data,
+        catalog=catalog_adapter,
     )
 
     return create_app(

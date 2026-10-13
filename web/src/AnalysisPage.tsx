@@ -226,6 +226,14 @@ export function AnalysisPage() {
           </table>
 
           <h3>估值与仓位</h3>
+          <p className="hint-text">
+            行情来源：
+            {String((payload.valuation as { source?: string } | undefined)?.source ?? "未提供")}
+            {String((payload.valuation as { degraded?: boolean } | undefined)?.degraded) ===
+            "true"
+              ? "（降级源）"
+              : ""}
+          </p>
           <pre className="hint-text">
             {JSON.stringify(
               {

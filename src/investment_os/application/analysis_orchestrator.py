@@ -165,6 +165,9 @@ class AnalysisRequest:
     source: str = "PORTFOLIO"  # PORTFOLIO | WATCHLIST
     thesis_state: ThesisState = ThesisState.VALID
     thesis_version_id: UUID | None = None
+    instrument_market: str = ""
+    instrument_symbol: str = ""
+    instrument_currency: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -669,7 +672,19 @@ async def _build_valuation_and_sizing(
     failures: list[str] = []
     positions = request.portfolio.positions
     instrument_ids = tuple({p.instrument_id for p in positions} | {request.instrument_id})
-    quotes = await market_data.get_reference_quotes(instrument_ids, as_of=request.as_of)
+    instruments: dict[UUID, tuple[str, str, str]] = {
+        p.instrument_id: (p.market, p.symbol, p.currency) for p in positions
+    }
+    if request.instrument_id not in instruments:
+        instruments[request.instrument_id] = (
+            request.instrument_market,
+            request.instrument_symbol,
+            request.instrument_currency or request.portfolio.base_currency,
+        )
+    # Prefer symbol-aware chain API when available.
+    quotes = await market_data.get_reference_quotes(
+        instrument_ids, as_of=request.as_of, instruments=instruments
+    )
     missing = [str(i) for i in instrument_ids if i not in quotes]
 
     currencies = {p.currency for p in positions} | {request.portfolio.base_currency}
@@ -750,11 +765,15 @@ async def _build_valuation_and_sizing(
         "nav": str(nav),
         "base_currency": request.portfolio.base_currency,
         "source": target_quote.source,
+        "source_rank": target_quote.source_rank,
+        "degraded": target_quote.degraded,
         "as_of": target_quote.as_of.isoformat(),
         "target_reference_price": str(target_quote.reference_price),
         "missing_quotes": [],
         "currencies": sorted(currencies),
         "single_currency_limit": True,
+        "quote_sources": sorted({q.source for q in quotes.values()}),
+        "degraded_instruments": sorted(str(i) for i, q in quotes.items() if q.degraded),
         "position_values": [
             {
                 "instrument_id": str(p.instrument_id),
@@ -771,6 +790,10 @@ async def _build_valuation_and_sizing(
                     str(quotes[p.instrument_id].reference_price)
                     if p.instrument_id in quotes
                     else None
+                ),
+                "source": (quotes[p.instrument_id].source if p.instrument_id in quotes else None),
+                "degraded": (
+                    quotes[p.instrument_id].degraded if p.instrument_id in quotes else None
                 ),
             }
             for p in positions
