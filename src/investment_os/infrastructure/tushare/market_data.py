@@ -62,10 +62,14 @@ class TushareMarketDataAdapter:
         try:
             response = await self._client.post(TUSHARE_URL, json=payload)
             response.raise_for_status()
-            data = response.json()
+            body = response.json()
         except (httpx.HTTPError, ValueError):
             return {}
-        if not isinstance(data, dict) or data.get("code") != 0:
+        if not isinstance(body, dict) or body.get("code") != 0:
+            return {}
+        # Official Tushare envelope: {code, msg, data: {fields, items}}
+        data = body.get("data")
+        if not isinstance(data, dict):
             return {}
         items = data.get("items") or []
         fields = data.get("fields") or []

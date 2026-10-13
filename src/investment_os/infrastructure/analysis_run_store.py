@@ -79,6 +79,12 @@ class SqlAnalysisRunAdapter(AnalysisRunPort):
         )
         return tuple(_read(row) for row in (await self._session.scalars(statement)).all())
 
+    async def list_recent(self, *, limit: int = 20) -> tuple[AnalysisRunRead, ...]:
+        statement = (
+            select(AnalysisRunRecord).order_by(AnalysisRunRecord.created_at.desc()).limit(limit)
+        )
+        return tuple(_read(row) for row in (await self._session.scalars(statement)).all())
+
     async def list_for_instrument(
         self, *, instrument_id: UUID, limit: int = 20
     ) -> tuple[AnalysisRunRead, ...]:
@@ -113,6 +119,10 @@ class SessionAnalysisRunPort(AnalysisRunPort):
             return await SqlAnalysisRunAdapter(session).list_for_portfolio(
                 portfolio_id=portfolio_id, limit=limit
             )
+
+    async def list_recent(self, *, limit: int = 20) -> tuple[AnalysisRunRead, ...]:
+        async with self._session_factory() as session:
+            return await SqlAnalysisRunAdapter(session).list_recent(limit=limit)
 
     async def list_for_instrument(
         self, *, instrument_id: UUID, limit: int = 20

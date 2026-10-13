@@ -29,7 +29,16 @@ export function AnalysisPage() {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const response = await apiFetch("/api/v1/analysis-runs?limit=50");
+    let portfolioId = "";
+    try {
+      portfolioId = sessionStorage.getItem("selected_portfolio_id") ?? "";
+    } catch {
+      portfolioId = "";
+    }
+    const url = portfolioId
+      ? `/api/v1/analysis-runs?portfolio_id=${encodeURIComponent(portfolioId)}&limit=50`
+      : "/api/v1/analysis-runs?limit=50";
+    const response = await apiFetch(url);
     if (!response.ok) throw new Error(await readApiError(response));
     setRuns((await response.json()) as AnalysisSummary[]);
   }, []);

@@ -117,8 +117,6 @@ def default_registry() -> AgentRoleRegistry:
 
 
 def default_request_factory(role: AgentRole, role_input: CommitteeRoleInput) -> LLMGatewayRequest:
-    from investment_os.application.committee_runtime import CommitteeRoleInput
-
     payload = {
         "role": role.value,
         "as_of": role_input.context.as_of.value.isoformat(),
@@ -126,8 +124,6 @@ def default_request_factory(role: AgentRole, role_input: CommitteeRoleInput) -> 
         "evidence_ids": sorted(str(i) for i in role_input.context.visible_evidence_ids),
         "input_snapshot_hash": role_input.context.input_snapshot_hash,
     }
-    if isinstance(role_input, CommitteeRoleInput) and role_input.content_hash:
-        payload["committee_context_hash"] = role_input.content_hash
     return LLMGatewayRequest(
         request_id=uuid4(),
         role=role,
@@ -144,14 +140,103 @@ def default_request_factory(role: AgentRole, role_input: CommitteeRoleInput) -> 
     )
 
 
+def build_analysis_request_factory(
+    *,
+    evidence: tuple[AnalysisEvidenceSource, ...],
+    instrument_meta: dict[str, str],
+    portfolio_meta: dict[str, Any],
+    positions_meta: list[dict[str, Any]],
+) -> Any:
+    """Build a request factory that embeds real research materials for agents."""
+
+    evidence_docs = [
+        {
+            "evidence_id": str(item.evidence_id),
+            "content_hash": item.content_hash,
+            "available_at": item.available_at.isoformat(),
+            "source_tier": item.source_tier,
+            "summary": item.summary or "",
+            "payload_excerpt": (item.payload_excerpt or "")[:1500],
+        }
+        for item in evidence
+    ]
+
+    def factory(role: AgentRole, role_input: CommitteeRoleInput) -> LLMGatewayRequest:
+        payload: dict[str, Any] = {
+            "role": role.value,
+            "as_of": role_input.context.as_of.value.isoformat(),
+            "instrument": instrument_meta,
+            "portfolio": portfolio_meta,
+            "positions": positions_meta,
+            "evidence": evidence_docs,
+            "evidence_ids": sorted(str(i) for i in role_input.context.visible_evidence_ids),
+            "input_snapshot_hash": role_input.context.input_snapshot_hash,
+        }
+        if role_input.visible_opinions:
+            payload["prior_opinions"] = [
+                {
+                    "role": prior.opinion.role.value,
+                    "stance": prior.opinion.stance.value,
+                    "confidence": str(prior.opinion.confidence.value),
+                    "claims": [
+                        {
+                            "claim": obs.claim,
+                            "evidence_ids": [str(e) for e in obs.evidence_ids],
+                        }
+                        for obs in prior.opinion.observations
+                    ],
+                    "risks": [
+                        {
+                            "code": risk.code,
+                            "severity": risk.severity.value,
+                            "evidence_ids": [str(e) for e in risk.evidence_ids],
+                        }
+                        for risk in prior.opinion.risks
+                    ],
+                    "unknowns": list(prior.opinion.unknowns),
+                }
+                for prior in role_input.visible_opinions
+            ]
+        if role_input.conflicts:
+            payload["conflicts"] = [
+                {
+                    "kind": conflict.kind.value,
+                    "roles": [r.value for r in conflict.roles],
+                    "stances": [(r.value, s.value) for r, s in conflict.stances],
+                }
+                for conflict in role_input.conflicts
+            ]
+        system = (
+            "You are a bounded investment research role. "
+            "Use ONLY the provided evidence excerpts and IDs. "
+            "Do not invent prices, financials, or position sizes. "
+            "Return strict JSON AgentOpinion schema 1.0 with claims citing evidence_ids."
+        )
+        return LLMGatewayRequest(
+            request_id=uuid4(),
+            role=role,
+            prompt_bundle_hash=_prompt_hash(role),
+            input_snapshot_hash=role_input.context.input_snapshot_hash,
+            timeout_seconds=45,
+            max_output_tokens=3072,
+            committee_context_hash=role_input.content_hash,
+            system_instruction=system,
+            input_payload_json=json.dumps(payload, sort_keys=True, ensure_ascii=False),
+        )
+
+    return factory
+
+
 @dataclass(frozen=True, slots=True)
 class AnalysisEvidenceSource:
-    """Minimal evidence facts loaded for one instrument at as_of."""
+    """Evidence facts loaded for one instrument at as_of."""
 
     evidence_id: UUID
     content_hash: str
     available_at: datetime
     source_tier: str = "PRIMARY"
+    summary: str = ""
+    payload_excerpt: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -411,16 +496,11 @@ async def _run_single_role(
     *,
     role: AgentRole,
     context: AnalysisContext,
+    request_factory: Any,
 ) -> AgentRunResult:
-    factory = default_request_factory
-
-    class _One:
-        pass
-
-    # Reuse default factory with synthetic role input
     from investment_os.application.committee_runtime import CommitteeRoleInput as CRI
 
-    request = factory(role, CRI(context=context))
+    request = request_factory(role, CRI(context=context))
     return await runtime.run(request=request, context=context)
 
 
@@ -459,10 +539,43 @@ async def execute_analysis(
         ),
     )
 
+    instrument_meta = {
+        "instrument_id": str(request.instrument_id),
+        "market": request.instrument_market,
+        "symbol": request.instrument_symbol,
+        "currency": request.instrument_currency or request.portfolio.base_currency,
+    }
+    portfolio_meta = {
+        "portfolio_id": str(request.portfolio_id),
+        "name": request.portfolio.name,
+        "base_currency": request.portfolio.base_currency,
+        "cash_balance": str(request.portfolio.cash_balance),
+        "status": request.portfolio.status,
+    }
+    positions_meta = [
+        {
+            "market": p.market,
+            "symbol": p.symbol,
+            "name": p.name,
+            "currency": p.currency,
+            "sector": p.sector,
+            "core_quantity": str(p.core_quantity),
+            "tactical_quantity": str(p.tactical_quantity),
+            "average_cost": str(p.average_cost),
+        }
+        for p in request.portfolio.positions
+    ]
+    request_factory = build_analysis_request_factory(
+        evidence=request.evidence,
+        instrument_meta=instrument_meta,
+        portfolio_meta=portfolio_meta,
+        positions_meta=positions_meta,
+    )
+
     try:
         session = await committee.run_session(
             context=context,
-            request_factory=default_request_factory,
+            request_factory=request_factory,
         )
     except LLMGatewayFailure as exc:
         return AnalysisRunResult(
@@ -490,11 +603,13 @@ async def execute_analysis(
             committee._agent_runtime,
             role=AgentRole.PORTFOLIO,
             context=context,
+            request_factory=request_factory,
         )
         risk_result = await _run_single_role(
             committee._agent_runtime,
             role=AgentRole.RISK,
             context=context,
+            request_factory=request_factory,
         )
     except LLMGatewayFailure as exc:
         return AnalysisRunResult(
@@ -529,11 +644,27 @@ async def execute_analysis(
         if positives == 0:
             proposed = Action.HOLD
 
-    assessment = build_risk_assessment(
-        as_of=request.as_of,
-        opinion_results=opinions,
-        visible_ids=context.visible_evidence_ids,
+    risk_agent_ok = (
+        risk is not None
+        and risk.failure is None
+        and risk.opinion.stance is not OpinionStance.INSUFFICIENT_DATA
     )
+    # If Risk agent output is unusable, keep empty flags (UNKNOWN gate); never invent PASS.
+    if not risk_agent_ok and risk is not None:
+        failures.append("RISK_AGENT_UNAVAILABLE")
+
+    if risk_agent_ok:
+        assessment = build_risk_assessment(
+            as_of=request.as_of,
+            opinion_results=opinions,
+            visible_ids=context.visible_evidence_ids,
+        )
+    else:
+        assessment = build_risk_assessment(
+            as_of=request.as_of,
+            opinion_results=(),
+            visible_ids=frozenset(),
+        )
     risk_gate = assessment.gate
 
     thesis_state = request.thesis_state
@@ -552,6 +683,19 @@ async def execute_analysis(
     if valuation.get("missing_quotes") and proposed in (Action.BUY, Action.ADD):
         data_sufficient = False
 
+    # Missing valuation/pricing means insufficient data for risk-increasing actions.
+    valuation_ok = valuation.get("status") == "OK"
+    if proposed in (Action.BUY, Action.ADD) and (
+        not valuation_ok or (sizing is None or sizing.get("status") == "FAILED")
+    ):
+        failures.append("INSUFFICIENT_VALUATION_FOR_EXPOSURE")
+        data_sufficient = False
+        if proposed is Action.BUY:
+            proposed = Action.WATCH
+
+    # TEST_DEFAULT policy is not a real approved policy for new exposure.
+    policy_passed = request.policy_version_label not in {"TEST_DEFAULT", "none", ""}
+
     cio_input = CioAggregationInput(
         proposed_action=proposed,
         investment_quality=_gate_from_stance(
@@ -561,7 +705,7 @@ async def execute_analysis(
         timing=_gate_from_stance(market.opinion if market else None, positive),
         portfolio_fit=_gate_from_stance(pm.opinion if pm else None, positive),
         risk_gate=risk_gate,
-        policy_passed=True,
+        policy_passed=policy_passed,
         data_sufficient=data_sufficient,
     )
     recommendation = aggregate_cio_recommendation(cio_input)

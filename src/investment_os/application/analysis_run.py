@@ -47,6 +47,8 @@ class AnalysisRunPort(Protocol):
         self, *, portfolio_id: UUID, limit: int = 20
     ) -> tuple[AnalysisRunRead, ...]: ...
 
+    async def list_recent(self, *, limit: int = 20) -> tuple[AnalysisRunRead, ...]: ...
+
     async def list_for_instrument(
         self, *, instrument_id: UUID, limit: int = 20
     ) -> tuple[AnalysisRunRead, ...]: ...
@@ -127,3 +129,6 @@ class AnalysisRunService:
         self, *, portfolio_id: UUID, limit: int = 20
     ) -> tuple[AnalysisRunRead, ...]:
         return await self._port.list_for_portfolio(portfolio_id=portfolio_id, limit=limit)
+
+    async def list_recent(self, *, limit: int = 20) -> tuple[AnalysisRunRead, ...]:
+        return await self._port.list_recent(limit=limit)

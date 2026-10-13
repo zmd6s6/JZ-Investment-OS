@@ -1394,11 +1394,10 @@ def create_app(
         limit: int = Query(default=20, ge=1, le=50),
     ) -> list[AnalysisRunSummaryResponse]:
         _product, runs = _analysis_service_or_503()
-        rows = (
-            await runs.list_for_portfolio(portfolio_id=portfolio_id, limit=limit)
-            if portfolio_id
-            else ()
-        )
+        if portfolio_id:
+            rows = await runs.list_for_portfolio(portfolio_id=portfolio_id, limit=limit)
+        else:
+            rows = await runs.list_recent(limit=limit)
         return [
             AnalysisRunSummaryResponse(
                 id=row.id,

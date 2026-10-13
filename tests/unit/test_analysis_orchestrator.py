@@ -235,6 +235,66 @@ async def test_execute_analysis_succeeds_with_synthetic_inputs() -> None:
 
 
 @pytest.mark.asyncio
+async def test_valuation_failure_blocks_buy_not_succeeded_buy() -> None:
+    from investment_os.application.agent_runtime import AgentRuntime as AR
+    from investment_os.application.analysis_orchestrator import default_registry
+    from investment_os.application.committee_runtime import CommitteeRuntime as CR
+
+    instrument_id = uuid4()
+    evidence_id = uuid4()
+    stances = {
+        AgentRole.MACRO: "NEUTRAL",
+        AgentRole.INDUSTRY: "NEUTRAL",
+        AgentRole.FUNDAMENTAL: "POSITIVE",
+        AgentRole.MARKET_QUANT: "POSITIVE",
+        AgentRole.EVENT: "NEUTRAL",
+        AgentRole.DEVILS_ADVOCATE: "NEUTRAL",
+        AgentRole.PORTFOLIO: "NEUTRAL",
+        AgentRole.RISK: "NEUTRAL",
+    }
+    responses = tuple(
+        _response(role, stances[role], str(instrument_id), str(evidence_id))
+        for role in (
+            *ROUND_ONE_ROLES,
+            AgentRole.DEVILS_ADVOCATE,
+            AgentRole.PORTFOLIO,
+            AgentRole.RISK,
+        )
+    )
+    committee = CR(
+        agent_runtime=AR(registry=default_registry(), gateway=SyntheticLLMGateway(responses))
+    )
+    request = AnalysisRequest(
+        instrument_id=instrument_id,  # type: ignore[arg-type]
+        portfolio_id=uuid4(),
+        portfolio=_portfolio(instrument_id),  # type: ignore[arg-type]
+        as_of=NOW,
+        policy_version_label="TEST_DEFAULT",
+        evidence=(
+            AnalysisEvidenceSource(
+                evidence_id=evidence_id,
+                content_hash="d" * 64,
+                available_at=NOW - timedelta(hours=1),
+            ),
+        ),
+        instrument_market="SSE",
+        instrument_symbol="600519",
+        instrument_currency="CNY",
+    )
+    # No market data quotes on purpose.
+    result = await execute_analysis(
+        request,
+        committee=committee,
+        market_data=InMemoryMarketDataAdapter(),
+    )
+    assert result.status == "SUCCEEDED"
+    assert result.payload is not None
+    decision = result.payload.to_dict()["decision"]
+    assert decision["action"] != "BUY"
+    assert "INSUFFICIENT_VALUATION_FOR_EXPOSURE" in result.payload.to_dict()["failures"]
+
+
+@pytest.mark.asyncio
 async def test_execute_analysis_fails_without_evidence() -> None:
     from investment_os.application.agent_runtime import AgentRuntime as AR
     from investment_os.application.analysis_orchestrator import default_registry

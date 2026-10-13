@@ -73,6 +73,7 @@ class ProductAnalysisService:
                 .where(
                     EvidenceRecord.instrument_id == inp.instrument_id,
                     EvidenceRecord.available_at <= as_of,
+                    (EvidenceRecord.expires_at.is_(None) | (EvidenceRecord.expires_at > as_of)),
                 )
                 .order_by(EvidenceRecord.observed_at.desc())
                 .limit(50)
@@ -85,6 +86,8 @@ class ProductAnalysisService:
                 content_hash=row.content_hash,
                 available_at=row.available_at,
                 source_tier=row.source_tier,
+                summary=_evidence_summary(row),
+                payload_excerpt=_evidence_excerpt(row),
             )
             for row in evidence_rows
         )
@@ -143,3 +146,27 @@ class ProductAnalysisService:
             policy_version_label=result.payload.policy_version_label,
             payload=result.payload.to_dict(),
         )
+
+
+def _evidence_summary(row: object) -> str:
+    payload = getattr(row, "payload_json", None) or {}
+    if isinstance(payload, dict):
+        for key in ("headline", "title", "summary", "text", "content"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:300]
+        # fall back to first string field
+        for value in payload.values():
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:300]
+    return str(getattr(row, "source_locator", ""))[:300]
+
+
+def _evidence_excerpt(row: object) -> str:
+    payload = getattr(row, "payload_json", None) or {}
+    try:
+        import json
+
+        return json.dumps(payload, ensure_ascii=False, default=str)[:1500]
+    except Exception:
+        return ""
