@@ -493,6 +493,16 @@ textarea:focus {
   color: #2c4d7c;
 }
 
+.banner .failure-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-weight: 600;
+}
+
+.banner .failure-list li {
+  margin: 2px 0;
+}
+
 .status-note {
   color: var(--ok);
   font-weight: 700;

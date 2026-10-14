@@ -242,4 +242,75 @@ describe("PortfolioPage stale response protection", () => {
     expect(previewUrls[0]).not.toContain("/aaa/");
     expect(listCount).toBeLessThanOrEqual(listCountAfterMount + 2);
   });
+
+  it("shows an in-flight analysis banner and button state while the run is pending", async () => {
+    const withPosition: Portfolio = {
+      ...portfolio("pos-1", "持仓组合"),
+      positions: [
+        {
+          position_id: "p1",
+          instrument_id: "inst-1",
+          market: "SSE",
+          symbol: "600519",
+          name: "贵州茅台",
+          asset_type: "EQUITY",
+          currency: "CNY",
+          sector: "Consumer",
+          core_quantity: "10",
+          tactical_quantity: "2",
+          average_cost: "1600",
+        },
+      ],
+    };
+    let finishRun!: (value: unknown) => void;
+    const pendingRun = new Promise((resolve) => {
+      finishRun = resolve;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === "POST" && url === "/api/v1/analysis-runs") {
+          return pendingRun as unknown as Response;
+        }
+        if (typeof url === "string" && url.includes("/policy/review")) {
+          return Promise.resolve(
+            jsonBody({
+              active_policy_version: "none",
+              policy_status: "TEST_DEFAULT",
+              is_test_default: true,
+              limits: [],
+              warning: "TEST_DEFAULT",
+            }),
+          );
+        }
+        if (typeof url === "string" && url.includes("import-audits")) {
+          return Promise.resolve(jsonBody([]));
+        }
+        if (url === "/api/v1/portfolios") {
+          return Promise.resolve(jsonBody([withPosition]));
+        }
+        return Promise.resolve(jsonBody({}, false, 404));
+      }),
+    );
+
+    render(<PortfolioPage />);
+    await waitFor(() => expect(currentPortfolioName()).toBe("持仓组合"));
+
+    fireEvent.click(screen.getByRole("button", { name: "立即分析" }));
+
+    // The banner must appear immediately, not only after the run finishes.
+    await waitFor(() =>
+      expect(screen.getByText(/正在分析 SSE 600519 贵州茅台/)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/已用 \d+s/)).toBeInTheDocument();
+    const pendingButton = screen.getByRole("button", { name: /分析中/ });
+    expect(pendingButton).toBeDisabled();
+
+    // Keep the promise unresolved; the component must not crash or finish early.
+    await act(async () => {
+      finishRun(jsonBody({ status: "SUCCEEDED", failure_code: null }, true, 201));
+      await pendingRun;
+    });
+  });
 });

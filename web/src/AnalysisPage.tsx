@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
+import {
+  actionLabel,
+  explainFailure,
+  gateLabel,
+  runStatusLabel,
+  stanceLabel,
+} from "./analysisLabels";
 import { apiFetch, readApiError } from "./writeApi";
 
 type AnalysisSummary = {
@@ -149,13 +156,21 @@ export function AnalysisPage() {
                 <tr key={run.id}>
                   <td>{new Date(run.created_at).toLocaleString("zh-CN")}</td>
                   <td>
-                    <span className={`pill ${run.status === "SUCCEEDED" ? "valid" : "invalid"}`}>
-                      {run.status === "SUCCEEDED" ? "成功" : "失败"}
+                    <span
+                      className={`pill ${
+                        run.status === "SUCCEEDED"
+                          ? "valid"
+                          : run.status === "RUNNING"
+                            ? "warn"
+                            : "invalid"
+                      }`}
+                    >
+                      {runStatusLabel(run.status)}
                     </span>
                   </td>
                   <td>{run.source}</td>
                   <td>{run.policy_version_label}</td>
-                  <td>{run.failure_code ?? "—"}</td>
+                  <td>{run.failure_code ? explainFailure(run.failure_code) : "—"}</td>
                   <td>
                     <button
                       type="button"
@@ -174,20 +189,27 @@ export function AnalysisPage() {
 
       {selected ? (
         <Panel
-          title={`分析详情 · ${selected.status}`}
+          title={`分析详情 · ${runStatusLabel(selected.status)}`}
           description={`标的 ${selected.instrument_id} · 组合 ${selected.portfolio_id} · as-of ${new Date(selected.as_of).toLocaleString("zh-CN")}`}
         >
-          {selected.failure_detail ? (
-            <p className="banner banner-error">{selected.failure_detail}</p>
+          {selected.failure_detail || selected.failure_code ? (
+            <p className="banner banner-error">
+              {selected.failure_code ? `${explainFailure(selected.failure_code)}：` : ""}
+              {selected.failure_detail ?? "分析未完成。"}
+            </p>
           ) : null}
 
           <h3>最终分析</h3>
           <div className="chip-row">
             <span className="chip ok">
-              动作 {String(payload.decision?.action ?? "—")}
+              动作 {actionLabel(String(payload.decision?.action ?? "—"))}
             </span>
-            <span className="chip">风险 {String(payload.risk?.gate ?? "—")}</span>
-            <span className="chip">Veto {String(payload.decision?.risk_veto ?? false)}</span>
+            <span className="chip">
+              风险门 {gateLabel(String(payload.risk?.gate ?? "—"))}
+            </span>
+            <span className="chip">
+              风险否决 {payload.decision?.risk_veto ? "是" : "否"}
+            </span>
             <span className="chip warn">{selected.policy_version_label}</span>
           </div>
           <p className="hint-text">
@@ -196,7 +218,14 @@ export function AnalysisPage() {
             {String(payload.token_usage?.total_cost ?? "未知")}
           </p>
           {Array.isArray(payload.failures) && payload.failures.length > 0 ? (
-            <p className="banner banner-error">限制：{payload.failures.join("、")}</p>
+            <div className="banner banner-error">
+              <strong>本轮限制（失败关闭，不会给出买入）：</strong>
+              <ul className="failure-list">
+                {payload.failures.map((code) => (
+                  <li key={code}>{explainFailure(code)}</li>
+                ))}
+              </ul>
+            </div>
           ) : null}
 
           <h3>投资团队意见</h3>
@@ -215,7 +244,7 @@ export function AnalysisPage() {
               {((payload.opinions as Record<string, unknown>[]) ?? []).map((op) => (
                 <tr key={String(op.role)}>
                   <td>{String(op.role)}</td>
-                  <td>{String(op.stance)}</td>
+                  <td>{stanceLabel(String(op.stance))}</td>
                   <td>{String(op.confidence)}</td>
                   <td>
                     {String(op.model_name ?? "—")}
@@ -228,7 +257,7 @@ export function AnalysisPage() {
                       </div>
                     ))}
                   </td>
-                  <td>{op.failure ? String(op.failure) : "—"}</td>
+                  <td>{op.failure ? explainFailure(String(op.failure)) : "—"}</td>
                 </tr>
               ))}
             </tbody>

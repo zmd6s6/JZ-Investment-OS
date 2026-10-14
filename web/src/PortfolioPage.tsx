@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
+import { explainFailure } from "./analysisLabels";
 import { apiFetch, readApiError } from "./writeApi";
 
 type PortfolioPosition = {
@@ -134,9 +135,22 @@ export function PortfolioPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // In-flight analysis feedback: real model runs take 30-90s with no UI otherwise.
+  const [analyzing, setAnalyzing] = useState<string | null>(null);
+  const [analysisElapsed, setAnalysisElapsed] = useState(0);
   const listSeqRef = useRef(0);
   const selectedIdRef = useRef("");
   const intentIdRef = useRef("");
+
+  useEffect(() => {
+    if (analyzing === null) return;
+    const started = Date.now();
+    setAnalysisElapsed(0);
+    const timer = window.setInterval(() => {
+      setAnalysisElapsed(Math.round((Date.now() - started) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [analyzing]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -351,7 +365,10 @@ export function PortfolioPage() {
 
   async function startAnalysis(instrumentId: string) {
     if (!selected) return;
+    const position = selected.positions.find((p) => p.instrument_id === instrumentId);
+    const label = position ? `${position.market} ${position.symbol} ${position.name}` : instrumentId;
     setBusy(true);
+    setAnalyzing(label);
     setError(null);
     setMessage(null);
     try {
@@ -369,13 +386,14 @@ export function PortfolioPage() {
       setMessage(
         run.status === "SUCCEEDED"
           ? "分析完成，正在打开运行列表"
-          : `分析未成功：${run.failure_code ?? run.status}`,
+          : `分析未成功：${run.failure_code ? explainFailure(run.failure_code) : run.status}`,
       );
       window.location.href = "/analysis";
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "启动分析失败");
     } finally {
       setBusy(false);
+      setAnalyzing(null);
     }
   }
 
@@ -387,6 +405,14 @@ export function PortfolioPage() {
     >
       <StatusBanner kind="error" text={error} />
       <StatusBanner kind="ok" text={message} />
+      <StatusBanner
+        kind="info"
+        text={
+          analyzing !== null
+            ? `正在分析 ${analyzing}（已用 ${analysisElapsed}s）：投资团队辩论 → 风险评估 → 仓位计算，通常需要 1–2 分钟，完成后自动打开报告…`
+            : null
+        }
+      />
 
       <div className="stat-row">
         <article className="stat-card">
@@ -980,7 +1006,9 @@ export function PortfolioPage() {
                       disabled={!selected || busy}
                       onClick={() => void startAnalysis(position.instrument_id)}
                     >
-                      立即分析
+                      {analyzing !== null
+                        ? `分析中… ${analysisElapsed}s`
+                        : "立即分析"}
                     </button>
                   </td>
                 </tr>
