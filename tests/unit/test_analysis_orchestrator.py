@@ -319,3 +319,80 @@ async def test_execute_analysis_fails_without_evidence() -> None:
     )
     assert result.status == "FAILED"
     assert result.failure_code == "INSUFFICIENT_EVIDENCE"
+
+
+def test_agent_prompt_embeds_full_agentopinion_contract() -> None:
+    """Regression: the provider must receive the Schema body, not just its name.
+
+    deepseek-chat once invented its own envelope (wrapped ``opinion`` object,
+    float confidence) when the system instruction only said ``schema 1.0``,
+    exhausting both repair attempts on every role with INVALID_OUTPUT.
+    """
+
+    from investment_os.application.analysis_context import (
+        AnalysisEvidence,
+        EvidenceSourceTier,
+        freeze_analysis_context,
+    )
+    from investment_os.application.analysis_orchestrator import (
+        _AGENT_OPINION_SCHEMA_INSTRUCTION,
+        build_analysis_request_factory,
+        default_request_factory,
+    )
+    from investment_os.application.committee_runtime import CommitteeRoleInput
+    from investment_os.domain.values import UtcTimestamp
+
+    instruction = _AGENT_OPINION_SCHEMA_INSTRUCTION
+    for required in (
+        '"schema_version": "1.0"',
+        '"agent_role"',
+        '"confidence"',
+        "NEVER a bare number",
+        "STRONGLY_NEGATIVE|NEGATIVE|NEUTRAL|POSITIVE|STRONGLY_POSITIVE|INSUFFICIENT_DATA",
+        "no wrapper key",
+        "materiality",
+        "invalidation_conditions",
+        "requested_followups",
+        "Stance mutual exclusion",
+        'if stance is "INSUFFICIENT_DATA"',
+        '"observations" must be []',
+    ):
+        assert required in instruction, f"schema instruction is missing: {required}"
+
+    evidence_id = uuid4()
+    context = freeze_analysis_context(
+        uuid4(),  # type: ignore[arg-type]
+        as_of=NOW,
+        evidence=(
+            AnalysisEvidence(
+                evidence_id=evidence_id,  # type: ignore[arg-type]
+                content_hash="e" * 64,
+                available_at=UtcTimestamp(NOW - timedelta(hours=1)),
+                source_tier=EvidenceSourceTier.PRIMARY,
+                independence_key="f" * 32,
+            ),
+        ),
+    )
+    role_input = CommitteeRoleInput(context=context)
+
+    default_request = default_request_factory(AgentRole.MACRO, role_input)
+    assert default_request.system_instruction == instruction
+
+    factory = build_analysis_request_factory(
+        evidence=(
+            AnalysisEvidenceSource(
+                evidence_id=evidence_id,  # type: ignore[arg-type]
+                content_hash="e" * 64,
+                available_at=NOW - timedelta(hours=1),
+                source_tier="PRIMARY",
+            ),
+        ),
+        instrument_meta={"instrument_id": str(context.instrument_id), "market": "SSE"},
+        portfolio_meta={},
+        positions_meta=[],
+    )
+    full_request = factory(AgentRole.MACRO, role_input)
+    assert full_request.system_instruction == instruction
+    # The instruction itself must not be mistaken for the payload contract:
+    # it names the confidence type the validator rejects (bare float).
+    assert "NEVER a bare number" in instruction

@@ -99,7 +99,50 @@ DEFAULT_SIZING_FORMULA = SizingFormula(
 def _prompt_hash(role: AgentRole) -> str:
     from hashlib import sha256
 
-    return sha256(f"p6-prompt|{role.value}|v1".encode()).hexdigest()
+    return sha256(f"p6-prompt|{role.value}|v3".encode()).hexdigest()
+
+
+# Master Spec 6.2 is the machine protocol; the model must receive the contract,
+# not just its name. Without this body the provider invents its own envelope
+# (observed with deepseek-chat: wrapped "opinion" object, float confidence)
+# and every role exhausts both repair attempts with INVALID_OUTPUT.
+_AGENT_OPINION_SCHEMA_INSTRUCTION = (
+    "You are a bounded investment research role. Use ONLY the provided evidence excerpts "
+    "and evidence_ids. Do not invent prices, financials, or position sizes.\n"
+    "Return ONE JSON object that IS the AgentOpinion itself (no wrapper key, no markdown, "
+    "no commentary) exactly matching this schema:\n"
+    "{\n"
+    '  "schema_version": "1.0",\n'
+    '  "agent_role": "<must equal the requested role>",\n'
+    '  "instrument_id": "<must echo the input instrument_id verbatim>",\n'
+    '  "as_of": "<must echo the input as_of verbatim>",\n'
+    '  "stance": "STRONGLY_NEGATIVE|NEGATIVE|NEUTRAL|POSITIVE|'
+    'STRONGLY_POSITIVE|INSUFFICIENT_DATA",\n'
+    '  "confidence": "<decimal string between 0 and 1, e.g. \\"0.6\\"; NEVER a bare number>",\n'
+    '  "time_horizon": "DAYS|WEEKS|MONTHS|QUARTERS|YEARS",\n'
+    '  "observations": [{"claim": "string", "evidence_ids": ["<from input evidence_ids>"], '
+    '"materiality": "LOW|MEDIUM|HIGH"}],\n'
+    '  "thesis_impacts": [{"pillar_key": "string", '
+    '"impact": "STRENGTHEN|WEAKEN|BREAK|NONE", "reason": "string", '
+    '"evidence_ids": ["<from input evidence_ids>"]}],\n'
+    '  "assumptions": ["string"],\n'
+    '  "risks": [{"code": "string", "severity": "LOW|MEDIUM|HIGH|CRITICAL", '
+    '"evidence_ids": ["<from input evidence_ids>"]}],\n'
+    '  "invalidation_conditions": [{"condition": "string", "observable": "string"}],\n'
+    '  "unknowns": ["string"],\n'
+    '  "requested_followups": ["string"]\n'
+    "}\n"
+    "Rules: every array field is required (use [] when empty); observations must cite at "
+    "least one provided evidence_id; confidence MUST be a quoted decimal string; "
+    "agent_role, instrument_id and as_of must match the input exactly or the output is "
+    "rejected.\n"
+    "Stance mutual exclusion (enforced by the domain and not negotiable):\n"
+    '- if stance is "INSUFFICIENT_DATA": "observations" must be [] and "confidence" must '
+    'be "0"; put gaps into "unknowns"/"requested_followups" instead.\n'
+    '- otherwise: "observations" must contain at least one evidence-backed claim, and '
+    '"confidence" must be a non-zero decimal string no higher than 0.70 unless a PRIMARY '
+    "evidence item backs it."
+)
 
 
 def default_registry() -> AgentRoleRegistry:
@@ -107,7 +150,7 @@ def default_registry() -> AgentRoleRegistry:
         tuple(
             PromptBundle(
                 role=role,
-                version="p6-v1",
+                version="p6-v3",
                 content_hash=_prompt_hash(role),
                 allowed_tools=(AgentTool.RETRIEVE_EVIDENCE,),
             )
@@ -132,10 +175,7 @@ def default_request_factory(role: AgentRole, role_input: CommitteeRoleInput) -> 
         timeout_seconds=30,
         max_output_tokens=2048,
         committee_context_hash=role_input.content_hash,
-        system_instruction=(
-            "You are a bounded investment research role. Use only provided evidence IDs. "
-            "Return strict JSON AgentOpinion schema 1.0."
-        ),
+        system_instruction=_AGENT_OPINION_SCHEMA_INSTRUCTION,
         input_payload_json=json.dumps(payload, sort_keys=True),
     )
 
@@ -206,12 +246,7 @@ def build_analysis_request_factory(
                 }
                 for conflict in role_input.conflicts
             ]
-        system = (
-            "You are a bounded investment research role. "
-            "Use ONLY the provided evidence excerpts and IDs. "
-            "Do not invent prices, financials, or position sizes. "
-            "Return strict JSON AgentOpinion schema 1.0 with claims citing evidence_ids."
-        )
+        system = _AGENT_OPINION_SCHEMA_INSTRUCTION
         return LLMGatewayRequest(
             request_id=uuid4(),
             role=role,
