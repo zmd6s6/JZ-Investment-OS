@@ -1,12 +1,10 @@
 """Production composition root for the HTTP application."""
 
 from datetime import UTC, datetime
-from uuid import UUID
 
 from fastapi import FastAPI
 
 from investment_os.application.llm_budget import LLMBudgetService
-from investment_os.application.market_data import MarketQuote
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.application.research_runtime import (
@@ -74,9 +72,7 @@ def create_production_app() -> FastAPI:
     from investment_os.application.committee_runtime import CommitteeRuntime
     from investment_os.application.instrument_catalog import InstrumentCatalogService
     from investment_os.application.market_data import (
-        ChainedMarketDataPort,
-        InMemoryMarketDataAdapter,
-        MarketDataSourcePort,
+        MarketDataSourcePort,  # noqa: F401
     )
     from investment_os.application.portfolio_book import PortfolioBookService
     from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
@@ -85,8 +81,7 @@ def create_production_app() -> FastAPI:
         SessionPortfolioBookPort,
     )
     from investment_os.infrastructure.tushare.market_data import (
-        TUSHARE_PROVIDER_TYPE,
-        TushareMarketDataAdapter,
+        RefreshableTushareChain,
     )
 
     catalog_adapter = SessionCatalogPort(session_factory)
@@ -97,48 +92,10 @@ def create_production_app() -> FastAPI:
     )
     analysis_runs = AnalysisRunService(SessionAnalysisRunPort(session_factory))
 
-    class _DeferredTushareChain(ChainedMarketDataPort):
-        def __init__(self) -> None:
-            super().__init__((InMemoryMarketDataAdapter(),))
-            self._loaded = False
-
-        async def _ensure_loaded(self) -> None:
-            if self._loaded:
-                return
-            self._loaded = True
-            try:
-                profiles = await provider_settings_service.list_data_profiles()
-            except Exception:
-                return
-            extra: list[MarketDataSourcePort] = []
-            for profile in sorted(profiles, key=lambda item: item.name):
-                if not profile.enabled or profile.provider_type != TUSHARE_PROVIDER_TYPE:
-                    continue
-                if profile.credential_ref is None:
-                    continue
-                try:
-                    credential = await secret_store.get(profile.credential_ref)
-                except Exception:
-                    credential = None
-                if not credential:
-                    continue
-                extra.append(TushareMarketDataAdapter(token=credential, profile_id=profile.id))
-            if extra:
-                self._sources = (*extra, InMemoryMarketDataAdapter())
-
-        async def get_reference_quotes(
-            self,
-            instrument_ids: "tuple[UUID, ...]",
-            *,
-            as_of: datetime,
-            instruments: "dict[UUID, tuple[str, str, str]] | None" = None,
-        ) -> "dict[UUID, MarketQuote]":
-            await self._ensure_loaded()
-            return await super().get_reference_quotes(
-                instrument_ids, as_of=as_of, instruments=instruments
-            )
-
-    market_data = _DeferredTushareChain()
+    market_data = RefreshableTushareChain(
+        list_profiles=provider_settings_service.list_data_profiles,
+        get_credential=secret_store.get,
+    )
 
     analysis_product = ProductAnalysisService(
         session_factory=session_factory,
