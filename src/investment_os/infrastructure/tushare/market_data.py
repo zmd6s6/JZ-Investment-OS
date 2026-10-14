@@ -22,6 +22,43 @@ TUSHARE_PROVIDER_TYPE = "TUSHARE_MARKET"
 TUSHARE_URL = "https://api.tushare.pro"
 
 
+class TushareConnectionTester:
+    """Explicit Tushare connectivity check for settings UI (no secret persisted)."""
+
+    name = "TUSHARE_MARKET"
+
+    def __init__(self, *, client: httpx.AsyncClient | None = None) -> None:
+        self._client = client or httpx.AsyncClient(timeout=10.0)
+        self._owns_client = client is None
+
+    async def close(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
+
+    async def test(self, *, credential: str) -> tuple[bool, str, int | None]:
+        """Return (ok, detail, latency_ms). Uses a cheap official API call."""
+        payload = {
+            "api_name": "trade_cal",
+            "token": credential,
+            "params": {"exchange": "SSE", "start_date": "20240101", "end_date": "20240102"},
+            "fields": "exchange,cal_date",
+        }
+        try:
+            response = await self._client.post(TUSHARE_URL, json=payload)
+            response.raise_for_status()
+            body = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            return False, f"Tushare 网络或解析失败: {exc}", None
+        if not isinstance(body, dict) or body.get("code") != 0:
+            msg = body.get("msg") if isinstance(body, dict) else "invalid response"
+            return False, f"Tushare 返回错误: {msg}", None
+        data = body.get("data")
+        items = data.get("items") if isinstance(data, dict) else None
+        if not items:
+            return False, "Tushare 连接成功但 trade_cal 无数据", None
+        return True, "Tushare trade_cal 连接成功", None
+
+
 class RefreshableTushareChain:
     """Rebuild Tushare sources from current profiles on every quote request.
 

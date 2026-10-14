@@ -41,6 +41,16 @@ class AnalysisRunPort(Protocol):
         failure_detail: str | None = None,
     ) -> UUID: ...
 
+    async def update_status(
+        self,
+        run_id: UUID,
+        *,
+        status: str,
+        payload: dict[str, Any] | None = None,
+        failure_code: str | None = None,
+        failure_detail: str | None = None,
+    ) -> AnalysisRunRead | None: ...
+
     async def get(self, run_id: UUID) -> AnalysisRunRead | None: ...
 
     async def list_for_portfolio(
@@ -114,6 +124,48 @@ class AnalysisRunService:
                 "analysis run disappeared after create",
             )
         return run
+
+    async def mark_running(
+        self,
+        *,
+        instrument_id: UUID,
+        portfolio_id: UUID,
+        source: str,
+        as_of: datetime,
+        policy_version_label: str,
+    ) -> UUID:
+        return await self._port.create(
+            instrument_id=instrument_id,
+            portfolio_id=portfolio_id,
+            source=source,
+            as_of=as_of,
+            policy_version_label=policy_version_label,
+            status="RUNNING",
+            payload={"stage": "STARTED"},
+        )
+
+    async def finish(
+        self,
+        run_id: UUID,
+        *,
+        status: str,
+        payload: dict[str, Any] | None = None,
+        failure_code: str | None = None,
+        failure_detail: str | None = None,
+    ) -> AnalysisRunRead:
+        updated = await self._port.update_status(
+            run_id,
+            status=status,
+            payload=payload,
+            failure_code=failure_code,
+            failure_detail=failure_detail,
+        )
+        if updated is None:
+            raise ApplicationError(
+                ApplicationErrorCode.PORTFOLIO_NOT_FOUND,
+                "analysis run disappeared while finishing",
+            )
+        return updated
 
     async def get(self, run_id: UUID) -> AnalysisRunRead:
         run = await self._port.get(run_id)

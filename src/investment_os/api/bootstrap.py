@@ -57,6 +57,15 @@ def create_production_app() -> FastAPI:
         budget_service=budget_service,
     )
     data_connection_tester = BochaWebSearchConnectionTester()
+    from investment_os.infrastructure.market_data_tester import (
+        CompositeDataProviderConnectionTester,
+    )
+    from investment_os.infrastructure.tushare.market_data import TushareConnectionTester
+
+    composite_data_tester = CompositeDataProviderConnectionTester(
+        bocha_tester=data_connection_tester,
+        tushare_tester=TushareConnectionTester(),
+    )
     research_provider_runtime = ResearchProviderRuntime(
         provider_settings=provider_settings_service,
         secret_store=secret_store,
@@ -110,7 +119,7 @@ def create_production_app() -> FastAPI:
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
         model_connection_tester=model_gateway,
-        data_connection_tester=data_connection_tester,
+        data_connection_tester=composite_data_tester,
         research_provider_runtime=research_provider_runtime,
         evidence_ingestor=SqlAlchemyEvidenceIngestor(
             session_factory,

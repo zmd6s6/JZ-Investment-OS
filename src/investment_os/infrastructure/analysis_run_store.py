@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.analysis_run import AnalysisRunPort, AnalysisRunRead
@@ -64,6 +64,31 @@ class SqlAnalysisRunAdapter(AnalysisRunPort):
         await self._session.flush()
         return record.id
 
+    async def update_status(
+        self,
+        run_id: UUID,
+        *,
+        status: str,
+        payload: dict[str, Any] | None = None,
+        failure_code: str | None = None,
+        failure_detail: str | None = None,
+    ) -> AnalysisRunRead | None:
+        values: dict[str, Any] = {
+            "status": status,
+            "updated_at": datetime.now(UTC),
+            "failure_code": failure_code,
+            "failure_detail": failure_detail,
+        }
+        if payload is not None:
+            values["payload_json"] = payload
+        result = await self._session.execute(
+            update(AnalysisRunRecord).where(AnalysisRunRecord.id == run_id).values(**values)
+        )
+        if getattr(result, "rowcount", 0) == 0:
+            return None
+        await self._session.flush()
+        return await self.get(run_id)
+
     async def get(self, run_id: UUID) -> AnalysisRunRead | None:
         record = await self._session.get(AnalysisRunRecord, run_id)
         return None if record is None else _read(record)
@@ -107,6 +132,27 @@ class SessionAnalysisRunPort(AnalysisRunPort):
             run_id = await adapter.create(**kwargs)
             await session.commit()
             return run_id
+
+    async def update_status(
+        self,
+        run_id: UUID,
+        *,
+        status: str,
+        payload: dict[str, Any] | None = None,
+        failure_code: str | None = None,
+        failure_detail: str | None = None,
+    ) -> AnalysisRunRead | None:
+        async with self._session_factory() as session:
+            adapter = SqlAnalysisRunAdapter(session)
+            updated = await adapter.update_status(
+                run_id,
+                status=status,
+                payload=payload,
+                failure_code=failure_code,
+                failure_detail=failure_detail,
+            )
+            await session.commit()
+            return updated
 
     async def get(self, run_id: UUID) -> AnalysisRunRead | None:
         async with self._session_factory() as session:

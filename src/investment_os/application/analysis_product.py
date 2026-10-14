@@ -67,6 +67,8 @@ class ProductAnalysisService:
 
             as_of = as_of.replace(tzinfo=UTC)
 
+        policy_label = await self._load_policy_label()
+
         async with self._session_factory() as session:
             statement = (
                 select(EvidenceRecord)
@@ -113,12 +115,20 @@ class ProductAnalysisService:
             portfolio_id=inp.portfolio_id,
             portfolio=portfolio,
             as_of=as_of,
-            policy_version_label=self._policy_version_label,
+            policy_version_label=policy_label,
             evidence=evidence,
             source=inp.source,
             instrument_market=market,
             instrument_symbol=symbol,
             instrument_currency=currency or portfolio.base_currency,
+        )
+
+        running_id = await self._runs.mark_running(
+            instrument_id=inp.instrument_id,
+            portfolio_id=inp.portfolio_id,
+            source=inp.source,
+            as_of=as_of,
+            policy_version_label=policy_label,
         )
 
         result: AnalysisRunResult = await execute_analysis(
@@ -128,24 +138,42 @@ class ProductAnalysisService:
         )
 
         if result.status != "SUCCEEDED" or result.payload is None:
-            return await self._runs.record_failure(
-                instrument_id=inp.instrument_id,
-                portfolio_id=inp.portfolio_id,
-                source=inp.source,
-                as_of=as_of,
-                policy_version_label=self._policy_version_label,
+            return await self._runs.finish(
+                running_id,
+                status="FAILED",
+                payload={"stage": "FAILED"},
                 failure_code=result.failure_code or "ANALYSIS_FAILED",
                 failure_detail=result.failure_detail or "分析失败",
             )
 
-        return await self._runs.record_success(
-            instrument_id=result.payload.instrument_id,
-            portfolio_id=result.payload.portfolio_id,
-            source=result.payload.source,
-            as_of=as_of,
-            policy_version_label=result.payload.policy_version_label,
+        return await self._runs.finish(
+            running_id,
+            status="SUCCEEDED",
             payload=result.payload.to_dict(),
         )
+
+    async def _load_policy_label(self) -> str:
+        """Pin the active policy version label; fall back to configured default."""
+
+        from investment_os.infrastructure.persistence.models import (
+            InvestmentPolicyRecord,
+            InvestmentPolicyVersionRecord,
+        )
+
+        async with self._session_factory() as session:
+            statement = (
+                select(InvestmentPolicyRecord)
+                .where(InvestmentPolicyRecord.status == "ACTIVE")
+                .order_by(InvestmentPolicyRecord.created_at.desc())
+                .limit(1)
+            )
+            policy = (await session.scalars(statement)).first()
+            if policy is None or policy.current_version_id is None:
+                return self._policy_version_label
+            version = await session.get(InvestmentPolicyVersionRecord, policy.current_version_id)
+            if version is None:
+                return f"{policy.name}@{policy.version}"
+            return f"{policy.name}@{version.version}"
 
 
 def _evidence_summary(row: object) -> str:
