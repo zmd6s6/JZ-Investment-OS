@@ -7,10 +7,10 @@
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
 - 活跃路线图阶段：`PRODUCT-06 / P6 — Analysis Orchestration`
-- 阶段状态：`IN_PROGRESS`（首个纵切：AnalysisRun + 委员会编排 + 只读分析报告）
+- 阶段状态：`READY_FOR_REVIEW`（端到端分析编排 + 真实模型全链路 + 浏览器 E2E 证据齐备，待所有者页面验收）
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
-- 上次状态更新：`2026-10-10`
+- 上次状态更新：`2026-10-14`
 
 ## 已建立
 
@@ -25,8 +25,9 @@
 
 ## 尚未实现或尚未验证
 
-- P6 浏览器 E2E、真实已授权模型验收与完整失败路径矩阵（预算/超时/Schema）。
-- P6：产品工作流中的端到端分析编排、持久化 AnalysisRun 以及完整 Evidence → Decision 影子链路。
+- P6：带 Tushare 真实行情的估值/确定性仓位验收（Token 待所有者录入；缺行情失败关闭路径已验收）。
+- P6：完整失败路径矩阵中的预算耗尽/超时/Schema 漂移的浏览器级证据（单元与编排级已覆盖）。
+- `detect-secrets` 与 `pip-audit` 在本机未安装，标 `NOT VERIFIED`（以 PR CI 为准）。
 - P7：Decision 审阅、批准/拒绝/撤销 UI 与只记录事实的手工执行产品流。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。
 - P9：按 Beta 验收门槛完成的端到端产品验证和所有者接受。
@@ -37,10 +38,19 @@
 
 ## 当前授权工作
 
-PRODUCT-05（`IN_PROGRESS`）已覆盖 Instrument 目录、Portfolio 手工/CSV、Watchlist、Policy 只读审阅与产品页。
-2026-09-29 收口：隔离库集成 3 项、浏览器 E2E 4 项、单元+集成 310 项、`ruff`/`mypy src`、OpenAPI check 通过；
-迁移 `20260929_0011`。`detect-secrets` 本机未安装标 `NOT VERIFIED`；`docker-compose config` 通过。待所有者验收后
-方可 `READY_FOR_REVIEW`。
+PRODUCT-05 已由 PR #17 合并到 `main`（`8be5d87`），阶段状态 `ACCEPTED`；其收口证据见
+`docs/stages/PRODUCT-05.md`（隔离库集成、浏览器 E2E 6/6、`ruff`/`mypy`、OpenAPI）。
+
+PRODUCT-06（`READY_FOR_REVIEW`，分支 `codex/product-06-analysis-orchestration`，PR #18）已覆盖
+AnalysisRun 持久化、两轮委员会编排、多源行情链（显式降级与数据源标记）、确定性估值/仓位与
+CIO 影子 Decision，UI 支持仓/观察清单「立即分析」→ 报告 → 刷新持久化。
+2026-10-14 收口验证：全量 `pytest 405 passed`（覆盖率 82.47%）、`ruff`/`mypy src`、
+OpenAPI 与政策 Schema check、`docker compose config`、前端 Vitest 7/7 与生产构建、
+浏览器 E2E **8/8**（含 `analysis.spec.ts` 真实 DeepSeek 全链路 + 无证据失败关闭）。
+真实模型验收：所有者新授 DeepSeek Key（旧钥已作废），连接测试 734ms；真实运行 8/8 角色
+零修复产出实质意见，Risk HARD 旗 VETO、TEST_DEFAULT 政策门 FAIL、缺行情禁 BUY → WATCH，
+失败关闭全部可见。所有者已决定：本轮接受缺行情失败关闭展示，Tushare Token 录入后补验估值仓位。
+`detect-secrets`/`pip-audit` 本机未安装标 `NOT VERIFIED`（由 PR CI 复验）。待所有者页面点击验收。
 
 PRODUCT-01 已由 PR #12 合并到 `main`。PRODUCT-02 已由 PR #13 合并到 `main`，并且 ADR-0013
 已由所有者于 2026-09-22 接受。PRODUCT-03 已由 PR #14 合并到 `main`（合并提交
@@ -63,7 +73,7 @@ PRODUCT-04 已由 PR #15 合并到 `main`（`ba9b4fa`）：它完成了多提供
 交付 365 天档案配置、未来到期时间映射及 API SecretStore 命名卷；当前本地容器尚未重建迁移，以保护现有凭据。
 
 2026-09-29，所有者重新确认产品执行顺序：P4 已接受，必须先完成并接受 P5、P6、P7、P8、P9，之后才可恢复
-PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶段为 `PRODUCT-05`（`IN_PROGRESS`）。任何尚未合并的 PR-09 预研不属于 `main` 的
+PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶段为 `PRODUCT-06`（`READY_FOR_REVIEW`）。任何尚未合并的 PR-09 预研不属于 `main` 的
 已接受交付，不能作为当前活动阶段、可用 Beta 或发布就绪声明。
 
 ## 已记录的范围决定
@@ -90,7 +100,7 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
 | PRODUCT-03 | ACCEPTED | 已由 PR #14 合并；MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过 | 真实模型运行时 |
 | PRODUCT-04 | ACCEPTED | 已由 PR #15 合并到 `main`（`ba9b4fa`） | 多提供方数据运行时 |
 | PRODUCT-05 | ACCEPTED | 已由 PR #17 合并到 `main`（`8be5d87`） | Portfolio 与 Watchlist 产品 |
-| PRODUCT-06 | IN_PROGRESS | 实现与首个纵切验证中 | 端到端 Analysis Orchestration |
+| PRODUCT-06 | READY_FOR_REVIEW | 真实 DeepSeek 全链路 + 浏览器 E2E 8/8 已验证；待所有者页面点击验收 | 端到端 Analysis Orchestration |
 | PRODUCT-07 | PLANNED | 依赖 PRODUCT-06 `ACCEPTED` | 交互式决策与批准 |
 | PRODUCT-08 | PLANNED | 依赖 PRODUCT-07 `ACCEPTED` | 每日 AI 团队运行时 |
 | PRODUCT-09 | PLANNED | 依赖 PRODUCT-08 `ACCEPTED` | Beta 验收 |

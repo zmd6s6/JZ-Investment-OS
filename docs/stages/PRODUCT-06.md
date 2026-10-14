@@ -1,6 +1,6 @@
 # PRODUCT-06 — 端到端 Analysis Orchestration
 
-- 状态：`IN_PROGRESS`
+- 状态：`READY_FOR_REVIEW`（待所有者页面点击验收；Tushare 真实行情估值补验见实施记录 2026-10-14）
 - 前置条件：`PRODUCT-05` 已由所有者接受；可用的已授权模型与数据档案、Portfolio/Watchlist 产品流均已验证
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md` §2、§4、§6、§9、§11、§12、§16 至 §19
 - 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0004`、`ADR-0005`、`ADR-0006`、`ADR-0007`、`ADR-0010`、
@@ -85,3 +85,20 @@
   - 缺估值/仓位与 Risk 失败时禁止 BUY；TEST_DEFAULT 不允许新暴露；列表无 portfolio 时返回最近全部。
   - RUNNING→终态状态流转；ACTIVE 政策标签从库读取；Tushare 连接测试 + 复合数据测试器。
   - 验证：`tests.unit 338`、`mypy`、`ruff`、OpenAPI、前端构建通过。
+- 2026-10-14（真实模型全链路与浏览器验收）：
+  - **提示词根因修复**：system 指令原只提 “AgentOpinion schema 1.0” 名称不含 Schema 本体，
+    deepseek-chat 自创包裹结构致 8/8 `INVALID_OUTPUT`；补内嵌主规范 §6.2 完整契约 +
+    `INSUFFICIENT_DATA ⇔ 空 observations 且 confidence=0` 互斥规则；prompt bundle `p6-v1`→`p6-v3`；
+    具名回归测试 `test_agent_prompt_embeds_full_agentopinion_contract`。
+  - **真实 DeepSeek 全链路（隔离栈 18102）**：连接测试 734ms；真实运行 8/8 角色零修复通过
+    （7 POSITIVE + DA NEUTRAL，带证据引用 claims）；Risk 2 个 HARD 旗 → VETO → CIO RISK 门 FAIL；
+    TEST_DEFAULT 政策门 FAIL；缺行情 `MISSING_REFERENCE_QUOTES` → 禁 BUY → 最终 WATCH；
+    估值显式 `PARTIAL/missing_quotes`，sizing=None。定价 e2e-v1（USD 0.27/1.10 每百万 Token），
+    预算任务 10 万 Token/$0.5、每日 100 万 Token/$3；单次运行约 1.5 万 Token / $0.0066。
+  - **浏览器 E2E**：新增 `web/e2e/analysis.spec.ts` 2 项（真实全链路报告 + 无证据失败关闭），
+    全套 E2E **8/8 串行通过**（Chrome channel，E2E_BASE_URL=18102）。
+  - 验证：`pytest 全量 405 passed / 覆盖率 82.47%`、`ruff format/check`、`mypy src`、
+    OpenAPI 与政策 Schema check、`docker compose config`、前端 Vitest 7/7、`npm run build`。
+  - **NOT VERIFIED**：`detect-secrets`/`pip-audit` 本机未安装；Tushare Token 未配置，
+    带真实 A 股行情与确定性仓位输出的估值验收待所有者录入 Token 后补跑。
+  - 验收栈：`docker-compose -p investment-os-p6-browser-test`（API 18102 / PG 15433，迁移到 0015）。
