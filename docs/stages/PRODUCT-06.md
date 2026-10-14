@@ -80,3 +80,8 @@
   - API：`POST/GET /api/v1/analysis-runs`；UI：`/analysis` 运行列表与详情、组合持仓「立即分析」。
   - 验证：`tests.unit 327`（含编排 2 项）、`ruff`/`mypy`、`npm run build`、前端 7/7、OpenAPI、迁移+P5 集成 6 项通过。
   - **NOT VERIFIED**：浏览器 E2E、真实模型网络调用、密钥扫描、完整 pytest 中与分析无关的旧集成在本环境未全部重跑。
+- 2026-10-10（续）：
+  - Tushare Decimal 报价解析；行情链每次请求重读启用档案；Agent 注入证据/持仓/第二轮意见。
+  - 缺估值/仓位与 Risk 失败时禁止 BUY；TEST_DEFAULT 不允许新暴露；列表无 portfolio 时返回最近全部。
+  - RUNNING→终态状态流转；ACTIVE 政策标签从库读取；Tushare 连接测试 + 复合数据测试器。
+  - 验证：`tests.unit 338`、`mypy`、`ruff`、OpenAPI、前端构建通过。
