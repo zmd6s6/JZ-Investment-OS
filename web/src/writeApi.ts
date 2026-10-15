@@ -86,6 +86,12 @@ export async function readApiError(response: Response): Promise<string> {
   if (code === "CREDENTIAL_MISSING")
     return "此提供方尚未配置凭据。请在对应档案中填写它自己的 API Key 或 Token，再测试连接。";
   if (code === "RESEARCH_PROVIDER_REQUEST_REJECTED") return "所选研究来源暂不可用：请检查档案已启用、凭据可用、类型受支持，以及查询和单标的范围正确。未切换其他来源。";
+  if (code === "RESEARCH_PREVIEW_EXPIRED") return "预览确认窗口已过期，所选内容未入库。请明确重新查询并检查资料，系统不会自动产生费用。";
+  if (code === "RESEARCH_PREVIEW_NOT_FOUND") return "没有找到原预览；可能未成功取得结果。重新查询可能再次计费，请核对后明确发起。";
+  if (code === "RESEARCH_PREVIEW_SOURCE_DISABLED") return "预览对应的来源已停用、移除或没有凭据，本次确认已阻止；不会自动启用来源。";
+  if (code.startsWith("RESEARCH_PREVIEW_") && code.endsWith("CONFLICT")) return "这个预览已使用其他请求或选择确认过，不能覆盖原记录。请找回原预览查看已保存结果。";
+  if (code.startsWith("RESEARCH_PREVIEW_")) return "预览或所选候选已不可用，整批确认未完成。请找回预览核对标的、有效期和所选内容。";
+  if (code === "ANALYSIS_EVIDENCE_SELECTION_INVALID") return "所选证据含缺失、跨标的、重复、未来或过期内容，分析未启动。请刷新并重新勾选，不会偷偷替换成其他资料。";
   if (code === "RESEARCH_PROVIDER_UNAVAILABLE") return "所选研究供应商连接失败或超时。请先检查已存资料，再决定是否重新调用；没有切换其他来源。";
   if (code === "RESEARCH_INGESTION_UNAVAILABLE" || code === "RESEARCH_PROVIDER_RUNTIME_UNAVAILABLE") return "研究服务暂不可用。请检查 API 部署与数据库，不要更换模型密钥。";
   if (response.status === 403) return "当前操作没有权限，未获授权。请检查本系统的访问配置，不要更换供应商 Key。";

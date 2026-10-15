@@ -133,6 +133,7 @@ class AnalysisRunService:
         source: str,
         as_of: datetime,
         policy_version_label: str,
+        input_snapshot: dict[str, Any] | None = None,
     ) -> UUID:
         return await self._port.create(
             instrument_id=instrument_id,
@@ -141,7 +142,10 @@ class AnalysisRunService:
             as_of=as_of,
             policy_version_label=policy_version_label,
             status="RUNNING",
-            payload={"stage": "STARTED"},
+            payload={
+                "stage": "STARTED",
+                **({"input_snapshot": input_snapshot} if input_snapshot is not None else {}),
+            },
         )
 
     async def finish(

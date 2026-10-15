@@ -62,6 +62,20 @@ class SqlAnalysisRunAdapter(AnalysisRunPort):
         )
         self._session.add(record)
         await self._session.flush()
+        if "input_snapshot" in payload:
+            from investment_os.infrastructure.research_preview import append_event
+
+            snapshot = payload["input_snapshot"]
+            append_event(
+                self._session,
+                "ANALYSIS_INPUT_FROZEN",
+                record.id,
+                snapshot["input_hash"],
+                {"run_id": str(record.id), "input_hash": snapshot["input_hash"]},
+                datetime.now(UTC),
+                aggregate="analysis_run",
+                topic="analysis.input",
+            )
         return record.id
 
     async def update_status(
@@ -80,6 +94,12 @@ class SqlAnalysisRunAdapter(AnalysisRunPort):
             "failure_detail": failure_detail,
         }
         if payload is not None:
+            current = await self._session.get(AnalysisRunRecord, run_id)
+            if current and "input_snapshot" in current.payload_json:
+                frozen = current.payload_json["input_snapshot"]
+                if "input_snapshot" in payload and payload["input_snapshot"] != frozen:
+                    raise ValueError("analysis input snapshot is immutable")
+                payload = {**payload, "input_snapshot": frozen}
             values["payload_json"] = payload
         result = await self._session.execute(
             update(AnalysisRunRecord).where(AnalysisRunRecord.id == run_id).values(**values)

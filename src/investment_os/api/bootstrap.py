@@ -7,11 +7,13 @@ from fastapi import FastAPI
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import ProviderSettingsService
+from investment_os.application.research_preview import ResearchPreviewService
 from investment_os.application.research_runtime import (
     DataProviderRuntimeRegistry,
     ResearchProviderRuntime,
 )
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
+from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.bocha.adapter import (
     BochaWebSearchConnectionTester,
 )
@@ -24,6 +26,7 @@ from investment_os.infrastructure.onboarding import (
 )
 from investment_os.infrastructure.openai_compatible_llm import OpenAICompatibleLLMGateway
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
+from investment_os.infrastructure.research_preview import SqlAlchemyResearchPreviews
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
 from investment_os.infrastructure.settings import get_settings
 
@@ -107,7 +110,7 @@ def create_production_app() -> FastAPI:
     )
 
     analysis_product = ProductAnalysisService(
-        session_factory=session_factory,
+        inputs=SqlAlchemyAnalysisInputs(session_factory),
         portfolios=portfolio_book,
         analysis_runs=analysis_runs,
         committee=committee,
@@ -131,6 +134,11 @@ def create_production_app() -> FastAPI:
         instrument_catalog_service=InstrumentCatalogService(catalog_adapter),
         analysis_product_service=analysis_product,
         analysis_run_service=analysis_runs,
+        research_preview_service=ResearchPreviewService(
+            SqlAlchemyResearchPreviews(session_factory),
+            research_provider_runtime,
+            now=lambda: datetime.now(UTC),
+        ),
     )
 
 

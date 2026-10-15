@@ -263,6 +263,51 @@ class ResearchCapabilitiesResponse(StrictResponse):
     provider_types: list[str]
 
 
+class ResearchPreviewRequest(StrictResponse):
+    request_id: UUID
+    instrument_id: UUID
+    query: str = Field(min_length=1, max_length=1000)
+    max_results: int = Field(default=5, ge=1, le=20)
+
+
+class ResearchConfirmationRequest(StrictResponse):
+    instrument_id: UUID
+    candidate_ids: list[UUID] = Field(min_length=1, max_length=20)
+
+
+class CandidateCommitResponse(StrictResponse):
+    candidate_id: UUID
+    evidence_id: UUID
+    reused: bool
+
+
+class ResearchCandidateResponse(StrictResponse):
+    candidate_id: UUID
+    title: str
+    excerpt: str
+    source_name: str
+    source_locator: str
+    source_tier: str
+    provider: str
+    observed_at: datetime
+    available_at: datetime
+    expires_at: datetime | None
+    freshness_status: str
+
+
+class ResearchPreviewResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    preview_id: UUID
+    profile_id: UUID
+    instrument_id: UUID
+    query: str
+    created_at: datetime
+    expires_at: datetime
+    as_of: datetime
+    candidates: list[ResearchCandidateResponse]
+    confirmation: list[CandidateCommitResponse] | None
+
+
 class EvidenceLibraryItemResponse(StrictResponse):
     evidence_id: UUID
     instrument_id: UUID | None
@@ -548,6 +593,7 @@ class StartAnalysisRequest(StrictResponse):
     instrument_id: UUID
     portfolio_id: UUID
     source: Literal["PORTFOLIO", "WATCHLIST", "RESEARCH"] = "PORTFOLIO"
+    evidence_ids: list[UUID] | None = Field(default=None, max_length=50)
 
 
 class AnalysisRunSummaryResponse(StrictResponse):

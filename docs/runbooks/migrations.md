@@ -37,7 +37,23 @@ uv run pytest -m integration --no-cov
 
 初始修订在 PostgreSQL 上是事务性的。失败的 DDL 事务会保留原 Schema。应用写入和 Outbox 写入同样共享一个显式 Unit of Work。
 
-## 验证查询
+## P6 预览与输入快照（20261015_0016）
+
+从 `20261010_0015_analysis_run` 前向新增 `research_preview` / `research_confirmation`，两表仅追加；
+增加 AnalysisRun 已有 `input_snapshot` 不得修改 / 删除的数据库守卫。不重写已有 Evidence、组合或旧报告。
+
+部署前暂停 API / Worker 写入并保存 PostgreSQL 自定义格式备份，使用 `pg_restore --list` 检查归档可读；
+通过同一部署的 `investment-migrate` 升级后再启动 API。必须保留提供方凭据卷、加密主密钥和本机会话库。
+
+应用回滚：使用上一镜像、保留 0016 数据库与新增表 / 触发器。旧 API 可继续读写不带快照的运行，
+新快照仍受保护；不能为了回滚界面删除审计历史。
+仅当预览与快照均为空时允许 Schema 降级；非空降级会明确拒绝，采用前向修复。
+升级异常时 PostgreSQL DDL 事务回滚；如需数据恢复，应将备份恢复到新的、明确指定的数据库后核对，禁止覆盖原库。
+
+自动回归覆盖：空库往返、0015 合成旧报告升级后不变、旧代码写入兼容、空预览降级保留旧报告、
+非空预览禁止降级、快照 UPDATE / DELETE 拒绝。仅在专用可丢弃库运行，测试夹具会清空表。
+
+## 验证查询（核心约束）
 
 确认迁移 head 和可靠任务约束：
 

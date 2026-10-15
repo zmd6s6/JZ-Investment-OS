@@ -17,6 +17,7 @@ from sqlalchemy import select
 
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
+from investment_os.application.evidence import derive_display_freshness
 from investment_os.application.evidence_library import EvidenceLibraryPort
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
@@ -47,6 +48,11 @@ from investment_os.application.research import (
     ResearchProviderSchemaError,
     ResearchProviderUnavailableError,
     ResearchRequest,
+)
+from investment_os.application.research_preview import (
+    ResearchPreview,
+    ResearchPreviewError,
+    ResearchPreviewService,
 )
 from investment_os.application.research_runtime import ResearchProviderRuntime, ResearchRuntimeError
 from investment_os.application.watchlist import WatchlistService
@@ -81,6 +87,7 @@ from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, T
 from .schemas import (
     AnalysisRunDetailResponse,
     AnalysisRunSummaryResponse,
+    CandidateCommitResponse,
     CsvImportCommitResponse,
     CsvImportPreviewResponse,
     CsvImportRequest,
@@ -113,9 +120,13 @@ from .schemas import (
     ProviderTestHistoryResponse,
     ProviderTestResponse,
     ReadinessResponse,
+    ResearchCandidateResponse,
     ResearchCapabilitiesResponse,
+    ResearchConfirmationRequest,
     ResearchIngestRequest,
     ResearchIngestResponse,
+    ResearchPreviewRequest,
+    ResearchPreviewResponse,
     RoleModelAssignmentRequest,
     RoleModelAssignmentResponse,
     StartAnalysisRequest,
@@ -367,6 +378,7 @@ def create_app(
     analysis_product_service: "ProductAnalysisService | None" = None,
     analysis_run_service: "AnalysisRunService | None" = None,
     evidence_library: EvidenceLibraryPort | None = None,
+    research_preview_service: ResearchPreviewService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -976,6 +988,132 @@ def create_app(
             else []
         )
 
+    def preview_service() -> ResearchPreviewService:
+        if research_preview_service is None:
+            raise HTTPException(status_code=503, detail="research_preview_unavailable")
+        return research_preview_service
+
+    def preview_response(preview: ResearchPreview) -> ResearchPreviewResponse:
+        now = datetime.now(UTC)
+        candidates = []
+        for candidate in preview.candidates:
+            artifact = candidate.artifact
+            title = artifact.payload.get("title", artifact.payload.get("headline", "无标题资料"))
+            excerpt = "\n\n".join(
+                str(artifact.payload[key])[:8000]
+                for key in ("summary", "snippet", "text", "content")
+                if isinstance(artifact.payload.get(key), str)
+            )[:16000]
+            candidates.append(
+                ResearchCandidateResponse(
+                    candidate_id=candidate.candidate_id,
+                    title=str(title)[:1000],
+                    excerpt=excerpt,
+                    source_name=artifact.source_name,
+                    source_locator=artifact.source_locator,
+                    source_tier=artifact.source_tier,
+                    provider=artifact.provider,
+                    observed_at=artifact.observed_at.value,
+                    available_at=artifact.available_at.value,
+                    expires_at=artifact.expires_at.value if artifact.expires_at else None,
+                    freshness_status=derive_display_freshness(
+                        as_of=now,
+                        available_at=artifact.available_at.value,
+                        expires_at=artifact.expires_at.value if artifact.expires_at else None,
+                    ).value,
+                )
+            )
+        return ResearchPreviewResponse(
+            preview_id=preview.preview_id,
+            profile_id=preview.profile_id,
+            instrument_id=preview.instrument_id,
+            query=preview.query,
+            created_at=preview.created_at,
+            expires_at=preview.expires_at,
+            as_of=now,
+            candidates=candidates,
+            confirmation=[
+                CandidateCommitResponse.model_validate(item, from_attributes=True)
+                for item in preview.confirmation
+            ]
+            if preview.confirmation is not None
+            else None,
+        )
+
+    def preview_http_error(error: ResearchPreviewError) -> HTTPException:
+        code = error.code
+        status_code = (
+            404
+            if code.endswith("not_found")
+            else 410
+            if code.endswith("expired")
+            else 409
+            if code.endswith("conflict")
+            else 422
+        )
+        return HTTPException(status_code=status_code, detail=code)
+
+    @application.post(
+        "/api/v1/research/providers/{profile_id}/preview",
+        response_model=ResearchPreviewResponse,
+        tags=["research"],
+    )
+    async def create_research_preview(
+        profile_id: UUID, request: ResearchPreviewRequest
+    ) -> ResearchPreviewResponse:
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            await selected_instrument_catalog_service.get(request.instrument_id)
+        except ApplicationError as exc:
+            raise HTTPException(status_code=404, detail="instrument_not_found") from exc
+        try:
+            preview = await preview_service().preview(
+                request_id=request.request_id,
+                profile_id=profile_id,
+                instrument_id=request.instrument_id,
+                query=request.query,
+                max_results=request.max_results,
+            )
+        except ResearchPreviewError as exc:
+            raise preview_http_error(exc) from exc
+        except ResearchProviderUnavailableError as exc:
+            raise HTTPException(status_code=502, detail="research_provider_unavailable") from exc
+        except (ResearchRuntimeError, ResearchProviderSchemaError, ValueError) as exc:
+            raise HTTPException(
+                status_code=422, detail="research_provider_request_rejected"
+            ) from exc
+        return preview_response(preview)
+
+    @application.get(
+        "/api/v1/research/previews/{preview_id}",
+        response_model=ResearchPreviewResponse,
+        tags=["research"],
+    )
+    async def read_research_preview(preview_id: UUID) -> ResearchPreviewResponse:
+        try:
+            return preview_response(await preview_service().get(preview_id))
+        except ResearchPreviewError as exc:
+            raise preview_http_error(exc) from exc
+
+    @application.post(
+        "/api/v1/research/previews/{preview_id}/confirm",
+        response_model=list[CandidateCommitResponse],
+        tags=["research"],
+    )
+    async def confirm_research_preview(
+        preview_id: UUID, request: ResearchConfirmationRequest
+    ) -> list[CandidateCommitResponse]:
+        try:
+            results = await preview_service().confirm(
+                preview_id, request.instrument_id, tuple(request.candidate_ids)
+            )
+        except ResearchPreviewError as exc:
+            raise preview_http_error(exc) from exc
+        return [
+            CandidateCommitResponse.model_validate(item, from_attributes=True) for item in results
+        ]
+
     @application.get(
         "/api/v1/instruments/{instrument_id}/evidence",
         response_model=EvidenceLibraryResponse,
@@ -1529,6 +1667,9 @@ def create_app(
                     instrument_id=request.instrument_id,
                     portfolio_id=request.portfolio_id,
                     source=request.source,
+                    evidence_ids=tuple(request.evidence_ids)
+                    if request.evidence_ids is not None
+                    else None,
                 )
             )
         except ApplicationError as exc:

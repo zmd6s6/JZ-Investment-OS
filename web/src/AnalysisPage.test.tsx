@@ -49,6 +49,7 @@ describe("分析读取反馈", () => {
     fireEvent.click(screen.getByRole("button", { name: "查看" }));
     expect(await screen.findByText(/未配置可用行情或未获取到报价/)).toBeVisible();
     expect(screen.getByText(/没有 Tushare Token 不影响其他已配置功能/)).toBeVisible();
+    expect(screen.getByText("此历史运行未记录本版输入快照，不追补或伪造。")).toBeVisible();
   });
 
   it("loads runs for the selected portfolio", async () => {
@@ -57,6 +58,22 @@ describe("分析读取反馈", () => {
     vi.stubGlobal("fetch", fetcher);
     render(<AnalysisPage />);
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("portfolio_id=synthetic-portfolio"), expect.anything()));
+  });
+
+  it("displays the stored input snapshot without looking up current evidence", async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (!url.startsWith("/api/v1/analysis-runs")) return json([]);
+      if (url.includes("?")) return json([run]);
+      return json({ ...run, payload: { input_snapshot: { schema_version: "1.0", selection_mode: "EXPLICIT", as_of: run.as_of, policy_version_label: "TEST_DEFAULT", input_hash: "synthetic-input-hash", portfolio: { name: "运行当时的组合", base_currency: "CNY", cash_balance: "10000" }, evidence: [{ evidence_id: "frozen-evidence", content_hash: "frozen-hash", summary: "当时的材料", source_name: "合成来源", source_tier: "OTHER", provider: "合成渠道", source_locator: "javascript:alert(1)", observed_at: run.as_of, available_at: run.as_of, expires_at: null }] } } });
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const { container } = render(<AnalysisPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "查看" }));
+    fireEvent.click(await screen.findByText("本次分析输入快照 · 1 条证据"));
+    expect(screen.getByText(/运行当时的组合/)).toBeVisible();
+    expect(screen.getByText(/frozen-evidence.*frozen-hash/)).toBeVisible();
+    expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
+    expect(fetcher.mock.calls.some(([url]) => url.includes("/evidence"))).toBe(false);
   });
 
   it("shows a veto even when no attempted BUY was blocked, and preserves full evidence references", async () => {

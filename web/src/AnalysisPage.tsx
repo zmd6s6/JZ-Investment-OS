@@ -30,6 +30,20 @@ type AnalysisDetail = AnalysisSummary & {
   payload: Record<string, unknown>;
 };
 
+function FrozenInputs({ value }: { value: unknown }) {
+  if (!value || typeof value !== "object") return <p className="hint-text">此历史运行未记录本版输入快照，不追补或伪造。</p>;
+  const snapshot = value as Record<string, unknown>;
+  const evidence = Array.isArray(snapshot.evidence) ? snapshot.evidence.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object") : [];
+  const portfolio = snapshot.portfolio && typeof snapshot.portfolio === "object" ? snapshot.portfolio as Record<string, unknown> : null;
+  const text = (item: unknown) => typeof item === "string" ? item : "未记录";
+  return <details className="frozen-inputs"><summary>本次分析输入快照 · {evidence.length} 条证据</summary>
+    <p>选择方式：{snapshot.selection_mode === "EXPLICIT" ? "用户明确勾选" : "兼容入口的有界近期资料"} · 冻结时点：{text(snapshot.as_of)} · 政策：{text(snapshot.policy_version_label)}</p>
+    <p className="hint-text">输入摘要：{text(snapshot.input_hash)}。这里展示运行当时保存的值，不重新抓取当前资料。</p>
+    {portfolio ? <p>当时组合：{text(portfolio.name)} · 记账币种 {text(portfolio.base_currency)} · 现金 {text(portfolio.cash_balance)}</p> : null}
+    {evidence.map((item) => <article className="evidence-card" key={text(item.evidence_id)}><strong>{text(item.summary)}</strong><p>{text(item.source_name)} · 获取渠道 {text(item.provider)} · {text(item.source_tier)}</p><p className="hint-text">证据 ID：{text(item.evidence_id)} · 内容摘要：{text(item.content_hash)}</p><p className="hint-text">观察：{text(item.observed_at)} · 可用：{text(item.available_at)} · 到期：{text(item.expires_at)}</p><p className="hint-text">来源定位（不自动访问）：{text(item.source_locator)}</p></article>)}
+  </details>;
+}
+
 export function AnalysisPage() {
   const [runs, setRuns] = useState<AnalysisSummary[]>([]);
   const [selected, setSelected] = useState<AnalysisDetail | null>(null);
@@ -235,6 +249,7 @@ export function AnalysisPage() {
           <p><strong>{names.instruments[selected.instrument_id] ?? "标的名称暂不可读取"}</strong> · {names.portfolios[selected.portfolio_id] ?? "组合名称暂不可读取"}</p>
           <p className="hint-text">名称来自当前持仓 / 观察档案，只作导航；历史分析仍以固定标识与输入快照为准。</p>
           <details><summary>运行与关联标识</summary><p className="hint-text">运行 {selected.id} · 标的 {selected.instrument_id} · 组合 {selected.portfolio_id}</p></details>
+          <FrozenInputs value={selected.payload.input_snapshot} />
           {selected.policy_version_label.includes("TEST_DEFAULT") ? <p className="context-note">当前使用 TEST_DEFAULT 测试政策，不是真实投资限额，不允许据此增加暴露。这里不会自动激活或修改政策。</p> : null}
           {selected.failure_detail || selected.failure_code ? (
             <p className="banner banner-error">

@@ -773,3 +773,26 @@ class AnalysisRunRecord(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="product_ui")
+
+
+class ResearchPreviewRecord(AuditFieldsMixin, Base):
+    __tablename__ = "research_preview"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    profile_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+
+
+class ResearchConfirmationRecord(AuditFieldsMixin, Base):
+    __tablename__ = "research_confirmation"
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("research_preview.id"), primary_key=True
+    )
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)

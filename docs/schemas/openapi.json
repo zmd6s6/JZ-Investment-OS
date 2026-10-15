@@ -175,6 +175,32 @@
         "title": "AnalysisRunSummaryResponse",
         "type": "object"
       },
+      "CandidateCommitResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "format": "uuid",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "reused": {
+            "title": "Reused",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "evidence_id",
+          "reused"
+        ],
+        "title": "CandidateCommitResponse",
+        "type": "object"
+      },
       "CsvImportAppliedRowResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2683,6 +2709,81 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "ResearchCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "candidate_id": {
+            "format": "uuid",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "freshness_status": {
+            "title": "Freshness Status",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_tier": {
+            "title": "Source Tier",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "title",
+          "excerpt",
+          "source_name",
+          "source_locator",
+          "source_tier",
+          "provider",
+          "observed_at",
+          "available_at",
+          "expires_at",
+          "freshness_status"
+        ],
+        "title": "ResearchCandidateResponse",
+        "type": "object"
+      },
       "ResearchCapabilitiesResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2704,6 +2805,32 @@
           "provider_types"
         ],
         "title": "ResearchCapabilitiesResponse",
+        "type": "object"
+      },
+      "ResearchConfirmationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Candidate Ids",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "candidate_ids"
+        ],
+        "title": "ResearchConfirmationRequest",
         "type": "object"
       },
       "ResearchIngestRequest": {
@@ -2836,6 +2963,120 @@
         "title": "ResearchIngestResponse",
         "type": "object"
       },
+      "ResearchPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "instrument_id",
+          "query"
+        ],
+        "title": "ResearchPreviewRequest",
+        "type": "object"
+      },
+      "ResearchPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CandidateCommitResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "preview_id": {
+            "format": "uuid",
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preview_id",
+          "profile_id",
+          "instrument_id",
+          "query",
+          "created_at",
+          "expires_at",
+          "as_of",
+          "candidates",
+          "confirmation"
+        ],
+        "title": "ResearchPreviewResponse",
+        "type": "object"
+      },
       "RoleModelAssignmentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2880,6 +3121,22 @@
       "StartAnalysisRequest": {
         "additionalProperties": false,
         "properties": {
+          "evidence_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ids"
+          },
           "instrument_id": {
             "format": "uuid",
             "title": "Instrument Id",
@@ -4487,6 +4744,106 @@
         ]
       }
     },
+    "/api/v1/research/previews/{preview_id}": {
+      "get": {
+        "operationId": "read_research_preview_api_v1_research_previews__preview_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preview_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Preview Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Research Preview",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/api/v1/research/previews/{preview_id}/confirm": {
+      "post": {
+        "operationId": "confirm_research_preview_api_v1_research_previews__preview_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preview_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Preview Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchConfirmationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CandidateCommitResponse"
+                  },
+                  "title": "Response Confirm Research Preview Api V1 Research Previews  Preview Id  Confirm Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Research Preview",
+        "tags": [
+          "research"
+        ]
+      }
+    },
     "/api/v1/research/providers/{profile_id}/fetch": {
       "post": {
         "description": "\u4ec5\u6309\u660e\u786e\u6307\u5b9a\u7684\u5df2\u542f\u7528\u63d0\u4f9b\u65b9\u6863\u6848\u83b7\u53d6\u7814\u7a76\u7ebf\u7d22, \u4e0d\u4f1a\u81ea\u52a8\u56de\u9000\u5230\u5176\u4ed6\u6765\u6e90\u3002",
@@ -4536,6 +4893,59 @@
           }
         },
         "summary": "Fetch Provider Research",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/api/v1/research/providers/{profile_id}/preview": {
+      "post": {
+        "operationId": "create_research_preview_api_v1_research_providers__profile_id__preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Research Preview",
         "tags": [
           "research"
         ]
