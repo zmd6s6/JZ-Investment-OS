@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 
 import { getWriteToken, setWriteToken, verifyWriteToken } from "./writeApi";
 import { requestAccessSetup, UsageGuide } from "./UsageGuide";
+import { useLocalAccess } from "./LocalAccess";
 
 const navItems = [
   { href: "/", label: "首页" },
@@ -32,8 +33,11 @@ export function ProductChrome({
   const accessDialog = useRef<HTMLDialogElement>(null);
   const tokenInput = useRef<HTMLInputElement>(null);
   const submitting = useRef(false);
+  const access = useLocalAccess();
+  const [accessInfo, setAccessInfo] = useState(false);
 
   function openAccess() {
+    if (access.local) { setAccessInfo(true); return; }
     setToken(getWriteToken());
     setShowToken(false);
     setTokenError(null);
@@ -43,7 +47,7 @@ export function ProductChrome({
   useEffect(() => {
     window.addEventListener("investment-os:configure-access", openAccess);
     return () => window.removeEventListener("investment-os:configure-access", openAccess);
-  }, []);
+  }, [access.local]);
 
   useEffect(() => {
     const dialog = accessDialog.current;
@@ -108,18 +112,19 @@ export function ProductChrome({
               </a>
             );
           })}
-          <button
+          {access.local ? <button type="button" className="token-toggle" onClick={() => setAccessInfo((value) => !value)}>本机已连接</button> : <button
             type="button"
             className="token-toggle"
             onClick={openAccess}
             title="验证或更新本系统的访问令牌；不是供应商 API Key"
           >
             {verified ? "本地访问已验证" : getWriteToken() ? "访问令牌已保存" : "配置写令牌"}
-          </button>
+          </button>}
         </nav>
       </header>
 
-      {tokenOpen ? (
+      {accessInfo ? <section className="local-access-info"><strong>本机访问已建立</strong><p>当前浏览器保持会话，无需填写开发令牌。手动断开后，可双击本地启动入口重新连接；不会删除持仓或供应商凭据。</p><button type="button" className="btn" disabled={checking} onClick={() => setAccessInfo(false)}>返回工作台</button> <button type="button" className="btn" disabled={checking} onClick={async () => { setChecking(true); try { await access.logout(); } catch { setTokenMessage("暂时无法断开本机访问，请稍后重试。"); } finally { setChecking(false); } }}>断开本机访问</button></section> : null}
+      {!access.local && tokenOpen ? (
         <dialog ref={accessDialog} className="access-dialog" aria-labelledby="access-title" aria-describedby="access-description" onCancel={(event) => { event.preventDefault(); closeAccess(); }}>
           <form onSubmit={(event) => { event.preventDefault(); void saveToken(); }}>
           <div className="panel-header">
@@ -173,7 +178,7 @@ export function ProductChrome({
             {subtitle ? <p className="page-subtitle">{subtitle}</p> : null}
           </div>
         </header>
-        <UsageGuide onAccess={openAccess} expanded={window.location.pathname === "/"} />
+        <UsageGuide onAccess={openAccess} local={access.local} expanded={window.location.pathname === "/"} />
         {children}
       </main>
     </div>

@@ -42,6 +42,13 @@ class ProductCapabilityResponse(StrictResponse):
     detail: str
 
 
+class LocalSessionResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    mode: Literal["bearer", "local_session"]
+    authenticated: bool
+    expires_at: int | None
+
+
 class SystemSettingsResponse(StrictResponse):
     schema_version: Literal["1.0"] = "1.0"
     market_timezone: str

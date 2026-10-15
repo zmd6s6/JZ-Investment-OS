@@ -1530,6 +1530,47 @@
         "title": "LivenessResponse",
         "type": "object"
       },
+      "LocalSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authenticated": {
+            "title": "Authenticated",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "mode": {
+            "enum": [
+              "bearer",
+              "local_session"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "authenticated",
+          "expires_at"
+        ],
+        "title": "LocalSessionResponse",
+        "type": "object"
+      },
       "ManualPositionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3364,6 +3405,83 @@
           }
         },
         "summary": "Check Write Access",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "revoke_local_browser_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Revoke Local Browser",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/pair": {
+      "post": {
+        "operationId": "pair_local_browser_api_v1_auth_pair_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "description": "\u4e00\u6b21\u6027\u672c\u673a\u914d\u5bf9\u7801",
+                    "type": "string",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pair Local Browser",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "operationId": "local_session_status_api_v1_auth_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Local Session Status",
         "tags": [
           "auth"
         ]

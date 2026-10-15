@@ -1,4 +1,6 @@
 const TOKEN_KEY = "investment_os_write_token";
+let apiAuthMode: "bearer" | "local_session" = "bearer";
+export function setApiAuthMode(mode: "bearer" | "local_session") { apiAuthMode = mode; }
 
 export function getWriteToken(): string {
   try {
@@ -22,11 +24,14 @@ export async function apiFetch(url: string, init: RequestInit = {}): Promise<Res
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-    const token = getWriteToken();
+    headers.set("X-Investment-OS", "local-ui");
+    const token = apiAuthMode === "bearer" ? getWriteToken() : "";
     if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
   }
   try {
-    return await fetch(url, { ...init, headers });
+    const response = await fetch(url, { ...init, credentials: "same-origin", headers });
+    if (response.status === 401 && apiAuthMode === "local_session") window.dispatchEvent(new Event("investment-os:session-expired"));
+    return response;
   } catch {
     throw new Error("无法连接本地服务。请检查服务是否启动；若刚提交过操作，请先刷新核对结果，避免重复提交。");
   }
@@ -69,6 +74,9 @@ export async function readApiError(response: Response): Promise<string> {
       : "";
   if (code === "WRITE_API_TOKEN_NOT_CONFIGURED")
     return "服务端尚未配置本系统的写入令牌，保存操作已禁用。请联系维护者配置；这不是模型或数据源 Key 的问题。";
+  if (code === "LOCAL_ACCESS_REQUIRED") return "本机访问已过期或未连接。请重新从「打开投资工作台.cmd」进入，不需要填写令牌或更换供应商 Key。";
+  if (code === "LOCAL_ORIGIN_MISMATCH" || code === "LOCAL_ORIGIN_REQUIRED") return "请求来源与本机工作台不一致，操作已阻止。请从本地启动入口打开正确地址。";
+  if (code === "LOCAL_ACCESS_UNAVAILABLE") return "本机会话存储暂不可用，操作未完成。请检查运行目录权限后重试，不要更换供应商密钥。";
   if (code === "WRITE_API_UNAUTHORIZED" || response.status === 401)
     return getWriteToken()
       ? "本系统的写入令牌不正确或已失效。请在右上角重新配置，不需要更换模型或数据源 Key。"

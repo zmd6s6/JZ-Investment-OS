@@ -7,6 +7,7 @@ import { PolicyReviewPanel } from "./PolicyReviewPanel";
 import { AnalysisPage } from "./AnalysisPage";
 import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
+import { LocalAccessBoundary } from "./LocalAccess";
 
 type OnboardingStatus = "NOT_STARTED" | "IN_PROGRESS";
 type CapabilityStatus = "AVAILABLE" | "CONFIGURATION_REQUIRED" | "NOT_IMPLEMENTED";
@@ -188,7 +189,7 @@ function HomePage() {
   );
 }
 
-export function App() {
+function ProductRoutes() {
   const path = window.location.pathname;
   if (path === "/demo/pr-08") return <LegacyDemo />;
   if (path === "/settings") return <SettingsPage />;
@@ -196,6 +197,10 @@ export function App() {
   if (path === "/watchlist") return <WatchlistPage />;
   if (path === "/analysis") return <AnalysisPage />;
   return <HomePage />;
+}
+
+export function App() {
+  return <LocalAccessBoundary><ProductRoutes /></LocalAccessBoundary>;
 }
 
 export default App;

@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-investment_os}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -30,8 +30,11 @@ services:
       INVESTMENT_OS_SECRET_STORE_PATH: ${INVESTMENT_OS_SECRET_STORE_PATH:-/app/.runtime/provider-secrets.json}
       INVESTMENT_OS_SECRET_STORE_KEY: ${INVESTMENT_OS_SECRET_STORE_KEY:-}
       INVESTMENT_OS_API_WRITE_TOKEN: ${INVESTMENT_OS_API_WRITE_TOKEN:-}
+      INVESTMENT_OS_API_AUTH_MODE: ${INVESTMENT_OS_API_AUTH_MODE:-local_session}
+      INVESTMENT_OS_LOCAL_ORIGIN: http://127.0.0.1:${API_PORT:-8100}
+      INVESTMENT_OS_LOCAL_ACCESS_STORE_PATH: /app/.runtime/local-access.sqlite3
     ports:
-      - "${API_PORT:-8100}:8000"
+      - "127.0.0.1:${API_PORT:-8100}:8000"
     volumes:
       - provider-secrets:/app/.runtime
     depends_on:

@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { ProductChrome } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
 import { requestAccessSetup } from "./UsageGuide";
+import { useLocalAccess } from "./LocalAccess";
 
 type SystemSettings = {
   market_timezone: string;
@@ -112,6 +113,7 @@ function DataProviderSyncStatus({ history }: { history: SyncHistory | null | und
 }
 
 export function SettingsPage() {
+  const localAccess = useLocalAccess();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [models, setModels] = useState<ModelProfile[]>([]);
   const [dataProfiles, setDataProfiles] = useState<DataProfile[]>([]);
@@ -436,7 +438,7 @@ export function SettingsPage() {
         已支持的数据提供方也只会在您明确点击“测试连接”后发起受限网络校验；未支持的类型
         和未配置凭据会失败关闭。
       </p>
-      <p className="hint-text">右上角的写入令牌用于本系统的操作授权；下方的 API Key / Token 属于各提供方，二者不能混用。没有 Tushare 凭据也可以配置模型与保存持仓。</p>
+      <p className="hint-text">{localAccess.local ? "本机已连接，不需要填写开发令牌。下方 API Key / Token 只用于各供应商；没有 Tushare 凭据也可以保存持仓。" : "右上角的写入令牌用于本系统的操作授权；下方的 API Key / Token 属于各提供方，二者不能混用。没有 Tushare 凭据也可以配置模型与保存持仓。"}</p>
       </details>
       <div className="settings-feedback">
         {initialLoading ? <p role="status" className="banner banner-info">正在读取设置，请稍候…</p> : null}

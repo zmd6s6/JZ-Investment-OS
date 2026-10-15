@@ -6,7 +6,7 @@ const steps = [
   { title: "阅读报告", href: "/analysis", detail: "先看完成状态与数据缺口，再看各角色观点、分歧、风险和建议。缺行情不生成虚构估值或买入数量。" },
 ] as const;
 
-export function UsageGuide({ onAccess, expanded = false }: { onAccess: () => void; expanded?: boolean }) {
+export function UsageGuide({ onAccess, expanded = false, local = false }: { onAccess: () => void; expanded?: boolean; local?: boolean }) {
   return (
     <details className="usage-guide" open={expanded}>
       <summary><span>使用指南</span><span className="guide-summary">从授权到报告 · 随时展开查看</span></summary>
@@ -15,8 +15,8 @@ export function UsageGuide({ onAccess, expanded = false }: { onAccess: () => voi
           <li key={step.title}>
             <span className="step-number">{String(index + 1).padStart(2, "0")}</span>
             <div>
-              {step.href ? <a href={step.href}>{step.title} →</a> : <button type="button" onClick={onAccess}>{step.title} →</button>}
-              <p>{step.detail}</p>
+              {step.href ? <a href={step.href}>{step.title} →</a> : <button type="button" onClick={onAccess}>{local ? "本机已连接" : step.title} →</button>}
+              <p>{local && index === 0 ? "本地入口已完成配对。当前浏览器自动保持会话，日常无需填写开发令牌；与供应商 API Key 无关。" : step.detail}</p>
               {index === 2 ? <a className="guide-secondary" href="/watchlist">没有持仓？先添加观察标的 →</a> : null}
             </div>
           </li>

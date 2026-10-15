@@ -38,6 +38,12 @@ PR-08 React 工作区位于 `web/`。仅用于开发的命令是在该目录中�
 
 ## 本地开发设置
 
+默认 Compose 只向 `127.0.0.1` 发布 API 与数据库端口。服务启动后，Windows 用户双击根目录的
+`打开投资工作台.cmd`，即可自动配对并打开页面，不必复制开发令牌。会话最长保留 30 天，支持刷新、新标签页与 API 重启；
+断开或过期后重新打开本地入口即可。非 Windows 平台使用 `uv run python scripts/open_local_ui.py`。
+此入口要求 Docker 服务正在运行，不负责安装 Docker / uv；多个部署可加 `--url http://127.0.0.1:端口`。
+会话不授权交易，也不自动启用或调用任何模型 / 数据源。细节见[使用指南](docs/product/USER_GUIDE.md)。
+
 PowerShell：
 
 ```powershell

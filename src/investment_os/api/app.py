@@ -1,5 +1,7 @@
 """Bootstrap API with liveness and real infrastructure readiness endpoints."""
 
+import asyncio
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC
@@ -7,7 +9,7 @@ from pathlib import Path
 from time import monotonic
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException, Query, Response, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
@@ -63,6 +65,12 @@ from investment_os.infrastructure.decision_journal import (
     SqlAlchemyDecisionJournalReader,
 )
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
+from investment_os.infrastructure.local_access import (
+    SESSION_TTL,
+    LocalAccessStore,
+    cookie_name,
+    local_origin,
+)
 from investment_os.infrastructure.report_delivery import SqlAlchemyDailyReportReader
 from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
@@ -85,6 +93,7 @@ from .schemas import (
     LLMBudgetPolicyRequest,
     LLMBudgetResponse,
     LLMBudgetUsageResponse,
+    LocalSessionResponse,
     ManualPositionRequest,
     ModelProviderProfileRequest,
     ModelProviderProfileResponse,
@@ -348,6 +357,8 @@ def create_app(
     watchlist_service: WatchlistService | None = None,
     portfolio_csv_service: PortfolioCsvImportService | None = None,
     write_api_token: str | None = None,
+    local_access_store: LocalAccessStore | None = None,
+    local_access_origin: str | None = None,
     analysis_product_service: "ProductAnalysisService | None" = None,
     analysis_run_service: "AnalysisRunService | None" = None,
 ) -> FastAPI:
@@ -439,7 +450,89 @@ def create_app(
     selected_write_token = (
         write_api_token if write_api_token is not None else settings.api_write_token
     )
-    application.add_middleware(WriteApiAuthMiddleware, token=selected_write_token)
+    local_store = local_access_store
+    origin = local_origin(local_access_origin or settings.local_origin)
+    if local_store is None and settings.api_auth_mode == "local_session":
+        local_store = LocalAccessStore(settings.local_access_store_path)
+    application.add_middleware(
+        WriteApiAuthMiddleware, token=selected_write_token, local_store=local_store, origin=origin
+    )
+
+    @application.get("/api/v1/auth/session", response_model=LocalSessionResponse, tags=["auth"])
+    async def local_session_status(request: Request) -> dict[str, object]:
+        if local_store is None:
+            return {"mode": "bearer", "authenticated": False, "expires_at": None}
+        expiry = await asyncio.to_thread(
+            local_store.session_expiry, request.cookies.get(cookie_name(origin), ""), origin
+        )
+        return {"mode": "local_session", "authenticated": expiry is not None, "expires_at": expiry}
+
+    @application.post(
+        "/api/v1/auth/pair",
+        response_model=LocalSessionResponse,
+        tags=["auth"],
+        openapi_extra={
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["code"],
+                            "properties": {
+                                "code": {
+                                    "type": "string",
+                                    "writeOnly": True,
+                                    "description": "一次性本机配对码",
+                                }
+                            },
+                            "additionalProperties": False,
+                        }
+                    }
+                },
+            }
+        },
+    )
+    async def pair_local_browser(request: Request, response: Response) -> dict[str, object]:
+        if local_store is None:
+            raise HTTPException(status_code=404, detail="local_access_disabled")
+        if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
+            raise HTTPException(status_code=400, detail="local_pairing_invalid")
+        data = bytearray()
+        async for chunk in request.stream():
+            data.extend(chunk)
+            if len(data) > 1024:
+                raise HTTPException(status_code=400, detail="local_pairing_invalid")
+        try:
+            value = json.loads(data)
+            if not isinstance(value, dict) or set(value) != {"code"}:
+                raise ValueError("invalid shape")
+            code = value["code"]
+            if not isinstance(code, str):
+                raise ValueError("invalid code")
+            session, expires = await asyncio.to_thread(local_store.exchange, code, origin)
+        except (ValueError, UnicodeDecodeError):
+            raise HTTPException(status_code=401, detail="local_pairing_invalid") from None
+        response.set_cookie(
+            cookie_name(origin),
+            session,
+            max_age=SESSION_TTL,
+            httponly=True,
+            samesite="strict",
+            path="/api/v1",
+        )
+        return {"mode": "local_session", "authenticated": True, "expires_at": expires}
+
+    @application.post("/api/v1/auth/logout", status_code=204, tags=["auth"])
+    async def revoke_local_browser(request: Request) -> Response:
+        if local_store is None:
+            raise HTTPException(status_code=404, detail="local_access_disabled")
+        await asyncio.to_thread(local_store.revoke, request.cookies.get(cookie_name(origin), ""))
+        response = Response(status_code=204)
+        response.delete_cookie(
+            cookie_name(origin), path="/api/v1", httponly=True, samesite="strict"
+        )
+        return response
 
     @application.post("/api/v1/auth/check", tags=["auth"])
     async def check_write_access() -> dict[str, str]:
