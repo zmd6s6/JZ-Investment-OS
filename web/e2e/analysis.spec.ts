@@ -97,6 +97,7 @@ test("portfolio analysis runs end-to-end and the report persists after reload", 
   const row = page.getByRole("row").filter({ hasText: "600519" });
   await expect(row).toBeVisible();
   await row.getByRole("button", { name: "立即分析" }).click();
+  await page.getByRole("button", { name: "确认启动分析" }).click();
 
   // --- report page: list + detail must render the full chain ---
   await expect(page.getByRole("heading", { name: "分析运行" })).toBeVisible({
@@ -112,7 +113,7 @@ test("portfolio analysis runs end-to-end and the report persists after reload", 
   // Full committee chain: eight role opinions rendered in the table.
   await expect(page.getByRole("heading", { name: "投资团队意见" })).toBeVisible();
   for (const role of ["MACRO", "FUNDAMENTAL", "RISK", "PORTFOLIO"]) {
-    await expect(page.getByRole("cell", { name: role, exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("cell").filter({ hasText: role }).first()).toBeVisible();
   }
   // Read-only shadow decision banner + pinned policy label.
   await expect(page.getByText("本结果为只读影子分析；批准与执行属于后续阶段")).toBeVisible();

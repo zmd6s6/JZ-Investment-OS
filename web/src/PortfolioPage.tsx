@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
+import { AnalysisStartDialog } from "./AnalysisStartDialog";
 import { explainFailure } from "./analysisLabels";
 import { apiFetch, readApiError } from "./writeApi";
 
@@ -138,6 +139,7 @@ export function PortfolioPage() {
   // In-flight analysis feedback: real model runs take 30-90s with no UI otherwise.
   const [analyzing, setAnalyzing] = useState<string | null>(null);
   const [analysisElapsed, setAnalysisElapsed] = useState(0);
+  const [analysisTarget, setAnalysisTarget] = useState<PortfolioPosition | null>(null);
   const listSeqRef = useRef(0);
   const selectedIdRef = useRef("");
   const intentIdRef = useRef("");
@@ -401,18 +403,22 @@ export function PortfolioPage() {
     <ProductChrome
       eyebrow="资产组合"
       title="我的持仓"
-      subtitle="录入或导入持仓。不计算市值，不给买卖建议。"
+      subtitle="先选择组合，再录入现金和分仓；在持仓一览发起团队分析。记账不会产生交易。"
     >
+      {analysisTarget && selected ? <AnalysisStartDialog label={`${analysisTarget.symbol} ${analysisTarget.name}`} portfolio={selected} onCancel={() => setAnalysisTarget(null)} onConfirm={() => { const id = analysisTarget.instrument_id; setAnalysisTarget(null); void startAnalysis(id); }} /> : null}
+      <nav className="section-nav" aria-label="持仓操作"><a href="#portfolios">1. 选择或创建组合</a><a href="#position-entry">2. 录入持仓</a><a href="#csv-import">批量导入</a><a href="#holdings">3. 查看持仓 / 分析</a></nav>
+      <div className="action-feedback">
       <StatusBanner kind="error" text={error} />
       <StatusBanner kind="ok" text={message} />
       <StatusBanner
         kind="info"
         text={
           analyzing !== null
-            ? `正在分析 ${analyzing}（已用 ${analysisElapsed}s）：投资团队辩论 → 风险评估 → 仓位计算，通常需要 1–2 分钟，完成后自动打开报告…`
+            ? `正在分析 ${analyzing}（已用 ${analysisElapsed}s）。通常需要 1–2 分钟，请保留页面；完成后打开报告。当前显示总耗时，不代表逐阶段进度。`
             : null
         }
       />
+      </div>
 
       <div className="stat-row">
         <article className="stat-card">
@@ -432,27 +438,30 @@ export function PortfolioPage() {
         <article className="stat-card">
           <span>持仓</span>
           <strong>{selected?.positions.length ?? 0} 笔</strong>
-          <small>核心仓 / 短线仓</small>
+          <small>长期仓（Core）/ 机动仓（Tactical）</small>
         </article>
         <article className="stat-card warn">
           <span>市值</span>
           <strong>未提供</strong>
-          <small>后续版本再算</small>
+          <small>此页只记账；估值见分析报告</small>
         </article>
       </div>
 
-      <div className="two-col">
+      <div className="two-col" id="portfolios">
         <Panel title="选择组合" tone="muted">
           {portfolios.length === 0 ? (
-            <EmptyState title="还没有组合" hint="在右边创建。" />
+            <EmptyState title="还没有组合" hint="在「新建组合」填写名称和记账货币。" />
           ) : (
-            <ul className="select-list">
+            <ul className="select-list portfolio-list">
               {portfolios.map((item) => (
                 <li key={item.portfolio_id}>
                   <button
                     type="button"
                     className={item.portfolio_id === selected?.portfolio_id ? "selected" : ""}
+                    aria-pressed={item.portfolio_id === selected?.portfolio_id}
                     onClick={() => {
+                      setMessage(null);
+                      setError(null);
                       persistSelection(item.portfolio_id);
                       setPreview(null);
                       setImportReport(null);
@@ -541,10 +550,12 @@ export function PortfolioPage() {
         </Panel>
       </div>
 
+      <div id="position-entry">
       <Panel
         title="记一笔持仓"
         description="可用目录搜索选标的；也可手填。市场可自动识别（五位代码为港股）。"
       >
+        <p className="context-note">当前写入：<strong>{selected?.name ?? "尚未选择组合"}</strong>。长期仓（Core）是中长期底仓，机动仓（Tactical）是灵活调整部分；数量分别填写，不确定时可先将其中一项填 0。均价为每单位成本，不是持仓总金额。</p>
         <InstrumentSearchBox
           onSelect={(hit) => {
             setManual((prev) => ({
@@ -654,8 +665,9 @@ export function PortfolioPage() {
             />
           </label>
           <button type="submit" className="btn primary" disabled={busy || !selected}>
-            保存持仓
+            {busy && !analyzing ? "正在处理…" : "保存持仓"}
           </button>
+          {!selected ? <p className="hint-text">请先创建或选择组合，再保存持仓。</p> : null}
         </form>
 
         <button
@@ -702,7 +714,9 @@ export function PortfolioPage() {
           </div>
         ) : null}
       </Panel>
+      </div>
 
+      <div id="csv-import">
       <Panel
         title="批量导入 CSV"
         description="先预览、再确认。有错行会拦住，不会导一半。"
@@ -728,7 +742,7 @@ export function PortfolioPage() {
           placeholder="粘贴 CSV 文本…"
         />
         <div className="btn-row">
-          <button type="button" className="btn" onClick={() => void previewCsv()} disabled={busy}>
+          <button type="button" className="btn" onClick={() => void previewCsv()} disabled={busy || !selected || !csvText.trim()}>
             预览
           </button>
           <button
@@ -737,6 +751,7 @@ export function PortfolioPage() {
             onClick={() => void confirmCsv()}
             disabled={
               busy ||
+              !selected ||
               !preview?.can_commit ||
               (Boolean(preview?.requires_conflict_policy) && conflictPolicy === "")
             }
@@ -749,6 +764,7 @@ export function PortfolioPage() {
           {preview && !preview.can_commit ? (
             <span className="inline-note">有错误行，暂不能导入</span>
           ) : null}
+          {!selected ? <p className="hint-text">先选择组合，才能预览并导入。</p> : !preview ? <p className="hint-text">粘贴内容后先点「预览」；校验通过后才能确认导入。示例为演示数据，导入前请替换。</p> : null}
         </div>
 
         {preview ? (
@@ -857,6 +873,7 @@ export function PortfolioPage() {
           </div>
         ) : null}
       </Panel>
+      </div>
 
       {importReport ? (
         <Panel
@@ -917,7 +934,8 @@ export function PortfolioPage() {
         </Panel>
       ) : null}
 
-      <Panel title="持仓一览" description="点击行可载入编辑。导入或录入后在这里核对。">
+      <div id="holdings">
+      <Panel title="持仓一览" description="点击行可载入编辑。点「立即分析」先核对组合与可能的模型费用，不会直接交易。">
         {!selected || selected.positions.length === 0 ? (
           <EmptyState title="暂无持仓" hint="用上面的方式录入后，这里会显示。" />
         ) : (
@@ -1004,7 +1022,7 @@ export function PortfolioPage() {
                       type="button"
                       className="btn"
                       disabled={!selected || busy}
-                      onClick={() => void startAnalysis(position.instrument_id)}
+                      onClick={(event) => { event.stopPropagation(); setAnalysisTarget(position); }}
                     >
                       {analyzing !== null
                         ? `分析中… ${analysisElapsed}s`
@@ -1017,6 +1035,7 @@ export function PortfolioPage() {
           </table>
         )}
       </Panel>
+      </div>
     </ProductChrome>
   );
 }

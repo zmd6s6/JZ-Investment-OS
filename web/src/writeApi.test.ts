@@ -1,10 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiFetch, getWriteToken, readApiError, setWriteToken, verifyWriteToken } from "./writeApi";
 
-afterEach(() => { sessionStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { sessionStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 const response = (status: number, detail: unknown) => new Response(JSON.stringify({ detail }), { status });
 
 describe("统一请求与安全错误提示", () => {
+  it("times out local authorization rather than leaving the dialog permanently busy", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+    })));
+    const verification = expect(verifyWriteToken("synthetic-local-access")).rejects.toThrow("本地访问验证超时");
+    await vi.advanceTimersByTimeAsync(15000);
+    await verification;
+    expect(getWriteToken()).toBe("");
+  });
   it("writes carry the session bearer, reads do not, explicit verification uses the candidate", async () => {
     setWriteToken("synthetic-old");
     const fetcher = vi.fn().mockResolvedValue(new Response("{}"));

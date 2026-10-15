@@ -298,6 +298,9 @@ describe("PortfolioPage stale response protection", () => {
     await waitFor(() => expect(currentPortfolioName()).toBe("持仓组合"));
 
     fireEvent.click(screen.getByRole("button", { name: "立即分析" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("可能调用付费模型");
+    expect(screen.queryByText(/已载入 600519/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认启动分析" }));
 
     // The banner must appear immediately, not only after the run finishes.
     await waitFor(() =>

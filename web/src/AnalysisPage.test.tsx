@@ -7,9 +7,21 @@ const run = { id: "synthetic-run", instrument_id: "synthetic-instrument", portfo
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 describe("分析读取反馈", () => {
+  it("makes the portfolio filter visible and can show all reports without a write", async () => {
+    sessionStorage.setItem("selected_portfolio_id", "synthetic-portfolio");
+    const fetcher = vi.fn().mockImplementation(async () => json([]));
+    vi.stubGlobal("fetch", fetcher);
+    render(<AnalysisPage />);
+    const button = await screen.findByRole("button", { name: "查看全部组合报告" });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    await waitFor(() => expect(fetcher).toHaveBeenCalledWith("/api/v1/analysis-runs?limit=50", expect.anything()));
+    expect(screen.getByText(/范围：全部组合/)).toBeVisible();
+    expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+  });
   it("catches refresh errors and allows a successful retry", async () => {
     let reads = 0;
-    vi.stubGlobal("fetch", vi.fn(async () => ++reads === 1 ? json({ detail: "failure" }, 503) : json([run])));
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => !url.startsWith("/api/v1/analysis-runs") ? json([]) : ++reads === 1 ? json({ detail: "failure" }, 503) : json([run])));
     render(<AnalysisPage />);
     expect(await screen.findByText(/服务暂时无法完成请求/)).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "刷新运行列表" }));
@@ -21,6 +33,7 @@ describe("分析读取反馈", () => {
     let resolve!: (r: Response) => void;
     let details = 0;
     vi.stubGlobal("fetch", vi.fn((url: string) => {
+      if (!url.startsWith("/api/v1/analysis-runs")) return Promise.resolve(json([]));
       if (url.includes("?")) return Promise.resolve(json([run]));
       details++;
       if (details === 1) return new Promise<Response>((r) => { resolve = r; });
@@ -44,5 +57,20 @@ describe("分析读取反馈", () => {
     vi.stubGlobal("fetch", fetcher);
     render(<AnalysisPage />);
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("portfolio_id=synthetic-portfolio"), expect.anything()));
+  });
+
+  it("shows a veto even when no attempted BUY was blocked, and preserves full evidence references", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (!url.startsWith("/api/v1/analysis-runs")) return json([]);
+      if (url.includes("?")) return json([run]);
+      return json({ ...run, payload: { decision: { action: "WATCH", risk_veto: false }, risk: { gate: "VETO" }, opinions: [{ role: "RISK", claims: [{ claim: "合成风险事实", evidence_ids: ["synthetic-evidence"] }], unknowns: ["合成未知项"] }] } });
+    }));
+    render(<AnalysisPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "查看" }));
+    expect(await screen.findByText("风险否决 是")).toBeVisible();
+    expect(screen.queryByText("风险否决 否")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("完整观点 / 引用 / 未知项"));
+    expect(screen.getByText("证据引用：synthetic-evidence")).toBeVisible();
+    expect(screen.getByText("未知项：合成未知项")).toBeVisible();
   });
 });

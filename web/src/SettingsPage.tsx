@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { ProductChrome } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
+import { requestAccessSetup } from "./UsageGuide";
 
 type SystemSettings = {
   market_timezone: string;
@@ -74,6 +75,7 @@ const formText = (form: HTMLFormElement, name: string): string =>
   String(new FormData(form).get(name) ?? "").trim();
 
 const roles = ["DEFAULT", "MACRO", "INDUSTRY", "FUNDAMENTAL", "MARKET_QUANT", "EVENT", "PORTFOLIO", "RISK", "DEVILS_ADVOCATE", "CIO", "REVIEW"];
+const roleNames: Record<string, string> = { DEFAULT: "默认模型", MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官", REVIEW: "复盘学习" };
 
 const testStatusLabel = (status: TestResult["status"]) => ({
   CONFIGURATION_VALID: "配置校验通过（不代表已连接供应商）",
@@ -126,11 +128,11 @@ export function SettingsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const actionInFlight = useRef(false);
-  const feedbackRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
-    if (error || message) feedbackRef.current?.scrollIntoView?.({ block: "nearest" });
-  }, [error, message]);
+    const clearAuthError = () => setError((current) => current?.includes("令牌") ? null : current);
+    window.addEventListener("investment-os:access-verified", clearAuthError);
+    return () => window.removeEventListener("investment-os:access-verified", clearAuthError);
+  }, []);
 
   const runAction = async (label: string, action: () => Promise<void>) => {
     if (actionInFlight.current) return;
@@ -348,7 +350,7 @@ export function SettingsPage() {
         const assignment = await requestJson<Assignment>(`/api/v1/settings/role-model-assignments/${role}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model_provider_profile_id: id }) });
         setAssignments((current) => [...current.filter((item) => item.role !== role), assignment]);
       }
-      setMessage(`${role} 模型映射已更新。`);
+      setMessage(`${roleNames[role] ?? role}模型映射已更新。`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "无法更新角色映射"); }
   };
 
@@ -427,16 +429,19 @@ export function SettingsPage() {
       title="设置与提供方"
       subtitle="配置模型与数据源。自动交易始终关闭；连接测试仅在你点击后发起。"
     >
-      <p className="settings-safety">
+      <nav className="section-nav" aria-label="设置目录"><a href="#models">1. 模型与角色</a><a href="#budget">2. 调用预算</a><a href="#data">3. 研究 / 行情源</a><a href="#system-settings-title">市场范围</a></nav>
+      <div className="context-note"><strong>首次配置顺序</strong><p>模型档案（凭据、定价）→ 启用 → 设为默认模型 → 配置预算 → 显式测试连接。数据源可以后补；博查提供文本研究，Tushare 提供行情，二者不能互相替代。</p></div>
+      <details className="settings-explanation"><summary>关于访问令牌、连接测试与费用</summary><p className="settings-safety">
         自动交易始终关闭。模型“测试连接”仅在您明确点击后发起，检查认证与 JSON 输出；
         已支持的数据提供方也只会在您明确点击“测试连接”后发起受限网络校验；未支持的类型
         和未配置凭据会失败关闭。
       </p>
       <p className="hint-text">右上角的写入令牌用于本系统的操作授权；下方的 API Key / Token 属于各提供方，二者不能混用。没有 Tushare 凭据也可以配置模型与保存持仓。</p>
-      <div ref={feedbackRef} className="settings-feedback">
+      </details>
+      <div className="settings-feedback">
         {initialLoading ? <p role="status" className="banner banner-info">正在读取设置，请稍候…</p> : null}
         {pending ? <p role="status" className="banner banner-info">{pending}，请稍候，不要重复点击。</p> : null}
-        {error ? <p role="alert" className="banner banner-error">{error}</p> : null}
+        {error ? <p role="alert" className="banner banner-error">{error}{error.includes("令牌") ? <button type="button" className="feedback-action" onClick={requestAccessSetup}>配置本地访问 →</button> : null}</p> : null}
         {message ? <p role="status" className="banner banner-ok">{message}</p> : null}
       </div>
       <button type="button" className="btn" disabled={initialLoading || pending !== null} onClick={() => void runAction("正在刷新设置", load)}>刷新设置</button>
@@ -460,7 +465,8 @@ export function SettingsPage() {
 
       <section id="models" className="settings-card" aria-labelledby="model-settings-title">
         <h2 id="model-settings-title">模型提供方</h2>
-        <p>配置只保存端点、模型和加密凭据引用。凭据输入框不会用响应回填。</p>
+        <p>配置只保存端点、模型和加密凭据引用。凭据输入框不会用响应回填；编辑时留空表示保留现有凭据，不是丢失。</p>
+        <p className="hint-text">单价按每个 Token 填写，不是每百万 Token 的报价；请以供应商定价为准自行确认。保存模板不等于已经连通。</p>
         <button type="button" onClick={useDeepSeekTemplate}>填入 DeepSeek V4.1 Flash 模板</button>
         <form key={editingModel?.id ?? "new-model"} className="settings-form" onSubmit={submitAction("正在保存模型档案", saveModel)}>
           <label>名称<input name="name" defaultValue={editingModel?.name} required /></label>
@@ -486,7 +492,7 @@ export function SettingsPage() {
                 <p>{profile.provider_type} · {profile.model_name}</p>
                 <p>{profile.base_url}</p>
                 <CredentialStatus configured={profile.credential_configured} />
-                <DataProviderTestStatus history={dataTestHistory[profile.id]} />
+                <p>本页模型测试：{testResults[profile.id] ? testStatusLabel(testResults[profile.id].status) : "尚未测试（不代表连接失败）"}；此状态刷新后不保留。</p>
               </div>
               <div className="provider-actions">
                 <button type="button" onClick={() => void runAction(`正在测试模型 ${profile.name}`, () => testProfile("model-providers", profile.id))}>{pending === `正在测试模型 ${profile.name}` ? "正在测试…" : "测试模型连接"}</button>
@@ -498,15 +504,16 @@ export function SettingsPage() {
             </article>
           ))}
         </div>
-        <p>当前默认模型：{defaultAssignment ? defaultAssignment.model_provider_profile_id : "未分配"}</p>
+        <p>当前默认模型：{defaultAssignment ? models.find((model) => model.id === defaultAssignment.model_provider_profile_id)?.name ?? "档案不可用，请重新分配" : "未分配"}</p>
         <h3>Agent → 模型映射</h3>
         <p>明确映射优先；未映射的角色继承 DEFAULT。DEFAULT 不可用时不会改用其他提供方。</p>
-        {roles.map((role) => <label key={role}>{role}<select aria-label={`${role} 模型`} value={assignments.find((item) => item.role === role)?.model_provider_profile_id ?? ""} onChange={(event) => { const id = event.target.value; void runAction(`正在更新 ${role} 模型映射`, () => setRoleModel(role, id)); }}><option value="">{role === "DEFAULT" ? "未分配（不可运行）" : "继承 DEFAULT"}</option>{models.filter((model) => model.enabled).map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}</select></label>)}
+        <div className="role-grid">{roles.map((role) => <label key={role}>{roleNames[role]}<select aria-label={`${role} 模型`} value={assignments.find((item) => item.role === role)?.model_provider_profile_id ?? ""} onChange={(event) => { const id = event.target.value; void runAction(`正在更新 ${roleNames[role]}模型映射`, () => setRoleModel(role, id)); }}><option value="">{role === "DEFAULT" ? "未分配（不可运行）" : "继承默认模型"}</option>{models.filter((model) => model.enabled).map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}</select></label>)}</div>
       </section>
 
-      <section className="settings-card" aria-labelledby="budget-title">
+      <section id="budget" className="settings-card" aria-labelledby="budget-title">
         <h2 id="budget-title">LLM 预算门禁</h2>
         <p>这里的 Token 是模型处理文字的计量单位，不是密码或访问令牌。</p>
+        <p className="hint-text">未配置时下方为输入示例，未保存不会生效，也不是建议你应花费的金额。成本上限按所填币种计价。</p>
         <p>状态：{budget?.status === "CONFIGURED" ? "已配置" : "未配置"}；每日剩余 Tokens：{budget?.usage?.remaining_tokens ?? "不可用"}；剩余成本：{budget?.usage?.remaining_cost ?? "不可用"}</p>
         <form className="settings-form compact-form" onSubmit={submitAction("正在保存预算", saveBudget)}>
           <label>版本<input name="version" defaultValue={budget?.version ?? "TEST_DEFAULT"} required /></label>
@@ -521,10 +528,12 @@ export function SettingsPage() {
 
       <section id="data" className="settings-card" aria-labelledby="data-settings-title">
         <h2 id="data-settings-title">数据 / 研究提供方</h2>
-        <p>启用仅记录配置状态，不代表已授权或已开始同步；真实运行时属于 P4。</p>
+        <p>启用不会自动抓取或同步。连接成功不等于该标的已有研究证据；当前证据摄取仍需通过 API，分析只读已入库材料。</p>
+        <p className="hint-text">支持的类型：BOCHA_WEB_SEARCH（博查文本搜索）、TUSHARE_MARKET（行情）、DSA_ADAPTER（外部适配器）。暂时没有 Tushare Token 可跳过，不影响持仓录入。</p>
+        <p className="hint-text">凭据仅写入；编辑已有档案时留空会保留原凭据。基础 URL 与类型请按已授权供应商配置，不要填写本系统地址。</p>
         <form key={editingData?.id ?? "new-data"} className="settings-form" onSubmit={submitAction("正在保存数据档案", saveData)}>
           <label>名称<input name="name" defaultValue={editingData?.name} required /></label>
-          <label>类型<input name="provider_type" defaultValue={editingData?.provider_type ?? "DSA_ADAPTER"} required /></label>
+          <label>类型<select name="provider_type" defaultValue={editingData?.provider_type ?? "DSA_ADAPTER"} required><option value="DSA_ADAPTER">外部研究服务（DSA_ADAPTER）</option><option value="BOCHA_WEB_SEARCH">博查文本搜索（BOCHA_WEB_SEARCH）</option><option value="TUSHARE_MARKET">Tushare 行情（TUSHARE_MARKET）</option>{editingData && !["DSA_ADAPTER", "BOCHA_WEB_SEARCH", "TUSHARE_MARKET"].includes(editingData.provider_type) ? <option value={editingData.provider_type}>{editingData.provider_type}（未知类型，不保证可调用）</option> : null}</select></label>
           <label>基础 URL<input name="base_url" type="url" defaultValue={editingData?.base_url} placeholder="https://provider.example" required /></label>
           <label>超时秒数<input name="timeout_seconds" type="number" min="1" max="300" defaultValue={editingData?.timeout_seconds ?? "30"} required /></label>
           <label>本地保留天数<input name="retention_days" type="number" min="1" max="3650" defaultValue={editingData?.retention_days ?? "365"} required /></label>

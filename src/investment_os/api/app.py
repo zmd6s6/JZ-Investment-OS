@@ -501,7 +501,7 @@ def create_app(
                 key="onboarding",
                 label="首次配置向导",
                 status="AVAILABLE",
-                detail="可记录首次配置已开始, 不收集密钥或真实持仓。",
+                detail="页面提供操作指南; 开始按钮仅记录开始时间, 不代表模型、预算或数据已就绪。",
             ),
             ProductCapabilityResponse(
                 key="providers",
@@ -524,7 +524,10 @@ def create_app(
                 key="portfolio",
                 label="资产组合导入",
                 status="CONFIGURATION_REQUIRED",
-                detail="P5 支持手工持仓与本地 Instrument 目录. CSV 与对账仍在推进. 不伪造市值.",
+                detail=(
+                    "支持手工持仓、CSV 预览与确认导入、对账和观察清单; "
+                    "需先创建组合。此页不伪造市值。"
+                ),
             ),
             ProductCapabilityResponse(
                 key="execution",

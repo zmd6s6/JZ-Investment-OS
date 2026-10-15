@@ -34,10 +34,21 @@ export async function apiFetch(url: string, init: RequestInit = {}): Promise<Res
 
 export async function verifyWriteToken(token: string): Promise<void> {
   if (!token.trim()) throw new Error("请输入本系统的写入令牌；它不是模型或数据源的 API Key。");
-  const response = await apiFetch("/api/v1/auth/check", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token.trim()}` },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let response: Response;
+  try {
+    response = await apiFetch("/api/v1/auth/check", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token.trim()}` },
+      signal: controller.signal,
+    });
+  } catch (reason) {
+    if (controller.signal.aborted) throw new Error("本地访问验证超时，令牌未保存。请检查服务状态后重试。");
+    throw reason;
+  } finally {
+    clearTimeout(timeout);
+  }
   if (response.status === 401)
     throw new Error("写入令牌不正确或已失效。请核对服务端配置；不要填写模型或数据源的 API Key。");
   if (!response.ok) throw new Error(await readApiError(response));
