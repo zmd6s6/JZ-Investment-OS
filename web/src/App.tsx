@@ -8,6 +8,7 @@ import { AnalysisPage } from "./AnalysisPage";
 import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
 import { LocalAccessBoundary } from "./LocalAccess";
+import { ResearchPage } from "./ResearchPage";
 
 type OnboardingStatus = "NOT_STARTED" | "IN_PROGRESS";
 type CapabilityStatus = "AVAILABLE" | "CONFIGURATION_REQUIRED" | "NOT_IMPLEMENTED";
@@ -196,6 +197,7 @@ function ProductRoutes() {
   if (path === "/portfolio") return <PortfolioPage />;
   if (path === "/watchlist") return <WatchlistPage />;
   if (path === "/analysis") return <AnalysisPage />;
+  if (path === "/research") return <ResearchPage />;
   return <HomePage />;
 }
 

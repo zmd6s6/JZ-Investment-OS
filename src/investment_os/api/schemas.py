@@ -258,6 +258,36 @@ class ProviderResearchFetchResponse(StrictResponse):
     results: list[ResearchIngestResponse]
 
 
+class ResearchCapabilitiesResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    provider_types: list[str]
+
+
+class EvidenceLibraryItemResponse(StrictResponse):
+    evidence_id: UUID
+    instrument_id: UUID | None
+    source_name: str
+    source_locator: str
+    source_tier: str
+    provider: str
+    evidence_type: str
+    title: str
+    excerpt: str
+    observed_at: datetime
+    effective_at: datetime
+    available_at: datetime
+    ingested_at: datetime
+    expires_at: datetime | None
+    freshness_status: str
+    content_hash: str
+
+
+class EvidenceLibraryResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    as_of: datetime
+    items: list[EvidenceLibraryItemResponse]
+
+
 class EvidenceClaimResponse(StrictResponse):
     description: str
     evidence_ids: list[UUID]
@@ -517,7 +547,7 @@ class PolicyReviewResponse(StrictResponse):
 class StartAnalysisRequest(StrictResponse):
     instrument_id: UUID
     portfolio_id: UUID
-    source: Literal["PORTFOLIO", "WATCHLIST"] = "PORTFOLIO"
+    source: Literal["PORTFOLIO", "WATCHLIST", "RESEARCH"] = "PORTFOLIO"
 
 
 class AnalysisRunSummaryResponse(StrictResponse):

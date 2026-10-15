@@ -4,7 +4,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic
 from uuid import UUID, uuid4
@@ -17,6 +17,7 @@ from sqlalchemy import select
 
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
+from investment_os.application.evidence_library import EvidenceLibraryPort
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
@@ -65,6 +66,7 @@ from investment_os.infrastructure.decision_journal import (
     SqlAlchemyDecisionJournalReader,
 )
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
+from investment_os.infrastructure.evidence_library import SqlAlchemyEvidenceLibrary
 from investment_os.infrastructure.local_access import (
     SESSION_TTL,
     LocalAccessStore,
@@ -87,6 +89,8 @@ from .schemas import (
     DataProviderProfileRequest,
     DataProviderProfileResponse,
     DecisionJournalResponse,
+    EvidenceLibraryItemResponse,
+    EvidenceLibraryResponse,
     InstrumentCatalogResponse,
     InstrumentIdentityRequest,
     LivenessResponse,
@@ -109,6 +113,7 @@ from .schemas import (
     ProviderTestHistoryResponse,
     ProviderTestResponse,
     ReadinessResponse,
+    ResearchCapabilitiesResponse,
     ResearchIngestRequest,
     ResearchIngestResponse,
     RoleModelAssignmentRequest,
@@ -361,6 +366,7 @@ def create_app(
     local_access_origin: str | None = None,
     analysis_product_service: "ProductAnalysisService | None" = None,
     analysis_run_service: "AnalysisRunService | None" = None,
+    evidence_library: EvidenceLibraryPort | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -384,6 +390,7 @@ def create_app(
     selected_portfolio_csv_service = portfolio_csv_service
     selected_analysis_product_service = analysis_product_service
     selected_analysis_run_service = analysis_run_service
+    selected_evidence_library = evidence_library
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
@@ -393,9 +400,12 @@ def create_app(
         or selected_portfolio_book_service is None
         or selected_watchlist_service is None
         or selected_portfolio_csv_service is None
+        or selected_evidence_library is None
     ):
         reader_engine = create_database_engine(settings.database_url)
         session_factory = create_session_factory(reader_engine)
+        if selected_evidence_library is None:
+            selected_evidence_library = SqlAlchemyEvidenceLibrary(session_factory)
         if selected_thesis_reader is None:
             selected_thesis_reader = SqlAlchemyThesisReader(session_factory)
         if selected_decision_journal_reader is None:
@@ -954,6 +964,39 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return await read_llm_budget()
 
+    @application.get(
+        "/api/v1/research/capabilities",
+        response_model=ResearchCapabilitiesResponse,
+        tags=["research"],
+    )
+    async def research_capabilities() -> ResearchCapabilitiesResponse:
+        return ResearchCapabilitiesResponse(
+            provider_types=list(selected_research_provider_runtime.provider_types)
+            if selected_research_provider_runtime is not None
+            else []
+        )
+
+    @application.get(
+        "/api/v1/instruments/{instrument_id}/evidence",
+        response_model=EvidenceLibraryResponse,
+        tags=["research"],
+    )
+    async def evidence_for_instrument(
+        instrument_id: UUID, limit: int = Query(default=50, ge=1, le=100)
+    ) -> EvidenceLibraryResponse:
+        assert selected_evidence_library is not None
+        as_of = datetime.now(UTC)
+        items = await selected_evidence_library.for_instrument(
+            instrument_id, as_of=as_of, limit=limit
+        )
+        return EvidenceLibraryResponse(
+            as_of=as_of,
+            items=[
+                EvidenceLibraryItemResponse.model_validate(item, from_attributes=True)
+                for item in items
+            ],
+        )
+
     @application.post(
         "/api/v1/research/ingest", response_model=ResearchIngestResponse, tags=["research"]
     )
@@ -991,6 +1034,13 @@ def create_app(
         if evidence_ingestor is None:
             raise HTTPException(status_code=503, detail="research_ingestion_unavailable")
         started = monotonic()
+        from investment_os.application.errors import ApplicationError
+
+        for instrument_id in request.instrument_ids:
+            try:
+                await selected_instrument_catalog_service.get(instrument_id)
+            except ApplicationError as exc:
+                raise HTTPException(status_code=404, detail="instrument_not_found") from exc
         try:
             artifacts = await research_provider_runtime_or_503().fetch(
                 profile_id=profile_id,
@@ -1166,6 +1216,20 @@ def create_app(
             raise HTTPException(status_code=422, detail=exc.code.value) from exc
         except Exception as exc:
             raise HTTPException(status_code=422, detail="instrument_identity_invalid") from exc
+        return InstrumentCatalogResponse.model_validate(entry, from_attributes=True)
+
+    @application.get(
+        "/api/v1/instruments/{instrument_id}",
+        response_model=InstrumentCatalogResponse,
+        tags=["instruments"],
+    )
+    async def read_instrument(instrument_id: UUID) -> InstrumentCatalogResponse:
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            entry = await selected_instrument_catalog_service.get(instrument_id)
+        except ApplicationError as exc:
+            raise HTTPException(status_code=404, detail="instrument_not_found") from exc
         return InstrumentCatalogResponse.model_validate(entry, from_attributes=True)
 
     @application.get(
@@ -1654,6 +1718,10 @@ def create_app(
 
         @application.get("/analysis", include_in_schema=False)
         async def analysis_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/research", include_in_schema=False)
+        async def research_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
     return application

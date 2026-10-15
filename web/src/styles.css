@@ -1146,3 +1146,13 @@ button[type="submit"] { border-radius: var(--radius-sm); }
 .local-welcome { max-width: 720px; padding-top: 64px; }
 .local-welcome h1 { margin-bottom: 4px; }
 .local-access-info { max-width: 800px; margin: 20px auto; padding: 20px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); }
+.evidence-list { display: grid; gap: 1rem; margin-top: 1rem; }
+.evidence-card { border: 1px solid var(--border, #dbe2ed); border-left: 3px solid #6366f1; border-radius: 8px; padding: 1rem; min-width: 0; }
+.evidence-card h3 { font-size: 1rem; margin: 0; overflow-wrap: anywhere; }
+.evidence-excerpt { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; }
+.evidence-meta { display: grid; grid-template-columns: minmax(100px, 150px) minmax(0, 1fr); gap: .4rem .8rem; font-size: .85rem; }
+.evidence-meta dd { margin: 0; overflow-wrap: anywhere; }
+.consent-line { display: flex; align-items: flex-start; gap: .6rem; }
+.consent-line input { width: auto; flex-shrink: 0; margin-top: .2rem; }
+.form-grid .full-span { grid-column: 1 / -1; }
+.button-row { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; }

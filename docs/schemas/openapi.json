@@ -1139,6 +1139,145 @@
         "title": "EvidenceClaimResponse",
         "type": "object"
       },
+      "EvidenceLibraryItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "evidence_type": {
+            "title": "Evidence Type",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "freshness_status": {
+            "title": "Freshness Status",
+            "type": "string"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "instrument_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument Id"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_tier": {
+            "title": "Source Tier",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "instrument_id",
+          "source_name",
+          "source_locator",
+          "source_tier",
+          "provider",
+          "evidence_type",
+          "title",
+          "excerpt",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "ingested_at",
+          "expires_at",
+          "freshness_status",
+          "content_hash"
+        ],
+        "title": "EvidenceLibraryItemResponse",
+        "type": "object"
+      },
+      "EvidenceLibraryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceLibraryItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of",
+          "items"
+        ],
+        "title": "EvidenceLibraryResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2544,6 +2683,29 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "ResearchCapabilitiesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "provider_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Provider Types",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_types"
+        ],
+        "title": "ResearchCapabilitiesResponse",
+        "type": "object"
+      },
       "ResearchIngestRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2732,7 +2894,8 @@
             "default": "PORTFOLIO",
             "enum": [
               "PORTFOLIO",
-              "WATCHLIST"
+              "WATCHLIST",
+              "RESEARCH"
             ],
             "title": "Source",
             "type": "string"
@@ -3631,6 +3794,104 @@
         ]
       }
     },
+    "/api/v1/instruments/{instrument_id}": {
+      "get": {
+        "operationId": "read_instrument_api_v1_instruments__instrument_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Instrument",
+        "tags": [
+          "instruments"
+        ]
+      }
+    },
+    "/api/v1/instruments/{instrument_id}/evidence": {
+      "get": {
+        "operationId": "evidence_for_instrument_api_v1_instruments__instrument_id__evidence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceLibraryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence For Instrument",
+        "tags": [
+          "research"
+        ]
+      }
+    },
     "/api/v1/onboarding": {
       "get": {
         "operationId": "onboarding_state_api_v1_onboarding_get",
@@ -4161,6 +4422,27 @@
         "summary": "Latest Daily Report",
         "tags": [
           "reports"
+        ]
+      }
+    },
+    "/api/v1/research/capabilities": {
+      "get": {
+        "operationId": "research_capabilities_api_v1_research_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Research Capabilities",
+        "tags": [
+          "research"
         ]
       }
     },

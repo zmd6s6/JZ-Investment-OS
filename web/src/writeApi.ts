@@ -85,6 +85,9 @@ export async function readApiError(response: Response): Promise<string> {
     return "加密凭据存储暂不可用，凭据未能保存。请联系维护者检查服务配置，不要自行更换加密主密钥。";
   if (code === "CREDENTIAL_MISSING")
     return "此提供方尚未配置凭据。请在对应档案中填写它自己的 API Key 或 Token，再测试连接。";
+  if (code === "RESEARCH_PROVIDER_REQUEST_REJECTED") return "所选研究来源暂不可用：请检查档案已启用、凭据可用、类型受支持，以及查询和单标的范围正确。未切换其他来源。";
+  if (code === "RESEARCH_PROVIDER_UNAVAILABLE") return "所选研究供应商连接失败或超时。请先检查已存资料，再决定是否重新调用；没有切换其他来源。";
+  if (code === "RESEARCH_INGESTION_UNAVAILABLE" || code === "RESEARCH_PROVIDER_RUNTIME_UNAVAILABLE") return "研究服务暂不可用。请检查 API 部署与数据库，不要更换模型密钥。";
   if (response.status === 403) return "当前操作没有权限，未获授权。请检查本系统的访问配置，不要更换供应商 Key。";
   if (response.status === 404) return "记录不存在或已被移除。请刷新列表后重新选择。";
   if (response.status === 409) return "数据已被其他操作更新。请先刷新核对最新内容，再重新提交。";

@@ -276,6 +276,7 @@ export function WatchlistPage() {
                     </span>
                   </td>
                   <td>
+                    <a className="btn" href={`/research?instrument_id=${encodeURIComponent(item.instrument_id)}`}>研究资料</a>
                     <button type="button" className="btn" disabled={busy} onClick={() => setAnalysisTarget(item)}>{analyzing ? "分析中…" : "立即分析"}</button>
                     <button
                       type="button"

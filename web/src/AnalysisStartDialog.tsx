@@ -48,7 +48,7 @@ export function AnalysisStartDialog({ label, portfolio, onCancel, onConfirm }: {
         {!loading && choices.length === 0 ? <p className="context-note">分析需要现金与持仓上下文。<a href="/portfolio">先创建一个组合 →</a>，不必持有此标的。</p> : null}
         <ul className="tip-list">
           <li>使用设置中的模型与角色映射，可能调用付费模型；受已配置预算约束。<a href="/settings#models">检查模型与预算</a>。</li>
-          <li>本轮读取该标的已入库证据，不会自动抓取新闻。缺证据会失败关闭，不编造材料。</li>
+          <li>本轮读取该标的已入库证据，不会自动抓取新闻。缺证据会失败关闭，不编造材料。可先去<a href="/research">研究资料</a>明确获取来源和核对内容。</li>
           <li>可能需要 1–2 分钟；请求中请保留页面。当前不支持取消正在执行的模型请求。</li>
           <li>缺行情可阅读研究意见，但不能据此计算完整估值或买入数量；结果不产生订单。</li>
         </ul>

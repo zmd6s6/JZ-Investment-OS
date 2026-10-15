@@ -206,7 +206,7 @@ export function AnalysisPage() {
                       {runStatusLabel(run.status)}
                     </span>
                   </td>
-                  <td>{run.source === "PORTFOLIO" ? "持仓" : run.source === "WATCHLIST" ? "观察清单" : run.source}</td>
+                  <td>{run.source === "PORTFOLIO" ? "持仓" : run.source === "WATCHLIST" ? "观察清单" : run.source === "RESEARCH" ? "研究资料" : run.source}</td>
                   <td>{run.policy_version_label}</td>
                   <td>{run.failure_code ? explainFailure(run.failure_code) : "—"}</td>
                   <td>

@@ -1018,6 +1018,7 @@ export function PortfolioPage() {
                   </td>
                   <td>{position.currency}</td>
                   <td>
+                    <a className="btn" href={`/research?instrument_id=${encodeURIComponent(position.instrument_id)}`} onClick={(event) => event.stopPropagation()}>研究资料</a>
                     <button
                       type="button"
                       className="btn"
