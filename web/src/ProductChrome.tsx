@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 
-import { getWriteToken, setWriteToken } from "./writeApi";
+import { getWriteToken, setWriteToken, verifyWriteToken } from "./writeApi";
 
 const navItems = [
   { href: "/", label: "首页" },
@@ -23,10 +23,34 @@ export function ProductChrome({
 }) {
   const [token, setToken] = useState("");
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [tokenMessage, setTokenMessage] = useState<string | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
 
   useEffect(() => {
     setToken(getWriteToken());
   }, []);
+
+  async function saveToken() {
+    if (checking) return;
+    setChecking(true);
+    setTokenError(null);
+    setTokenMessage(null);
+    try {
+      await verifyWriteToken(token);
+      if (!setWriteToken(token.trim()))
+        throw new Error("浏览器无法保存当前会话。请允许此站点使用会话存储，再验证并保存。");
+      setVerified(true);
+      setTokenOpen(false);
+      setTokenMessage("本地访问已验证，本标签页可进行保存操作。供应商凭据无需重复填写。");
+    } catch (reason) {
+      setVerified(false);
+      setTokenError(reason instanceof Error ? reason.message : "访问验证失败，请重试。");
+    } finally {
+      setChecking(false);
+    }
+  }
 
   return (
     <div className="app-frame">
@@ -54,9 +78,9 @@ export function ProductChrome({
             type="button"
             className="token-toggle"
             onClick={() => setTokenOpen((v) => !v)}
-            title="写操作令牌"
+            title="验证或更新本系统的访问令牌；不是供应商 API Key"
           >
-            {getWriteToken() ? "令牌已配置" : "配置写令牌"}
+            {verified ? "本地访问已验证" : getWriteToken() ? "访问令牌已保存" : "配置写令牌"}
           </button>
         </nav>
       </header>
@@ -67,23 +91,25 @@ export function ProductChrome({
             写入令牌
             <input
               type="password"
+              disabled={checking}
               value={token}
               placeholder="与服务端 INVESTMENT_OS_API_WRITE_TOKEN 一致"
               onChange={(e) => setToken(e.target.value)}
             />
           </label>
+          <p className="hint-text">本系统的操作通行证，与 DeepSeek / 博查 / Tushare 凭据不同。验证不会修改数据或调用供应商。</p>
           <button
             type="button"
             className="btn primary"
-            onClick={() => {
-              setWriteToken(token.trim());
-              setTokenOpen(false);
-            }}
+            disabled={checking}
+            onClick={() => void saveToken()}
           >
-            保存令牌
+            {checking ? "正在验证…" : "验证并保存令牌"}
           </button>
         </div>
       ) : null}
+      {tokenError ? <p role="alert" className="banner banner-error">{tokenError}</p> : null}
+      {tokenMessage ? <p role="status" className="banner banner-ok">{tokenMessage}</p> : null}
 
       <div className="safety-strip">SIMULATION / NO AUTO TRADE · 建议不等于成交 · 风控否决不可覆盖</div>
 

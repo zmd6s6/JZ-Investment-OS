@@ -441,6 +441,12 @@ def create_app(
     )
     application.add_middleware(WriteApiAuthMiddleware, token=selected_write_token)
 
+    @application.post("/api/v1/auth/check", tags=["auth"])
+    async def check_write_access() -> dict[str, str]:
+        """Verify the existing write bearer without writes or external calls."""
+
+        return {"status": "authorized"}
+
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
     async def liveness() -> LivenessResponse:
         return LivenessResponse()

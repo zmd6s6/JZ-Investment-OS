@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from investment_os.api.app import create_app
 from investment_os.api.write_auth import WriteApiAuthMiddleware
 
 
@@ -46,3 +47,25 @@ def test_write_requires_matching_bearer_token() -> None:
 def test_non_api_write_paths_are_not_gated_by_write_token() -> None:
     client = TestClient(_app(None))
     assert client.post("/health/live").status_code == 200
+
+
+def test_access_check_uses_existing_bearer_and_never_echoes_it() -> None:
+    with TestClient(create_app(write_api_token="synthetic-access-check")) as client:
+        assert client.post("/api/v1/auth/check").status_code == 401
+        assert (
+            client.post(
+                "/api/v1/auth/check", headers={"Authorization": "Bearer synthetic-invalid"}
+            ).status_code
+            == 401
+        )
+        response = client.post(
+            "/api/v1/auth/check", headers={"Authorization": "Bearer synthetic-access-check"}
+        )
+        assert response.status_code == 200
+        assert response.json() == {"status": "authorized"}
+        assert "synthetic-access-check" not in response.text
+
+
+def test_access_check_fails_closed_when_server_token_is_missing() -> None:
+    with TestClient(create_app(write_api_token="")) as client:
+        assert client.post("/api/v1/auth/check").status_code == 503

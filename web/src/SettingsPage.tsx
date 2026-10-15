@@ -1,6 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { ProductChrome } from "./ProductChrome";
+import { apiFetch, readApiError } from "./writeApi";
 
 type SystemSettings = {
   market_timezone: string;
@@ -64,8 +65,8 @@ type TestHistory = {
 type SyncHistory = { occurred_at: string; artifact_count: number; latency_ms: number };
 
 const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(url, init);
-  if (!response.ok) throw new Error("保存失败，请检查配置或加密密钥是否可用。");
+  const response = await apiFetch(url, init);
+  if (!response.ok) throw new Error(await readApiError(response));
   return response.json() as Promise<T>;
 };
 
@@ -73,6 +74,15 @@ const formText = (form: HTMLFormElement, name: string): string =>
   String(new FormData(form).get(name) ?? "").trim();
 
 const roles = ["DEFAULT", "MACRO", "INDUSTRY", "FUNDAMENTAL", "MARKET_QUANT", "EVENT", "PORTFOLIO", "RISK", "DEVILS_ADVOCATE", "CIO", "REVIEW"];
+
+const testStatusLabel = (status: TestResult["status"]) => ({
+  CONFIGURATION_VALID: "配置校验通过（不代表已连接供应商）",
+  CONNECTION_SUCCEEDED: "连接成功",
+  CONNECTION_FAILED: "连接失败，请检查提供方地址、凭据、额度或网络后重试",
+  CREDENTIAL_MISSING: "未配置此提供方的 API Key / Token，请编辑档案后重试",
+  SECRET_STORE_UNAVAILABLE: "加密凭据存储不可用，请联系维护者；不要自行更换主密钥",
+  UNSUPPORTED_PROVIDER: "此提供方尚不支持连接测试，请检查档案类型",
+})[status] ?? "测试未完成，请检查配置后重试";
 
 function CredentialStatus({ configured }: { configured: boolean }) {
   return (
@@ -88,7 +98,7 @@ function DataProviderTestStatus({ history }: { history: TestHistory | null | und
   const latency = history.latency_ms === null ? "" : ` · ${history.latency_ms}ms`;
   return (
     <p>
-      最近连接：{history.status} · {new Date(history.occurred_at).toLocaleString()}
+      最近连接：{testStatusLabel(history.status)} · {new Date(history.occurred_at).toLocaleString()}
       {latency}
     </p>
   );
@@ -112,6 +122,39 @@ export function SettingsPage() {
   const [dataSyncHistory, setDataSyncHistory] = useState<Record<string, SyncHistory | null>>({});
   const [editingModel, setEditingModel] = useState<ModelProfile | null>(null);
   const [editingData, setEditingData] = useState<DataProfile | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const actionInFlight = useRef(false);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error || message) feedbackRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [error, message]);
+
+  const runAction = async (label: string, action: () => Promise<void>) => {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
+    setError(null);
+    setMessage(null);
+    setPending(label);
+    try {
+      await action();
+    } catch {
+      setError("操作未完成，请刷新核对结果后重试。输入内容已保留。");
+    } finally {
+      actionInFlight.current = false;
+      setPending(null);
+    }
+  };
+
+  const submitAction = (
+    label: string,
+    action: (event: FormEvent<HTMLFormElement>) => Promise<void>,
+  ) => (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void runAction(label, () => action(event));
+  };
 
   const load = async () => {
     try {
@@ -136,13 +179,15 @@ export function SettingsPage() {
       setDataSyncHistory(Object.fromEntries(syncs));
       setAssignments(nextAssignments);
       setBudget(nextBudget);
+      setLoaded(true);
     } catch (reason) {
+      setLoaded(false);
       setError(reason instanceof Error ? reason.message : "无法读取设置");
     }
   };
 
   useEffect(() => {
-    void load();
+    void load().finally(() => setInitialLoading(false));
   }, []);
 
   const saveSystem = async (event: FormEvent<HTMLFormElement>) => {
@@ -255,6 +300,11 @@ export function SettingsPage() {
         { method: "POST" },
       );
       setTestResults((current) => ({ ...current, [id]: result }));
+      if (result.status === "CONNECTION_SUCCEEDED" || result.status === "CONFIGURATION_VALID") {
+        setMessage(testStatusLabel(result.status));
+      } else {
+        setError(testStatusLabel(result.status));
+      }
       if (kind === "data-providers") {
         const history = await requestJson<TestHistory | null>(
           `/api/v1/settings/data-providers/${id}/last-test`,
@@ -291,13 +341,14 @@ export function SettingsPage() {
     setError(null);
     try {
       if (!id) {
-        const response = await fetch(`/api/v1/settings/role-model-assignments/${role}`, { method: "DELETE" });
-        if (!response.ok && response.status !== 404) throw new Error("无法更新角色映射");
+        const response = await apiFetch(`/api/v1/settings/role-model-assignments/${role}`, { method: "DELETE" });
+        if (!response.ok && response.status !== 404) throw new Error(await readApiError(response));
         setAssignments((current) => current.filter((item) => item.role !== role));
       } else {
         const assignment = await requestJson<Assignment>(`/api/v1/settings/role-model-assignments/${role}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model_provider_profile_id: id }) });
         setAssignments((current) => [...current.filter((item) => item.role !== role), assignment]);
       }
+      setMessage(`${role} 模型映射已更新。`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "无法更新角色映射"); }
   };
 
@@ -335,6 +386,7 @@ export function SettingsPage() {
         },
       );
       setModels((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setMessage(`模型档案已${updated.enabled ? "启用" : "停用"}。`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "无法更新模型档案");
     }
@@ -361,6 +413,7 @@ export function SettingsPage() {
       setDataProfiles((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
+      setMessage(`数据档案已${updated.enabled ? "启用" : "停用"}；启用不代表已经同步数据。`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "无法更新数据档案");
     }
@@ -379,12 +432,19 @@ export function SettingsPage() {
         已支持的数据提供方也只会在您明确点击“测试连接”后发起受限网络校验；未支持的类型
         和未配置凭据会失败关闭。
       </p>
-      {error ? <p role="alert" className="banner banner-error">{error}</p> : null}
-      {message ? <p role="status" className="banner banner-ok">{message}</p> : null}
+      <p className="hint-text">右上角的写入令牌用于本系统的操作授权；下方的 API Key / Token 属于各提供方，二者不能混用。没有 Tushare 凭据也可以配置模型与保存持仓。</p>
+      <div ref={feedbackRef} className="settings-feedback">
+        {initialLoading ? <p role="status" className="banner banner-info">正在读取设置，请稍候…</p> : null}
+        {pending ? <p role="status" className="banner banner-info">{pending}，请稍候，不要重复点击。</p> : null}
+        {error ? <p role="alert" className="banner banner-error">{error}</p> : null}
+        {message ? <p role="status" className="banner banner-ok">{message}</p> : null}
+      </div>
+      <button type="button" className="btn" disabled={initialLoading || pending !== null} onClick={() => void runAction("正在刷新设置", load)}>刷新设置</button>
+      <fieldset className="settings-controls" disabled={!loaded || initialLoading || pending !== null} aria-busy={initialLoading || pending !== null}>
 
       <section className="settings-card" aria-labelledby="system-settings-title">
         <h2 id="system-settings-title">系统范围</h2>
-        <form className="settings-form compact-form" onSubmit={(event) => void saveSystem(event)}>
+        <form className="settings-form compact-form" onSubmit={submitAction("正在保存系统设置", saveSystem)}>
           <label>
             市场时区
             <input name="market_timezone" defaultValue={settings?.market_timezone ?? "Asia/Shanghai"} required />
@@ -394,7 +454,7 @@ export function SettingsPage() {
             <input name="market_scopes" defaultValue={settings?.market_scopes.join(", ") ?? ""} />
           </label>
           <p>自动交易：<strong>已关闭且不可在此修改</strong></p>
-          <button type="submit">保存系统设置</button>
+          <button type="submit">{pending === "正在保存系统设置" ? "正在保存…" : "保存系统设置"}</button>
         </form>
       </section>
 
@@ -402,7 +462,7 @@ export function SettingsPage() {
         <h2 id="model-settings-title">模型提供方</h2>
         <p>配置只保存端点、模型和加密凭据引用。凭据输入框不会用响应回填。</p>
         <button type="button" onClick={useDeepSeekTemplate}>填入 DeepSeek V4.1 Flash 模板</button>
-        <form key={editingModel?.id ?? "new-model"} className="settings-form" onSubmit={(event) => void saveModel(event)}>
+        <form key={editingModel?.id ?? "new-model"} className="settings-form" onSubmit={submitAction("正在保存模型档案", saveModel)}>
           <label>名称<input name="name" defaultValue={editingModel?.name} required /></label>
           <label>类型<input name="provider_type" defaultValue={editingModel?.provider_type ?? "OPENAI_COMPATIBLE"} required /></label>
           <label>基础 URL<input name="base_url" type="url" defaultValue={editingModel?.base_url} placeholder="https://provider.example/v1" required /></label>
@@ -415,7 +475,7 @@ export function SettingsPage() {
           <label>输出 Token 单价<input name="output_token_price" type="number" min="0" step="any" defaultValue={editingModel?.output_token_price ?? ""} /></label>
           <label>启用状态<select name="enabled" defaultValue={String(editingModel?.enabled ?? false)}><option value="false">先禁用</option><option value="true">启用</option></select></label>
           <label>凭据（仅写入）<input name="credential" type="password" autoComplete="new-password" /></label>
-          <button type="submit">{editingModel ? "保存模型修改" : "新增模型档案"}</button>
+          <button type="submit">{pending === "正在保存模型档案" ? "正在保存…" : editingModel ? "保存模型修改" : "新增模型档案"}</button>
           {editingModel ? <button type="button" onClick={() => setEditingModel(null)}>取消编辑</button> : null}
         </form>
         <div className="provider-list">
@@ -429,11 +489,11 @@ export function SettingsPage() {
                 <DataProviderTestStatus history={dataTestHistory[profile.id]} />
               </div>
               <div className="provider-actions">
-                <button type="button" onClick={() => void testProfile("model-providers", profile.id)}>测试模型连接</button>
+                <button type="button" onClick={() => void runAction(`正在测试模型 ${profile.name}`, () => testProfile("model-providers", profile.id))}>{pending === `正在测试模型 ${profile.name}` ? "正在测试…" : "测试模型连接"}</button>
                 <button type="button" onClick={() => setEditingModel(profile)}>编辑</button>
-                <button type="button" onClick={() => void toggleModel(profile)}>{profile.enabled ? "停用" : "启用"}</button>
-                {profile.enabled ? <button type="button" onClick={() => void setDefaultModel(profile.id)}>设为默认模型</button> : null}
-                {testResults[profile.id] ? <p role="status">{testResults[profile.id].detail}</p> : null}
+                <button type="button" onClick={() => void runAction("正在更新模型状态", () => toggleModel(profile))}>{profile.enabled ? "停用" : "启用"}</button>
+                {profile.enabled ? <button type="button" onClick={() => void runAction("正在设置默认模型", () => setDefaultModel(profile.id))}>设为默认模型</button> : null}
+                {testResults[profile.id] ? <details><summary>查看连接诊断</summary><p>{testResults[profile.id].detail}</p></details> : null}
               </div>
             </article>
           ))}
@@ -441,15 +501,28 @@ export function SettingsPage() {
         <p>当前默认模型：{defaultAssignment ? defaultAssignment.model_provider_profile_id : "未分配"}</p>
         <h3>Agent → 模型映射</h3>
         <p>明确映射优先；未映射的角色继承 DEFAULT。DEFAULT 不可用时不会改用其他提供方。</p>
-        {roles.map((role) => <label key={role}>{role}<select aria-label={`${role} 模型`} value={assignments.find((item) => item.role === role)?.model_provider_profile_id ?? ""} onChange={(event) => void setRoleModel(role, event.target.value)}><option value="">{role === "DEFAULT" ? "未分配（不可运行）" : "继承 DEFAULT"}</option>{models.filter((model) => model.enabled).map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}</select></label>)}
+        {roles.map((role) => <label key={role}>{role}<select aria-label={`${role} 模型`} value={assignments.find((item) => item.role === role)?.model_provider_profile_id ?? ""} onChange={(event) => { const id = event.target.value; void runAction(`正在更新 ${role} 模型映射`, () => setRoleModel(role, id)); }}><option value="">{role === "DEFAULT" ? "未分配（不可运行）" : "继承 DEFAULT"}</option>{models.filter((model) => model.enabled).map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}</select></label>)}
       </section>
 
-      <section className="settings-card" aria-labelledby="budget-title"><h2 id="budget-title">LLM 预算门禁</h2><p>状态：{budget?.status ?? "读取中"}；每日剩余 Tokens：{budget?.usage?.remaining_tokens ?? "不可用"}；剩余成本：{budget?.usage?.remaining_cost ?? "不可用"}</p><form className="settings-form compact-form" onSubmit={(event) => void saveBudget(event)}><label>版本<input name="version" defaultValue={budget?.version ?? "TEST_DEFAULT"} required /></label><label>币种<input name="currency" defaultValue={budget?.currency ?? "USD"} required /></label><label>单任务 Tokens<input name="task_token_limit" type="number" defaultValue={budget?.task_token_limit ?? 10000} required /></label><label>每日 Tokens<input name="daily_token_limit" type="number" defaultValue={budget?.daily_token_limit ?? 100000} required /></label><label>单任务成本<input name="task_cost_limit" defaultValue={budget?.task_cost_limit ?? "1"} required /></label><label>每日成本<input name="daily_cost_limit" defaultValue={budget?.daily_cost_limit ?? "10"} required /></label><button type="submit">保存预算</button></form></section>
+      <section className="settings-card" aria-labelledby="budget-title">
+        <h2 id="budget-title">LLM 预算门禁</h2>
+        <p>这里的 Token 是模型处理文字的计量单位，不是密码或访问令牌。</p>
+        <p>状态：{budget?.status === "CONFIGURED" ? "已配置" : "未配置"}；每日剩余 Tokens：{budget?.usage?.remaining_tokens ?? "不可用"}；剩余成本：{budget?.usage?.remaining_cost ?? "不可用"}</p>
+        <form className="settings-form compact-form" onSubmit={submitAction("正在保存预算", saveBudget)}>
+          <label>版本<input name="version" defaultValue={budget?.version ?? "TEST_DEFAULT"} required /></label>
+          <label>币种<input name="currency" defaultValue={budget?.currency ?? "USD"} required /></label>
+          <label>单任务 Tokens<input name="task_token_limit" type="number" defaultValue={budget?.task_token_limit ?? 10000} required /></label>
+          <label>每日 Tokens<input name="daily_token_limit" type="number" defaultValue={budget?.daily_token_limit ?? 100000} required /></label>
+          <label>单任务成本<input name="task_cost_limit" defaultValue={budget?.task_cost_limit ?? "1"} required /></label>
+          <label>每日成本<input name="daily_cost_limit" defaultValue={budget?.daily_cost_limit ?? "10"} required /></label>
+          <button type="submit">{pending === "正在保存预算" ? "正在保存…" : "保存预算"}</button>
+        </form>
+      </section>
 
       <section id="data" className="settings-card" aria-labelledby="data-settings-title">
         <h2 id="data-settings-title">数据 / 研究提供方</h2>
         <p>启用仅记录配置状态，不代表已授权或已开始同步；真实运行时属于 P4。</p>
-        <form key={editingData?.id ?? "new-data"} className="settings-form" onSubmit={(event) => void saveData(event)}>
+        <form key={editingData?.id ?? "new-data"} className="settings-form" onSubmit={submitAction("正在保存数据档案", saveData)}>
           <label>名称<input name="name" defaultValue={editingData?.name} required /></label>
           <label>类型<input name="provider_type" defaultValue={editingData?.provider_type ?? "DSA_ADAPTER"} required /></label>
           <label>基础 URL<input name="base_url" type="url" defaultValue={editingData?.base_url} placeholder="https://provider.example" required /></label>
@@ -457,7 +530,7 @@ export function SettingsPage() {
           <label>本地保留天数<input name="retention_days" type="number" min="1" max="3650" defaultValue={editingData?.retention_days ?? "365"} required /></label>
           <label>启用状态<select name="enabled" defaultValue={String(editingData?.enabled ?? false)}><option value="false">先禁用</option><option value="true">启用</option></select></label>
           <label>凭据（仅写入）<input name="credential" type="password" autoComplete="new-password" /></label>
-          <button type="submit">{editingData ? "保存数据修改" : "新增数据档案"}</button>
+          <button type="submit">{pending === "正在保存数据档案" ? "正在保存…" : editingData ? "保存数据修改" : "新增数据档案"}</button>
           {editingData ? <button type="button" onClick={() => setEditingData(null)}>取消编辑</button> : null}
         </form>
         <div className="provider-list">
@@ -472,15 +545,16 @@ export function SettingsPage() {
                 <DataProviderSyncStatus history={dataSyncHistory[profile.id]} />
               </div>
               <div className="provider-actions">
-                <button type="button" onClick={() => void testProfile("data-providers", profile.id)}>测试连接</button>
+                <button type="button" onClick={() => void runAction(`正在测试数据源 ${profile.name}`, () => testProfile("data-providers", profile.id))}>{pending === `正在测试数据源 ${profile.name}` ? "正在测试…" : "测试连接"}</button>
                 <button type="button" onClick={() => setEditingData(profile)}>编辑</button>
-                <button type="button" onClick={() => void toggleData(profile)}>{profile.enabled ? "停用" : "启用"}</button>
-                {testResults[profile.id] ? <p role="status">{testResults[profile.id].detail}</p> : null}
+                <button type="button" onClick={() => void runAction("正在更新数据源状态", () => toggleData(profile))}>{profile.enabled ? "停用" : "启用"}</button>
+                {testResults[profile.id] ? <details><summary>查看连接诊断</summary><p>{testResults[profile.id].detail}</p></details> : null}
               </div>
             </article>
           ))}
         </div>
       </section>
+      </fieldset>
     </ProductChrome>
   );
 }

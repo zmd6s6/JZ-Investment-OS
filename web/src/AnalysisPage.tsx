@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import {
@@ -34,8 +34,18 @@ export function AnalysisPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const listInFlight = useRef(false);
+  const detailInFlight = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showNotice = false) => {
+    if (listInFlight.current) return;
+    listInFlight.current = true;
+    setLoading(true);
+    setError(null);
+    if (showNotice) setMessage(null);
+    try {
     let portfolioId = "";
     try {
       portfolioId = sessionStorage.getItem("selected_portfolio_id") ?? "";
@@ -48,6 +58,13 @@ export function AnalysisPage() {
     const response = await apiFetch(url);
     if (!response.ok) throw new Error(await readApiError(response));
     setRuns((await response.json()) as AnalysisSummary[]);
+    if (showNotice) setMessage("运行列表已更新。");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "加载运行失败，请重试。");
+    } finally {
+      listInFlight.current = false;
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -57,9 +74,22 @@ export function AnalysisPage() {
   }, [load]);
 
   const openRun = useCallback(async (runId: string) => {
+    if (detailInFlight.current) return;
+    detailInFlight.current = true;
+    setOpeningId(runId);
+    setError(null);
+    setMessage(null);
+    try {
     const response = await apiFetch(`/api/v1/analysis-runs/${runId}`);
     if (!response.ok) throw new Error(await readApiError(response));
     setSelected((await response.json()) as AnalysisDetail);
+    setMessage("报告已加载，请查看下方分析详情。");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "读取报告失败，请重试。");
+    } finally {
+      detailInFlight.current = false;
+      setOpeningId(null);
+    }
   }, []);
 
   async function startFor(
@@ -116,6 +146,7 @@ export function AnalysisPage() {
     >
       <StatusBanner kind="error" text={error} />
       <StatusBanner kind="ok" text={message} />
+      <StatusBanner kind="info" text={loading ? "正在读取运行列表，请稍候…" : openingId ? "正在读取分析报告，请稍候…" : null} />
 
       <Panel
         title="启动一次分析"
@@ -128,17 +159,17 @@ export function AnalysisPage() {
           <button
             type="button"
             className="btn"
-            disabled={busy}
-            onClick={() => void load()}
+            disabled={busy || loading || openingId !== null}
+            onClick={() => void load(true)}
           >
-            刷新运行列表
+            {loading ? "正在刷新…" : "刷新运行列表"}
           </button>
         </div>
       </Panel>
 
       <Panel title="运行列表" description="最近的分析运行；点击查看详情。">
         {runs.length === 0 ? (
-          <EmptyState title="暂无运行" hint="从组合页或观察清单发起一次分析。" />
+          <EmptyState title={loading ? "正在加载运行" : error ? "暂时无法读取运行" : "暂无运行"} hint={loading ? "请稍候，尚未完成读取。" : error ? "请根据上方提示处理，然后刷新运行列表。" : "从组合页或观察清单发起一次分析。"} />
         ) : (
           <table className="data-table">
             <thead>
@@ -175,9 +206,10 @@ export function AnalysisPage() {
                     <button
                       type="button"
                       className="btn"
+                      disabled={openingId !== null}
                       onClick={() => void openRun(run.id)}
                     >
-                      查看
+                      {openingId === run.id ? "正在读取…" : "查看"}
                     </button>
                   </td>
                 </tr>
@@ -264,6 +296,9 @@ export function AnalysisPage() {
           </table>
 
           <h3>估值与仓位</h3>
+          {payload.failures?.includes("MISSING_REFERENCE_QUOTES") ? (
+            <p className="banner banner-info">未配置可用行情或未获取到报价：可继续阅读研究意见，暂不能计算完整市值和建议数量。可在设置中配置已授权的行情源；没有 Tushare Token 不影响其他已配置功能。</p>
+          ) : null}
           <p className="hint-text">
             行情来源：
             {String((payload.valuation as { source?: string } | undefined)?.source ?? "未提供")}
@@ -272,7 +307,7 @@ export function AnalysisPage() {
               ? "（降级源）"
               : ""}
           </p>
-          <pre className="hint-text">
+          <details><summary>查看估值与仓位技术数据</summary><pre className="hint-text">
             {JSON.stringify(
               {
                 valuation: payload.valuation,
@@ -281,7 +316,7 @@ export function AnalysisPage() {
               null,
               2,
             )}
-          </pre>
+          </pre></details>
 
           {selected.status === "SUCCEEDED" ? (
             <p className="banner banner-ok">

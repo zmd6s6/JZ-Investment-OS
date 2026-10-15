@@ -73,6 +73,22 @@
 
 ## 实施记录
 
+- 2026-10-15（访问授权与交互反馈聚焦修复）：
+  - 修正设置页和角色映射 DELETE 绕过统一鉴权的问题；继续使用原有 Bearer 中间件。
+  - 新增 `POST /api/v1/auth/check`：只验证既有写入权限，无数据库写入、凭据回显或供应商调用；
+    UI 先验证再保存本地令牌，不改变认证模式、安全要求或令牌的会话存储范围，因此不引入新的治理 ADR。
+  - 设置保存、连接测试、档案状态与角色映射提供处理中、防重入和结果提示；错误区分 401/403、
+    服务端未配置、字段校验、冲突、超时和网络故障。错误不展示原始响应、请求输入或凭据。
+  - 报告刷新/读取失败留在当前页，可重试；估值技术 JSON 折叠，缺行情影响用中文解释。
+  - 验证：独立数据库 `investment_os_ux_20261015_1009` 全量 pytest **407 passed** / **82.48%**；
+    domain 行 **98.06%** / 分支 **88.04%**；前端 Vitest **25 passed** 与生产构建通过；
+    `interaction_feedback.spec.ts` **2/2**（本地授权→保存→无供应商凭据提示；报告等待→失败→重试）通过。
+  - 浏览器命令：配置隔离 `E2E_BASE_URL`、合成 `INVESTMENT_OS_API_WRITE_TOKEN` 和
+    `E2E_BROWSER_CHANNEL=chrome`，执行 `npm run test:e2e -- interaction_feedback.spec.ts --workers=1`。
+    默认 Playwright 浏览器在本机缺失，使用已安装 Chrome 验证；未新增浏览器或生产依赖。
+  - 本轮未重跑调用真实模型的旧分析 E2E，不使用任何真实供应商凭据。
+  - 回滚：撤销本聚焦修复后重新构建；无数据库迁移，无需更换或删除凭据、访问令牌和既有记录。
+
 - 2026-10-10（首个可用纵切）：
   - `AnalysisRun` 持久化（迁移 `20261010_0015`）、`InvestmentAnalysisOrchestrator` 通过既有委员会/Agent/CIO 门执行；
     无 Evidence 失败关闭；跨币种缺 FX 失败关闭；缺行情显式 `MISSING_REFERENCE_QUOTES`。

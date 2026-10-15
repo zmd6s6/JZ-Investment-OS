@@ -3343,6 +3343,32 @@
         ]
       }
     },
+    "/api/v1/auth/check": {
+      "post": {
+        "description": "Verify the existing write bearer without writes or external calls.",
+        "operationId": "check_write_access_api_v1_auth_check_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Check Write Access Api V1 Auth Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Check Write Access",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/decisions/{decision_id}": {
       "get": {
         "operationId": "read_decision_journal_api_v1_decisions__decision_id__get",

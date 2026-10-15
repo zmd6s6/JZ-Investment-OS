@@ -975,6 +975,34 @@ button:disabled {
   margin-top: 16px;
 }
 
+.settings-controls {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+
+.settings-feedback {
+  position: sticky;
+  top: 76px;
+  z-index: 5;
+}
+
+.settings-feedback .banner { box-shadow: var(--shadow); }
+button:disabled { cursor: wait; opacity: 0.6; }
+.provider-actions button,
+.settings-card > button {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--brand);
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
 .provider-card {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
