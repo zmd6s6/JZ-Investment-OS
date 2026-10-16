@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 from sqlalchemy import select
 
+from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
 from investment_os.application.evidence import derive_display_freshness
@@ -85,6 +86,7 @@ from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
 from .schemas import (
+    AnalysisProgressResponse,
     AnalysisRunDetailResponse,
     AnalysisRunSummaryResponse,
     CandidateCommitResponse,
@@ -127,9 +129,11 @@ from .schemas import (
     ResearchIngestResponse,
     ResearchPreviewRequest,
     ResearchPreviewResponse,
+    RetryAnalysisJobRequest,
     RoleModelAssignmentRequest,
     RoleModelAssignmentResponse,
     StartAnalysisRequest,
+    SubmitAnalysisJobRequest,
     SystemSettingsResponse,
     SystemSettingsUpdateRequest,
     TaskRunResponse,
@@ -379,6 +383,7 @@ def create_app(
     analysis_run_service: "AnalysisRunService | None" = None,
     evidence_library: EvidenceLibraryPort | None = None,
     research_preview_service: ResearchPreviewService | None = None,
+    analysis_job_service: AnalysisJobService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -1649,6 +1654,85 @@ def create_app(
         if selected_analysis_product_service is None or selected_analysis_run_service is None:
             raise HTTPException(status_code=503, detail="analysis_unavailable")
         return selected_analysis_product_service, selected_analysis_run_service
+
+    def job_service() -> AnalysisJobService:
+        if analysis_job_service is None:
+            raise HTTPException(status_code=503, detail="analysis_jobs_unavailable")
+        return analysis_job_service
+
+    def job_error(error: AnalysisJobError) -> HTTPException:
+        code = str(error)
+        return HTTPException(status_code=404 if code.endswith("not_found") else 409, detail=code)
+
+    @application.post(
+        "/api/v1/analysis-jobs",
+        response_model=AnalysisRunDetailResponse,
+        status_code=202,
+        tags=["analysis"],
+    )
+    async def submit_analysis_job(request: SubmitAnalysisJobRequest) -> AnalysisRunDetailResponse:
+        from investment_os.application.analysis_product import StartAnalysisInput
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            result = await job_service().submit(
+                request.request_id,
+                StartAnalysisInput(
+                    request.instrument_id,
+                    request.portfolio_id,
+                    request.source,
+                    evidence_ids=tuple(request.evidence_ids)
+                    if request.evidence_ids is not None
+                    else None,
+                ),
+            )
+        except AnalysisJobError as error:
+            raise job_error(error) from error
+        except ApplicationError as error:
+            raise HTTPException(status_code=422, detail=error.code.value) from error
+        return AnalysisRunDetailResponse.model_validate(result, from_attributes=True)
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}/progress",
+        response_model=list[AnalysisProgressResponse],
+        tags=["analysis"],
+    )
+    async def analysis_progress(run_id: UUID) -> list[AnalysisProgressResponse]:
+        return [
+            AnalysisProgressResponse.model_validate(row, from_attributes=True)
+            for row in await job_service().events(run_id)
+        ]
+
+    @application.post(
+        "/api/v1/analysis-jobs/{run_id}/cancel",
+        response_model=AnalysisRunDetailResponse,
+        tags=["analysis"],
+    )
+    async def cancel_analysis_job(run_id: UUID) -> AnalysisRunDetailResponse:
+        try:
+            result = await job_service().cancel(run_id)
+        except AnalysisJobError as error:
+            raise job_error(error) from error
+        return AnalysisRunDetailResponse.model_validate(result, from_attributes=True)
+
+    @application.post(
+        "/api/v1/analysis-jobs/{run_id}/retry",
+        response_model=AnalysisRunDetailResponse,
+        status_code=202,
+        tags=["analysis"],
+    )
+    async def retry_analysis_job(
+        run_id: UUID, request: RetryAnalysisJobRequest
+    ) -> AnalysisRunDetailResponse:
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            result = await job_service().retry(run_id, request.request_id)
+        except AnalysisJobError as error:
+            raise job_error(error) from error
+        except ApplicationError as error:
+            raise HTTPException(status_code=422, detail=error.code.value) from error
+        return AnalysisRunDetailResponse.model_validate(result, from_attributes=True)
 
     @application.post(
         "/api/v1/analysis-runs",

@@ -52,7 +52,7 @@ test("guided portfolio and watchlist journey uses synthetic data and stops befor
   await page.getByRole("button", { name: "保存持仓", exact: true }).click();
   await expect(page.getByText("持仓已保存", { exact: true })).toBeVisible();
   let analysisCalls = 0;
-  await page.route("**/api/v1/analysis-runs", (route) => { analysisCalls++; return route.fulfill({ status: 503, json: { detail: "synthetic_unavailable" } }); });
+  await page.route("**/api/v1/analysis-jobs", (route) => { analysisCalls++; return route.fulfill({ status: 503, json: { detail: "synthetic_unavailable" } }); });
   await page.getByRole("button", { name: "立即分析", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("可能调用付费模型");
   await expect(page.getByLabel("分析所用组合")).toHaveValue(await page.evaluate(() => sessionStorage.getItem("selected_portfolio_id")));

@@ -50,7 +50,7 @@ export function AnalysisStartDialog({ label, portfolio, evidenceCount, onCancel,
         <ul className="tip-list">
           <li>使用设置中的模型与角色映射，可能调用付费模型；受已配置预算约束。<a href="/settings#models">检查模型与预算</a>。</li>
           <li>{evidenceCount !== undefined ? `本次只使用你勾选的 ${evidenceCount} 条证据，并冻结输入快照；不会偷偷补入其他资料。` : "本轮读取该标的已入库证据，不会自动抓取新闻。缺证据会失败关闭，不编造材料。"}可先去<a href="/research">研究资料</a>核对内容。</li>
-          <li>可能需要 1–2 分钟；请求中请保留页面。当前不支持取消正在执行的模型请求。</li>
+          <li>确认后任务进入后台队列，自动打开运行详情；可离开、刷新再回来。取消在阶段边界生效，已发出的上游调用可能仍完成、修复并计费。</li>
           <li>缺行情可阅读研究意见，但不能据此计算完整估值或买入数量；结果不产生订单。</li>
         </ul>
         <div className="dialog-actions"><button type="button" className="btn" onClick={onCancel}>暂不分析</button><button type="submit" className="btn primary" disabled={loading || !selectedId || Boolean(error)}>确认启动分析</button></div>

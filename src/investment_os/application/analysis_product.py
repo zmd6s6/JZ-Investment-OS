@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from uuid import UUID
 
 from investment_os.application.analysis_inputs import AnalysisInputsPort
-from investment_os.application.analysis_orchestrator import AnalysisRequest, execute_analysis
+from investment_os.application.analysis_orchestrator import (
+    AnalysisRequest,
+    AnalysisRunResult,
+    execute_analysis,
+)
+from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.analysis_run import AnalysisRunRead, AnalysisRunService
 from investment_os.application.committee_runtime import CommitteeRuntime
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
@@ -27,6 +32,12 @@ class StartAnalysisInput:
     evidence_ids: tuple[UUID, ...] | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedAnalysis:
+    request: AnalysisRequest
+    snapshot: dict[str, object]
+
+
 class ProductAnalysisService:
     def __init__(
         self,
@@ -43,7 +54,7 @@ class ProductAnalysisService:
         self._committee, self._market_data, self._catalog = committee, market_data, catalog
         self._policy_version_label = policy_version_label
 
-    async def start(self, inp: StartAnalysisInput) -> AnalysisRunRead:
+    async def prepare(self, inp: StartAnalysisInput) -> PreparedAnalysis:
         portfolio = await self._portfolios.get_portfolio(inp.portfolio_id)
         if portfolio is None:
             raise ApplicationError(
@@ -95,17 +106,33 @@ class ProductAnalysisService:
             instrument_symbol=symbol,
             instrument_currency=currency or portfolio.base_currency,
         )
+        return PreparedAnalysis(request, snapshot)
+
+    async def execute_prepared(
+        self,
+        request: AnalysisRequest,
+        *,
+        progress: AnalysisProgress | None = None,
+    ) -> AnalysisRunResult:
+        return await execute_analysis(
+            request,
+            committee=self._committee,
+            market_data=self._market_data,
+            **({"progress": progress} if progress is not None else {}),
+        )
+
+    async def start(self, inp: StartAnalysisInput) -> AnalysisRunRead:
+        prepared = await self.prepare(inp)
+        request, snapshot = prepared.request, prepared.snapshot
         running_id = await self._runs.mark_running(
             instrument_id=inp.instrument_id,
             portfolio_id=inp.portfolio_id,
             source=inp.source,
-            as_of=as_of,
-            policy_version_label=policy_label,
+            as_of=request.as_of,
+            policy_version_label=request.policy_version_label,
             input_snapshot=snapshot,
         )
-        result = await execute_analysis(
-            request, committee=self._committee, market_data=self._market_data
-        )
+        result = await self.execute_prepared(replace(request, budget_task_id=running_id))
         if result.status != "SUCCEEDED" or result.payload is None:
             return await self._runs.finish(
                 running_id,

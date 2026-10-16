@@ -596,6 +596,23 @@ class StartAnalysisRequest(StrictResponse):
     evidence_ids: list[UUID] | None = Field(default=None, max_length=50)
 
 
+class SubmitAnalysisJobRequest(StartAnalysisRequest):
+    request_id: UUID
+
+
+class RetryAnalysisJobRequest(StrictResponse):
+    request_id: UUID
+
+
+class AnalysisProgressResponse(StrictResponse):
+    id: UUID
+    run_id: UUID
+    sequence: int
+    stage: str
+    state: str
+    occurred_at: datetime
+
+
 class AnalysisRunSummaryResponse(StrictResponse):
     id: UUID
     instrument_id: UUID

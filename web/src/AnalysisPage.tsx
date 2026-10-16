@@ -9,6 +9,7 @@ import {
   stanceLabel,
 } from "./analysisLabels";
 import { apiFetch, readApiError } from "./writeApi";
+import { AnalysisJobPanel } from "./AnalysisJobPanel";
 
 const roleNames: Record<string, string> = { MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官" };
 
@@ -117,7 +118,14 @@ export function AnalysisPage() {
     );
   }, [load]);
 
-  useEffect(() => { if (selected) reportRef.current?.scrollIntoView?.({ block: "start" }); }, [selected]);
+  const hasActive = runs.some((run) => run.status === "QUEUED" || run.status === "RUNNING");
+  useEffect(() => {
+    if (!hasActive) return;
+    const timer = setInterval(() => void load(), 3000);
+    return () => clearInterval(timer);
+  }, [hasActive, load]);
+
+  useEffect(() => { if (selected) reportRef.current?.scrollIntoView?.({ block: "start" }); }, [selected?.id]);
 
   const openRun = useCallback(async (runId: string) => {
     if (detailInFlight.current) return;
@@ -137,6 +145,11 @@ export function AnalysisPage() {
       setOpeningId(null);
     }
   }, []);
+
+  useEffect(() => {
+    const runId = new URLSearchParams(window.location.search).get("run_id");
+    if (runId) void openRun(runId);
+  }, [openRun]);
 
   const payload = (selected?.payload ?? {}) as {
     opinions?: unknown[];
@@ -250,6 +263,10 @@ export function AnalysisPage() {
           <p className="hint-text">名称来自当前持仓 / 观察档案，只作导航；历史分析仍以固定标识与输入快照为准。</p>
           <details><summary>运行与关联标识</summary><p className="hint-text">运行 {selected.id} · 标的 {selected.instrument_id} · 组合 {selected.portfolio_id}</p></details>
           <FrozenInputs value={selected.payload.input_snapshot} />
+          <AnalysisJobPanel key={selected.id} run={selected} onUpdate={(row) => {
+            setSelected((current) => current?.id === row.id ? { ...current, ...row } : current);
+            setRuns((current) => current.map((item) => item.id === row.id ? { ...item, ...row } : item));
+          }} />
           {selected.policy_version_label.includes("TEST_DEFAULT") ? <p className="context-note">当前使用 TEST_DEFAULT 测试政策，不是真实投资限额，不允许据此增加暴露。这里不会自动激活或修改政策。</p> : null}
           {selected.failure_detail || selected.failure_code ? (
             <p className="banner banner-error">

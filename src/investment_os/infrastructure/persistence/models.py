@@ -796,3 +796,35 @@ class ResearchConfirmationRecord(AuditFieldsMixin, Base):
     )
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+
+
+class AnalysisJobRecord(AuditFieldsMixin, Base):
+    __tablename__ = "analysis_job"
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("analysis_run.id"), primary_key=True
+    )
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    retry_of: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("analysis_run.id")
+    )
+    worker_token: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AnalysisProgressRecord(AuditFieldsMixin, Base):
+    __tablename__ = "analysis_progress"
+    __table_args__ = (UniqueConstraint("run_id", "sequence"),)
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    run_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("analysis_run.id"), nullable=False, index=True
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage: Mapped[str] = mapped_column(String(32), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

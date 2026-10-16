@@ -24,8 +24,8 @@ describe("观察清单研究入口", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认启动分析" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("服务暂时无法完成请求");
     const call = fetcher.mock.calls.find(([, init]) => init?.method === "POST")!;
-    expect(call[0]).toBe("/api/v1/analysis-runs");
-    expect(JSON.parse(String(call[1]?.body))).toEqual({ instrument_id: "synthetic-instrument", portfolio_id: "synthetic-portfolio", source: "WATCHLIST" });
+    expect(call[0]).toBe("/api/v1/analysis-jobs");
+    expect(JSON.parse(String(call[1]?.body))).toMatchObject({ instrument_id: "synthetic-instrument", portfolio_id: "synthetic-portfolio", source: "WATCHLIST" });
     expect(new Headers(call[1]?.headers).get("Authorization")).toBe("Bearer synthetic-access");
     expect(screen.getByRole("cell", { name: "合成观察标的" })).toBeVisible();
     await waitFor(() => expect(screen.getByRole("button", { name: "立即分析" })).toBeEnabled());

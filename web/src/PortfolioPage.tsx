@@ -3,7 +3,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
 import { AnalysisStartDialog } from "./AnalysisStartDialog";
-import { explainFailure } from "./analysisLabels";
+import { submitAnalysis } from "./analysisSubmission";
 import { apiFetch, readApiError } from "./writeApi";
 
 type PortfolioPosition = {
@@ -374,23 +374,13 @@ export function PortfolioPage() {
     setError(null);
     setMessage(null);
     try {
-      const response = await apiFetch("/api/v1/analysis-runs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const run = await submitAnalysis({
           instrument_id: instrumentId,
           portfolio_id: selected.portfolio_id,
           source: "PORTFOLIO",
-        }),
       });
-      if (!response.ok) throw new Error(await readApiError(response));
-      const run = (await response.json()) as { status: string; failure_code: string | null };
-      setMessage(
-        run.status === "SUCCEEDED"
-          ? "分析完成，正在打开运行列表"
-          : `分析未成功：${run.failure_code ? explainFailure(run.failure_code) : run.status}`,
-      );
-      window.location.href = "/analysis";
+      setMessage("分析任务已保存，正在打开实时运行详情。");
+      window.location.href = `/analysis?run_id=${encodeURIComponent(run.id)}`;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "启动分析失败");
     } finally {
@@ -414,7 +404,7 @@ export function PortfolioPage() {
         kind="info"
         text={
           analyzing !== null
-            ? `正在分析 ${analyzing}（已用 ${analysisElapsed}s）。通常需要 1–2 分钟，请保留页面；完成后打开报告。当前显示总耗时，不代表逐阶段进度。`
+            ? `正在提交 ${analyzing} 的后台分析任务（已用 ${analysisElapsed}s）。保存成功后自动打开真实运行进度，可离开或刷新页面。`
             : null
         }
       />

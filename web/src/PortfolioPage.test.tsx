@@ -270,7 +270,7 @@ describe("PortfolioPage stale response protection", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string, init?: RequestInit) => {
-        if (init?.method === "POST" && url === "/api/v1/analysis-runs") {
+        if (init?.method === "POST" && url === "/api/v1/analysis-jobs") {
           return pendingRun as unknown as Response;
         }
         if (typeof url === "string" && url.includes("/policy/review")) {
@@ -304,7 +304,7 @@ describe("PortfolioPage stale response protection", () => {
 
     // The banner must appear immediately, not only after the run finishes.
     await waitFor(() =>
-      expect(screen.getByText(/正在分析 SSE 600519 贵州茅台/)).toBeInTheDocument(),
+      expect(screen.getByText(/正在提交 SSE 600519 贵州茅台/)).toBeInTheDocument(),
     );
     expect(screen.getByText(/已用 \d+s/)).toBeInTheDocument();
     const pendingButton = screen.getByRole("button", { name: /分析中/ });
@@ -312,7 +312,7 @@ describe("PortfolioPage stale response protection", () => {
 
     // Keep the promise unresolved; the component must not crash or finish early.
     await act(async () => {
-      finishRun(jsonBody({ status: "SUCCEEDED", failure_code: null }, true, 201));
+      finishRun(jsonBody({ id: "synthetic-queued-run", status: "QUEUED", failure_code: null }, true, 202));
       await pendingRun;
     });
   });

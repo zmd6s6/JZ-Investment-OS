@@ -60,6 +60,26 @@ describe("分析读取反馈", () => {
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("portfolio_id=synthetic-portfolio"), expect.anything()));
   });
 
+  it("does not jump the page on background progress updates", async () => {
+    const scroll = vi.fn();
+    const previous = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scroll;
+    let details = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (!url.startsWith("/api/v1/analysis-runs")) return json([]);
+      if (url.endsWith("/progress")) return json([]);
+      if (url.includes("?")) return json([run]);
+      return json({ ...run, payload: { execution_mode: "BACKGROUND", stage: ++details === 1 ? "ROUND_ONE" : "FINISHED" } });
+    }));
+    try {
+      render(<AnalysisPage />);
+      fireEvent.click(await screen.findByRole("button", { name: "查看" }));
+      expect(await screen.findByText("当前阶段：任务结束")).toBeVisible();
+      expect(details).toBe(2);
+      expect(scroll).toHaveBeenCalledTimes(1);
+    } finally { HTMLElement.prototype.scrollIntoView = previous; }
+  });
+
   it("displays the stored input snapshot without looking up current evidence", async () => {
     const fetcher = vi.fn(async (url: string) => {
       if (!url.startsWith("/api/v1/analysis-runs")) return json([]);

@@ -92,6 +92,10 @@ export async function readApiError(response: Response): Promise<string> {
   if (code.startsWith("RESEARCH_PREVIEW_") && code.endsWith("CONFLICT")) return "这个预览已使用其他请求或选择确认过，不能覆盖原记录。请找回原预览查看已保存结果。";
   if (code.startsWith("RESEARCH_PREVIEW_")) return "预览或所选候选已不可用，整批确认未完成。请找回预览核对标的、有效期和所选内容。";
   if (code === "ANALYSIS_EVIDENCE_SELECTION_INVALID") return "所选证据含缺失、跨标的、重复、未来或过期内容，分析未启动。请刷新并重新勾选，不会偷偷替换成其他资料。";
+  if (code === "ANALYSIS_JOB_REQUEST_CONFLICT") return "同一任务标识对应了不同请求，不能覆盖原任务。请先到分析运行核对原结果。";
+  if (code === "ANALYSIS_JOB_NOT_RETRYABLE") return "此运行尚未失败或取消，不能重新发起。请先查看当前运行，避免重复费用。";
+  if (code === "ANALYSIS_JOB_NOT_FOUND") return "该记录不是可操作的后台任务，或已不存在。旧同步报告仍可阅读。";
+  if (code === "ANALYSIS_JOBS_UNAVAILABLE") return "后台分析服务尚未部署或暂不可用。请联系维护者检查 API、Worker 和迁移，不要更换供应商密钥。";
   if (code === "RESEARCH_PROVIDER_UNAVAILABLE") return "所选研究供应商连接失败或超时。请先检查已存资料，再决定是否重新调用；没有切换其他来源。";
   if (code === "RESEARCH_INGESTION_UNAVAILABLE" || code === "RESEARCH_PROVIDER_RUNTIME_UNAVAILABLE") return "研究服务暂不可用。请检查 API 部署与数据库，不要更换模型密钥。";
   if (response.status === 403) return "当前操作没有权限，未获授权。请检查本系统的访问配置，不要更换供应商 Key。";

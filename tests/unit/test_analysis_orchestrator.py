@@ -215,7 +215,14 @@ async def test_execute_analysis_succeeds_with_synthetic_inputs() -> None:
         thesis_state=ThesisState.VALID,
     )
 
-    result = await execute_analysis(request, committee=committee, market_data=adapter)
+    events = []
+
+    async def progress(stage, state):
+        events.append((stage, state))
+
+    result = await execute_analysis(
+        request, committee=committee, market_data=adapter, progress=progress
+    )
     assert result.status == "SUCCEEDED"
     assert result.payload is not None
     payload = result.payload.to_dict()
@@ -232,6 +239,20 @@ async def test_execute_analysis_succeeds_with_synthetic_inputs() -> None:
     assert payload["valuation"]["status"] == "OK"
     assert payload["risk"]["gate"] in {"PASS", "VETO", "UNKNOWN"}
     assert payload["policy_version_label"] == "TEST_DEFAULT"
+    assert events == [
+        (stage, state)
+        for stage in (
+            "PREPARING",
+            "ROUND_ONE",
+            "CONFLICTS",
+            "ROUND_TWO",
+            "PORTFOLIO",
+            "RISK",
+            "VALUATION_SIZING",
+            "CIO",
+        )
+        for state in ("STARTED", "COMPLETED")
+    ]
 
 
 @pytest.mark.asyncio

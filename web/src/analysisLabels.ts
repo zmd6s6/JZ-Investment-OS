@@ -10,6 +10,10 @@ const FAILURE_LABELS: Record<string, string> = {
   AGENT_ROLE_UNREGISTERED: "分析角色未注册",
   AGENT_RUNTIME_REQUEST_INVALID: "分析请求参数无效",
   PORTFOLIO_NOT_FOUND: "组合不存在",
+  ANALYSIS_INTERRUPTED: "工作进程中断，未自动重放付费调用",
+  ANALYSIS_CANCELLED: "分析已取消",
+  ANALYSIS_EXECUTION_FAILED: "分析执行异常，请核对配置和费用",
+  ANALYSIS_EVIDENCE_UNAVAILABLE: "排队时资料已失效，未调用模型",
   // payload.failures (fail-closed limitations)
   MISSING_REFERENCE_QUOTES: "缺少行情报价",
   RISK_AGENT_UNAVAILABLE: "风险评估未完成",
@@ -35,6 +39,8 @@ const STATUS_LABELS: Record<string, string> = {
   SUCCEEDED: "成功",
   FAILED: "失败",
   RUNNING: "运行中",
+  QUEUED: "已排队",
+  CANCELLED: "已取消",
 };
 
 export function runStatusLabel(status: string): string {

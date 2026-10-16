@@ -96,6 +96,7 @@ class SqlAlchemyAnalysisInputs:
                 "ingested_at": row.ingested_at.isoformat(),
                 "expires_at": row.expires_at.isoformat() if row.expires_at else None,
                 "summary": summary,
+                "ingested_freshness_status": row.freshness_status,
             },
         )
 

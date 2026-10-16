@@ -4,6 +4,7 @@ import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome"
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
 import { AnalysisStartDialog } from "./AnalysisStartDialog";
 import { apiFetch, readApiError } from "./writeApi";
+import { submitAnalysis } from "./analysisSubmission";
 
 type WatchlistItem = {
   watchlist_item_id: string;
@@ -120,13 +121,9 @@ export function WatchlistPage() {
     setError(null);
     setMessage(null);
     try {
-      const response = await apiFetch("/api/v1/analysis-runs", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instrument_id: item.instrument_id, portfolio_id: portfolioId, source: "WATCHLIST" }),
-      });
-      if (!response.ok) throw new Error(await readApiError(response));
+      const run = await submitAnalysis({ instrument_id: item.instrument_id, portfolio_id: portfolioId, source: "WATCHLIST" });
       try { sessionStorage.setItem("selected_portfolio_id", portfolioId); } catch { /* session storage is optional */ }
-      window.location.href = "/analysis";
+      window.location.href = `/analysis?run_id=${encodeURIComponent(run.id)}`;
     } catch (reason) { setError(reason instanceof Error ? reason.message : "分析未完成，请查看运行列表后再重试。"); }
     finally { setBusy(false); setAnalyzing(false); }
   }
@@ -141,7 +138,7 @@ export function WatchlistPage() {
       <div className="action-feedback">
       <StatusBanner kind="error" text={error} />
       <StatusBanner kind="ok" text={message} />
-      <StatusBanner kind="info" text={analyzing ? "正在调用投资团队分析，可能需要 1–2 分钟。请保留页面；完成后打开报告。" : loading ? "正在读取观察清单…" : null} />
+      <StatusBanner kind="info" text={analyzing ? "正在保存后台分析任务，随后打开真实运行进度；保存成功后可离开或刷新页面。" : loading ? "正在读取观察清单…" : null} />
       </div>
       {error ? <button type="button" className="btn" disabled={busy || loading} onClick={() => { setError(null); setLoading(true); void load().catch(() => setError("无法读取观察清单，请检查本地服务后重试。")).finally(() => setLoading(false)); }}>重新读取清单</button> : null}
 

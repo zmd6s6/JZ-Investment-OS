@@ -45,11 +45,13 @@ def append_event(
     *,
     aggregate: str = "research_collection",
     topic: str = "research.collection",
+    actor_type: str = "HUMAN",
+    actor_id: str = "local_owner",
 ) -> None:
     session.add(
         AuditLogRecord(
-            actor_type="HUMAN",
-            actor_id="local_owner",
+            actor_type=actor_type,
+            actor_id=actor_id,
             operation=operation,
             entity_type=aggregate,
             entity_id=identity,

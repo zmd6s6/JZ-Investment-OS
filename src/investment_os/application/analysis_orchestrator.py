@@ -22,6 +22,7 @@ from investment_os.application.analysis_context import (
     EvidenceSourceTier,
     freeze_analysis_context,
 )
+from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.committee import (
     detect_stance_conflicts,
 )
@@ -186,6 +187,7 @@ def build_analysis_request_factory(
     instrument_meta: dict[str, str],
     portfolio_meta: dict[str, Any],
     positions_meta: list[dict[str, Any]],
+    budget_task_id: UUID | None = None,
 ) -> Any:
     """Build a request factory that embeds real research materials for agents."""
 
@@ -249,6 +251,7 @@ def build_analysis_request_factory(
         system = _AGENT_OPINION_SCHEMA_INSTRUCTION
         return LLMGatewayRequest(
             request_id=uuid4(),
+            budget_task_id=budget_task_id,
             role=role,
             prompt_bundle_hash=_prompt_hash(role),
             input_snapshot_hash=role_input.context.input_snapshot_hash,
@@ -288,6 +291,7 @@ class AnalysisRequest:
     instrument_market: str = ""
     instrument_symbol: str = ""
     instrument_currency: str = ""
+    budget_task_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -545,10 +549,13 @@ async def execute_analysis(
     committee: CommitteeRuntime,
     market_data: MarketDataPort,
     logger: Any | None = None,
+    progress: AnalysisProgress | None = None,
 ) -> AnalysisRunResult:
     """Run one full bounded analysis and return a serializable result."""
 
     failures: list[str] = []
+    if progress:
+        await progress("PREPARING", "STARTED")
     if not request.evidence:
         return AnalysisRunResult(
             status="FAILED",
@@ -605,12 +612,16 @@ async def execute_analysis(
         instrument_meta=instrument_meta,
         portfolio_meta=portfolio_meta,
         positions_meta=positions_meta,
+        budget_task_id=request.budget_task_id,
     )
+    if progress:
+        await progress("PREPARING", "COMPLETED")
 
     try:
         session = await committee.run_session(
             context=context,
             request_factory=request_factory,
+            **({"progress": progress} if progress is not None else {}),
         )
     except LLMGatewayFailure as exc:
         return AnalysisRunResult(
@@ -634,18 +645,25 @@ async def execute_analysis(
 
     # Dedicated Portfolio Manager + Risk Manager runs (same frozen context).
     try:
+        if progress:
+            await progress("PORTFOLIO", "STARTED")
         portfolio_result = await _run_single_role(
             committee._agent_runtime,
             role=AgentRole.PORTFOLIO,
             context=context,
             request_factory=request_factory,
         )
+        if progress:
+            await progress("PORTFOLIO", "COMPLETED")
+            await progress("RISK", "STARTED")
         risk_result = await _run_single_role(
             committee._agent_runtime,
             role=AgentRole.RISK,
             context=context,
             request_factory=request_factory,
         )
+        if progress:
+            await progress("RISK", "COMPLETED")
     except LLMGatewayFailure as exc:
         return AnalysisRunResult(
             status="FAILED",
@@ -706,6 +724,8 @@ async def execute_analysis(
     data_sufficient = len(context.visible_evidence_ids) > 0
 
     # Valuation for all positions (NAV) + target instrument quote.
+    if progress:
+        await progress("VALUATION_SIZING", "STARTED")
     valuation, sizing, valuation_failures = await _build_valuation_and_sizing(
         request=request,
         market_data=market_data,
@@ -715,6 +735,8 @@ async def execute_analysis(
         thesis_state=thesis_state,
     )
     failures.extend(valuation_failures)
+    if progress:
+        await progress("VALUATION_SIZING", "COMPLETED")
     if valuation.get("missing_quotes") and proposed in (Action.BUY, Action.ADD):
         data_sufficient = False
 
@@ -743,6 +765,8 @@ async def execute_analysis(
         policy_passed=policy_passed,
         data_sufficient=data_sufficient,
     )
+    if progress:
+        await progress("CIO", "STARTED")
     recommendation = aggregate_cio_recommendation(cio_input)
 
     # Risk veto must block BUY/ADD explicitly in the decision record.
@@ -836,6 +860,8 @@ async def execute_analysis(
     )
 
     # Fail the run only when committee/config failed; valuation gaps stay in payload.
+    if progress:
+        await progress("CIO", "COMPLETED")
     return AnalysisRunResult(status="SUCCEEDED", payload=payload)
 
 

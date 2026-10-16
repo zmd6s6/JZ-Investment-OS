@@ -1,11 +1,16 @@
 import asyncio
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from investment_os.application.llm_budget import LLMBudgetPolicy, ModelPricing
+from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService, ModelPricing
+from investment_os.application.llm_gateway import LLMGatewayFailure, LLMGatewayRequest
+from investment_os.application.provider_settings import ModelProviderProfile
+from investment_os.domain.agent import AgentRole
 from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
 
 
@@ -83,3 +88,50 @@ async def test_task_limit_and_utc_daily_window_survive_store_recreation(
         window_date=date(2026, 9, 23), policy=policy
     )
     assert next_day.remaining_tokens == policy.daily_token_limit
+
+
+async def test_analysis_budget_limit_covers_different_role_request_ids(database_engine):
+    factory = async_sessionmaker(database_engine, expire_on_commit=False)
+    service = LLMBudgetService(SqlAlchemyLLMBudgetStore(factory))
+    policy = _policy(task_tokens=10000, daily_tokens=10000)
+    await service.save_policy(policy)
+    profile = ModelProviderProfile(
+        id=uuid4(),
+        name="合成预算模型",
+        provider_type="OPENAI_COMPATIBLE",
+        base_url="https://synthetic.example.test",
+        model_name="synthetic",
+        credential_ref=None,
+        timeout_seconds=30,
+        max_tokens=10,
+        enabled=True,
+        pricing_version="TEST",
+        pricing_currency="USD",
+        input_token_price=Decimal("0.01"),
+        output_token_price=Decimal("0.02"),
+    )
+    run_id = uuid4()
+    first = LLMGatewayRequest(
+        request_id=uuid4(),
+        budget_task_id=run_id,
+        role=AgentRole.MACRO,
+        prompt_bundle_hash="test",
+        input_snapshot_hash="test",
+        timeout_seconds=30,
+        max_output_tokens=10,
+        system_instruction="test",
+        input_payload_json="{}",
+    )
+    reserved = await service.reserve(profile=profile, request=first)
+    await service.save_policy(
+        replace(
+            policy,
+            task_token_limit=reserved.reserved_input_tokens + reserved.reserved_output_tokens,
+        )
+    )
+    second = replace(first, request_id=uuid4(), role=AgentRole.INDUSTRY)
+    with pytest.raises(LLMGatewayFailure, match="task or daily budget"):
+        await service.reserve(profile=profile, request=second)
+    assert (
+        await service.reserve(profile=profile, request=replace(second, budget_task_id=uuid4()))
+    ).task_id != run_id

@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
+from investment_os.application.analysis_jobs import AnalysisJobService
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import ProviderSettingsService
@@ -14,6 +15,7 @@ from investment_os.application.research_runtime import (
 )
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
+from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.bocha.adapter import (
     BochaWebSearchConnectionTester,
 )
@@ -134,6 +136,9 @@ def create_production_app() -> FastAPI:
         instrument_catalog_service=InstrumentCatalogService(catalog_adapter),
         analysis_product_service=analysis_product,
         analysis_run_service=analysis_runs,
+        analysis_job_service=AnalysisJobService(
+            SqlAlchemyAnalysisJobs(engine, session_factory), analysis_product
+        ),
         research_preview_service=ResearchPreviewService(
             SqlAlchemyResearchPreviews(session_factory),
             research_provider_runtime,

@@ -50,6 +50,8 @@ EXPECTED_CORE_TABLES = {
     "audit_log",
     "research_preview",
     "research_confirmation",
+    "analysis_job",
+    "analysis_progress",
 }
 
 
