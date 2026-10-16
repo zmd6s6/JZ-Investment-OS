@@ -72,6 +72,10 @@ class ResearchProviderRuntime:
         self._secret_store = secret_store
         self._registry = registry
 
+    @property
+    def provider_types(self) -> tuple[str, ...]:
+        return self._registry.provider_types
+
     async def fetch(
         self, *, profile_id: UUID, request: ResearchRequest
     ) -> list[ResearchArtifactDTO]:

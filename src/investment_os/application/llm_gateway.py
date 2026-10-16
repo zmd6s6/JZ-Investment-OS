@@ -36,6 +36,7 @@ class LLMGatewayRequest:
     committee_context_hash: str | None = None
     system_instruction: str | None = None
     input_payload_json: str | None = None
+    budget_task_id: UUID | None = None
 
     def __post_init__(self) -> None:
         _positive(self.timeout_seconds, "timeout_seconds")

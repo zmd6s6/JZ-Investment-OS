@@ -13,7 +13,7 @@ test("home onboarding can start and persists non-sensitive state", async ({ page
   expect(["NOT_STARTED", "IN_PROGRESS"]).toContain(initial.status);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "先搭好底座，再开始研究" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "把持仓变成有据可查的研究" })).toBeVisible();
   await expect(page.getByText("模拟净值")).not.toBeVisible();
 
   if (initial.status === "NOT_STARTED") {

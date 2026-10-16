@@ -113,7 +113,7 @@ class LLMBudgetService:
             Decimal(output_tokens) * pricing.output_token_price
         )
         reservation = await self._port.reserve(
-            task_id=request.request_id,
+            task_id=request.budget_task_id or request.request_id,
             profile_id=profile.id,
             window_date=self._now().astimezone(UTC).date(),
             pricing=pricing,

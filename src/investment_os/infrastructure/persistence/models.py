@@ -748,3 +748,83 @@ class PortfolioImportClaimRecord(Base):
     created_by: Mapped[str] = mapped_column(
         String(255), nullable=False, default="product_portfolio"
     )
+
+
+class AnalysisRunRecord(Base):
+    """One product analysis run: QUEUED/RUNNING/SUCCEEDED/FAILED with JSON payload."""
+
+    __tablename__ = "analysis_run"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    portfolio_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    policy_version_label: Mapped[str] = mapped_column(String(128), nullable=False, default="none")
+    failure_code: Mapped[str | None] = mapped_column(String(64))
+    failure_detail: Mapped[str | None] = mapped_column(Text)
+    payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False, default=dict)
+    schema_version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="product_ui")
+
+
+class ResearchPreviewRecord(AuditFieldsMixin, Base):
+    __tablename__ = "research_preview"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    profile_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    instrument_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+
+
+class ResearchConfirmationRecord(AuditFieldsMixin, Base):
+    __tablename__ = "research_confirmation"
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("research_preview.id"), primary_key=True
+    )
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+
+
+class AnalysisJobRecord(AuditFieldsMixin, Base):
+    __tablename__ = "analysis_job"
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("analysis_run.id"), primary_key=True
+    )
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    retry_of: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("analysis_run.id")
+    )
+    worker_token: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AnalysisProgressRecord(AuditFieldsMixin, Base):
+    __tablename__ = "analysis_progress"
+    __table_args__ = (UniqueConstraint("run_id", "sequence"),)
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    run_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("analysis_run.id"), nullable=False, index=True
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage: Mapped[str] = mapped_column(String(32), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

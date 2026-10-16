@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
@@ -40,6 +40,13 @@ class ProductCapabilityResponse(StrictResponse):
     label: str
     status: Literal["AVAILABLE", "CONFIGURATION_REQUIRED", "NOT_IMPLEMENTED"]
     detail: str
+
+
+class LocalSessionResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    mode: Literal["bearer", "local_session"]
+    authenticated: bool
+    expires_at: int | None
 
 
 class SystemSettingsResponse(StrictResponse):
@@ -249,6 +256,81 @@ class ProviderResearchFetchResponse(StrictResponse):
     schema_version: Literal["1.0"] = "1.0"
     provider_profile_id: UUID
     results: list[ResearchIngestResponse]
+
+
+class ResearchCapabilitiesResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    provider_types: list[str]
+
+
+class ResearchPreviewRequest(StrictResponse):
+    request_id: UUID
+    instrument_id: UUID
+    query: str = Field(min_length=1, max_length=1000)
+    max_results: int = Field(default=5, ge=1, le=20)
+
+
+class ResearchConfirmationRequest(StrictResponse):
+    instrument_id: UUID
+    candidate_ids: list[UUID] = Field(min_length=1, max_length=20)
+
+
+class CandidateCommitResponse(StrictResponse):
+    candidate_id: UUID
+    evidence_id: UUID
+    reused: bool
+
+
+class ResearchCandidateResponse(StrictResponse):
+    candidate_id: UUID
+    title: str
+    excerpt: str
+    source_name: str
+    source_locator: str
+    source_tier: str
+    provider: str
+    observed_at: datetime
+    available_at: datetime
+    expires_at: datetime | None
+    freshness_status: str
+
+
+class ResearchPreviewResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    preview_id: UUID
+    profile_id: UUID
+    instrument_id: UUID
+    query: str
+    created_at: datetime
+    expires_at: datetime
+    as_of: datetime
+    candidates: list[ResearchCandidateResponse]
+    confirmation: list[CandidateCommitResponse] | None
+
+
+class EvidenceLibraryItemResponse(StrictResponse):
+    evidence_id: UUID
+    instrument_id: UUID | None
+    source_name: str
+    source_locator: str
+    source_tier: str
+    provider: str
+    evidence_type: str
+    title: str
+    excerpt: str
+    observed_at: datetime
+    effective_at: datetime
+    available_at: datetime
+    ingested_at: datetime
+    expires_at: datetime | None
+    freshness_status: str
+    content_hash: str
+
+
+class EvidenceLibraryResponse(StrictResponse):
+    schema_version: Literal["1.0"] = "1.0"
+    as_of: datetime
+    items: list[EvidenceLibraryItemResponse]
 
 
 class EvidenceClaimResponse(StrictResponse):
@@ -505,3 +587,63 @@ class PolicyReviewResponse(StrictResponse):
     is_test_default: bool
     limits: list[dict[str, str]]
     warning: str
+
+
+class StartAnalysisRequest(StrictResponse):
+    instrument_id: UUID
+    portfolio_id: UUID
+    source: Literal["PORTFOLIO", "WATCHLIST", "RESEARCH"] = "PORTFOLIO"
+    evidence_ids: list[UUID] | None = Field(default=None, max_length=50)
+
+
+class SubmitAnalysisJobRequest(StartAnalysisRequest):
+    request_id: UUID
+
+
+class RetryAnalysisJobRequest(StrictResponse):
+    request_id: UUID
+
+
+class AnalysisProgressResponse(StrictResponse):
+    id: UUID
+    run_id: UUID
+    sequence: int
+    stage: str
+    state: str
+    occurred_at: datetime
+
+
+class AnalysisRunSummaryResponse(StrictResponse):
+    id: UUID
+    instrument_id: UUID
+    portfolio_id: UUID
+    source: str
+    status: str
+    as_of: datetime
+    policy_version_label: str
+    failure_code: str | None
+    failure_detail: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AnalysisRunDetailResponse(StrictResponse):
+    id: UUID
+    instrument_id: UUID
+    portfolio_id: UUID
+    source: str
+    status: str
+    as_of: datetime
+    policy_version_label: str
+    failure_code: str | None
+    failure_detail: str | None
+    payload: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+
+class SyntheticQuoteRequest(StrictResponse):
+    instrument_id: UUID
+    reference_price: Decimal
+    currency: str
+    volatility: Decimal = Decimal("0.20")

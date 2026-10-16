@@ -29,8 +29,8 @@
 | P2 | `PRODUCT-02` | `ACCEPTED` | 设置、密钥存储与供应商档案 |
 | P3 | `PRODUCT-03` | `ACCEPTED` | 真实模型运行时 |
 | P4 | `PRODUCT-04` | `ACCEPTED` | 多提供方数据运行时 |
-| P5 | `PRODUCT-05` | `PLANNED` | 当前下一阶段：Portfolio 与 Watchlist 产品 |
-| P6 | `PRODUCT-06` | `PLANNED` | 端到端 Analysis Orchestration |
+| P5 | `PRODUCT-05` | `ACCEPTED` | PR #17 已合并；Portfolio 与 Watchlist 产品 |
+| P6 | `PRODUCT-06` | `IN_PROGRESS` | 活动阶段；完整页面证据摄取与运行控制仍待收口，见当前状态与交互复查 |
 | P7 | `PRODUCT-07` | `PLANNED` | 交互式决策与批准 |
 | P8 | `PRODUCT-08` | `PLANNED` | 每日 AI 团队运行时 |
 | P9 | `PRODUCT-09` | `PLANNED` | Beta 验收 |

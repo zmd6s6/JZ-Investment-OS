@@ -72,7 +72,7 @@ test("csv import blocks dirty rows and accepts clean file", async ({ page }) => 
 test("watchlist is simple add/remove with Chinese empty states", async ({ page }) => {
   await authorize(page);
   await page.goto("/watchlist");
-  await expect(page.getByRole("heading", { name: "我在盯的票" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "我的观察清单" })).toBeVisible();
   await page.getByLabel("代码").fill("000001");
   await page.getByLabel("名称").fill("平安银行");
   await page.getByRole("button", { name: "加入清单" }).click();

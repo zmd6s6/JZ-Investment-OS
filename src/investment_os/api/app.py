@@ -1,18 +1,25 @@
 """Bootstrap API with liveness and real infrastructure readiness endpoints."""
 
+import asyncio
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException, Query, Response, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 from sqlalchemy import select
 
+from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
+from investment_os.application.analysis_product import ProductAnalysisService
+from investment_os.application.analysis_run import AnalysisRunService
+from investment_os.application.evidence import derive_display_freshness
+from investment_os.application.evidence_library import EvidenceLibraryPort
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
@@ -43,6 +50,11 @@ from investment_os.application.research import (
     ResearchProviderUnavailableError,
     ResearchRequest,
 )
+from investment_os.application.research_preview import (
+    ResearchPreview,
+    ResearchPreviewError,
+    ResearchPreviewService,
+)
 from investment_os.application.research_runtime import ResearchProviderRuntime, ResearchRuntimeError
 from investment_os.application.watchlist import WatchlistService
 from investment_os.domain.values import UtcTimestamp
@@ -61,12 +73,23 @@ from investment_os.infrastructure.decision_journal import (
     SqlAlchemyDecisionJournalReader,
 )
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
+from investment_os.infrastructure.evidence_library import SqlAlchemyEvidenceLibrary
+from investment_os.infrastructure.local_access import (
+    SESSION_TTL,
+    LocalAccessStore,
+    cookie_name,
+    local_origin,
+)
 from investment_os.infrastructure.report_delivery import SqlAlchemyDailyReportReader
 from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
 from .schemas import (
+    AnalysisProgressResponse,
+    AnalysisRunDetailResponse,
+    AnalysisRunSummaryResponse,
+    CandidateCommitResponse,
     CsvImportCommitResponse,
     CsvImportPreviewResponse,
     CsvImportRequest,
@@ -75,12 +98,15 @@ from .schemas import (
     DataProviderProfileRequest,
     DataProviderProfileResponse,
     DecisionJournalResponse,
+    EvidenceLibraryItemResponse,
+    EvidenceLibraryResponse,
     InstrumentCatalogResponse,
     InstrumentIdentityRequest,
     LivenessResponse,
     LLMBudgetPolicyRequest,
     LLMBudgetResponse,
     LLMBudgetUsageResponse,
+    LocalSessionResponse,
     ManualPositionRequest,
     ModelProviderProfileRequest,
     ModelProviderProfileResponse,
@@ -96,10 +122,18 @@ from .schemas import (
     ProviderTestHistoryResponse,
     ProviderTestResponse,
     ReadinessResponse,
+    ResearchCandidateResponse,
+    ResearchCapabilitiesResponse,
+    ResearchConfirmationRequest,
     ResearchIngestRequest,
     ResearchIngestResponse,
+    ResearchPreviewRequest,
+    ResearchPreviewResponse,
+    RetryAnalysisJobRequest,
     RoleModelAssignmentRequest,
     RoleModelAssignmentResponse,
+    StartAnalysisRequest,
+    SubmitAnalysisJobRequest,
     SystemSettingsResponse,
     SystemSettingsUpdateRequest,
     TaskRunResponse,
@@ -343,6 +377,13 @@ def create_app(
     watchlist_service: WatchlistService | None = None,
     portfolio_csv_service: PortfolioCsvImportService | None = None,
     write_api_token: str | None = None,
+    local_access_store: LocalAccessStore | None = None,
+    local_access_origin: str | None = None,
+    analysis_product_service: "ProductAnalysisService | None" = None,
+    analysis_run_service: "AnalysisRunService | None" = None,
+    evidence_library: EvidenceLibraryPort | None = None,
+    research_preview_service: ResearchPreviewService | None = None,
+    analysis_job_service: AnalysisJobService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -364,6 +405,9 @@ def create_app(
     selected_portfolio_book_service = portfolio_book_service
     selected_watchlist_service = watchlist_service
     selected_portfolio_csv_service = portfolio_csv_service
+    selected_analysis_product_service = analysis_product_service
+    selected_analysis_run_service = analysis_run_service
+    selected_evidence_library = evidence_library
     if (
         selected_thesis_reader is None
         or selected_decision_journal_reader is None
@@ -373,9 +417,12 @@ def create_app(
         or selected_portfolio_book_service is None
         or selected_watchlist_service is None
         or selected_portfolio_csv_service is None
+        or selected_evidence_library is None
     ):
         reader_engine = create_database_engine(settings.database_url)
         session_factory = create_session_factory(reader_engine)
+        if selected_evidence_library is None:
+            selected_evidence_library = SqlAlchemyEvidenceLibrary(session_factory)
         if selected_thesis_reader is None:
             selected_thesis_reader = SqlAlchemyThesisReader(session_factory)
         if selected_decision_journal_reader is None:
@@ -430,7 +477,95 @@ def create_app(
     selected_write_token = (
         write_api_token if write_api_token is not None else settings.api_write_token
     )
-    application.add_middleware(WriteApiAuthMiddleware, token=selected_write_token)
+    local_store = local_access_store
+    origin = local_origin(local_access_origin or settings.local_origin)
+    if local_store is None and settings.api_auth_mode == "local_session":
+        local_store = LocalAccessStore(settings.local_access_store_path)
+    application.add_middleware(
+        WriteApiAuthMiddleware, token=selected_write_token, local_store=local_store, origin=origin
+    )
+
+    @application.get("/api/v1/auth/session", response_model=LocalSessionResponse, tags=["auth"])
+    async def local_session_status(request: Request) -> dict[str, object]:
+        if local_store is None:
+            return {"mode": "bearer", "authenticated": False, "expires_at": None}
+        expiry = await asyncio.to_thread(
+            local_store.session_expiry, request.cookies.get(cookie_name(origin), ""), origin
+        )
+        return {"mode": "local_session", "authenticated": expiry is not None, "expires_at": expiry}
+
+    @application.post(
+        "/api/v1/auth/pair",
+        response_model=LocalSessionResponse,
+        tags=["auth"],
+        openapi_extra={
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["code"],
+                            "properties": {
+                                "code": {
+                                    "type": "string",
+                                    "writeOnly": True,
+                                    "description": "一次性本机配对码",
+                                }
+                            },
+                            "additionalProperties": False,
+                        }
+                    }
+                },
+            }
+        },
+    )
+    async def pair_local_browser(request: Request, response: Response) -> dict[str, object]:
+        if local_store is None:
+            raise HTTPException(status_code=404, detail="local_access_disabled")
+        if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
+            raise HTTPException(status_code=400, detail="local_pairing_invalid")
+        data = bytearray()
+        async for chunk in request.stream():
+            data.extend(chunk)
+            if len(data) > 1024:
+                raise HTTPException(status_code=400, detail="local_pairing_invalid")
+        try:
+            value = json.loads(data)
+            if not isinstance(value, dict) or set(value) != {"code"}:
+                raise ValueError("invalid shape")
+            code = value["code"]
+            if not isinstance(code, str):
+                raise ValueError("invalid code")
+            session, expires = await asyncio.to_thread(local_store.exchange, code, origin)
+        except (ValueError, UnicodeDecodeError):
+            raise HTTPException(status_code=401, detail="local_pairing_invalid") from None
+        response.set_cookie(
+            cookie_name(origin),
+            session,
+            max_age=SESSION_TTL,
+            httponly=True,
+            samesite="strict",
+            path="/api/v1",
+        )
+        return {"mode": "local_session", "authenticated": True, "expires_at": expires}
+
+    @application.post("/api/v1/auth/logout", status_code=204, tags=["auth"])
+    async def revoke_local_browser(request: Request) -> Response:
+        if local_store is None:
+            raise HTTPException(status_code=404, detail="local_access_disabled")
+        await asyncio.to_thread(local_store.revoke, request.cookies.get(cookie_name(origin), ""))
+        response = Response(status_code=204)
+        response.delete_cookie(
+            cookie_name(origin), path="/api/v1", httponly=True, samesite="strict"
+        )
+        return response
+
+    @application.post("/api/v1/auth/check", tags=["auth"])
+    async def check_write_access() -> dict[str, str]:
+        """Verify the existing write bearer without writes or external calls."""
+
+        return {"status": "authorized"}
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
     async def liveness() -> LivenessResponse:
@@ -486,7 +621,7 @@ def create_app(
                 key="onboarding",
                 label="首次配置向导",
                 status="AVAILABLE",
-                detail="可记录首次配置已开始, 不收集密钥或真实持仓。",
+                detail="页面提供操作指南; 开始按钮仅记录开始时间, 不代表模型、预算或数据已就绪。",
             ),
             ProductCapabilityResponse(
                 key="providers",
@@ -509,7 +644,10 @@ def create_app(
                 key="portfolio",
                 label="资产组合导入",
                 status="CONFIGURATION_REQUIRED",
-                detail="P5 支持手工持仓与本地 Instrument 目录. CSV 与对账仍在推进. 不伪造市值.",
+                detail=(
+                    "支持手工持仓、CSV 预览与确认导入、对账和观察清单; "
+                    "需先创建组合。此页不伪造市值。"
+                ),
             ),
             ProductCapabilityResponse(
                 key="execution",
@@ -843,6 +981,165 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return await read_llm_budget()
 
+    @application.get(
+        "/api/v1/research/capabilities",
+        response_model=ResearchCapabilitiesResponse,
+        tags=["research"],
+    )
+    async def research_capabilities() -> ResearchCapabilitiesResponse:
+        return ResearchCapabilitiesResponse(
+            provider_types=list(selected_research_provider_runtime.provider_types)
+            if selected_research_provider_runtime is not None
+            else []
+        )
+
+    def preview_service() -> ResearchPreviewService:
+        if research_preview_service is None:
+            raise HTTPException(status_code=503, detail="research_preview_unavailable")
+        return research_preview_service
+
+    def preview_response(preview: ResearchPreview) -> ResearchPreviewResponse:
+        now = datetime.now(UTC)
+        candidates = []
+        for candidate in preview.candidates:
+            artifact = candidate.artifact
+            title = artifact.payload.get("title", artifact.payload.get("headline", "无标题资料"))
+            excerpt = "\n\n".join(
+                str(artifact.payload[key])[:8000]
+                for key in ("summary", "snippet", "text", "content")
+                if isinstance(artifact.payload.get(key), str)
+            )[:16000]
+            candidates.append(
+                ResearchCandidateResponse(
+                    candidate_id=candidate.candidate_id,
+                    title=str(title)[:1000],
+                    excerpt=excerpt,
+                    source_name=artifact.source_name,
+                    source_locator=artifact.source_locator,
+                    source_tier=artifact.source_tier,
+                    provider=artifact.provider,
+                    observed_at=artifact.observed_at.value,
+                    available_at=artifact.available_at.value,
+                    expires_at=artifact.expires_at.value if artifact.expires_at else None,
+                    freshness_status=derive_display_freshness(
+                        as_of=now,
+                        available_at=artifact.available_at.value,
+                        expires_at=artifact.expires_at.value if artifact.expires_at else None,
+                    ).value,
+                )
+            )
+        return ResearchPreviewResponse(
+            preview_id=preview.preview_id,
+            profile_id=preview.profile_id,
+            instrument_id=preview.instrument_id,
+            query=preview.query,
+            created_at=preview.created_at,
+            expires_at=preview.expires_at,
+            as_of=now,
+            candidates=candidates,
+            confirmation=[
+                CandidateCommitResponse.model_validate(item, from_attributes=True)
+                for item in preview.confirmation
+            ]
+            if preview.confirmation is not None
+            else None,
+        )
+
+    def preview_http_error(error: ResearchPreviewError) -> HTTPException:
+        code = error.code
+        status_code = (
+            404
+            if code.endswith("not_found")
+            else 410
+            if code.endswith("expired")
+            else 409
+            if code.endswith("conflict")
+            else 422
+        )
+        return HTTPException(status_code=status_code, detail=code)
+
+    @application.post(
+        "/api/v1/research/providers/{profile_id}/preview",
+        response_model=ResearchPreviewResponse,
+        tags=["research"],
+    )
+    async def create_research_preview(
+        profile_id: UUID, request: ResearchPreviewRequest
+    ) -> ResearchPreviewResponse:
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            await selected_instrument_catalog_service.get(request.instrument_id)
+        except ApplicationError as exc:
+            raise HTTPException(status_code=404, detail="instrument_not_found") from exc
+        try:
+            preview = await preview_service().preview(
+                request_id=request.request_id,
+                profile_id=profile_id,
+                instrument_id=request.instrument_id,
+                query=request.query,
+                max_results=request.max_results,
+            )
+        except ResearchPreviewError as exc:
+            raise preview_http_error(exc) from exc
+        except ResearchProviderUnavailableError as exc:
+            raise HTTPException(status_code=502, detail="research_provider_unavailable") from exc
+        except (ResearchRuntimeError, ResearchProviderSchemaError, ValueError) as exc:
+            raise HTTPException(
+                status_code=422, detail="research_provider_request_rejected"
+            ) from exc
+        return preview_response(preview)
+
+    @application.get(
+        "/api/v1/research/previews/{preview_id}",
+        response_model=ResearchPreviewResponse,
+        tags=["research"],
+    )
+    async def read_research_preview(preview_id: UUID) -> ResearchPreviewResponse:
+        try:
+            return preview_response(await preview_service().get(preview_id))
+        except ResearchPreviewError as exc:
+            raise preview_http_error(exc) from exc
+
+    @application.post(
+        "/api/v1/research/previews/{preview_id}/confirm",
+        response_model=list[CandidateCommitResponse],
+        tags=["research"],
+    )
+    async def confirm_research_preview(
+        preview_id: UUID, request: ResearchConfirmationRequest
+    ) -> list[CandidateCommitResponse]:
+        try:
+            results = await preview_service().confirm(
+                preview_id, request.instrument_id, tuple(request.candidate_ids)
+            )
+        except ResearchPreviewError as exc:
+            raise preview_http_error(exc) from exc
+        return [
+            CandidateCommitResponse.model_validate(item, from_attributes=True) for item in results
+        ]
+
+    @application.get(
+        "/api/v1/instruments/{instrument_id}/evidence",
+        response_model=EvidenceLibraryResponse,
+        tags=["research"],
+    )
+    async def evidence_for_instrument(
+        instrument_id: UUID, limit: int = Query(default=50, ge=1, le=100)
+    ) -> EvidenceLibraryResponse:
+        assert selected_evidence_library is not None
+        as_of = datetime.now(UTC)
+        items = await selected_evidence_library.for_instrument(
+            instrument_id, as_of=as_of, limit=limit
+        )
+        return EvidenceLibraryResponse(
+            as_of=as_of,
+            items=[
+                EvidenceLibraryItemResponse.model_validate(item, from_attributes=True)
+                for item in items
+            ],
+        )
+
     @application.post(
         "/api/v1/research/ingest", response_model=ResearchIngestResponse, tags=["research"]
     )
@@ -880,6 +1177,13 @@ def create_app(
         if evidence_ingestor is None:
             raise HTTPException(status_code=503, detail="research_ingestion_unavailable")
         started = monotonic()
+        from investment_os.application.errors import ApplicationError
+
+        for instrument_id in request.instrument_ids:
+            try:
+                await selected_instrument_catalog_service.get(instrument_id)
+            except ApplicationError as exc:
+                raise HTTPException(status_code=404, detail="instrument_not_found") from exc
         try:
             artifacts = await research_provider_runtime_or_503().fetch(
                 profile_id=profile_id,
@@ -1055,6 +1359,20 @@ def create_app(
             raise HTTPException(status_code=422, detail=exc.code.value) from exc
         except Exception as exc:
             raise HTTPException(status_code=422, detail="instrument_identity_invalid") from exc
+        return InstrumentCatalogResponse.model_validate(entry, from_attributes=True)
+
+    @application.get(
+        "/api/v1/instruments/{instrument_id}",
+        response_model=InstrumentCatalogResponse,
+        tags=["instruments"],
+    )
+    async def read_instrument(instrument_id: UUID) -> InstrumentCatalogResponse:
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            entry = await selected_instrument_catalog_service.get(instrument_id)
+        except ApplicationError as exc:
+            raise HTTPException(status_code=404, detail="instrument_not_found") from exc
         return InstrumentCatalogResponse.model_validate(entry, from_attributes=True)
 
     @application.get(
@@ -1332,6 +1650,192 @@ def create_app(
                 raise HTTPException(status_code=404, detail=exc.code.value) from exc
             raise HTTPException(status_code=422, detail=exc.code.value) from exc
 
+    def _analysis_service_or_503() -> tuple[ProductAnalysisService, AnalysisRunService]:
+        if selected_analysis_product_service is None or selected_analysis_run_service is None:
+            raise HTTPException(status_code=503, detail="analysis_unavailable")
+        return selected_analysis_product_service, selected_analysis_run_service
+
+    def job_service() -> AnalysisJobService:
+        if analysis_job_service is None:
+            raise HTTPException(status_code=503, detail="analysis_jobs_unavailable")
+        return analysis_job_service
+
+    def job_error(error: AnalysisJobError) -> HTTPException:
+        code = str(error)
+        return HTTPException(status_code=404 if code.endswith("not_found") else 409, detail=code)
+
+    @application.post(
+        "/api/v1/analysis-jobs",
+        response_model=AnalysisRunDetailResponse,
+        status_code=202,
+        tags=["analysis"],
+    )
+    async def submit_analysis_job(request: SubmitAnalysisJobRequest) -> AnalysisRunDetailResponse:
+        from investment_os.application.analysis_product import StartAnalysisInput
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            result = await job_service().submit(
+                request.request_id,
+                StartAnalysisInput(
+                    request.instrument_id,
+                    request.portfolio_id,
+                    request.source,
+                    evidence_ids=tuple(request.evidence_ids)
+                    if request.evidence_ids is not None
+                    else None,
+                ),
+            )
+        except AnalysisJobError as error:
+            raise job_error(error) from error
+        except ApplicationError as error:
+            raise HTTPException(status_code=422, detail=error.code.value) from error
+        return AnalysisRunDetailResponse.model_validate(result, from_attributes=True)
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}/progress",
+        response_model=list[AnalysisProgressResponse],
+        tags=["analysis"],
+    )
+    async def analysis_progress(run_id: UUID) -> list[AnalysisProgressResponse]:
+        return [
+            AnalysisProgressResponse.model_validate(row, from_attributes=True)
+            for row in await job_service().events(run_id)
+        ]
+
+    @application.post(
+        "/api/v1/analysis-jobs/{run_id}/cancel",
+        response_model=AnalysisRunDetailResponse,
+        tags=["analysis"],
+    )
+    async def cancel_analysis_job(run_id: UUID) -> AnalysisRunDetailResponse:
+        try:
+            result = await job_service().cancel(run_id)
+        except AnalysisJobError as error:
+            raise job_error(error) from error
+        return AnalysisRunDetailResponse.model_validate(result, from_attributes=True)
+
+    @application.post(
+        "/api/v1/analysis-jobs/{run_id}/retry",
+        response_model=AnalysisRunDetailResponse,
+        status_code=202,
+        tags=["analysis"],
+    )
+    async def retry_analysis_job(
+        run_id: UUID, request: RetryAnalysisJobRequest
+    ) -> AnalysisRunDetailResponse:
+        from investment_os.application.errors import ApplicationError
+
+        try:
+            result = await job_service().retry(run_id, request.request_id)
+        except AnalysisJobError as error:
+            raise job_error(error) from error
+        except ApplicationError as error:
+            raise HTTPException(status_code=422, detail=error.code.value) from error
+        return AnalysisRunDetailResponse.model_validate(result, from_attributes=True)
+
+    @application.post(
+        "/api/v1/analysis-runs",
+        response_model=AnalysisRunDetailResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["analysis"],
+    )
+    async def start_analysis(request: StartAnalysisRequest) -> AnalysisRunDetailResponse:
+        from investment_os.application.analysis_product import StartAnalysisInput
+        from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+
+        product, _runs = _analysis_service_or_503()
+        try:
+            run = await product.start(
+                StartAnalysisInput(
+                    instrument_id=request.instrument_id,
+                    portfolio_id=request.portfolio_id,
+                    source=request.source,
+                    evidence_ids=tuple(request.evidence_ids)
+                    if request.evidence_ids is not None
+                    else None,
+                )
+            )
+        except ApplicationError as exc:
+            if exc.code is ApplicationErrorCode.PORTFOLIO_NOT_FOUND:
+                raise HTTPException(status_code=404, detail=exc.code.value) from exc
+            raise HTTPException(status_code=422, detail=exc.code.value) from exc
+        return AnalysisRunDetailResponse(
+            id=run.id,
+            instrument_id=run.instrument_id,
+            portfolio_id=run.portfolio_id,
+            source=run.source,
+            status=run.status,
+            as_of=run.as_of,
+            policy_version_label=run.policy_version_label,
+            failure_code=run.failure_code,
+            failure_detail=run.failure_detail,
+            payload=run.payload,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+        )
+
+    @application.get(
+        "/api/v1/analysis-runs",
+        response_model=list[AnalysisRunSummaryResponse],
+        tags=["analysis"],
+    )
+    async def list_analysis_runs(
+        portfolio_id: UUID | None = None,
+        limit: int = Query(default=20, ge=1, le=50),
+    ) -> list[AnalysisRunSummaryResponse]:
+        _product, runs = _analysis_service_or_503()
+        if portfolio_id:
+            rows = await runs.list_for_portfolio(portfolio_id=portfolio_id, limit=limit)
+        else:
+            rows = await runs.list_recent(limit=limit)
+        return [
+            AnalysisRunSummaryResponse(
+                id=row.id,
+                instrument_id=row.instrument_id,
+                portfolio_id=row.portfolio_id,
+                source=row.source,
+                status=row.status,
+                as_of=row.as_of,
+                policy_version_label=row.policy_version_label,
+                failure_code=row.failure_code,
+                failure_detail=row.failure_detail,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+            )
+            for row in rows
+        ]
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}",
+        response_model=AnalysisRunDetailResponse,
+        tags=["analysis"],
+    )
+    async def get_analysis_run(run_id: UUID) -> AnalysisRunDetailResponse:
+        from investment_os.application.errors import ApplicationError, ApplicationErrorCode
+
+        _product, runs = _analysis_service_or_503()
+        try:
+            run = await runs.get(run_id)
+        except ApplicationError as exc:
+            if exc.code is ApplicationErrorCode.PORTFOLIO_NOT_FOUND:
+                raise HTTPException(status_code=404, detail=exc.code.value) from exc
+            raise HTTPException(status_code=422, detail=exc.code.value) from exc
+        return AnalysisRunDetailResponse(
+            id=run.id,
+            instrument_id=run.instrument_id,
+            portfolio_id=run.portfolio_id,
+            source=run.source,
+            status=run.status,
+            as_of=run.as_of,
+            policy_version_label=run.policy_version_label,
+            failure_code=run.failure_code,
+            failure_detail=run.failure_detail,
+            payload=run.payload,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+        )
+
     @application.get(
         "/api/v1/policy/review",
         response_model=PolicyReviewResponse,
@@ -1435,6 +1939,14 @@ def create_app(
 
         @application.get("/opportunities", include_in_schema=False)
         async def opportunities_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/analysis", include_in_schema=False)
+        async def analysis_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/research", include_in_schema=False)
+        async def research_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
     return application

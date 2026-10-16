@@ -40,6 +40,11 @@ async def test_onboarding_api_is_persistent_boundary_and_exposes_no_secrets() ->
     assert next(item for item in capabilities.json() if item["key"] == "portfolio")["status"] == (
         "CONFIGURATION_REQUIRED"
     )
+    portfolio_detail = next(item for item in capabilities.json() if item["key"] == "portfolio")[
+        "detail"
+    ]
+    assert "CSV 预览与确认导入" in portfolio_detail
+    assert "仍在推进" not in portfolio_detail
     assert next(item for item in capabilities.json() if item["key"] == "providers")["status"] == (
         "NOT_IMPLEMENTED"
     )

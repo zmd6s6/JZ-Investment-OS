@@ -48,6 +48,10 @@ EXPECTED_CORE_TABLES = {
     "event_log",
     "outbox_event",
     "audit_log",
+    "research_preview",
+    "research_confirmation",
+    "analysis_job",
+    "analysis_progress",
 }
 
 
@@ -202,3 +206,49 @@ async def test_core_schema_uses_uuid_keys_numeric_financials_and_timezone_aware_
         columns = schema[table_name][1]
         column = next(item for item in columns if item["name"] == column_name)
         assert str(column["type"]).startswith("NUMERIC"), (table_name, column_name)
+
+
+async def test_preview_upgrade_preserves_legacy_run_and_code_rollback_compatibility(
+    database_engine,
+):
+    await database_engine.dispose()
+    config = Config("alembic.ini")
+    await asyncio.to_thread(command.downgrade, config, "20261010_0015_analysis_run")
+    async with database_engine.begin() as connection:
+        identity = await connection.scalar(
+            text(
+                "INSERT INTO analysis_run (id, instrument_id, portfolio_id, source, status, as_of, "
+                "payload_json) VALUES (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), "
+                "'PORTFOLIO', 'FAILED', now(), json_build_object('legacy', true)) RETURNING id"
+            )
+        )
+    await database_engine.dispose()
+    await asyncio.to_thread(command.upgrade, config, "head")
+    async with database_engine.begin() as connection:
+        assert await connection.scalar(
+            text(
+                "SELECT payload_json::jsonb = jsonb_build_object('legacy', true) "
+                "FROM analysis_run WHERE id=:id"
+            ),
+            {"id": identity},
+        )
+        # Old application payloads remain writable after an application-only rollback.
+        await connection.execute(
+            text(
+                "UPDATE analysis_run SET payload_json="
+                "json_build_object('legacy',true,'stage','FAILED') "
+                "WHERE id=:id"
+            ),
+            {"id": identity},
+        )
+    await database_engine.dispose()
+    await asyncio.to_thread(command.downgrade, config, "20261010_0015_analysis_run")
+    async with database_engine.connect() as connection:
+        assert (
+            await connection.scalar(
+                text("SELECT count(*) FROM analysis_run WHERE id=:id"), {"id": identity}
+            )
+            == 1
+        )
+    await database_engine.dispose()
+    await asyncio.to_thread(command.upgrade, config, "head")

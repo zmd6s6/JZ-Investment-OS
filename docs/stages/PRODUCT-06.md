@@ -1,10 +1,10 @@
 # PRODUCT-06 — 端到端 Analysis Orchestration
 
-- 状态：`PLANNED`
+- 状态：`IN_PROGRESS`（研究预览 / 输入冻结及后台任务 / 真实阶段 / 取消 / 显式新运行已实现；逐次模型 / 多源顺序、完整版本关联与整体验收尚未收口）
 - 前置条件：`PRODUCT-05` 已由所有者接受；可用的已授权模型与数据档案、Portfolio/Watchlist 产品流均已验证
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md` §2、§4、§6、§9、§11、§12、§16 至 §19
 - 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0004`、`ADR-0005`、`ADR-0006`、`ADR-0007`、`ADR-0010`、
-  `ADR-0015`、`ADR-0016`
+  `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`
 - 安全基线：`auto_trade=false`；外部研究和模型输出均不可信；结果仅为影子 Decision
 
 ## 目标
@@ -70,3 +70,129 @@
 
 运行受影响的格式、lint、类型、单元/属性/契约/集成/迁移、API/OpenAPI、前端构建和浏览器 E2E；真实网络验证仅在
 所有者已明确授权的 profile 上进行，并记录脱敏结果。完成定义和证据齐备后方可 `READY_FOR_REVIEW`。
+
+## 实施记录
+
+- 2026-10-16（所有者批准后的备份、前向迁移与部署核验）：
+  - 所有者明确回复「允许备份、迁移并重启」。仅停止 / 更新 `investment-os-p6-browser-test` 的 API / Worker；未操作其他项目、未合并 PR、未运行真实供应商请求或测试清表夹具。
+  - 在忽略的本地 `.runtime/backups/p6-before-0017-20261016-133657/` 保存 PostgreSQL 自定义归档、凭据 / 会话卷副本；原部署环境与主密钥仅以 Windows 当前账户 DPAPI 密文保存，未写明文环境文件。备份含私有数据，不上传 PR / CI。
+  - `pg_restore --list` 检查归档，并实际恢复至独立命名验证库；**53 张旧表行数与内容摘要一致**。从 0015 前向升级 0016 / 0017 后，全部旧表再次匹配；未覆盖原库、删除历史或执行 Schema 降级。
+  - 使用 `personal-ai-investment-os:p6-jobs-20261016`（`f1237ea` 代码）同步更新 API / Worker，健康检查通过；API 18102 与 PostgreSQL 15433 继续仅绑定 `127.0.0.1`。后台队列 0 项，原 **10 份**分析记录（7 成功 / 3 失败）保持。
+  - 原四项凭据在 API / 只读 Worker 都能成功解密（仅核对数量和成功状态，不输出值、不调用提供方）。凭据密文文件字节一致；会话 / 授权事件所有行一致，SQLite 仅启动 PRAGMA 引起文件头变更计数器变化。
+  - 部署辅助脚本首次将未配置日历误传为空字符串，Worker 将其解析为目录并启动失败；已恢复原本未设置语义、隔离无关 `.env` 默认值，Worker 健康，未开启调度。未修改生产调度规则或放宽配置校验。
+  - Computer Use 在原 18102 页面刷新验证会话延续、读取历史报告（旧同步运行不伪造新版进度）和研究预览 / 选择入口；博查档案仍保持原禁用状态。没有通过启动新分析验收，真实付费链路与后台三个浏览器场景本轮不据此转为通过。
+  - 只做部署和文档记录，不改业务实现 / API / Schema 契约；仍为 P6 IN_PROGRESS。本地保留前版 `6f28e74` 回退镜像标签，124 个生产输入文件与 Git 版本逐项核对匹配；该前版不是对旧运行容器逐位还原。回退保留新表 / 守卫、不覆盖原数据库；恢复归档必须在独立库验证后人工决定切换。
+
+- 2026-10-16（后台分析任务与真实阶段进度）：
+  - 新增 POST `/analysis-jobs`（202）、GET `/analysis-runs/{id}/progress`、POST `/analysis-jobs/{id}/cancel` 与 `/retry`；旧同步写入口保留兼容。页面提交、确认、深链接 / 刷新和进度读取连贯，不自动重发付费请求。
+  - PostgreSQL 队列与只追加阶段事件；请求 UUID 幂等、会话咨询锁防双消费、行锁 / worker token 防旧终态覆盖；业务状态 / 审计 / 事件 / Outbox 同事务。前向迁移 0017，历史运行不追补进度。
+  - Worker 使用原冻结证据 / 组合；排队过期或陈旧资料在模型前阻断。真实协议边界发出阶段事件，不用总耗时伪造百分比；轮询更新不反复滚动页面。
+  - 排队取消立即生效，运行中在下一阶段边界停止；已发出的上游调用可能完成 / 修复 / 计费。已执行任务重启后标 `ANALYSIS_INTERRUPTED`，不自动重放；用户确认新费用后创建关联新运行、重新验证原证据 ID，旧记录不变。
+  - Compose 为 Worker 只读挂载既有加密凭据卷，沿用相同主密钥和模型 / 预算门禁；无新生产依赖、无策略 / 风控 / 批准 / 实盘或 Prompt / Agent Schema 变化。
+  - 修正单任务预算归属：同一运行内所有角色及修复共享 AnalysisRun ID 累计；保留每次请求 ID 和既有任务 / 每日额度，不修改额度数值。回归覆盖跨角色达到任务上限后拒绝下一次预留，新运行独立累计。
+  - 完整模型 / 定价 / Policy 版本固定、多源顺序与主表完整关联仍为 P6 后续；当前仅阶段边界进度，不含单角色每次修复细节或上游请求强制终止，不宣称 P6 完成。
+  - 回滚保留新表、输入与阶段历史，先处理待运行队列；旧 Worker 不会消费新队列。非空任务拒绝破坏性降级；迁移手册记录恢复边界。
+  - 最终后端：`uv run python scripts/run_isolated_p6_tests.py <命名隔离库URL> -xq`，严格拒绝所有者数据库，**465 passed / 85.79%**；domain 行 **98.06%** / 分支 **88.04%**。包含真实 PostgreSQL 幂等 / 双 Worker / 取消 / 中断 / 新运行 / 过期 / 原子回滚 / 不可变输入 / 迁移守卫，以及生产 Worker 组合根的合成八角色编排。
+  - 前端：`node node_modules/vitest/vitest.mjs run --pool=threads --maxWorkers=1 --reporter=dot`，**59 passed**；生产构建通过。默认 fork 池曾因本机子进程启动卡住而失败，不记通过；线程池实际执行断言，未放宽超时或测试条件。
+  - Ruff / mypy（102 源文件）/ OpenAPI / Policy Schema / Compose config / diff check 通过；344 文件同基线只读 detect-secrets 新增 0；pip-audit 无已知漏洞（工具跳过非 PyPI 的本项目自身）。Docker 镜像 `personal-ai-investment-os:p6-jobs-20261016` 构建通过，不替换运行中容器。
+  - 浏览器：预算归属修正前，合成 18107 的旧流程 16 项 + 后台任务 3 项 **19/19**，本机会话 18106 **3/3**；最后代码整套复跑 **17/19**（旧流程 16 项及取消通过，导航 / 刷新和中断 / 新运行两项在等待五次合成调用的 5 秒断言超时，观察值为 0）。随后后台三项独立复跑 **0/3**，启动或终态等待超时；不得合并成“22 项全通过”。同期间隔离 PostgreSQL 出现 `DataFileImmediateSync` 等待且进程启动变慢，完整后端耗时 506.73 秒；运行后来产生实际阶段 / 报告，但不能据此推定超时根因已经排除。未放宽断言或超时；下一步先收口浏览器稳定性，不宣告该纵切验收完成。
+  - Computer Use 在隔离栈查看成功运行及只追加阶段历史，截图仅证明合成数据页面，不替代真实模型 / 行情验收。本轮未调用真实付费提供方。18102 仍为旧部署 / 0015；所有者数据、凭据与会话未修改，备份 / 迁移 / 重启待明确确认，不绕过既往部署策略拦截。
+
+- 2026-10-15（研究预览 / 原子确认 / 明确证据与冻结输入）：
+  - 查询生成受保护的候选预览，不写 Evidence；明确逐条勾选后整批写 Evidence / 工件 / 审计 / 事件 / Outbox。
+  - 10 分钟确认窗口，过期、跨标的、未来 / 失效候选、来源停用均拒绝；客户端不能提升来源等级或回传可信正文。
+  - UUID 请求锁与确认锁避免并发重复；同请求重放 / 找回不再次查询；不同请求 / 选择冲突显式拒绝。
+  - 页面提供「仅保存」和「保存并继续分析」，模型仍单独确认。研究入口只使用明确选择的证据 ID，空 / 缺失 / 重复 / 跨标的 / 过期输入拒绝，不自动补入近期资料。
+  - 模型前持久化版本化输入快照与 hash（证据出处 / 时间、组合、政策标签）；成功 / 失败保留，数据库禁止后改 / 删除。报告展开核对；历史不追补。
+  - 新增 additive API 与迁移 0016，旧 fetch / ingest 和省略 evidence_ids 的分析接口保留兼容。SQL 输入读取移到基础设施类型化端口；无生产依赖、Prompt / AgentOpinion / Decision / 投资规则变化。
+  - 明确未完成：完整 Policy 配置 / 模型档案 / 定价版本固定、多源顺序、真实阶段进度与取消 / 重启恢复、主表完整关联与真实行情验收。保留 P6 IN_PROGRESS。
+  - 最终验证：专用隔离库 `investment_os_uxreg_20261015_1046` 全量 **454 passed / 85.05%**；domain 行 **98.06%** / 分支 **88.04%**；新增预览 / 选择 / 冻结 15 项与迁移 4 项单独复验 **19 passed**。
+  - 前端 **52 passed**、生产构建与 Docker 镜像构建通过；Chrome 串行旧流程 / 研究 **16/16**（18107）及本机会话 **3/3**（18106）。研究测试走本机合成 HTTP → 实际适配器 → PostgreSQL → 页面；模型请求被拦截，未调用真实提供方。
+  - Ruff / mypy（98 源文件）/ OpenAPI / Policy Schema / Compose config / diff check 通过；330 文件同基线只读 detect-secrets 新增 0；pip-audit 无已知漏洞（本项目非 PyPI 包，工具明确跳过自身）。Computer Use 在隔离 18107 复查搜索、证据勾选与按钮反馈。
+  - 部署状态：新镜像已构建，但暂停 / 备份 / 迁移命令被执行环境策略拦截，未绕过。18102 仍健康运行旧镜像，业务库仍为 0015；本轮没有修改其持仓、凭据、会话或旧报告。新功能尚未部署到所有者页面，真实博查 / 模型 / Tushare 链路本轮 `NOT VERIFIED`。
+  - 回滚：保留新增表、审计与快照守卫，仅回滚应用镜像；非空审计历史禁止 Schema 降级。恢复说明见迁移运行手册与 ADR-0018。
+
+- 2026-10-15（页面化研究材料首个纵切）：
+  - `/research` 从持仓 / 观察清单带入标的，亦可搜索目录；提供方能力由运行时 registry 暴露，不在 UI 写死供应商列表。
+  - 只允许明确选择已启用、有凭据、受支持的档案；公开查询 / 数量 / 可能计费与入库边界先确认，获取后查看本地资料，再单独确认模型分析。无真实供应商调用。
+  - 修复博查结果未关联标的；单个显式标的关联纳入新 Evidence 的 payload/hash；多标的模糊请求在网络前拒绝。保留无标的旧请求语义，不追补或重写历史。
+  - 新增类型化只读 EvidenceLibrary port / SQL 适配器，API 展示最近 50 条（上限 100），读取派生新鲜度、不隐藏过期 / 未来记录、不更新历史；摘录有长度上限，外部 URL 不自动打开、文本不执行 HTML。
+  - 新增 additive GET：`/research/capabilities`、`/instruments/{id}`、`/instruments/{id}/evidence`；分析入口 source 增加兼容枚举 `RESEARCH`，报告如实标记「研究资料」，不冒充来自持仓 / 观察清单。OpenAPI 版本化响应，无投资库迁移、依赖 / Prompt / Agent Schema / 投资规则变化。
+  - 明确限制：此纵切是「确认获取并入库 → 查看」，未实现持久化前逐条预览、按次运行冻结所选证据 ID 或多源顺序；保留 P6 `IN_PROGRESS`，下一步仍属 P6。
+  - 验证：独立库 `investment_os_uxreg_20261015_1046` 全量 **438 passed / 83.07%**；domain 行 **98.06%** / 分支 **88.04%**；前端 **49 passed** 与生产构建通过。
+  - Chrome 浏览器：隔离栈 18107 的旧流程 13 项 + 新资料流程 3 项 **16/16**，本机会话隔离栈 18106 **3/3**。研究夹具通过本机临时 HTTP 服务 → 实际博查适配器 → PostgreSQL → 页面读取，模型启动在浏览器拦截，不调用真实模型。覆盖空结果、来源失败、防重复提交、独立计费确认、刷新保留与 390px 布局。
+  - Ruff / mypy（94 源文件）/ OpenAPI 与政策 Schema / Compose config / diff check 通过；323 文件使用相同 detect-secrets 基线与插件配置只读扫描，新增发现 0。常规 Windows hook 会裁剪 Linux 才报告的占位条目，保留已验证基线不提交该自动裁剪；交付提交仍运行原远程扫描。
+  - 18102 API 已重建且健康，保留凭据卷与原会话；Computer Use 实测导航、配置缺失引导与资料布局。当前该部署未配置可用研究档案，未自动复制其他环境凭据或启用提供方。真实博查 / 模型 / Tushare 网络验收本轮 `NOT VERIFIED`。
+  - 回滚：撤销新增页面 / additive API 并重建；新写入的只追加 Evidence 保留，凭据与投资状态不回退、不删除。
+
+- 2026-10-15（远程 CI 阻塞修正）：上一提交本机扫描通过，但 Linux `quality` 在 `.env.example:9` 报公开开发占位值；恢复此前已审核的精确 Basic Auth 摘要。Gitleaks 随后把恢复的单向摘要当成 API Key，按既有 `.gitleaksignore` 约定记录该提交 / 文件 / 行的精确指纹，未增加全文件忽略、降低门槛或提交凭据。远程结果以本修复提交的 CI 为准。
+
+- 2026-10-15（本机无感授权，所有者明确要求）：
+  - ADR-0017 增加本地启动配对 / HttpOnly 会话；原 Bearer 保留 CLI / 显式兼容模式，不再出现在默认日常操作里。
+  - Compose API / PostgreSQL 默认绑定 `127.0.0.1`；精确 Host / Origin 与写入自定义头校验，未配对不读取业务 API。
+  - 120 秒配对码原子单次消费；30 天会话跨标签页 / API 重启，断开后服务端撤销。独立标准库 SQLite 只存摘要、到期时间与授权事件；无业务数据库迁移。
+  - Windows 双击 `打开投资工作台.cmd`；启动器只读取必要的非秘密部署元数据，拒绝全网卡 / 多部署猜选，不显示开发令牌或供应商凭据。
+  - 验证：隔离全量 **433 passed / 82.55%**、前端 **43 passed** 与构建、旧浏览器 **13/13**、新增本机会话浏览器 **3/3**；不调用真实提供方。
+  - 浏览器验证使用 `E2E_BROWSER_CHANNEL=chrome`；本机会话测试额外指定隔离 `E2E_BASE_URL=18106` 和 `E2E_LOCAL_ACCESS_STORE_PATH`，不对用户认证库签发测试授权。默认 Playwright 浏览器缺失，不新增下载依赖。
+  - 18102 已部署，API / PostgreSQL 实际发布地址均为 `127.0.0.1`；保留原凭据与投资数据卷。Computer Use 实测启动器配对、清除地址栏短效码、刷新续用和连接说明，当前浏览器已连接。
+  - 正常 / 失败 / 边界覆盖：过期、重复兑换、并发只成功一次、错误 Host / Origin、缺失 CSRF、读取越权、凭据不回显、断开后的旧 Cookie 重放、重启续用。
+  - OpenAPI 增加三个 auth 路径及版本化会话响应；无旧业务 API / Agent Schema / 投资规则变更。
+  - 回滚：保留回环绑定，显式改回 `bearer` 并重建 API；不删除投资库或提供方凭据卷。本次不构成整个 P6 接受。
+
+- 2026-10-15（整体流程与交互复查）：
+  - 复现窄侧栏令牌输入约 30px；改为可聚焦、可回车验证、可关闭的原生模态输入，15 秒超时后恢复操作。
+  - 增加全页使用指南、配置顺序、分仓 / 凭据 / Token / 计费信息；反馈不再强制页面跳回顶部。
+  - 补观察清单分析入口、显式组合确认和调用说明；分析按钮不再冒泡载入编辑；报告可查看全部组合、名称、完整引用和未知项。
+  - 风险否决展示读取实际 Risk gate，不把“未尝试 BUY”误读成“无否决”；缺评估不显示虚假“否”。
+  - 视觉和 Grid / 表格响应式调整；390 / 800 / 1280px 授权可操作，主页面窄屏不撑宽。
+  - 验证：前端 **38 passed**、构建通过；无需供应商调用的 Chrome 浏览器 **13 passed**；
+    另一个隔离库后端最终 **407 passed / 82.50%**；domain 行 **98.06%** / 分支 **88.04%**；
+    Ruff、mypy、OpenAPI / Policy Schema、密钥扫描、Compose config 通过。仅更正能力矩阵的陈旧文案；无 API Schema / 迁移 / 投资治理变更。
+  - 不继续 P7；剩余产品缺口及验收边界见 `docs/product/UX_REVIEW_2026-10-15.md`，用户操作见 `docs/product/USER_GUIDE.md`。
+  - 本轮未跑真实付费模型 / Tushare / FX 验收；回滚仅需撤销 UI 变更并重建，不改既有凭据和数据。
+
+- 2026-10-15（访问授权与交互反馈聚焦修复）：
+  - 修正设置页和角色映射 DELETE 绕过统一鉴权的问题；继续使用原有 Bearer 中间件。
+  - 新增 `POST /api/v1/auth/check`：只验证既有写入权限，无数据库写入、凭据回显或供应商调用；
+    UI 先验证再保存本地令牌，不改变认证模式、安全要求或令牌的会话存储范围，因此不引入新的治理 ADR。
+  - 设置保存、连接测试、档案状态与角色映射提供处理中、防重入和结果提示；错误区分 401/403、
+    服务端未配置、字段校验、冲突、超时和网络故障。错误不展示原始响应、请求输入或凭据。
+  - 报告刷新/读取失败留在当前页，可重试；估值技术 JSON 折叠，缺行情影响用中文解释。
+  - 验证：独立数据库 `investment_os_ux_20261015_1009` 全量 pytest **407 passed** / **82.48%**；
+    domain 行 **98.06%** / 分支 **88.04%**；前端 Vitest **25 passed** 与生产构建通过；
+    `interaction_feedback.spec.ts` **2/2**（本地授权→保存→无供应商凭据提示；报告等待→失败→重试）通过。
+  - 浏览器命令：配置隔离 `E2E_BASE_URL`、合成 `INVESTMENT_OS_API_WRITE_TOKEN` 和
+    `E2E_BROWSER_CHANNEL=chrome`，执行 `npm run test:e2e -- interaction_feedback.spec.ts --workers=1`。
+    默认 Playwright 浏览器在本机缺失，使用已安装 Chrome 验证；未新增浏览器或生产依赖。
+  - 本轮未重跑调用真实模型的旧分析 E2E，不使用任何真实供应商凭据。
+  - 回滚：撤销本聚焦修复后重新构建；无数据库迁移，无需更换或删除凭据、访问令牌和既有记录。
+
+- 2026-10-10（首个可用纵切）：
+  - `AnalysisRun` 持久化（迁移 `20261010_0015`）、`InvestmentAnalysisOrchestrator` 通过既有委员会/Agent/CIO 门执行；
+    无 Evidence 失败关闭；跨币种缺 FX 失败关闭；缺行情显式 `MISSING_REFERENCE_QUOTES`。
+  - MarketDataPort + 合成/内存适配器；确定性 NAV/估值字段与 `TEST_DEFAULT` 固定 policy_version_label。
+  - API：`POST/GET /api/v1/analysis-runs`；UI：`/analysis` 运行列表与详情、组合持仓「立即分析」。
+  - 验证：`tests.unit 327`（含编排 2 项）、`ruff`/`mypy`、`npm run build`、前端 7/7、OpenAPI、迁移+P5 集成 6 项通过。
+  - **NOT VERIFIED**：浏览器 E2E、真实模型网络调用、密钥扫描、完整 pytest 中与分析无关的旧集成在本环境未全部重跑。
+- 2026-10-10（续）：
+  - Tushare Decimal 报价解析；行情链每次请求重读启用档案；Agent 注入证据/持仓/第二轮意见。
+  - 缺估值/仓位与 Risk 失败时禁止 BUY；TEST_DEFAULT 不允许新暴露；列表无 portfolio 时返回最近全部。
+  - RUNNING→终态状态流转；ACTIVE 政策标签从库读取；Tushare 连接测试 + 复合数据测试器。
+  - 验证：`tests.unit 338`、`mypy`、`ruff`、OpenAPI、前端构建通过。
+- 2026-10-14（真实模型全链路与浏览器验收）：
+  - **提示词根因修复**：system 指令原只提 “AgentOpinion schema 1.0” 名称不含 Schema 本体，
+    deepseek-chat 自创包裹结构致 8/8 `INVALID_OUTPUT`；补内嵌主规范 §6.2 完整契约 +
+    `INSUFFICIENT_DATA ⇔ 空 observations 且 confidence=0` 互斥规则；prompt bundle `p6-v1`→`p6-v3`；
+    具名回归测试 `test_agent_prompt_embeds_full_agentopinion_contract`。
+  - **真实 DeepSeek 全链路（隔离栈 18102）**：连接测试 734ms；真实运行 8/8 角色零修复通过
+    （7 POSITIVE + DA NEUTRAL，带证据引用 claims）；Risk 2 个 HARD 旗 → VETO → CIO RISK 门 FAIL；
+    TEST_DEFAULT 政策门 FAIL；缺行情 `MISSING_REFERENCE_QUOTES` → 禁 BUY → 最终 WATCH；
+    估值显式 `PARTIAL/missing_quotes`，sizing=None。定价 e2e-v1（USD 0.27/1.10 每百万 Token），
+    预算任务 10 万 Token/$0.5、每日 100 万 Token/$3；单次运行约 1.5 万 Token / $0.0066。
+  - **浏览器 E2E**：新增 `web/e2e/analysis.spec.ts` 2 项（真实全链路报告 + 无证据失败关闭），
+    全套 E2E **8/8 串行通过**（Chrome channel，E2E_BASE_URL=18102）。
+  - 验证：`pytest 全量 405 passed / 覆盖率 82.47%`、`ruff format/check`、`mypy src`、
+    OpenAPI 与政策 Schema check、`docker compose config`、前端 Vitest 7/7、`npm run build`。
+  - **NOT VERIFIED**：`detect-secrets`/`pip-audit` 本机未安装；Tushare Token 未配置，
+    带真实 A 股行情与确定性仓位输出的估值验收待所有者录入 Token 后补跑。
+  - 验收栈：`docker-compose -p investment-os-p6-browser-test`（API 18102 / PG 15433，迁移到 0015）。

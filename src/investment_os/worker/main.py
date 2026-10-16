@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from investment_os.application.health import ReadinessProbe
+from investment_os.infrastructure.analysis_worker import AnalysisWorker
 from investment_os.infrastructure.database import (
     DatabaseReadinessProbe,
     create_database_engine,
@@ -48,11 +49,13 @@ class WorkerRuntime:
         ready_file: Path,
         scheduler: RuntimeScheduleRunner | None,
         scheduler_engine: AsyncEngine | None,
+        analysis: AnalysisWorker | None = None,
     ) -> None:
         self._probe = probe
         self._ready_file = ready_file
         self._scheduler = scheduler
         self._scheduler_engine = scheduler_engine
+        self._analysis = analysis
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "WorkerRuntime":
@@ -72,6 +75,7 @@ class WorkerRuntime:
             ready_file=settings.worker_ready_file,
             scheduler=scheduler,
             scheduler_engine=scheduler_engine,
+            analysis=AnalysisWorker(settings),
         )
 
     async def run_once(self, *, now: datetime | None = None) -> bool:
@@ -79,9 +83,13 @@ class WorkerRuntime:
         if ready and self._scheduler is not None:
             scheduled_now = now or datetime.now(UTC)
             await self._scheduler.dispatch_due(now=scheduled_now)
+        if ready and self._analysis is not None:
+            await self._analysis.run_once()
         return ready
 
     async def close(self) -> None:
+        if self._analysis is not None:
+            await self._analysis.close()
         if self._scheduler_engine is not None:
             await self._scheduler_engine.dispose()
         await self._probe.close()
