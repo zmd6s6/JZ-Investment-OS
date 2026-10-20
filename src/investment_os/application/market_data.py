@@ -20,6 +20,10 @@ from uuid import UUID
 from investment_os.domain.values import exact_decimal
 
 
+class MarketDataSourceFailure(RuntimeError):
+    """Sanitized provider failure, distinct from a valid response with no quote."""
+
+
 @dataclass(frozen=True, slots=True)
 class QuoteRequest:
     instrument_id: UUID
@@ -149,7 +153,10 @@ class ChainedMarketDataPort:
             if not pending:
                 break
             batch = tuple(pending.values())
-            quotes = await source.get_quotes(batch, as_of=as_of)
+            try:
+                quotes = await source.get_quotes(batch, as_of=as_of)
+            except MarketDataSourceFailure:
+                continue
             for instrument_id, quote in quotes.items():
                 found[instrument_id] = replace(
                     quote,

@@ -7,6 +7,7 @@ export function tokenPriceLabel(value: unknown): string {
 }
 
 const FAILURE_LABELS: Record<string, string> = {
+  ANALYSIS_MARKET_CONFIGURATION_CHANGED: "固定行情档案已修改或停用，未自动换源",
   ANALYSIS_MODEL_CONFIGURATION_CHANGED: "固定模型配置已改变或停用，未自动换用模型",
   ANALYSIS_MODEL_CONFIGURATION_MISSING: "旧任务未固定模型配置，未自动调用当前模型",
   // run-level failure_code

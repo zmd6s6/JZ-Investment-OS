@@ -80,5 +80,6 @@ skip_covered = false
 exclude_also = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
-    '\.\.\.',
+    '^\s*\.\.\.\s*$',
+    ': \.\.\.\s*$',
 ]

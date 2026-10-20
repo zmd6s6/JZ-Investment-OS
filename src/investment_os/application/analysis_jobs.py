@@ -85,6 +85,18 @@ class AnalysisJobService:
                 if inp.model_profile_id is not None or inp.model_configuration_hash is not None
                 else []
             )
+            + (
+                [
+                    {
+                        "market_profile_ids": [str(i) for i in inp.market_profile_ids]
+                        if inp.market_profile_ids is not None
+                        else None,
+                        "market_configuration_hash": inp.market_configuration_hash,
+                    }
+                ]
+                if inp.market_profile_ids is not None or inp.market_configuration_hash is not None
+                else []
+            )
         )
         return await self._port.submit(
             request_id,

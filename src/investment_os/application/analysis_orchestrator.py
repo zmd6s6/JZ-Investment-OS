@@ -22,6 +22,7 @@ from investment_os.application.analysis_context import (
     EvidenceSourceTier,
     freeze_analysis_context,
 )
+from investment_os.application.analysis_market import AnalysisMarketPlan
 from investment_os.application.analysis_models import ANALYSIS_ROLES, AnalysisModelPlan
 from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.committee import (
@@ -298,6 +299,7 @@ class AnalysisRequest:
     instrument_currency: str = ""
     budget_task_id: UUID | None = None
     model_plan: AnalysisModelPlan | None = None
+    market_plan: AnalysisMarketPlan | None = None
 
 
 @dataclass(frozen=True, slots=True)

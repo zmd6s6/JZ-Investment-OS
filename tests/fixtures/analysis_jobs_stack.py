@@ -14,17 +14,19 @@ from decimal import Decimal
 
 from investment_os.application.agent_runtime import AgentRuntime
 from investment_os.application.analysis_jobs import AnalysisJobService
+from investment_os.application.analysis_market import AnalysisMarketConfiguration
 from investment_os.application.analysis_models import AnalysisModelConfiguration
 from investment_os.application.analysis_orchestrator import default_registry
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
 from investment_os.application.committee_runtime import CommitteeRuntime
 from investment_os.application.llm_gateway import LLMGatewayResponse
-from investment_os.application.market_data import InMemoryMarketDataAdapter
+from investment_os.application.market_data import InMemoryMarketDataAdapter, MarketQuote
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
+from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
@@ -101,9 +103,40 @@ class ControlledGateway:
 engine = create_database_engine(database)
 sessions = create_session_factory(engine)
 settings = Settings()
-profiles = ProviderSettingsService(
-    SqlAlchemyProviderSettingsStore(sessions),
-    EncryptedFileSecretStore(settings.secret_store_path, settings.secret_store_key),
+secret_store = EncryptedFileSecretStore(settings.secret_store_path, settings.secret_store_key)
+profiles = ProviderSettingsService(SqlAlchemyProviderSettingsStore(sessions), secret_store)
+market_calls = []
+
+
+class SyntheticQuotes:
+    """Only the isolated fixture registry uses this source; never calls a real provider."""
+
+    name = "SYNTHETIC_FIXTURE_ONLY"
+
+    def __init__(self, profile):
+        self.profile = profile
+
+    async def get_quotes(self, requests, *, as_of):
+        market_calls.append(str(self.profile.id))
+        if self.profile.name.startswith("合成空行情"):
+            return {}
+        return {
+            q.instrument_id: MarketQuote(
+                q.instrument_id,
+                Decimal("12.3456789"),
+                q.expected_currency,
+                as_of,
+                self.name,
+                volatility=Decimal("0.20"),
+            )
+            for q in requests
+        }
+
+
+market_factory = PlannedMarketDataFactory(
+    profiles,
+    secret_store,
+    {"TUSHARE_MARKET": lambda profile, credential, client: SyntheticQuotes(profile)},
 )
 gateway = ControlledGateway()
 catalog = SessionCatalogPort(sessions)
@@ -117,6 +150,8 @@ product = ProductAnalysisService(
     market_data=InMemoryMarketDataAdapter(),
     catalog=catalog,
     model_configuration=AnalysisModelConfiguration(profiles),
+    market_configuration=AnalysisMarketConfiguration(profiles, market_factory.supported_types),
+    market_factory=market_factory,
 )
 jobs = AnalysisJobService(SqlAlchemyAnalysisJobs(engine, sessions), product)
 app = create_fixture_app()
@@ -134,8 +169,11 @@ async def worker_loop():
 async def lifespan(application):
     global worker
     async with original_lifespan(application):
+        existing = next(
+            (p for p in await profiles.list_model_profiles() if p.name == "合成后台模型"), None
+        )
         synthetic = await profiles.save_model_profile(
-            profile_id=None,
+            profile_id=existing.id if existing else None,
             name="合成后台模型",
             provider_type="OPENAI_COMPATIBLE",
             base_url="https://synthetic.example.test/v1",
@@ -168,6 +206,7 @@ async def hold():
     gateway.release.clear()
     gateway.calls = 0
     gateway.profile_ids = []
+    market_calls.clear()
     return {"mode": "synthetic", "held": True}
 
 
@@ -189,4 +228,9 @@ async def restart():
 
 @app.get("/api/v1/test-only/analysis/stats")
 async def stats():
-    return {"mode": "synthetic", "calls": gateway.calls, "profile_ids": gateway.profile_ids}
+    return {
+        "mode": "synthetic",
+        "calls": gateway.calls,
+        "profile_ids": gateway.profile_ids,
+        "market_profile_ids": market_calls,
+    }

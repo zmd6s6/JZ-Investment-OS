@@ -27,12 +27,14 @@ test.beforeEach(async ({ page, request }) => {
 });
 test.afterEach(async ({ request }) => { await request.post("/api/v1/test-only/analysis/release", { headers }); });
 
-async function start(page: import("@playwright/test").Page, modelId?: string) {
+async function start(page: import("@playwright/test").Page, modelId?: string, marketNames?: string[], moveUp?: string) {
   await page.goto(`/research?instrument_id=${instrumentId}`);
   await page.getByRole("checkbox", { name: `用于本次分析 ${evidenceTitle}`, exact: true }).check();
   await page.getByRole("button", { name: "选择组合并分析" }).click();
   await page.getByLabel("分析所用组合").selectOption(portfolioId);
   if (modelId) await page.getByLabel("本次分析模型").selectOption(modelId);
+  for (const name of marketNames ?? []) await page.getByRole("checkbox", { name: `使用行情源 ${name} · TUSHARE_MARKET`, exact: true }).check();
+  if (moveUp) await page.getByRole("button", { name: `上移 ${moveUp}`, exact: true }).click();
   await page.getByRole("button", { name: "确认启动分析" }).click();
   await expect(page).toHaveURL(/\/analysis\?run_id=[0-9a-f-]+$/);
   return new URL(page.url()).searchParams.get("run_id")!;
@@ -54,6 +56,58 @@ test("real queued run survives navigation and reload, then displays actual stage
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
+test("market ordering controls actual selected sources, records fallback and preserves history", async ({ page, request }) => {
+  const names = [`合成空行情-${Date.now()}`, `合成报价行情-${Date.now()}`, `合成未选行情-${Date.now()}`];
+  const ids: string[] = [];
+  for (const name of names) {
+    const created = await request.post("/api/v1/settings/data-providers", { headers, data: { name, provider_type: "TUSHARE_MARKET", base_url: "https://api.tushare.pro", timeout_seconds: 5, enabled: true, retention_days: 30, credential: "synthetic-market-only" } });
+    expect(created.status()).toBe(201); ids.push((await created.json()).id);
+  }
+  // Select backup first, then move primary above it: displayed order must drive execution.
+  const id = await start(page, undefined, [names[1], names[0]], names[0]);
+  await request.post("/api/v1/test-only/analysis/release", { headers });
+  await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
+  const run = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
+  expect(run.payload.input_snapshot.market_plan.profiles.map((p: { profile_id: string }) => p.profile_id)).toEqual(ids.slice(0, 2));
+  expect(run.payload.valuation.market_data.attempts.map((p: { status: string }) => p.status)).toEqual(["NO_DATA", "SUCCEEDED"]);
+  expect(run.payload.valuation.market_data.attempts[1].quotes[0].reference_price).toBe("12.3456789");
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).market_profile_ids).toEqual(ids.slice(0, 2));
+  await page.reload();
+  await page.getByText("行情来源实际尝试 · 2 项").click();
+  await expect(page.getByText(`第 1 档 · ${names[0]} · TUSHARE_MARKET`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`第 2 档 · ${names[1]} · TUSHARE_MARKET`, { exact: true })).toBeVisible();
+  await expect(page.getByText(/12.3456789 CNY/).first()).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
+test("enabled market profiles remain unused unless explicitly selected", async ({ page, request }) => {
+  const id = await start(page);
+  await request.post("/api/v1/test-only/analysis/release", { headers });
+  await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
+  await expect(page.getByText(/本次未选择行情源，没有自动调用/)).toBeVisible();
+  const run = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
+  expect(run.payload.input_snapshot.market_plan.profiles).toEqual([]);
+  expect(run.payload.valuation.market_data).toEqual({ selection: "NONE", attempts: [] });
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).market_profile_ids).toEqual([]);
+});
+
+test("changed market confirmation is rejected before any model or market call", async ({ page, request }) => {
+  const profile = { name: `合成行情冲突-${Date.now()}`, provider_type: "TUSHARE_MARKET", base_url: "https://api.tushare.pro", timeout_seconds: 5, enabled: true, retention_days: 30, credential: "synthetic-market-only" };
+  const created = await request.post("/api/v1/settings/data-providers", { headers, data: profile });
+  expect(created.status()).toBe(201); const id = (await created.json()).id;
+  await page.goto(`/research?instrument_id=${instrumentId}`);
+  await page.getByRole("checkbox", { name: `用于本次分析 ${evidenceTitle}`, exact: true }).check();
+  await page.getByRole("button", { name: "选择组合并分析" }).click();
+  await page.getByLabel("分析所用组合").selectOption(portfolioId);
+  await page.getByRole("checkbox", { name: `使用行情源 ${profile.name} · TUSHARE_MARKET`, exact: true }).check();
+  expect((await request.put(`/api/v1/settings/data-providers/${id}`, { headers, data: { ...profile, credential: null, enabled: false } })).status()).toBe(200);
+  await page.getByRole("button", { name: "确认启动分析" }).click();
+  await expect(page.getByRole("alert")).toContainText("行情档案配置已改变或停用，未自动换源");
+  const stats = await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json();
+  expect(stats.calls).toBe(0); expect(stats.market_profile_ids).toEqual([]);
 });
 
 test("explicit per-run model selection survives reload and does not change global role assignments", async ({ page, request }) => {

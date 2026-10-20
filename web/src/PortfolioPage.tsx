@@ -3,7 +3,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
 import { AnalysisStartDialog } from "./AnalysisStartDialog";
-import { submitAnalysis, type AnalysisModelSelection } from "./analysisSubmission";
+import { submitAnalysis, type AnalysisLaunchSelection } from "./analysisSubmission";
 import { apiFetch, readApiError } from "./writeApi";
 
 type PortfolioPosition = {
@@ -365,7 +365,7 @@ export function PortfolioPage() {
     }
   }
 
-  async function startAnalysis(instrumentId: string, models: AnalysisModelSelection) {
+  async function startAnalysis(instrumentId: string, models: AnalysisLaunchSelection) {
     if (!selected) return;
     const position = selected.positions.find((p) => p.instrument_id === instrumentId);
     const label = position ? `${position.market} ${position.symbol} ${position.name}` : instrumentId;

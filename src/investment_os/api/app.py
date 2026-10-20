@@ -16,6 +16,7 @@ from pydantic import AwareDatetime
 from sqlalchemy import select
 
 from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
+from investment_os.application.analysis_market import AnalysisMarketOptions
 from investment_os.application.analysis_models import AnalysisModelOptions
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
@@ -1677,6 +1678,18 @@ def create_app(
         code = str(error)
         return HTTPException(status_code=404 if code.endswith("not_found") else 409, detail=code)
 
+    @application.get(
+        "/api/v1/analysis-market-options", response_model=AnalysisMarketOptions, tags=["analysis"]
+    )
+    async def analysis_market_options() -> AnalysisMarketOptions:
+        from investment_os.application.errors import ApplicationError
+
+        product, _ = _analysis_service_or_503()
+        try:
+            return await product.market_options()
+        except ApplicationError as error:
+            raise HTTPException(status_code=503, detail=error.code.value) from error
+
     @application.post(
         "/api/v1/analysis-jobs",
         response_model=AnalysisRunDetailResponse,
@@ -1699,6 +1712,10 @@ def create_app(
                     else None,
                     model_profile_id=request.model_profile_id,
                     model_configuration_hash=request.model_configuration_hash,
+                    market_profile_ids=tuple(request.market_profile_ids)
+                    if request.market_profile_ids is not None
+                    else None,
+                    market_configuration_hash=request.market_configuration_hash,
                 ),
             )
         except AnalysisJobError as error:
@@ -1771,6 +1788,10 @@ def create_app(
                     else None,
                     model_profile_id=request.model_profile_id,
                     model_configuration_hash=request.model_configuration_hash,
+                    market_profile_ids=tuple(request.market_profile_ids)
+                    if request.market_profile_ids is not None
+                    else None,
+                    market_configuration_hash=request.market_configuration_hash,
                 )
             )
         except ApplicationError as exc:

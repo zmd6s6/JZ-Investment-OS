@@ -20,6 +20,34 @@
         "title": "AgentRole",
         "type": "string"
       },
+      "AnalysisMarketOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_hash": {
+            "title": "Configuration Hash",
+            "type": "string"
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenMarketProfile"
+            },
+            "title": "Profiles",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configuration_hash",
+          "profiles"
+        ],
+        "title": "AnalysisMarketOptions",
+        "type": "object"
+      },
       "AnalysisModelOptions": {
         "additionalProperties": false,
         "properties": {
@@ -1407,6 +1435,46 @@
           "items"
         ],
         "title": "EvidenceLibraryResponse",
+        "type": "object"
+      },
+      "FrozenMarketProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_hash": {
+            "title": "Configuration Hash",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "provider_type": {
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "provider_type",
+          "timeout_seconds",
+          "retention_days",
+          "configuration_hash"
+        ],
+        "title": "FrozenMarketProfile",
         "type": "object"
       },
       "FrozenModelProfile": {
@@ -3387,6 +3455,34 @@
             "title": "Instrument Id",
             "type": "string"
           },
+          "market_configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Configuration Hash"
+          },
+          "market_profile_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Profile Ids"
+          },
           "model_configuration_hash": {
             "anyOf": [
               {
@@ -3457,6 +3553,34 @@
             "format": "uuid",
             "title": "Instrument Id",
             "type": "string"
+          },
+          "market_configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Configuration Hash"
+          },
+          "market_profile_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Profile Ids"
           },
           "model_configuration_hash": {
             "anyOf": [
@@ -4134,6 +4258,27 @@
           }
         },
         "summary": "Retry Analysis Job",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-market-options": {
+      "get": {
+        "operationId": "analysis_market_options_api_v1_analysis_market_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisMarketOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Analysis Market Options",
         "tags": [
           "analysis"
         ]

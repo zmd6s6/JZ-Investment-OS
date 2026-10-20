@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { readAnalysisJson } from "./analysisReads";
-import type { AnalysisModelSelection } from "./analysisSubmission";
+import type { AnalysisLaunchSelection } from "./analysisSubmission";
+import { AnalysisMarketChoices, type MarketSelection } from "./AnalysisMarketChoices";
 import { tokenPriceLabel } from "./analysisLabels";
 
 type PortfolioChoice = { portfolio_id: string; name: string; base_currency: string };
@@ -13,7 +14,7 @@ export function AnalysisStartDialog({ label, portfolio, evidenceCount, onCancel,
   portfolio?: PortfolioChoice;
   evidenceCount?: number;
   onCancel: () => void;
-  onConfirm: (portfolioId: string, models: AnalysisModelSelection) => void;
+  onConfirm: (portfolioId: string, models: AnalysisLaunchSelection) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [choices, setChoices] = useState<PortfolioChoice[]>(portfolio ? [portfolio] : []);
@@ -24,6 +25,7 @@ export function AnalysisStartDialog({ label, portfolio, evidenceCount, onCancel,
   const [modelId, setModelId] = useState("");
   const [modelError, setModelError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const [marketChoice, setMarketChoice] = useState<MarketSelection>({ market_profile_ids: [] });
 
   useEffect(() => {
     const element = dialog.current;
@@ -63,7 +65,7 @@ export function AnalysisStartDialog({ label, portfolio, evidenceCount, onCancel,
 
   return (
     <dialog ref={dialog} className="access-dialog" aria-labelledby="analysis-start-title" onCancel={(event) => { event.preventDefault(); onCancel(); }}>
-      <form onSubmit={(event) => { event.preventDefault(); if (selectedId && !loading && ready && models) onConfirm(selectedId, { ...(modelId ? { model_profile_id: modelId } : {}), model_configuration_hash: models.configuration_hash }); }}>
+      <form onSubmit={(event) => { event.preventDefault(); if (selectedId && !loading && ready && models) onConfirm(selectedId, { ...(modelId ? { model_profile_id: modelId } : {}), model_configuration_hash: models.configuration_hash, ...marketChoice }); }}>
         <div className="panel-header"><div><p className="eyebrow">启动前确认</p><h2 id="analysis-start-title">分析 {label}</h2></div><button type="button" className="btn ghost" onClick={onCancel}>关闭</button></div>
         <label className="field"><span>分析所用组合</span><select value={selectedId} disabled={Boolean(portfolio) || loading} onChange={(event) => setSelectedId(event.target.value)} required><option value="">请选择组合上下文</option>{choices.map((choice) => <option key={choice.portfolio_id} value={choice.portfolio_id}>{choice.name} · {choice.base_currency}</option>)}</select></label>
         {loading ? <p role="status">正在读取组合…</p> : null}
@@ -75,6 +77,7 @@ export function AnalysisStartDialog({ label, portfolio, evidenceCount, onCancel,
         {models && !modelId && models.missing_roles.length ? <p role="alert">尚未配置：{models.missing_roles.map((r) => roles[r] ?? r).join("、")}。可选择一个模型用于本次全部角色，或到设置完成映射。</p> : null}
         {models ? <details><summary>核对本次模型与定价</summary><ul className="tip-list">{modelId ? selectedModels.map((p) => <li key={p.profile_id}>全部八角色：{p.name} · {p.model_name}；定价版本 {p.pricing_version ?? "未配置"}；币种 {p.pricing_currency ?? "未配置"}；每 Token 输入 {tokenPriceLabel(p.input_token_price)} / 输出 {tokenPriceLabel(p.output_token_price)}</li>) : models.default_bindings.map((b) => <li key={b.role}>{roles[b.role] ?? b.role}：{b.profile.name} · {b.profile.model_name}；定价版本 {b.profile.pricing_version ?? "未配置"}；币种 {b.profile.pricing_currency ?? "未配置"}；每 Token 输入 {tokenPriceLabel(b.profile.input_token_price)} / 输出 {tokenPriceLabel(b.profile.output_token_price)}</li>)}</ul></details> : null}
         {!loading && choices.length === 0 ? <p className="context-note">分析需要现金与持仓上下文。<a href="/portfolio">先创建一个组合 →</a>，不必持有此标的。</p> : null}
+        <AnalysisMarketChoices onChange={setMarketChoice} />
         <ul className="tip-list">
           <li>只使用本次确认的模型，可能调用付费模型；受已配置预算约束。任务固定模型档案与定价摘要，修改映射不会换模型；档案修改或停用将明确拒绝，不自动回退。本次选择不修改全局设置。<a href="/settings#models">检查模型与预算</a>。</li>
           <li>{evidenceCount !== undefined ? `本次只使用你勾选的 ${evidenceCount} 条证据，并冻结输入快照；不会偷偷补入其他资料。` : "本轮读取该标的已入库证据，不会自动抓取新闻。缺证据会失败关闭，不编造材料。"}可先去<a href="/research">研究资料</a>核对内容。</li>

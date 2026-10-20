@@ -3,7 +3,7 @@ import { AnalysisStartDialog } from "./AnalysisStartDialog";
 import { InstrumentHit, InstrumentSearchBox } from "./InstrumentSearchBox";
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
-import { submitAnalysis, type AnalysisModelSelection } from "./analysisSubmission";
+import { submitAnalysis, type AnalysisLaunchSelection } from "./analysisSubmission";
 
 type Profile = { id: string; name: string; provider_type: string; enabled: boolean; credential_configured: boolean; retention_days: number };
 type EvidenceItem = { evidence_id: string; source_name: string; source_locator: string; source_tier: string; provider: string; evidence_type: string; title: string; excerpt: string; observed_at: string; available_at: string; ingested_at: string; expires_at: string | null; freshness_status: string; content_hash: string };
@@ -160,7 +160,7 @@ export function ResearchPage() {
     finally { submitting.current = false; setSaving(false); }
   }
 
-  async function analyze(portfolioId: string, models: AnalysisModelSelection) {
+  async function analyze(portfolioId: string, models: AnalysisLaunchSelection) {
     if (submitting.current || !instrument || !evidenceIds.length) return;
     submitting.current = true; setAnalyzing(true); setAnalysisOpen(false); setError(null);
     try {

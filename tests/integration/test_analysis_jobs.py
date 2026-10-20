@@ -15,6 +15,7 @@ from test_research_previews import Secrets, preview, setup
 
 from investment_os.api.app import create_app
 from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
+from investment_os.application.analysis_market import AnalysisMarketConfiguration
 from investment_os.application.analysis_models import AnalysisModelConfiguration
 from investment_os.application.analysis_orchestrator import AnalysisRunResult
 from investment_os.application.analysis_product import ProductAnalysisService, StartAnalysisInput
@@ -24,6 +25,7 @@ from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
+from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
 from investment_os.infrastructure.analysis_worker import AnalysisWorker
 from investment_os.infrastructure.catalog_portfolio import (
@@ -57,6 +59,9 @@ async def jobs_setup(engine):
     )
     runs = AnalysisRunService(SessionAnalysisRunPort(factory))
     models = await configure_models(factory)
+    secrets = Secrets()
+    market_settings = ProviderSettingsService(SqlAlchemyProviderSettingsStore(factory), secrets)
+    markets = PlannedMarketDataFactory(market_settings, secrets)
     product = ProductAnalysisService(
         inputs=SqlAlchemyAnalysisInputs(factory),
         portfolios=portfolios,
@@ -65,6 +70,8 @@ async def jobs_setup(engine):
         market_data=None,
         catalog=catalog,
         model_configuration=models,
+        market_configuration=AnalysisMarketConfiguration(market_settings, markets.supported_types),
+        market_factory=markets,
     )
     port = SqlAlchemyAnalysisJobs(engine, factory)
     service = AnalysisJobService(port, product)
@@ -94,6 +101,143 @@ async def configure_models(factory):
     )
     await settings.save_role_assignment(role="DEFAULT", model_provider_profile_id=profile.id)
     return AnalysisModelConfiguration(settings)
+
+
+async def configure_markets(factory):
+    settings = ProviderSettingsService(SqlAlchemyProviderSettingsStore(factory), Secrets())
+    profiles = []
+    for name in ("合成主行情", "合成备行情"):
+        profiles.append(
+            await settings.save_data_profile(
+                profile_id=None,
+                name=name,
+                provider_type="TUSHARE_MARKET",
+                base_url="https://api.tushare.pro",
+                timeout_seconds=5,
+                enabled=True,
+                credential="synthetic-market-only",
+                retention_days=30,
+            )
+        )
+    return settings, profiles
+
+
+async def test_market_api_freezes_order_rejects_stale_and_preserves_idempotent_snapshot(
+    database_engine,
+):
+    factory, _, runs, product, _, jobs, inp = await jobs_setup(database_engine)
+    settings, profiles = await configure_markets(factory)
+    app = create_app(
+        analysis_product_service=product,
+        analysis_run_service=runs,
+        analysis_job_service=jobs,
+        write_api_token="synthetic-market-auth",
+    )
+    headers = {"Authorization": "Bearer synthetic-market-auth"}
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        options = (await client.get("/api/v1/analysis-market-options")).json()
+        assert {p["profile_id"] for p in options["profiles"]} == {str(p.id) for p in profiles}
+        assert "credential" not in json.dumps(options) and "https://" not in json.dumps(options)
+        ids = [str(p.id) for p in reversed(profiles)]
+        body = {
+            "request_id": str(uuid4()),
+            "instrument_id": str(inp.instrument_id),
+            "portfolio_id": str(inp.portfolio_id),
+            "market_profile_ids": ids,
+            "market_configuration_hash": options["configuration_hash"],
+        }
+        response = await client.post("/api/v1/analysis-jobs", json=body, headers=headers)
+        assert response.status_code == 202
+        frozen = response.json()["payload"]["input_snapshot"]["market_plan"]
+        assert [p["profile_id"] for p in frozen["profiles"]] == ids
+        assert (
+            await client.post(
+                "/api/v1/analysis-jobs",
+                json={**body, "market_profile_ids": ids[::-1]},
+                headers=headers,
+            )
+        ).status_code == 409
+        profile = profiles[0]
+        await settings.save_data_profile(
+            profile_id=profile.id,
+            name=profile.name,
+            provider_type=profile.provider_type,
+            base_url=profile.base_url,
+            timeout_seconds=6,
+            enabled=True,
+            credential=None,
+            retention_days=30,
+        )
+        replay = await client.post("/api/v1/analysis-jobs", json=body, headers=headers)
+        assert replay.json()["payload"]["input_snapshot"]["market_plan"] == frozen
+        stale = await client.post(
+            "/api/v1/analysis-jobs", json={**body, "request_id": str(uuid4())}, headers=headers
+        )
+        assert (
+            stale.status_code == 422
+            and stale.json()["detail"] == "ANALYSIS_MARKET_CONFIGURATION_CHANGED"
+        )
+        duplicate = await client.post(
+            "/api/v1/analysis-jobs",
+            json={
+                **body,
+                "request_id": str(uuid4()),
+                "market_configuration_hash": None,
+                "market_profile_ids": [ids[0], ids[0]],
+            },
+            headers=headers,
+        )
+        assert duplicate.status_code == 422
+    async with factory() as session:
+        assert await session.scalar(select(func.count()).select_from(AnalysisJobRecord)) == 1
+
+
+async def test_queued_market_change_stops_before_models_retry_keeps_order_and_refreezes(
+    database_engine,
+):
+    factory, _, runs, product, port, jobs, inp = await jobs_setup(database_engine)
+    settings, profiles = await configure_markets(factory)
+    selected = tuple(p.id for p in reversed(profiles))
+    run = await jobs.submit(uuid4(), replace(inp, market_profile_ids=selected))
+    original = run.payload["input_snapshot"]
+    profile = profiles[0]
+    await settings.save_data_profile(
+        profile_id=profile.id,
+        name=profile.name,
+        provider_type=profile.provider_type,
+        base_url=profile.base_url,
+        timeout_seconds=6,
+        enabled=True,
+        credential=None,
+        retention_days=30,
+    )
+    assert product._committee is None  # Any model execution would fail rather than pass silently.
+    assert await jobs.run_once()
+    failed = await runs.get(run.id)
+    assert (
+        failed.status == "FAILED" and failed.failure_code == "ANALYSIS_MARKET_CONFIGURATION_CHANGED"
+    )
+    assert failed.payload["input_snapshot"] == original
+    assert (await port.retry_input(run.id)).market_profile_ids == selected
+    new_run = await jobs.retry(run.id, uuid4())
+    new_plan = new_run.payload["input_snapshot"]["market_plan"]["profiles"]
+    assert [UUID(p["profile_id"]) for p in new_plan] == list(selected)
+    assert (
+        new_plan[1]["configuration_hash"]
+        != original["market_plan"]["profiles"][1]["configuration_hash"]
+    )
+    assert (await runs.get(run.id)).payload["input_snapshot"] == original
+
+
+async def test_omitted_market_selection_never_auto_adds_enabled_profiles(database_engine):
+    factory, _, _, product, _, _, inp = await jobs_setup(database_engine)
+    await configure_markets(factory)
+    for choice in (None, ()):
+        prepared = await product.prepare(replace(inp, market_profile_ids=choice))
+        assert prepared.snapshot["market_plan"]["profiles"] == []
+        assert prepared.request.market_plan.profiles == ()
 
 
 async def test_concurrent_submit_claim_and_restart_keep_frozen_inputs(database_engine):

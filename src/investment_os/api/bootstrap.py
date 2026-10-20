@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 
 from investment_os.application.analysis_jobs import AnalysisJobService
+from investment_os.application.analysis_market import AnalysisMarketConfiguration
 from investment_os.application.analysis_models import AnalysisModelConfiguration
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
@@ -17,6 +18,7 @@ from investment_os.application.research_runtime import (
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
+from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
 from investment_os.infrastructure.bocha.adapter import (
     BochaWebSearchConnectionTester,
 )
@@ -87,16 +89,13 @@ def create_production_app() -> FastAPI:
     from investment_os.application.committee_runtime import CommitteeRuntime
     from investment_os.application.instrument_catalog import InstrumentCatalogService
     from investment_os.application.market_data import (
-        MarketDataSourcePort,  # noqa: F401
+        InMemoryMarketDataAdapter,
     )
     from investment_os.application.portfolio_book import PortfolioBookService
     from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
     from investment_os.infrastructure.catalog_portfolio import (
         SessionCatalogPort,
         SessionPortfolioBookPort,
-    )
-    from investment_os.infrastructure.tushare.market_data import (
-        RefreshableTushareChain,
     )
 
     catalog_adapter = SessionCatalogPort(session_factory)
@@ -107,19 +106,20 @@ def create_production_app() -> FastAPI:
     )
     analysis_runs = AnalysisRunService(SessionAnalysisRunPort(session_factory))
 
-    market_data = RefreshableTushareChain(
-        list_profiles=provider_settings_service.list_data_profiles,
-        get_credential=secret_store.get,
-    )
+    market_factory = PlannedMarketDataFactory(provider_settings_service, secret_store)
 
     analysis_product = ProductAnalysisService(
         inputs=SqlAlchemyAnalysisInputs(session_factory),
         portfolios=portfolio_book,
         analysis_runs=analysis_runs,
         committee=committee,
-        market_data=market_data,
+        market_data=InMemoryMarketDataAdapter(),
         catalog=catalog_adapter,
         model_configuration=AnalysisModelConfiguration(provider_settings_service),
+        market_configuration=AnalysisMarketConfiguration(
+            provider_settings_service, market_factory.supported_types
+        ),
+        market_factory=market_factory,
     )
 
     return create_app(

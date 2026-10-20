@@ -4,19 +4,22 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import httpx
 
 from investment_os.application.market_data import (
     InMemoryMarketDataAdapter,
+    MarketDataSourceFailure,
     MarketQuote,
     QuoteRequest,
     ensure_price,
     tushare_symbol,
 )
+from investment_os.domain.errors import DomainError
 
 TUSHARE_PROVIDER_TYPE = "TUSHARE_MARKET"
 TUSHARE_URL = "https://api.tushare.pro"
@@ -150,15 +153,24 @@ class TushareMarketDataAdapter:
         *,
         as_of: datetime,
     ) -> dict[UUID, MarketQuote]:
+        if as_of.tzinfo is None:
+            raise MarketDataSourceFailure("market request time must be aware")
         if not self._token:
             return {}
+        requests = tuple(
+            req
+            for req in requests
+            if req.market in {"SSE", "SZSE"} and req.expected_currency == "CNY"
+        )
         if not requests:
             return {}
         ts_codes = [tushare_symbol(req.market, req.symbol) for req in requests]
         payload = {
             "api_name": "daily",
             "token": self._token,
-            "params": {"trade_date": as_of.strftime("%Y%m%d")},
+            "params": {
+                "trade_date": as_of.astimezone(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d")
+            },
             "fields": "ts_code,trade_date,close",
         }
         try:
@@ -174,27 +186,29 @@ class TushareMarketDataAdapter:
                     parse_float=Decimal,
                     parse_int=Decimal,
                 )
-        except (httpx.HTTPError, ValueError, TypeError):
-            return {}
+        except (httpx.HTTPError, ValueError, TypeError) as error:
+            raise MarketDataSourceFailure("market provider request failed") from error
         if not isinstance(body, dict) or body.get("code") != 0:
-            return {}
+            raise MarketDataSourceFailure("market provider rejected request")
         data = body.get("data")
         if not isinstance(data, dict):
-            return {}
-        items = data.get("items") or []
-        fields = data.get("fields") or []
+            raise MarketDataSourceFailure("market provider schema invalid")
+        items = data.get("items")
+        fields = data.get("fields")
         if not isinstance(items, list) or not isinstance(fields, list):
-            return {}
+            raise MarketDataSourceFailure("market provider schema invalid")
         try:
             code_idx = fields.index("ts_code")
             date_idx = fields.index("trade_date")
             close_idx = fields.index("close")
-        except ValueError:
-            return {}
+        except ValueError as error:
+            raise MarketDataSourceFailure("market provider schema invalid") from error
         by_ts: dict[str, Any] = {}
         for row in items:
-            if not isinstance(row, list) or len(row) <= max(code_idx, close_idx):
-                continue
+            if not isinstance(row, list) or len(row) <= max(code_idx, close_idx, date_idx):
+                raise MarketDataSourceFailure("market provider row invalid")
+            if str(row[code_idx]) in by_ts:
+                raise MarketDataSourceFailure("market provider duplicate quote")
             by_ts[str(row[code_idx])] = row
         found: dict[UUID, MarketQuote] = {}
         for req, ts_code in zip(requests, ts_codes, strict=True):
@@ -207,12 +221,19 @@ class TushareMarketDataAdapter:
                     price = ensure_price(close_value)
                 else:
                     price = ensure_price(Decimal(str(close_value)))
-            except ValueError:
-                continue
+            except (ValueError, TypeError, InvalidOperation, DomainError) as error:
+                raise MarketDataSourceFailure("market provider price invalid") from error
             trade_date = str(row[date_idx])
-            quote_as_of = datetime.strptime(trade_date, "%Y%m%d")
-            if quote_as_of.tzinfo is None:
-                quote_as_of = quote_as_of.replace(tzinfo=UTC)
+            try:
+                # A daily close is not available at midnight. SSE/SZSE regular close is
+                # 15:00 Asia/Shanghai; no prior-day or synthetic price is substituted.
+                quote_as_of = (
+                    datetime.strptime(trade_date, "%Y%m%d")
+                    .replace(hour=15, tzinfo=ZoneInfo("Asia/Shanghai"))
+                    .astimezone(UTC)
+                )
+            except ValueError as error:
+                raise MarketDataSourceFailure("market provider date invalid") from error
             if quote_as_of > as_of:
                 continue
             found[req.instrument_id] = MarketQuote(

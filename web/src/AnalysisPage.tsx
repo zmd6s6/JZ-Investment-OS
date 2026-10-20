@@ -11,6 +11,7 @@ import {
 } from "./analysisLabels";
 import { readAnalysisJson } from "./analysisReads";
 import { AnalysisJobPanel } from "./AnalysisJobPanel";
+import { AnalysisMarketAudit } from "./AnalysisMarketAudit";
 
 const roleNames: Record<string, string> = { MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官" };
 
@@ -39,11 +40,14 @@ function FrozenInputs({ value }: { value: unknown }) {
   const portfolio = snapshot.portfolio && typeof snapshot.portfolio === "object" ? snapshot.portfolio as Record<string, unknown> : null;
   const plan = snapshot.model_plan && typeof snapshot.model_plan === "object" ? snapshot.model_plan as Record<string, unknown> : null;
   const bindings = plan && Array.isArray(plan.bindings) ? plan.bindings as { role: string; profile: Record<string, unknown> }[] : [];
+  const market = snapshot.market_plan && typeof snapshot.market_plan === "object" ? snapshot.market_plan as { profiles?: { profile_id: string; name: string; provider_type: string; configuration_hash: string }[] } : null;
   const text = (item: unknown) => typeof item === "string" ? item : "未记录";
   return <details className="frozen-inputs"><summary>本次分析输入快照 · {evidence.length} 条证据</summary>
     <p>选择方式：{snapshot.selection_mode === "EXPLICIT" ? "用户明确勾选" : "兼容入口的有界近期资料"} · 冻结时点：{text(snapshot.as_of)} · 政策：{text(snapshot.policy_version_label)}</p>
     <p className="hint-text">输入摘要：{text(snapshot.input_hash)}。这里展示运行当时保存的值，不重新抓取当前资料。</p>
     {portfolio ? <p>当时组合：{text(portfolio.name)} · 记账币种 {text(portfolio.base_currency)} · 现金 {text(portfolio.cash_balance)}</p> : null}
+    <h4>本次固定的行情顺序</h4>
+    {market ? market.profiles?.length ? <ol className="tip-list">{market.profiles.map((p) => <li key={p.profile_id}>{p.name} · {p.provider_type}<p className="hint-text">档案 ID {p.profile_id} · 配置摘要 {p.configuration_hash}</p></li>)}</ol> : <p>不读取行情；未自动添加来源。</p> : <p className="hint-text">此历史运行未固定行情顺序，不追补。</p>}
     <h4>本次固定的模型与定价</h4>
     <p className="hint-text">{plan ? `选择方式：${plan.mode === "SINGLE_PROFILE" ? "单一档案用于全部八角色" : "启动时角色映射"}。这里是提交时摘要，不查询当前设置；预算仍按调用时有效的预算门禁检查。` : "此历史运行未固定模型档案与定价，不用当前设置追补。"}</p>
     {bindings.map((b) => <article className="evidence-card" key={b.role}><strong>{roleNames[b.role] ?? b.role} · {text(b.profile.name)} · {text(b.profile.model_name)}</strong><p>定价版本 {text(b.profile.pricing_version)} · 币种 {text(b.profile.pricing_currency)} · 每 Token 输入 {tokenPriceLabel(b.profile.input_token_price)} / 输出 {tokenPriceLabel(b.profile.output_token_price)}</p><p className="hint-text">档案 ID：{text(b.profile.profile_id)} · 配置摘要：{text(b.profile.configuration_hash)}</p></article>)}
@@ -356,6 +360,7 @@ export function AnalysisPage() {
           <details><summary>查看风险旗与解除条件</summary>{Array.isArray(payload.risk?.flags) && payload.risk.flags.length ? <ul className="tip-list">{(payload.risk.flags as Record<string, unknown>[]).map((flag, index) => <li key={index}>{String(flag.code ?? "未提供")} · {String(flag.severity ?? "未提供")}<p>解除条件：{String(flag.release_condition ?? "未提供")}</p><p className="muted">证据引用：{Array.isArray(flag.evidence_ids) ? flag.evidence_ids.map(String).join("、") : "未提供"}</p></li>)}</ul> : <p className="hint-text">未提供风险旗，不代表风险已经排除。</p>}</details>
 
           <h3>估值与仓位</h3>
+          <AnalysisMarketAudit value={payload.valuation?.market_data} />
           {payload.failures?.includes("MISSING_REFERENCE_QUOTES") ? (
             <p className="banner banner-info">未配置可用行情或未获取到报价：可继续阅读研究意见，暂不能计算完整市值和建议数量。可在设置中配置已授权的行情源；没有 Tushare Token 不影响其他已配置功能。</p>
           ) : null}

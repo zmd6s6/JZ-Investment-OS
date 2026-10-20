@@ -201,6 +201,12 @@ class SqlAlchemyAnalysisJobs:
                 run.portfolio_id,
                 run.source,
                 evidence_ids=tuple(UUID(item["evidence_id"]) for item in evidence),
+                market_profile_ids=tuple(
+                    UUID(p["profile_id"])
+                    for p in (run.payload_json["input_snapshot"].get("market_plan") or {}).get(
+                        "profiles", []
+                    )
+                ),
             )
 
     async def _progress(

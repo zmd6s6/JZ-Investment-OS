@@ -8,6 +8,13 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from investment_os.application.analysis_inputs import AnalysisInputsPort
+from investment_os.application.analysis_market import (
+    AnalysisMarketConfiguration,
+    AnalysisMarketFactory,
+    AnalysisMarketOptions,
+    AnalysisMarketPlan,
+    MarketAttempt,
+)
 from investment_os.application.analysis_models import (
     AnalysisModelConfiguration,
     AnalysisModelOptions,
@@ -36,6 +43,8 @@ class StartAnalysisInput:
     evidence_ids: tuple[UUID, ...] | None = None
     model_profile_id: UUID | None = None
     model_configuration_hash: str | None = None
+    market_profile_ids: tuple[UUID, ...] | None = None
+    market_configuration_hash: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,11 +65,22 @@ class ProductAnalysisService:
         catalog: InstrumentCatalogPort | None = None,
         policy_version_label: str = "TEST_DEFAULT",
         model_configuration: AnalysisModelConfiguration | None = None,
+        market_configuration: AnalysisMarketConfiguration | None = None,
+        market_factory: AnalysisMarketFactory | None = None,
     ) -> None:
         self._inputs, self._portfolios, self._runs = inputs, portfolios, analysis_runs
         self._committee, self._market_data, self._catalog = committee, market_data, catalog
         self._policy_version_label = policy_version_label
         self._models = model_configuration
+        self._markets, self._market_factory = market_configuration, market_factory
+
+    async def market_options(self) -> AnalysisMarketOptions:
+        if self._markets is None:
+            raise ApplicationError(
+                ApplicationErrorCode.ANALYSIS_MARKET_CONFIGURATION_INVALID,
+                "market configuration unavailable",
+            )
+        return await self._markets.options()
 
     async def model_options(self) -> AnalysisModelOptions:
         if self._models is None:
@@ -71,6 +91,18 @@ class ProductAnalysisService:
         return await self._models.options()
 
     async def prepare(self, inp: StartAnalysisInput) -> PreparedAnalysis:
+        if self._markets is None and (
+            inp.market_profile_ids is not None or inp.market_configuration_hash is not None
+        ):
+            raise ApplicationError(
+                ApplicationErrorCode.ANALYSIS_MARKET_CONFIGURATION_INVALID,
+                "market configuration unavailable",
+            )
+        market_plan = (
+            await self._markets.freeze(inp.market_profile_ids or (), inp.market_configuration_hash)
+            if self._markets
+            else None
+        )
         if self._models is None and (
             inp.model_profile_id is not None or inp.model_configuration_hash is not None
         ):
@@ -111,6 +143,7 @@ class ProductAnalysisService:
                     "portfolio": asdict(portfolio),
                     "evidence": [item.provenance for item in selected],
                     "model_plan": model_plan.model_dump(mode="json") if model_plan else None,
+                    "market_plan": market_plan.model_dump(mode="json") if market_plan else None,
                 },
                 default=str,
             )
@@ -135,6 +168,7 @@ class ProductAnalysisService:
             instrument_symbol=symbol,
             instrument_currency=currency or portfolio.base_currency,
             model_plan=model_plan,
+            market_plan=market_plan,
         )
         return PreparedAnalysis(request, snapshot)
 
@@ -169,12 +203,48 @@ class ProductAnalysisService:
                         "未自动换用模型。请核对设置后明确新建运行。"
                     ),
                 )
-        return await execute_analysis(
+        attempts: list[MarketAttempt] = []
+        market_data = self._market_data
+        if self._market_factory is not None:
+            plan = request.market_plan or AnalysisMarketPlan()
+            try:
+                if self._markets is None:
+                    raise ApplicationError(
+                        ApplicationErrorCode.ANALYSIS_MARKET_CONFIGURATION_CHANGED,
+                        "market configuration unavailable",
+                    )
+                await self._markets.validate(plan)
+            except ApplicationError:
+                return AnalysisRunResult(
+                    "FAILED",
+                    None,
+                    "ANALYSIS_MARKET_CONFIGURATION_CHANGED",
+                    "固定行情档案已修改或停用, 未调用模型或行情源。请核对后新建运行。",
+                )
+            market_data = self._market_factory.for_plan(plan, attempts.append)
+        result = await execute_analysis(
             request,
             committee=self._committee,
-            market_data=self._market_data,
+            market_data=market_data,
             **({"progress": progress} if progress is not None else {}),
         )
+        if result.payload is not None and self._market_factory is not None:
+            result = replace(
+                result,
+                payload=replace(
+                    result.payload,
+                    valuation={
+                        **result.payload.valuation,
+                        "market_data": {
+                            "selection": "ORDERED"
+                            if request.market_plan and request.market_plan.profiles
+                            else "NONE",
+                            "attempts": [a.model_dump(mode="json") for a in attempts],
+                        },
+                    },
+                ),
+            )
+        return result
 
     async def start(self, inp: StartAnalysisInput) -> AnalysisRunRead:
         prepared = await self.prepare(inp)

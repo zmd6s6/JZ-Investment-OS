@@ -4,7 +4,7 @@ import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome"
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
 import { AnalysisStartDialog } from "./AnalysisStartDialog";
 import { apiFetch, readApiError } from "./writeApi";
-import { submitAnalysis, type AnalysisModelSelection } from "./analysisSubmission";
+import { submitAnalysis, type AnalysisLaunchSelection } from "./analysisSubmission";
 
 type WatchlistItem = {
   watchlist_item_id: string;
@@ -113,7 +113,7 @@ export function WatchlistPage() {
     }
   }
 
-  async function analyze(item: WatchlistItem, portfolioId: string, models: AnalysisModelSelection) {
+  async function analyze(item: WatchlistItem, portfolioId: string, models: AnalysisLaunchSelection) {
     if (busy) return;
     setAnalysisTarget(null);
     setBusy(true);

@@ -2,17 +2,20 @@
 
 from investment_os.application.agent_runtime import AgentRuntime
 from investment_os.application.analysis_jobs import AnalysisJobService
+from investment_os.application.analysis_market import AnalysisMarketConfiguration
 from investment_os.application.analysis_models import AnalysisModelConfiguration
 from investment_os.application.analysis_orchestrator import default_registry
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
 from investment_os.application.committee_runtime import CommitteeRuntime
 from investment_os.application.llm_budget import LLMBudgetService
+from investment_os.application.market_data import InMemoryMarketDataAdapter
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
+from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
@@ -24,7 +27,6 @@ from investment_os.infrastructure.openai_compatible_llm import OpenAICompatibleL
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
 from investment_os.infrastructure.settings import Settings
-from investment_os.infrastructure.tushare.market_data import RefreshableTushareChain
 
 
 class AnalysisWorker:
@@ -44,6 +46,7 @@ class AnalysisWorker:
             budget_service=LLMBudgetService(SqlAlchemyLLMBudgetStore(sessions)),
         )
         catalog = SessionCatalogPort(sessions)
+        market_factory = PlannedMarketDataFactory(profiles, secrets)
         product = ProductAnalysisService(
             inputs=SqlAlchemyAnalysisInputs(sessions),
             portfolios=PortfolioBookService(SessionPortfolioBookPort(sessions), catalog),
@@ -51,11 +54,13 @@ class AnalysisWorker:
             committee=CommitteeRuntime(
                 agent_runtime=AgentRuntime(registry=default_registry(), gateway=self._gateway)
             ),
-            market_data=RefreshableTushareChain(
-                list_profiles=profiles.list_data_profiles, get_credential=secrets.get
-            ),
+            market_data=InMemoryMarketDataAdapter(),
             catalog=catalog,
             model_configuration=AnalysisModelConfiguration(profiles),
+            market_configuration=AnalysisMarketConfiguration(
+                profiles, market_factory.supported_types
+            ),
+            market_factory=market_factory,
         )
         self.jobs = AnalysisJobService(SqlAlchemyAnalysisJobs(self._engine, sessions), product)
 
