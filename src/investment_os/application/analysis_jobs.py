@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from investment_os.application.analysis_market import MarketRecorder
 from investment_os.application.analysis_orchestrator import AnalysisRequest, AnalysisRunResult
 from investment_os.application.analysis_product import (
     PreparedAnalysis,
@@ -39,7 +40,9 @@ class AnalysisProgressEvent:
     occurred_at: datetime
 
 
-ExecuteJob = Callable[[AnalysisRequest, AnalysisProgress], Awaitable[AnalysisRunResult]]
+ExecuteJob = Callable[
+    [AnalysisRequest, AnalysisProgress, MarketRecorder], Awaitable[AnalysisRunResult]
+]
 
 
 class AnalysisJobsPort(Protocol):
@@ -116,8 +119,10 @@ class AnalysisJobService:
 
     async def run_once(self) -> bool:
         async def execute(
-            request: AnalysisRequest, progress: AnalysisProgress
+            request: AnalysisRequest, progress: AnalysisProgress, market_record: MarketRecorder
         ) -> AnalysisRunResult:
-            return await self._product.execute_prepared(request, progress=progress)
+            return await self._product.execute_prepared(
+                request, progress=progress, market_record=market_record
+            )
 
         return await self._port.work_once(execute)

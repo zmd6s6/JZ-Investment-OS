@@ -14,6 +14,10 @@ from investment_os.application.analysis_market import (
     AnalysisMarketOptions,
     AnalysisMarketPlan,
     MarketAttempt,
+    MarketAttemptEvent,
+    MarketAuditFailure,
+    MarketAuditPort,
+    MarketRecorder,
 )
 from investment_os.application.analysis_models import (
     AnalysisModelConfiguration,
@@ -67,12 +71,20 @@ class ProductAnalysisService:
         model_configuration: AnalysisModelConfiguration | None = None,
         market_configuration: AnalysisMarketConfiguration | None = None,
         market_factory: AnalysisMarketFactory | None = None,
+        market_audit: MarketAuditPort | None = None,
     ) -> None:
         self._inputs, self._portfolios, self._runs = inputs, portfolios, analysis_runs
         self._committee, self._market_data, self._catalog = committee, market_data, catalog
         self._policy_version_label = policy_version_label
         self._models = model_configuration
         self._markets, self._market_factory = market_configuration, market_factory
+        self._market_audit = market_audit
+
+    async def market_events(self, run_id: UUID) -> tuple[MarketAttemptEvent, ...]:
+        await self._runs.get(run_id)
+        if self._market_audit is None:
+            raise RuntimeError("market audit unavailable")
+        return await self._market_audit.events(run_id)
 
     async def market_options(self) -> AnalysisMarketOptions:
         if self._markets is None:
@@ -144,6 +156,7 @@ class ProductAnalysisService:
                     "evidence": [item.provenance for item in selected],
                     "model_plan": model_plan.model_dump(mode="json") if model_plan else None,
                     "market_plan": market_plan.model_dump(mode="json") if market_plan else None,
+                    "market_audit_version": "1.0" if self._market_audit else None,
                 },
                 default=str,
             )
@@ -177,6 +190,7 @@ class ProductAnalysisService:
         request: AnalysisRequest,
         *,
         progress: AnalysisProgress | None = None,
+        market_record: MarketRecorder | None = None,
     ) -> AnalysisRunResult:
         if self._models is not None and request.model_plan is None:
             return AnalysisRunResult(
@@ -221,13 +235,35 @@ class ProductAnalysisService:
                     "ANALYSIS_MARKET_CONFIGURATION_CHANGED",
                     "固定行情档案已修改或停用, 未调用模型或行情源。请核对后新建运行。",
                 )
-            market_data = self._market_factory.for_plan(plan, attempts.append)
-        result = await execute_analysis(
-            request,
-            committee=self._committee,
-            market_data=market_data,
-            **({"progress": progress} if progress is not None else {}),
-        )
+            if market_record is None and self._market_audit is not None and request.budget_task_id:
+
+                async def persist(event: MarketAttemptEvent) -> None:
+                    assert self._market_audit is not None and request.budget_task_id is not None
+                    await self._market_audit.append(request.budget_task_id, event)
+
+                market_record = persist
+            if plan.profiles and market_record is None:
+                return AnalysisRunResult(
+                    "FAILED",
+                    None,
+                    "ANALYSIS_MARKET_AUDIT_UNAVAILABLE",
+                    "行情审计不可用, 未调用模型或行情。请修复后明确新建运行。",
+                )
+            market_data = self._market_factory.for_plan(plan, attempts.append, market_record)
+        try:
+            result = await execute_analysis(
+                request,
+                committee=self._committee,
+                market_data=market_data,
+                **({"progress": progress} if progress is not None else {}),
+            )
+        except MarketAuditFailure:
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_MARKET_AUDIT_UNAVAILABLE",
+                "行情记录保存失败, 已停止继续读取。已发请求可能计费; 请核对调用记录与供应商费用。",
+            )
         if result.payload is not None and self._market_factory is not None:
             result = replace(
                 result,

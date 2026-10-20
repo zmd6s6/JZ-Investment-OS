@@ -26,6 +26,7 @@ from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
+from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
 from investment_os.infrastructure.analysis_worker import AnalysisWorker
 from investment_os.infrastructure.catalog_portfolio import (
@@ -72,6 +73,7 @@ async def jobs_setup(engine):
         model_configuration=models,
         market_configuration=AnalysisMarketConfiguration(market_settings, markets.supported_types),
         market_factory=markets,
+        market_audit=SqlAnalysisMarketAudit(factory),
     )
     port = SqlAlchemyAnalysisJobs(engine, factory)
     service = AnalysisJobService(port, product)
@@ -253,7 +255,7 @@ async def test_concurrent_submit_claim_and_restart_keep_frozen_inputs(database_e
     started, release = asyncio.Event(), asyncio.Event()
     calls = []
 
-    async def execute(request, progress):
+    async def execute(request, progress, market_record):
         calls.append(request)
         assert request.portfolio.cash_balance == Decimal("10000")
         await progress("ROUND_ONE", "STARTED")
@@ -298,7 +300,7 @@ async def test_cancel_is_idempotent_and_stops_next_paid_stage(database_engine, r
     run = await service.submit(uuid4(), inp)
     calls = []
 
-    async def execute(request, progress):
+    async def execute(request, progress, market_record):
         calls.append("first")
         await progress("ROUND_ONE", "STARTED")
         await service.cancel(run.id)
@@ -328,7 +330,7 @@ async def test_process_interruption_never_replays_paid_call_and_retry_is_new_run
     run = await service.submit(uuid4(), inp)
     calls = []
 
-    async def interrupted(request, progress):
+    async def interrupted(request, progress, market_record):
         calls.append(request)
         await progress("ROUND_ONE", "STARTED")
         raise asyncio.CancelledError()
@@ -355,7 +357,7 @@ async def test_exception_is_sanitized_and_history_is_database_protected(database
     factory, _, runs, _, port, service, inp = await jobs_setup(database_engine)
     run = await service.submit(uuid4(), inp)
 
-    async def failed(request, progress):
+    async def failed(request, progress, market_record):
         raise RuntimeError("synthetic-sensitive-error-never-display")
 
     assert await port.work_once(failed)
@@ -402,7 +404,7 @@ async def test_evidence_expired_while_queued_never_calls_models(database_engine,
         def now(cls, tz=None):
             return datetime.now(tz) + timedelta(days=400)
 
-    async def forbidden(request, progress):
+    async def forbidden(request, progress, market_record):
         calls.append(request)
         return AnalysisRunResult("SUCCEEDED", None)
 

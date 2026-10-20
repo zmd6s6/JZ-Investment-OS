@@ -16,7 +16,7 @@ from pydantic import AwareDatetime
 from sqlalchemy import select
 
 from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
-from investment_os.application.analysis_market import AnalysisMarketOptions
+from investment_os.application.analysis_market import AnalysisMarketOptions, MarketAttemptEvent
 from investment_os.application.analysis_models import AnalysisModelOptions
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
@@ -1723,6 +1723,24 @@ def create_app(
         except ApplicationError as error:
             raise HTTPException(status_code=422, detail=error.code.value) from error
         return AnalysisRunDetailResponse.model_validate(result, from_attributes=True)
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}/market-attempts",
+        response_model=list[MarketAttemptEvent],
+        tags=["analysis"],
+    )
+    async def analysis_market_attempts(run_id: UUID) -> tuple[MarketAttemptEvent, ...]:
+        from investment_os.application.errors import ApplicationError
+
+        product, _runs = _analysis_service_or_503()
+        try:
+            return await product.market_events(run_id)
+        except ApplicationError as error:
+            raise HTTPException(status_code=404, detail=error.code.value) from error
+        except RuntimeError as error:
+            raise HTTPException(
+                status_code=503, detail="analysis_market_audit_unavailable"
+            ) from error
 
     @application.get(
         "/api/v1/analysis-runs/{run_id}/progress",

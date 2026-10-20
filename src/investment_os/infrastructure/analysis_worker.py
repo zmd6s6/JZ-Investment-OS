@@ -16,6 +16,7 @@ from investment_os.application.secrets import SecretStore, UnavailableSecretStor
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
+from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
@@ -61,6 +62,7 @@ class AnalysisWorker:
                 profiles, market_factory.supported_types
             ),
             market_factory=market_factory,
+            market_audit=SqlAnalysisMarketAudit(sessions),
         )
         self.jobs = AnalysisJobService(SqlAlchemyAnalysisJobs(self._engine, sessions), product)
 

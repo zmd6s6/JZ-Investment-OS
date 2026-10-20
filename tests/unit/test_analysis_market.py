@@ -13,6 +13,7 @@ from test_openai_compatible_llm import MemoryProviderSettingsPort, MemorySecretS
 from investment_os.application.analysis_market import (
     AnalysisMarketConfiguration,
     AnalysisMarketPlan,
+    MarketAuditFailure,
 )
 from investment_os.application.errors import ApplicationError
 from investment_os.application.market_data import MarketDataSourceFailure, MarketQuote, QuoteRequest
@@ -252,6 +253,61 @@ async def test_concurrent_market_runs_do_not_share_attempt_audit():
 
     results = await asyncio.gather(*(run(p) for p in profiles))
     assert [[a.profile_id for a in audit] for audit in results] == [[p.id] for p in profiles]
+
+
+@pytest.mark.parametrize("fail_at", ["STARTED", "NO_DATA"])
+async def test_audit_failure_blocks_unrecorded_call_or_fallback(fail_at):
+    port, secrets, settings, config = configured()
+    profiles = [add(port, secrets, str(i)) for i in range(2)]
+    calls, committed = [], []
+
+    async def persist(event):
+        if event.attempt.status == fail_at:
+            raise ValueError("sensitive database error")
+        committed.append(event)
+
+    def factory(profile, *args):
+        async def read(batch, as_of):
+            assert committed[-1].attempt.status == "STARTED"
+            calls.append(profile.id)
+            return {}
+
+        return Source(read)
+
+    reader = PlannedMarketDataFactory(settings, secrets, {"TUSHARE_MARKET": factory}).for_plan(
+        await config.freeze(tuple(p.id for p in profiles), None),
+        lambda a: None,
+        persist,
+    )
+    with pytest.raises(MarketAuditFailure, match="market audit commit failed") as failure:
+        await reader.get_reference_quotes((uuid4(),), as_of=NOW)
+    assert "sensitive" not in str(failure.value)
+    assert calls == ([] if fail_at == "STARTED" else [profiles[0].id])
+    assert [e.attempt.status for e in committed] == ([] if fail_at == "STARTED" else ["STARTED"])
+
+
+async def test_process_cancel_keeps_committed_start_without_manufacturing_failure():
+    port, secrets, settings, config = configured()
+    profile = add(port, secrets)
+    committed, completed = [], []
+
+    async def persist(event):
+        committed.append(event)
+
+    async def interrupted(batch, as_of):
+        raise asyncio.CancelledError()
+
+    reader = PlannedMarketDataFactory(
+        settings, secrets, {"TUSHARE_MARKET": lambda *a: Source(interrupted)}
+    ).for_plan(
+        await config.freeze((profile.id,), None),
+        completed.append,
+        persist,
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await reader.get_reference_quotes((uuid4(),), as_of=NOW)
+    assert [e.attempt.status for e in committed] == ["STARTED"]
+    assert completed == []
 
 
 @pytest.mark.parametrize("hour,available", [(6, False), (7, True)])

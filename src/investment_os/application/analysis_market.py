@@ -1,6 +1,6 @@
 """Explicit ordered market sources for one analysis; no implicit provider fallback."""
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from datetime import datetime
 from decimal import Decimal
@@ -73,7 +73,13 @@ class MarketAttempt(BaseModel):
     provider_type: str
     rank: int
     status: Literal[
-        "SUCCEEDED", "PARTIAL", "NO_DATA", "FAILED", "CONFIGURATION_CHANGED", "CREDENTIAL_MISSING"
+        "STARTED",
+        "SUCCEEDED",
+        "PARTIAL",
+        "NO_DATA",
+        "FAILED",
+        "CONFIGURATION_CHANGED",
+        "CREDENTIAL_MISSING",
     ]
     queries: tuple[str, ...]
     returned_ids: tuple[UUID, ...] = ()
@@ -81,9 +87,32 @@ class MarketAttempt(BaseModel):
     quotes: tuple[RecordedMarketQuote, ...] = ()
 
 
+class MarketAttemptEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal["1.0"] = "1.0"
+    attempt_id: UUID
+    occurred_at: datetime
+    attempt: MarketAttempt
+
+
+MarketRecorder = Callable[[MarketAttemptEvent], Awaitable[None]]
+
+
+class MarketAuditFailure(RuntimeError):
+    """A market audit commit failed; external calls must stop without fallback."""
+
+
+class MarketAuditPort(Protocol):
+    async def append(self, run_id: UUID, event: MarketAttemptEvent) -> None: ...
+    async def events(self, run_id: UUID) -> tuple[MarketAttemptEvent, ...]: ...
+
+
 class AnalysisMarketFactory(Protocol):
     def for_plan(
-        self, plan: AnalysisMarketPlan, record: Callable[[MarketAttempt], None]
+        self,
+        plan: AnalysisMarketPlan,
+        record: Callable[[MarketAttempt], None],
+        persist: MarketRecorder | None = None,
     ) -> MarketDataPort: ...
 
 

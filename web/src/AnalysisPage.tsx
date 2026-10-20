@@ -11,7 +11,7 @@ import {
 } from "./analysisLabels";
 import { readAnalysisJson } from "./analysisReads";
 import { AnalysisJobPanel } from "./AnalysisJobPanel";
-import { AnalysisMarketAudit } from "./AnalysisMarketAudit";
+import { DurableMarketAudit } from "./AnalysisMarketAudit";
 
 const roleNames: Record<string, string> = { MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官" };
 
@@ -360,7 +360,7 @@ export function AnalysisPage() {
           <details><summary>查看风险旗与解除条件</summary>{Array.isArray(payload.risk?.flags) && payload.risk.flags.length ? <ul className="tip-list">{(payload.risk.flags as Record<string, unknown>[]).map((flag, index) => <li key={index}>{String(flag.code ?? "未提供")} · {String(flag.severity ?? "未提供")}<p>解除条件：{String(flag.release_condition ?? "未提供")}</p><p className="muted">证据引用：{Array.isArray(flag.evidence_ids) ? flag.evidence_ids.map(String).join("、") : "未提供"}</p></li>)}</ul> : <p className="hint-text">未提供风险旗，不代表风险已经排除。</p>}</details>
 
           <h3>估值与仓位</h3>
-          <AnalysisMarketAudit value={payload.valuation?.market_data} />
+          <DurableMarketAudit key={`market-${selected.id}`} runId={selected.id} active={selected.status === "RUNNING" || selected.status === "QUEUED"} tracked={(selected.payload.input_snapshot as { market_audit_version?: string } | undefined)?.market_audit_version === "1.0"} fallback={payload.valuation?.market_data} />
           {payload.failures?.includes("MISSING_REFERENCE_QUOTES") ? (
             <p className="banner banner-info">未配置可用行情或未获取到报价：可继续阅读研究意见，暂不能计算完整市值和建议数量。可在设置中配置已授权的行情源；没有 Tushare Token 不影响其他已配置功能。</p>
           ) : null}

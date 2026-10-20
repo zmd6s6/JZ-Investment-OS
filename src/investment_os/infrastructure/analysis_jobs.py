@@ -15,10 +15,12 @@ from investment_os.application.analysis_jobs import (
     AnalysisWorkItem,
     ExecuteJob,
 )
+from investment_os.application.analysis_market import MarketAttemptEvent
 from investment_os.application.analysis_orchestrator import AnalysisRunResult
 from investment_os.application.analysis_product import PreparedAnalysis, StartAnalysisInput
 from investment_os.application.analysis_progress import AnalysisCancelled, AnalysisStage, StageState
 from investment_os.application.analysis_run import AnalysisRunRead
+from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
 from investment_os.infrastructure.analysis_run_store import _read
 from investment_os.infrastructure.persistence.models import (
     AnalysisJobRecord,
@@ -312,6 +314,17 @@ class SqlAlchemyAnalysisJobs:
                     raise AnalysisJobError("analysis_worker_lock_lost")
                 await self._progress(run_id, token, stage, state)
 
+            async def market_record(event: MarketAttemptEvent) -> None:
+                if connection.closed:
+                    raise AnalysisCancelled()
+                current_pid = await connection.scalar(text("SELECT pg_backend_pid()"))
+                await connection.commit()
+                if current_pid != backend_pid:
+                    raise AnalysisJobError("analysis_worker_lock_lost")
+                await SqlAnalysisMarketAudit(self._sessions).append(
+                    run_id, event, worker_token=token
+                )
+
             unavailable = any(
                 item.get("ingested_freshness_status") == "STALE"
                 or (
@@ -328,7 +341,9 @@ class SqlAlchemyAnalysisJobs:
                     "排队期间资料已过期或陈旧, 未调用模型; 请先核对并准备有效资料。",
                 )
                 if unavailable
-                else await execute(replace(work.request, budget_task_id=run_id), progress)
+                else await execute(
+                    replace(work.request, budget_task_id=run_id), progress, market_record
+                )
             )
         except AnalysisCancelled:
             result = AnalysisRunResult("FAILED", None, "ANALYSIS_CANCELLED", "已请求停止。")

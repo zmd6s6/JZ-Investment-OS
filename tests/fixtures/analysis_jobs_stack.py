@@ -27,6 +27,7 @@ from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
+from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
@@ -106,6 +107,8 @@ settings = Settings()
 secret_store = EncryptedFileSecretStore(settings.secret_store_path, settings.secret_store_key)
 profiles = ProviderSettingsService(SqlAlchemyProviderSettingsStore(sessions), secret_store)
 market_calls = []
+market_release = asyncio.Event()
+market_release.set()
 
 
 class SyntheticQuotes:
@@ -118,6 +121,8 @@ class SyntheticQuotes:
 
     async def get_quotes(self, requests, *, as_of):
         market_calls.append(str(self.profile.id))
+        if self.profile.name.startswith("合成阻塞行情"):
+            await market_release.wait()
         if self.profile.name.startswith("合成空行情"):
             return {}
         return {
@@ -152,6 +157,7 @@ product = ProductAnalysisService(
     model_configuration=AnalysisModelConfiguration(profiles),
     market_configuration=AnalysisMarketConfiguration(profiles, market_factory.supported_types),
     market_factory=market_factory,
+    market_audit=SqlAnalysisMarketAudit(sessions),
 )
 jobs = AnalysisJobService(SqlAlchemyAnalysisJobs(engine, sessions), product)
 app = create_fixture_app()
@@ -207,12 +213,25 @@ async def hold():
     gateway.calls = 0
     gateway.profile_ids = []
     market_calls.clear()
+    market_release.set()
     return {"mode": "synthetic", "held": True}
 
 
 @app.post("/api/v1/test-only/analysis/release")
 async def release():
     gateway.release.set()
+    return {"mode": "synthetic"}
+
+
+@app.post("/api/v1/test-only/analysis/market-hold")
+async def hold_market():
+    market_release.clear()
+    return {"mode": "synthetic"}
+
+
+@app.post("/api/v1/test-only/analysis/market-release")
+async def release_market():
+    market_release.set()
     return {"mode": "synthetic"}
 
 

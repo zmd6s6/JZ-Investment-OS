@@ -3,8 +3,8 @@
 import asyncio
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import datetime, timedelta
-from uuid import UUID
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -12,8 +12,12 @@ from investment_os.application.analysis_market import (
     AnalysisMarketPlan,
     FrozenMarketProfile,
     MarketAttempt,
+    MarketAttemptEvent,
+    MarketAuditFailure,
+    MarketRecorder,
     RecordedMarketQuote,
 )
+from investment_os.application.analysis_progress import AnalysisCancelled
 from investment_os.application.market_data import (
     MarketDataSourceFailure,
     MarketDataSourcePort,
@@ -60,9 +64,12 @@ class PlannedMarketDataFactory:
         return frozenset(self.factories)
 
     def for_plan(
-        self, plan: AnalysisMarketPlan, record: Callable[[MarketAttempt], None]
+        self,
+        plan: AnalysisMarketPlan,
+        record: Callable[[MarketAttempt], None],
+        persist: MarketRecorder | None = None,
     ) -> "PlannedMarketData":
-        return PlannedMarketData(self, plan, record)
+        return PlannedMarketData(self, plan, record, persist)
 
 
 class PlannedMarketData:
@@ -71,8 +78,10 @@ class PlannedMarketData:
         factory: PlannedMarketDataFactory,
         plan: AnalysisMarketPlan,
         record: Callable[[MarketAttempt], None],
+        persist: MarketRecorder | None = None,
     ) -> None:
         self._factory, self._plan, self._record = factory, plan, record
+        self._persist = persist
 
     async def get_reference_quotes(
         self,
@@ -95,13 +104,34 @@ class PlannedMarketData:
                 rank=rank,
                 queries=tuple(f"{q.market}:{q.symbol}" for q in batch),
             )
+            attempt_id = uuid4()
+
+            async def persist(attempt: MarketAttempt, identity: UUID = attempt_id) -> None:
+                if self._persist is not None:
+                    try:
+                        await self._persist(
+                            MarketAttemptEvent(
+                                attempt_id=identity,
+                                occurred_at=datetime.now(UTC),
+                                attempt=attempt,
+                            )
+                        )
+                    except AnalysisCancelled:
+                        raise
+                    except Exception:
+                        raise MarketAuditFailure("market audit commit failed") from None
+
+            async def finish(attempt: MarketAttempt) -> None:
+                await persist(attempt)
+                self._record(attempt)
+
             current = await self._factory.settings.get_data_profile(saved.profile_id)
             if (
                 current is None
                 or not current.enabled
                 or FrozenMarketProfile.capture(current) != saved
             ):
-                self._record(MarketAttempt(**common, status="CONFIGURATION_CHANGED"))
+                await finish(MarketAttempt(**common, status="CONFIGURATION_CHANGED"))
                 break
             try:
                 credential = (
@@ -112,8 +142,10 @@ class PlannedMarketData:
             except RuntimeError:
                 credential = None
             if not credential:
-                self._record(MarketAttempt(**common, status="CREDENTIAL_MISSING"))
+                await finish(MarketAttempt(**common, status="CREDENTIAL_MISSING"))
                 break
+            # Commit intent before entering adapter code. Failure must not trigger fallback.
+            await persist(MarketAttempt(**common, status="STARTED"))
             try:
                 async with httpx.AsyncClient(
                     timeout=current.timeout_seconds,
@@ -159,9 +191,9 @@ class PlannedMarketData:
                 KeyError,
                 IndexError,
             ):
-                self._record(MarketAttempt(**common, status="FAILED"))
+                await finish(MarketAttempt(**common, status="FAILED"))
                 continue
-            self._record(
+            await finish(
                 MarketAttempt(
                     **common,
                     status=status,

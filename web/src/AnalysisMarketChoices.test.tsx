@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalysisMarketChoices } from "./AnalysisMarketChoices";
-import { AnalysisMarketAudit } from "./AnalysisMarketAudit";
+import { AnalysisMarketAudit, DurableMarketAudit } from "./AnalysisMarketAudit";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const hash = "b".repeat(64);
@@ -60,6 +60,34 @@ describe("本次行情选择", () => {
 });
 
 describe("历史行情审计", () => {
+  it("reads durable unknown intent after cancellation and only retries a GET", async () => {
+    const event = { attempt_id: "attempt", occurred_at: "2026-10-20T08:00:00Z", attempt: { profile_id: "a", name: "固定主源", provider_type: "TUSHARE_MARKET", rank: 0, status: "STARTED", queries: ["SSE:600519"] } };
+    const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify([event]))).mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    vi.stubGlobal("fetch", fetcher);
+    render(<DurableMarketAudit runId="cancelled" active={false} tracked fallback={undefined} />);
+    expect(await screen.findByText(/结果未知；可能未发出/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "重新读取行情记录" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("不会重发行情或模型请求");
+    expect(screen.getByText("第 1 档 · 固定主源")).toBeVisible();
+    expect(fetcher.mock.calls.every(([url, init]) => url === "/api/v1/analysis-runs/cancelled/market-attempts" && !init?.method)).toBe(true);
+  });
+
+  it("pairs a completed result with its start and does not fetch legacy history", async () => {
+    const attempt = { profile_id: "a", name: "固定来源", rank: 0, queries: [] };
+    const fetcher = vi.fn(async () => new Response(JSON.stringify([
+      { attempt_id: "one", occurred_at: "start", attempt: { ...attempt, status: "STARTED" } },
+      { attempt_id: "one", occurred_at: "end", attempt: { ...attempt, status: "NO_DATA" } },
+    ])));
+    vi.stubGlobal("fetch", fetcher);
+    const view = render(<DurableMarketAudit runId="finished" active={false} tracked fallback={undefined} />);
+    expect(await screen.findByText(/未取得可用报价；查询/)).toBeVisible();
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.queryByText(/结果未知；可能未发出/)).not.toBeInTheDocument();
+    view.unmount();
+    render(<DurableMarketAudit runId="legacy" active={false} tracked={false} fallback={undefined} />);
+    expect(screen.getByText(/不根据当前设置追补/)).toBeVisible();
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
   it("shows frozen order, precise price, timestamps and failures without looking up current settings", () => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
     render(<AnalysisMarketAudit value={{ selection: "ORDERED", attempts: [

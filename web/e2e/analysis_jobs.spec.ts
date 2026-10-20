@@ -25,7 +25,7 @@ test.beforeEach(async ({ page, request }) => {
   await request.post("/api/v1/test-only/analysis/hold", { headers });
   await page.addInitScript((value) => { sessionStorage.setItem("investment_os_write_token", value); localStorage.setItem("investment_os_guide_open", "false"); }, token);
 });
-test.afterEach(async ({ request }) => { await request.post("/api/v1/test-only/analysis/release", { headers }); });
+test.afterEach(async ({ request }) => { await request.post("/api/v1/test-only/analysis/release", { headers }); await request.post("/api/v1/test-only/analysis/market-release", { headers }); });
 
 async function start(page: import("@playwright/test").Page, modelId?: string, marketNames?: string[], moveUp?: string) {
   await page.goto(`/research?instrument_id=${instrumentId}`);
@@ -75,13 +75,46 @@ test("market ordering controls actual selected sources, records fallback and pre
   expect(run.payload.valuation.market_data.attempts[1].quotes[0].reference_price).toBe("12.3456789");
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).market_profile_ids).toEqual(ids.slice(0, 2));
   await page.reload();
-  await page.getByText("行情来源实际尝试 · 2 项").click();
-  await expect(page.getByText(`第 1 档 · ${names[0]} · TUSHARE_MARKET`, { exact: true })).toBeVisible();
-  await expect(page.getByText(`第 2 档 · ${names[1]} · TUSHARE_MARKET`, { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "行情调用记录", exact: true })).toBeVisible();
+  await expect(page.getByText(`第 1 档 · ${names[0]}`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`第 2 档 · ${names[1]}`, { exact: true })).toBeVisible();
+  const events = await (await request.get(`/api/v1/analysis-runs/${id}/market-attempts`, { headers })).json();
+  expect(events.map((e: { attempt: { status: string } }) => e.attempt.status)).toEqual(["STARTED", "NO_DATA", "STARTED", "SUCCEEDED"]);
   await expect(page.getByText(/12.3456789 CNY/).first()).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
+
+for (const mode of ["cancel", "interrupt"] as const) {
+  test(`market intent survives ${mode} and reload without automatic replay`, async ({ page, request }) => {
+    const name = `合成阻塞行情-${mode}-${Date.now()}`;
+    const created = await request.post("/api/v1/settings/data-providers", { headers, data: { name, provider_type: "TUSHARE_MARKET", base_url: "https://api.tushare.pro", timeout_seconds: 30, enabled: true, retention_days: 30, credential: "synthetic-market-only" } });
+    expect(created.status()).toBe(201);
+    const profileId = (await created.json()).id;
+    await request.post("/api/v1/test-only/analysis/market-hold", { headers });
+    const id = await start(page, undefined, [name]);
+    await request.post("/api/v1/test-only/analysis/release", { headers });
+    await expect.poll(async () => (await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).market_profile_ids).toEqual([profileId]);
+    await page.reload();
+    await expect(page.getByText(/已保存调用意图，结果未知/)).toBeVisible();
+    if (mode === "cancel") {
+      await page.getByRole("button", { name: "请求取消", exact: true }).click();
+      await page.getByRole("button", { name: "确认请求取消" }).click();
+      await request.post("/api/v1/test-only/analysis/market-release", { headers });
+      await expect(page.getByRole("heading", { name: "分析详情 · 已取消" })).toBeVisible();
+    } else {
+      await request.post("/api/v1/test-only/analysis/restart", { headers });
+      await expect(page.getByRole("heading", { name: "分析详情 · 失败" })).toBeVisible();
+    }
+    await page.reload();
+    const events = await (await request.get(`/api/v1/analysis-runs/${id}/market-attempts`, { headers })).json();
+    expect(events.map((e: { attempt: { status: string } }) => e.attempt.status)).toEqual(mode === "cancel" ? ["STARTED", "SUCCEEDED"] : ["STARTED"]);
+    await expect(page.getByText(mode === "cancel" ? /报价齐全；查询/ : /已保存调用意图，结果未知/)).toBeVisible();
+    const stats = await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json();
+    expect(stats.market_profile_ids).toEqual([profileId]);
+    expect(stats.calls).toBe(8);
+  });
+}
 
 test("enabled market profiles remain unused unless explicitly selected", async ({ page, request }) => {
   const id = await start(page);

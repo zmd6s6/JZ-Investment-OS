@@ -107,6 +107,7 @@ def create_production_app() -> FastAPI:
     analysis_runs = AnalysisRunService(SessionAnalysisRunPort(session_factory))
 
     market_factory = PlannedMarketDataFactory(provider_settings_service, secret_store)
+    from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
 
     analysis_product = ProductAnalysisService(
         inputs=SqlAlchemyAnalysisInputs(session_factory),
@@ -120,6 +121,7 @@ def create_production_app() -> FastAPI:
             provider_settings_service, market_factory.supported_types
         ),
         market_factory=market_factory,
+        market_audit=SqlAnalysisMarketAudit(session_factory),
     )
 
     return create_app(

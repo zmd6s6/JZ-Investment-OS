@@ -2171,6 +2171,115 @@
         "title": "ManualPositionRequest",
         "type": "object"
       },
+      "MarketAttempt": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observed_times": {
+            "default": [],
+            "items": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Observed Times",
+            "type": "array"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "provider_type": {
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "queries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Queries",
+            "type": "array"
+          },
+          "quotes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RecordedMarketQuote"
+            },
+            "title": "Quotes",
+            "type": "array"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "returned_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Returned Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "STARTED",
+              "SUCCEEDED",
+              "PARTIAL",
+              "NO_DATA",
+              "FAILED",
+              "CONFIGURATION_CHANGED",
+              "CREDENTIAL_MISSING"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "provider_type",
+          "rank",
+          "status",
+          "queries"
+        ],
+        "title": "MarketAttempt",
+        "type": "object"
+      },
+      "MarketAttemptEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "$ref": "#/components/schemas/MarketAttempt"
+          },
+          "attempt_id": {
+            "format": "uuid",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_id",
+          "occurred_at",
+          "attempt"
+        ],
+        "title": "MarketAttemptEvent",
+        "type": "object"
+      },
       "ModelProviderProfileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3005,6 +3114,38 @@
           "checks"
         ],
         "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "RecordedMarketQuote": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "reference_price": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Reference Price",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "reference_price",
+          "currency",
+          "as_of"
+        ],
+        "title": "RecordedMarketQuote",
         "type": "object"
       },
       "ResearchCandidateResponse": {
@@ -4448,6 +4589,53 @@
           }
         },
         "summary": "Get Analysis Run",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/market-attempts": {
+      "get": {
+        "operationId": "analysis_market_attempts_api_v1_analysis_runs__run_id__market_attempts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MarketAttemptEvent"
+                  },
+                  "title": "Response Analysis Market Attempts Api V1 Analysis Runs  Run Id  Market Attempts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Market Attempts",
         "tags": [
           "analysis"
         ]

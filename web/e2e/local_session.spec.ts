@@ -17,6 +17,8 @@ function pairingURL() {
 test("first pairing needs no manual token, clears the link, survives refresh and a new tab", async ({ page, context, request }) => {
   expect((await request.get(`${origin}/api/v1/analysis-model-options`)).status()).toBe(401);
   expect((await request.get(`${origin}/api/v1/analysis-market-options`)).status()).toBe(401);
+  const ledgerPath = "/api/v1/analysis-runs/00000000-0000-4000-8000-000000000001/market-attempts";
+  expect((await request.get(`${origin}${ledgerPath}`)).status()).toBe(401);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "从本地入口打开，即可开始" })).toBeVisible();
   await expect(page.getByLabel("写入令牌")).not.toBeVisible();
@@ -24,6 +26,7 @@ test("first pairing needs no manual token, clears the link, survives refresh and
   await expect(page.getByRole("button", { name: "本机已连接", exact: true })).toBeVisible();
   expect((await context.request.get(`${origin}/api/v1/analysis-model-options`)).status()).toBe(200);
   expect((await context.request.get(`${origin}/api/v1/analysis-market-options`)).status()).toBe(200);
+  expect((await context.request.get(`${origin}${ledgerPath}`)).status()).toBe(404);
   expect(new URL(page.url()).hash).toBe("");
   await page.reload();
   await expect(page.getByRole("button", { name: "本机已连接", exact: true })).toBeVisible();
