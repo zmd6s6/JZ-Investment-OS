@@ -308,6 +308,45 @@
         "title": "AnalysisRunSummaryResponse",
         "type": "object"
       },
+      "BehaviorPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "average_down_without_thesis_check": {
+            "title": "Average Down Without Thesis Check",
+            "type": "boolean"
+          },
+          "buy_only_because_price_fell": {
+            "title": "Buy Only Because Price Fell",
+            "type": "boolean"
+          },
+          "chase_high": {
+            "title": "Chase High",
+            "type": "boolean"
+          },
+          "frequent_trading": {
+            "title": "Frequent Trading",
+            "type": "boolean"
+          },
+          "reason_required_for_every_action": {
+            "title": "Reason Required For Every Action",
+            "type": "boolean"
+          },
+          "sell_only_because_position_is_profitable": {
+            "title": "Sell Only Because Position Is Profitable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chase_high",
+          "frequent_trading",
+          "buy_only_because_price_fell",
+          "sell_only_because_position_is_profitable",
+          "average_down_without_thesis_check",
+          "reason_required_for_every_action"
+        ],
+        "title": "BehaviorPolicySchema",
+        "type": "object"
+      },
       "CandidateCommitResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1275,6 +1314,39 @@
         "title": "DecisionJournalResponse",
         "type": "object"
       },
+      "EntryPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "require_portfolio_capacity": {
+            "title": "Require Portfolio Capacity",
+            "type": "boolean"
+          },
+          "require_risk_pass": {
+            "title": "Require Risk Pass",
+            "type": "boolean"
+          },
+          "require_thesis_states": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisState"
+            },
+            "title": "Require Thesis States",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "require_timing_confirmation": {
+            "title": "Require Timing Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "require_thesis_states",
+          "require_timing_confirmation",
+          "require_portfolio_capacity",
+          "require_risk_pass"
+        ],
+        "title": "EntryPolicySchema",
+        "type": "object"
+      },
       "EvidenceClaimResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1435,6 +1507,165 @@
           "items"
         ],
         "title": "EvidenceLibraryResponse",
+        "type": "object"
+      },
+      "ExecutionPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ttl_hours": {
+            "exclusiveMinimum": 0.0,
+            "title": "Approval Ttl Hours",
+            "type": "integer"
+          },
+          "auto_trade": {
+            "const": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "human_approval_required": {
+            "const": true,
+            "title": "Human Approval Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "auto_trade",
+          "human_approval_required",
+          "approval_ttl_hours"
+        ],
+        "title": "ExecutionPolicySchema",
+        "type": "object"
+      },
+      "ExitPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "hard_risk_veto": {
+            "const": "NO_NEW_OR_ADDITIONAL_EXPOSURE",
+            "title": "Hard Risk Veto",
+            "type": "string"
+          },
+          "thesis_broken": {
+            "const": "MANDATORY_REVIEW",
+            "title": "Thesis Broken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thesis_broken",
+          "hard_risk_veto"
+        ],
+        "title": "ExitPolicySchema",
+        "type": "object"
+      },
+      "FrozenAnalysisPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "approved_by_actor": {
+            "anyOf": [
+              {
+                "const": "HUMAN",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By Actor"
+          },
+          "config": {
+            "$ref": "#/components/schemas/InvestmentPolicySchema"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "mode": {
+            "enum": [
+              "ACTIVE",
+              "TEST_DEFAULT"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "policy_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version Id"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode",
+          "version",
+          "content_hash",
+          "config"
+        ],
+        "title": "FrozenAnalysisPolicy",
         "type": "object"
       },
       "FrozenMarketProfile": {
@@ -1615,6 +1846,44 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HoldingPeriodSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_days": {
+            "exclusiveMinimum": 0.0,
+            "title": "Maximum Days",
+            "type": "integer"
+          },
+          "minimum_days": {
+            "exclusiveMinimum": 0.0,
+            "title": "Minimum Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minimum_days",
+          "maximum_days"
+        ],
+        "title": "HoldingPeriodSchema",
+        "type": "object"
+      },
+      "HorizonPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "core": {
+            "$ref": "#/components/schemas/HoldingPeriodSchema"
+          },
+          "tactical": {
+            "$ref": "#/components/schemas/HoldingPeriodSchema"
+          }
+        },
+        "required": [
+          "core",
+          "tactical"
+        ],
+        "title": "HorizonPolicySchema",
+        "type": "object"
+      },
       "InstrumentCatalogResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1737,6 +2006,58 @@
           "window"
         ],
         "title": "InvalidationConditionResponse",
+        "type": "object"
+      },
+      "InvestmentPolicySchema": {
+        "additionalProperties": false,
+        "description": "Versioned machine protocol for an Investment Policy configuration.",
+        "properties": {
+          "behavior": {
+            "$ref": "#/components/schemas/BehaviorPolicySchema"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/EntryPolicySchema"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/ExecutionPolicySchema"
+          },
+          "exit": {
+            "$ref": "#/components/schemas/ExitPolicySchema"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/HorizonPolicySchema"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/PolicyMetadataSchema"
+          },
+          "position": {
+            "$ref": "#/components/schemas/PositionPolicySchema"
+          },
+          "review_frequency": {
+            "$ref": "#/components/schemas/ReviewFrequencySchema"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/StrategyPolicySchema"
+          }
+        },
+        "required": [
+          "schema_version",
+          "metadata",
+          "strategy",
+          "horizon",
+          "behavior",
+          "position",
+          "entry",
+          "exit",
+          "execution",
+          "review_frequency"
+        ],
+        "title": "InvestmentPolicySchema",
         "type": "object"
       },
       "LLMBudgetPolicyRequest": {
@@ -2579,6 +2900,25 @@
         "title": "OnboardingStateResponse",
         "type": "object"
       },
+      "PolicyMetadataSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PolicyStatus"
+          }
+        },
+        "required": [
+          "name",
+          "status"
+        ],
+        "title": "PolicyMetadataSchema",
+        "type": "object"
+      },
       "PolicyReviewResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2604,6 +2944,16 @@
             "title": "Policy Status",
             "type": "string"
           },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenAnalysisPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "warning": {
             "title": "Warning",
             "type": "string"
@@ -2618,6 +2968,16 @@
         ],
         "title": "PolicyReviewResponse",
         "type": "object"
+      },
+      "PolicyStatus": {
+        "enum": [
+          "TEST_DEFAULT",
+          "DRAFT",
+          "ACTIVE",
+          "RETIRED"
+        ],
+        "title": "PolicyStatus",
+        "type": "string"
       },
       "PortfolioCashUpdateRequest": {
         "additionalProperties": false,
@@ -2838,6 +3198,51 @@
           "positions"
         ],
         "title": "PortfolioResponse",
+        "type": "object"
+      },
+      "PositionPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "core_ratio_target": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Core Ratio Target",
+            "type": "string"
+          },
+          "gross_exposure_max_pct": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gross Exposure Max Pct",
+            "type": "string"
+          },
+          "minimum_cash_pct": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Minimum Cash Pct",
+            "type": "string"
+          },
+          "sector_max_pct": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Sector Max Pct",
+            "type": "string"
+          },
+          "single_instrument_max_pct": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Single Instrument Max Pct",
+            "type": "string"
+          },
+          "tactical_ratio_target": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Tactical Ratio Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "single_instrument_max_pct",
+          "sector_max_pct",
+          "gross_exposure_max_pct",
+          "minimum_cash_pct",
+          "core_ratio_target",
+          "tactical_ratio_target"
+        ],
+        "title": "PositionPolicySchema",
         "type": "object"
       },
       "ProductCapabilityResponse": {
@@ -3531,6 +3936,45 @@
         "title": "RetryAnalysisJobRequest",
         "type": "object"
       },
+      "ReviewCadence": {
+        "enum": [
+          "DAILY",
+          "WEEKLY",
+          "MONTHLY",
+          "QUARTERLY"
+        ],
+        "title": "ReviewCadence",
+        "type": "string"
+      },
+      "ReviewFrequencySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "holdings": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          },
+          "portfolio": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          },
+          "screening": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          },
+          "watchlist": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          }
+        },
+        "required": [
+          "holdings",
+          "watchlist",
+          "screening",
+          "portfolio",
+          "strategy"
+        ],
+        "title": "ReviewFrequencySchema",
+        "type": "object"
+      },
       "RoleModelAssignmentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3669,6 +4113,27 @@
           "portfolio_id"
         ],
         "title": "StartAnalysisRequest",
+        "type": "object"
+      },
+      "StrategyPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "primary_style": {
+            "minLength": 1,
+            "title": "Primary Style",
+            "type": "string"
+          },
+          "tactical_style": {
+            "minLength": 1,
+            "title": "Tactical Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "primary_style",
+          "tactical_style"
+        ],
+        "title": "StrategyPolicySchema",
         "type": "object"
       },
       "SubmitAnalysisJobRequest": {
@@ -3965,6 +4430,17 @@
         ],
         "title": "ThesisPillarResponse",
         "type": "object"
+      },
+      "ThesisState": {
+        "enum": [
+          "UNKNOWN",
+          "VALID",
+          "STRENGTHENING",
+          "WEAKENING",
+          "BROKEN"
+        ],
+        "title": "ThesisState",
+        "type": "string"
       },
       "ThesisVersionResponse": {
         "additionalProperties": false,
@@ -5079,6 +5555,25 @@
       "get": {
         "description": "Read-only policy surface. Uses stored policy when present; never invents limits.",
         "operationId": "policy_review_api_v1_policy_review_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Portfolio Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5089,6 +5584,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Policy Review",

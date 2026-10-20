@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
+from investment_os.application.analysis_governance import FrozenAnalysisPolicy
+
 
 class StrictResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -587,6 +589,7 @@ class PolicyReviewResponse(StrictResponse):
     is_test_default: bool
     limits: list[dict[str, str]]
     warning: str
+    snapshot: FrozenAnalysisPolicy | None = None
 
 
 class StartAnalysisRequest(StrictResponse):

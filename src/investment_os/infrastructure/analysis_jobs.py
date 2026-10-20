@@ -1,5 +1,6 @@
 """PostgreSQL queue: session locks, atomic state/events, no paid-call replay."""
 
+import json
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -305,7 +306,7 @@ class SqlAlchemyAnalysisJobs:
             evidence_snapshot = run.payload_json["input_snapshot"]["evidence"]
             await self._event(session, run, "QUEUED", "COMPLETED")
         try:
-            work = AnalysisWorkItem.model_validate(work_json)
+            work = AnalysisWorkItem.model_validate_json(json.dumps(work_json))
 
             async def progress(stage: AnalysisStage, state: StageState) -> None:
                 current_pid = await connection.scalar(text("SELECT pg_backend_pid()"))

@@ -127,6 +127,37 @@ test("enabled market profiles remain unused unless explicitly selected", async (
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).market_profile_ids).toEqual([]);
 });
 
+test("policy review and historical report expose fixed policy, formula and prompt provenance", async ({ page, request }) => {
+  const id = await start(page);
+  const queued = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
+  const governance = queued.payload.input_snapshot.governance;
+  expect(governance.policy.mode).toBe("TEST_DEFAULT");
+  expect(governance.formula.status).toBe("TEST_DEFAULT");
+  expect(governance.strategy_status).toBe("NOT_CONFIGURED");
+  expect(governance.prompts).toHaveLength(8);
+  const review = await (await request.get(`/api/v1/policy/review?portfolio_id=${portfolioId}`, { headers })).json();
+  expect(review.snapshot.content_hash).toBe(governance.policy.content_hash);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "投资政策 · 只读审阅" })).toBeVisible();
+  await expect(page.getByText("单标的上限（%）", { exact: true })).toBeVisible();
+  await request.post("/api/v1/test-only/analysis/release", { headers });
+  await page.goto(`/analysis?run_id=${id}`);
+  await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
+  await page.getByText("政策与运行规则版本 · 只读快照", { exact: true }).click();
+  await expect(page.getByText("政策：TEST_DEFAULT（工程测试值）", { exact: true })).toBeVisible();
+  await expect(page.getByText("宏观 · p6-v3", { exact: true })).toBeVisible();
+  await expect(page.getByText(/当前公式仍是 TEST_DEFAULT/)).toBeVisible();
+  const finished = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
+  expect(finished.payload.input_snapshot.governance).toEqual(governance);
+  expect(finished.payload.decision.policy_content_hash).toBe(governance.policy.content_hash);
+  expect(finished.payload.context_hash).toBe(finished.payload.input_snapshot.input_hash);
+  expect(["BUY", "ADD"]).not.toContain(finished.payload.decision.action);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.reload();
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
+});
+
 test("changed market confirmation is rejected before any model or market call", async ({ page, request }) => {
   const profile = { name: `合成行情冲突-${Date.now()}`, provider_type: "TUSHARE_MARKET", base_url: "https://api.tushare.pro", timeout_seconds: 5, enabled: true, retention_days: 30, credential: "synthetic-market-only" };
   const created = await request.post("/api/v1/settings/data-providers", { headers, data: profile });

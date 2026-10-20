@@ -7,14 +7,14 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from investment_os.application.analysis_governance import FrozenAnalysisPolicy
 from investment_os.application.analysis_inputs import SelectedAnalysisEvidence
 from investment_os.application.analysis_orchestrator import AnalysisEvidenceSource
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.evidence import FreshnessStatus, derive_display_freshness
+from investment_os.infrastructure.analysis_policy import SqlAnalysisPolicies
 from investment_os.infrastructure.persistence.models import (
     EvidenceRecord,
-    InvestmentPolicyRecord,
-    InvestmentPolicyVersionRecord,
 )
 
 
@@ -100,17 +100,5 @@ class SqlAlchemyAnalysisInputs:
             },
         )
 
-    async def policy_label(self, default: str) -> str:
-        async with self._sessions() as session:
-            policy = (
-                await session.scalars(
-                    select(InvestmentPolicyRecord)
-                    .where(InvestmentPolicyRecord.status == "ACTIVE")
-                    .order_by(InvestmentPolicyRecord.created_at.desc())
-                    .limit(1)
-                )
-            ).first()
-            if policy is None or policy.current_version_id is None:
-                return default
-            version = await session.get(InvestmentPolicyVersionRecord, policy.current_version_id)
-            return f"{policy.name}@{version.version if version else policy.version}"
+    async def policy(self, portfolio_id: UUID | None, *, as_of: datetime) -> FrozenAnalysisPolicy:
+        return await SqlAnalysisPolicies(self._sessions).policy(portfolio_id, as_of=as_of)

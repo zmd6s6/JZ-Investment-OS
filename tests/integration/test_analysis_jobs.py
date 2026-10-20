@@ -476,6 +476,17 @@ async def test_production_worker_composition_consumes_queue_and_persists_real_st
     assert result.status == "SUCCEEDED" and len(calls) == 8
     assert {request.budget_task_id for request in calls} == {run.id}
     assert all(request.model_binding is not None for request in calls)
+    assert all(
+        request.input_snapshot_hash == run.payload["input_snapshot"]["input_hash"]
+        for request in calls
+    )
+    assert all(
+        json.loads(request.input_payload_json)["policy"]["content_hash"]
+        == run.payload["input_snapshot"]["governance"]["policy"]["content_hash"]
+        for request in calls
+    )
+    assert result.payload["decision"]["governance_hash"] is not None
+    assert "SIZING_STRATEGY_NOT_APPROVED" in result.payload["failures"]
     assert result.payload["input_snapshot"] == run.payload["input_snapshot"]
     # Neutral synthetic specialists map to HOLD, never a new exposure.
     assert result.payload["decision"]["action"] == "HOLD"

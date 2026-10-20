@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any, Protocol
 from uuid import UUID
 
+from investment_os.application.analysis_governance import AnalysisPolicyPort
 from investment_os.application.analysis_orchestrator import AnalysisEvidenceSource
 
 
@@ -14,7 +15,7 @@ class SelectedAnalysisEvidence:
     provenance: dict[str, Any]
 
 
-class AnalysisInputsPort(Protocol):
+class AnalysisInputsPort(AnalysisPolicyPort, Protocol):
     async def evidence(
         self,
         instrument_id: UUID,
@@ -22,5 +23,3 @@ class AnalysisInputsPort(Protocol):
         as_of: datetime,
         evidence_ids: tuple[UUID, ...] | None,
     ) -> tuple[SelectedAnalysisEvidence, ...]: ...
-
-    async def policy_label(self, default: str) -> str: ...

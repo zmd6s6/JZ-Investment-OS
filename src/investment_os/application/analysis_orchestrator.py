@@ -8,7 +8,7 @@ allows), and a CIO-gated shadow Decision. No orders, no policy mutation.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -22,8 +22,14 @@ from investment_os.application.analysis_context import (
     EvidenceSourceTier,
     freeze_analysis_context,
 )
+from investment_os.application.analysis_governance import (
+    AnalysisGovernancePlan,
+    FrozenAnalysisPolicy,
+    FrozenPrompt,
+    FrozenSizingFormula,
+)
 from investment_os.application.analysis_market import AnalysisMarketPlan
-from investment_os.application.analysis_models import ANALYSIS_ROLES, AnalysisModelPlan
+from investment_os.application.analysis_models import ANALYSIS_ROLES, AnalysisModelPlan, digest
 from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.committee import (
     detect_stance_conflicts,
@@ -100,9 +106,14 @@ DEFAULT_SIZING_FORMULA = SizingFormula(
 
 
 def _prompt_hash(role: AgentRole) -> str:
-    from hashlib import sha256
-
-    return sha256(f"p6-prompt|{role.value}|v3".encode()).hexdigest()
+    return digest(
+        {
+            "role": role.value,
+            "version": "p6-v3",
+            "system_instruction": _AGENT_OPINION_SCHEMA_INSTRUCTION,
+            "allowed_tools": [AgentTool.RETRIEVE_EVIDENCE.value],
+        }
+    )
 
 
 # Master Spec 6.2 is the machine protocol; the model must receive the contract,
@@ -162,6 +173,22 @@ def default_registry() -> AgentRoleRegistry:
     )
 
 
+def freeze_governance(policy: FrozenAnalysisPolicy) -> AnalysisGovernancePlan:
+    return AnalysisGovernancePlan(
+        policy=policy,
+        formula=FrozenSizingFormula.capture(DEFAULT_SIZING_FORMULA),
+        prompts=tuple(
+            FrozenPrompt(
+                role=b.role,
+                version=b.version,
+                content_hash=b.content_hash,
+                allowed_tools=b.allowed_tools,
+            )
+            for b in default_registry().bundles
+        ),
+    )
+
+
 def default_request_factory(role: AgentRole, role_input: CommitteeRoleInput) -> LLMGatewayRequest:
     payload = {
         "role": role.value,
@@ -191,6 +218,7 @@ def build_analysis_request_factory(
     positions_meta: list[dict[str, Any]],
     budget_task_id: UUID | None = None,
     model_plan: AnalysisModelPlan | None = None,
+    governance: AnalysisGovernancePlan | None = None,
 ) -> Any:
     """Build a request factory that embeds real research materials for agents."""
 
@@ -217,6 +245,17 @@ def build_analysis_request_factory(
             "evidence_ids": sorted(str(i) for i in role_input.context.visible_evidence_ids),
             "input_snapshot_hash": role_input.context.input_snapshot_hash,
         }
+        if governance is not None:
+            payload["policy"] = {
+                "label": governance.policy.label,
+                "policy_version_id": str(governance.policy.policy_version_id)
+                if governance.policy.policy_version_id
+                else None,
+                "content_hash": governance.policy.content_hash,
+                "config": governance.policy.config.model_dump(mode="json"),
+                "sizing_formula_status": governance.formula.status,
+                "strategy_status": governance.strategy_status,
+            }
         if role_input.visible_opinions:
             payload["prior_opinions"] = [
                 {
@@ -300,6 +339,8 @@ class AnalysisRequest:
     budget_task_id: UUID | None = None
     model_plan: AnalysisModelPlan | None = None
     market_plan: AnalysisMarketPlan | None = None
+    governance: AnalysisGovernancePlan | None = None
+    input_snapshot_hash: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -588,6 +629,8 @@ async def execute_analysis(
             for item in request.evidence
         ),
     )
+    if request.input_snapshot_hash is not None:
+        context = replace(context, input_snapshot_hash=request.input_snapshot_hash)
 
     instrument_meta = {
         "instrument_id": str(request.instrument_id),
@@ -622,6 +665,7 @@ async def execute_analysis(
         positions_meta=positions_meta,
         budget_task_id=request.budget_task_id,
         model_plan=request.model_plan,
+        governance=request.governance,
     )
     if progress:
         await progress("PREPARING", "COMPLETED")
@@ -760,7 +804,9 @@ async def execute_analysis(
             proposed = Action.WATCH
 
     # TEST_DEFAULT policy is not a real approved policy for new exposure.
-    policy_passed = request.policy_version_label not in {"TEST_DEFAULT", "none", ""}
+    policy_passed = request.governance is not None and request.governance.allows_new_exposure
+    if request.governance is not None and not policy_passed:
+        failures.append("SIZING_STRATEGY_NOT_APPROVED")
 
     cio_input = CioAggregationInput(
         proposed_action=proposed,
@@ -809,6 +855,13 @@ async def execute_analysis(
             for g in recommendation.gates
         ],
         "policy_version_label": request.policy_version_label,
+        "policy_version_id": str(request.governance.policy.policy_version_id)
+        if request.governance and request.governance.policy.policy_version_id
+        else None,
+        "policy_content_hash": request.governance.policy.content_hash
+        if request.governance
+        else None,
+        "governance_hash": request.governance.content_hash if request.governance else None,
         "core_action": final_action.value
         if final_action in (Action.BUY, Action.ADD, Action.HOLD)
         else "NONE",
@@ -1067,12 +1120,17 @@ async def _build_valuation_and_sizing(
             lot_size=Quantity(Decimal("1")),
             instrument_volatility=target_quote.volatility,
             capacity_inputs=capacity,
-            policy=DEFAULT_POSITION_POLICY,
+            policy=request.governance.policy.config.to_domain().position
+            if request.governance
+            else DEFAULT_POSITION_POLICY,
             risk_assessment=assessment,
             thesis_state=thesis_state,
             as_of=UtcTimestamp(request.as_of),
         )
-        result = size_position(DEFAULT_SIZING_FORMULA, request_obj)
+        formula = (
+            request.governance.formula.to_domain() if request.governance else DEFAULT_SIZING_FORMULA
+        )
+        result = size_position(formula, request_obj)
         sizing: dict[str, Any] | None = {
             "formula_version": result.formula_version,
             "input_hash": result.input_hash,
@@ -1082,6 +1140,13 @@ async def _build_valuation_and_sizing(
             "delta_quantity": str(result.delta_quantity),
             "reason_codes": list(result.reason_codes),
             "policy_version_label": request.policy_version_label,
+            "policy_version_id": str(request.governance.policy.policy_version_id)
+            if request.governance and request.governance.policy.policy_version_id
+            else None,
+            "policy_content_hash": request.governance.policy.content_hash
+            if request.governance
+            else None,
+            "formula_status": "TEST_DEFAULT",
         }
     except Exception as exc:  # sizing fail-closed without killing the run
         failures.append("SIZING_INPUT_INVALID")

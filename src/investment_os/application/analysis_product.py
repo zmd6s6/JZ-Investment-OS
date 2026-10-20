@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from uuid import UUID
 
+from investment_os.application.analysis_governance import FrozenAnalysisPolicy
 from investment_os.application.analysis_inputs import AnalysisInputsPort
 from investment_os.application.analysis_market import (
     AnalysisMarketConfiguration,
@@ -27,6 +28,7 @@ from investment_os.application.analysis_orchestrator import (
     AnalysisRequest,
     AnalysisRunResult,
     execute_analysis,
+    freeze_governance,
 )
 from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.analysis_run import AnalysisRunRead, AnalysisRunService
@@ -86,6 +88,9 @@ class ProductAnalysisService:
             raise RuntimeError("market audit unavailable")
         return await self._market_audit.events(run_id)
 
+    async def review_policy(self, portfolio_id: UUID | None = None) -> FrozenAnalysisPolicy:
+        return await self._inputs.policy(portfolio_id, as_of=datetime.now(UTC))
+
     async def market_options(self) -> AnalysisMarketOptions:
         if self._markets is None:
             raise ApplicationError(
@@ -138,7 +143,9 @@ class ProductAnalysisService:
                 ApplicationErrorCode.ANALYSIS_EVIDENCE_SELECTION_INVALID,
                 "analysis time must be aware",
             )
-        policy_label = await self._inputs.policy_label(self._policy_version_label)
+        policy = await self._inputs.policy(inp.portfolio_id, as_of=as_of)
+        governance = freeze_governance(policy)
+        policy_label = policy.label
         selected = await self._inputs.evidence(
             inp.instrument_id, as_of=as_of, evidence_ids=inp.evidence_ids
         )
@@ -149,6 +156,7 @@ class ProductAnalysisService:
                     "as_of": as_of.isoformat(),
                     "instrument_id": str(inp.instrument_id),
                     "policy_version_label": policy_label,
+                    "governance": governance.snapshot(),
                     "selection_mode": "EXPLICIT"
                     if inp.evidence_ids is not None
                     else "LEGACY_RECENT",
@@ -182,6 +190,8 @@ class ProductAnalysisService:
             instrument_currency=currency or portfolio.base_currency,
             model_plan=model_plan,
             market_plan=market_plan,
+            governance=governance,
+            input_snapshot_hash=snapshot["input_hash"],
         )
         return PreparedAnalysis(request, snapshot)
 
@@ -192,6 +202,27 @@ class ProductAnalysisService:
         progress: AnalysisProgress | None = None,
         market_record: MarketRecorder | None = None,
     ) -> AnalysisRunResult:
+        if request.governance is None:
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_GOVERNANCE_SNAPSHOT_MISSING",
+                "旧任务未固定政策与运行工件, 未调用模型。请核对后明确新建运行。",
+            )
+        try:
+            request.governance.policy.require_available(request.as_of)
+            if (
+                request.governance != freeze_governance(request.governance.policy)
+                or request.policy_version_label != request.governance.policy.label
+            ):
+                raise ValueError("frozen runtime artifacts differ")
+        except ValueError:
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_GOVERNANCE_CHANGED",
+                "固定的政策或运行工件校验失败, 未调用模型。请核对版本后明确新建运行。",
+            )
         if self._models is not None and request.model_plan is None:
             return AnalysisRunResult(
                 status="FAILED",

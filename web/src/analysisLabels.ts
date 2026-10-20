@@ -7,6 +7,9 @@ export function tokenPriceLabel(value: unknown): string {
 }
 
 const FAILURE_LABELS: Record<string, string> = {
+  SIZING_STRATEGY_NOT_APPROVED: "仓位公式仍为工程测试版，独立策略未批准，不允许新增暴露",
+  ANALYSIS_GOVERNANCE_SNAPSHOT_MISSING: "旧任务未固定政策与运行规则，未自动调用模型",
+  ANALYSIS_GOVERNANCE_CHANGED: "固定政策或运行规则校验失败，未自动调用新版本",
   ANALYSIS_MARKET_AUDIT_UNAVAILABLE: "行情记录保存不可用，已停止继续调用，请核对费用",
   ANALYSIS_MARKET_CONFIGURATION_CHANGED: "固定行情档案已修改或停用，未自动换源",
   ANALYSIS_MODEL_CONFIGURATION_CHANGED: "固定模型配置已改变或停用，未自动换用模型",

@@ -13,7 +13,6 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
-from sqlalchemy import select
 
 from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
 from investment_os.application.analysis_market import AnalysisMarketOptions, MarketAttemptEvent
@@ -1897,73 +1896,45 @@ def create_app(
         response_model=PolicyReviewResponse,
         tags=["policy"],
     )
-    async def policy_review() -> PolicyReviewResponse:
+    async def policy_review(portfolio_id: UUID | None = None) -> PolicyReviewResponse:
         """Read-only policy surface. Uses stored policy when present; never invents limits."""
 
-        from investment_os.infrastructure.persistence.models import (
-            InvestmentPolicyRecord,
-            InvestmentPolicyVersionRecord,
-        )
+        from investment_os.application.errors import ApplicationError
 
-        if reader_engine is None and session_factory is None:
+        if selected_analysis_product_service is None:
             return PolicyReviewResponse(
                 active_policy_version="none",
-                policy_status="TEST_DEFAULT",
+                policy_status="UNAVAILABLE",
                 is_test_default=True,
                 limits=[],
-                warning="TEST_DEFAULT 不是投资建议. 真实限额须所有者治理批准后才可变更.",
+                warning="分析政策读取尚未装配, 未推定真实投资限额。",
             )
-        assert session_factory is not None
-        async with session_factory() as session:
-            statement = (
-                select(InvestmentPolicyRecord)
-                .where(InvestmentPolicyRecord.status == "ACTIVE")
-                .order_by(InvestmentPolicyRecord.created_at.desc())
-                .limit(2)
-            )
-            policies = (await session.scalars(statement)).all()
-            if not policies:
-                return PolicyReviewResponse(
-                    active_policy_version="none",
-                    policy_status="TEST_DEFAULT",
-                    is_test_default=True,
-                    limits=[],
-                    warning="TEST_DEFAULT 不是投资建议. 尚未激活经批准的投资政策.",
-                )
-            if len(policies) > 1:
-                return PolicyReviewResponse(
-                    active_policy_version="ambiguous",
-                    policy_status="AMBIGUOUS",
-                    is_test_default=False,
-                    limits=[],
-                    warning="检测到多条 ACTIVE 政策; 请治理流程消歧后再使用.",
-                )
-            policy = policies[0]
-            if policy.current_version_id is None:
-                return PolicyReviewResponse(
-                    active_policy_version=policy.name,
-                    policy_status=policy.status,
-                    is_test_default=str(policy.name).upper().startswith("TEST"),
-                    limits=[],
-                    warning="当前 ACTIVE 政策缺少已批准版本; 请在治理流程中确认.",
-                )
-            version = await session.get(InvestmentPolicyVersionRecord, policy.current_version_id)
-            limits: list[dict[str, str]] = []
-            if version is not None and isinstance(version.config_json, dict):
-                for key, value in version.config_json.items():
-                    limits.append({"key": str(key), "value": str(value)})
-            policy_label = f"{policy.name}@{version.version if version else policy.version}"
+        try:
+            policy = await selected_analysis_product_service.review_policy(portfolio_id)
+        except ApplicationError:
             return PolicyReviewResponse(
-                active_policy_version=policy_label,
-                policy_status=policy.status,
-                is_test_default=str(policy.name).upper().startswith("TEST"),
-                limits=limits,
+                active_policy_version="unavailable",
+                policy_status="INVALID",
+                is_test_default=False,
+                limits=[],
                 warning=(
-                    "只读展示已存政策配置; 修改真实限额需所有者治理批准."
-                    if policy.status == "ACTIVE"
-                    else "当前政策未处于 ACTIVE; 请在治理流程中确认."
+                    "当前组合的政策不明确、批准不完整或尚未生效。"
+                    "未自动换用其他政策, 请核对治理记录。"
                 ),
             )
+        return PolicyReviewResponse(
+            active_policy_version=policy.label,
+            policy_status=policy.mode,
+            is_test_default=policy.mode == "TEST_DEFAULT",
+            snapshot=policy,
+            limits=[
+                {"key": key, "value": str(value)}
+                for key, value in policy.config.position.model_dump(mode="json").items()
+            ],
+            warning="仓库发布的 TEST_DEFAULT 工程测试值, 不是真实投资限额。"
+            if policy.mode == "TEST_DEFAULT"
+            else "只读展示已批准的政策版本; 当前仓位公式仍是 TEST_DEFAULT, 不据此允许增加暴露。",
+        )
 
     frontend_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
     if frontend_dist.is_dir():
