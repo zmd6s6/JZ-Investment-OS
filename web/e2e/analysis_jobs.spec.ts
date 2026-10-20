@@ -87,3 +87,27 @@ test("interrupted work does not replay models; explicit retry creates a linked n
   expect(old.failure_code).toBe("ANALYSIS_INTERRUPTED");
   expect(current.payload.retry_of).toBe(original);
 });
+
+test("a stalled history request cannot hide completion and refresh never starts another model run", async ({ page, request }) => {
+  let unblock!: () => void;
+  const blocked = new Promise<void>((resolve) => { unblock = resolve; });
+  let intercepted = false;
+  const historyPath = /\/api\/v1\/analysis-runs\/[^/]+\/progress$/;
+  await page.route(historyPath, async (route) => {
+    if (!intercepted) { intercepted = true; await blocked; }
+    await route.continue().catch(() => {}); // The user may have aborted the old read by refreshing.
+  });
+  try {
+    const id = await start(page);
+    await expect.poll(async () => (await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(5);
+    await expect.poll(() => intercepted).toBe(true);
+    await request.post("/api/v1/test-only/analysis/release", { headers });
+    await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
+    await expect(page.getByText("正在读取阶段历史；任务状态独立更新…")).toBeVisible();
+    await page.getByRole("button", { name: "刷新任务进度" }).click();
+    unblock();
+    await expect(page.getByText(/最终建议与规则闸门 · 完成/)).toBeVisible();
+    expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
+    expect(new URL(page.url()).searchParams.get("run_id")).toBe(id);
+  } finally { unblock(); await page.unroute(historyPath); }
+});

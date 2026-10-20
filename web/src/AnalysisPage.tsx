@@ -8,7 +8,7 @@ import {
   runStatusLabel,
   stanceLabel,
 } from "./analysisLabels";
-import { apiFetch, readApiError } from "./writeApi";
+import { readAnalysisJson } from "./analysisReads";
 import { AnalysisJobPanel } from "./AnalysisJobPanel";
 
 const roleNames: Record<string, string> = { MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官" };
@@ -49,6 +49,8 @@ export function AnalysisPage() {
   const [runs, setRuns] = useState<AnalysisSummary[]>([]);
   const [selected, setSelected] = useState<AnalysisDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [failedRunId, setFailedRunId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [portfolioFilter, setPortfolioFilter] = useState(() => {
     try { return sessionStorage.getItem("selected_portfolio_id") ?? ""; } catch { return ""; }
@@ -64,9 +66,7 @@ export function AnalysisPage() {
     let cancelled = false;
     void (async () => {
       const read = async (url: string): Promise<unknown[]> => {
-        const response = await apiFetch(url);
-        if (!response.ok) return [];
-        const value: unknown = await response.json();
+        const value = await readAnalysisJson<unknown>(url);
         return Array.isArray(value) ? value : [];
       };
       const [portfolios, watchlist] = await Promise.all([read("/api/v1/portfolios").catch(() => []), read("/api/v1/watchlist").catch(() => [])]);
@@ -93,16 +93,14 @@ export function AnalysisPage() {
     if (listInFlight.current) return;
     listInFlight.current = true;
     setLoading(true);
-    setError(null);
     if (showNotice) setMessage(null);
     try {
     const portfolioId = portfolioFilter;
     const url = portfolioId
       ? `/api/v1/analysis-runs?portfolio_id=${encodeURIComponent(portfolioId)}&limit=50`
       : "/api/v1/analysis-runs?limit=50";
-    const response = await apiFetch(url);
-    if (!response.ok) throw new Error(await readApiError(response));
-    setRuns((await response.json()) as AnalysisSummary[]);
+    setRuns(await readAnalysisJson<AnalysisSummary[]>(url));
+    setError(null);
     if (showNotice) setMessage("运行列表已更新。");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "加载运行失败，请重试。");
@@ -131,15 +129,15 @@ export function AnalysisPage() {
     if (detailInFlight.current) return;
     detailInFlight.current = true;
     setOpeningId(runId);
-    setError(null);
+    setDetailError(null);
+    setFailedRunId(null);
     setMessage(null);
     try {
-    const response = await apiFetch(`/api/v1/analysis-runs/${runId}`);
-    if (!response.ok) throw new Error(await readApiError(response));
-    setSelected((await response.json()) as AnalysisDetail);
+    setSelected(await readAnalysisJson<AnalysisDetail>(`/api/v1/analysis-runs/${encodeURIComponent(runId)}`));
     setMessage("报告已加载，请查看下方分析详情。");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "读取报告失败，请重试。");
+      setDetailError(reason instanceof Error ? reason.message : "读取报告失败，请重试。");
+      setFailedRunId(runId);
     } finally {
       detailInFlight.current = false;
       setOpeningId(null);
@@ -173,6 +171,8 @@ export function AnalysisPage() {
     >
       <div className="action-feedback">
       <StatusBanner kind="error" text={error} />
+      <StatusBanner kind="error" text={detailError} />
+      {failedRunId ? <button type="button" className="btn" disabled={openingId !== null} onClick={() => void openRun(failedRunId)}>重试读取报告</button> : null}
       <StatusBanner kind="ok" text={message} />
       <StatusBanner kind="info" text={loading ? "正在读取运行列表，请稍候…" : openingId ? "正在读取分析报告，请稍候…" : null} />
       </div>

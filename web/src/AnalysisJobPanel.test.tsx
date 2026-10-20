@@ -7,7 +7,57 @@ const run: ComponentProps<typeof AnalysisJobPanel>["run"] = { id: "synthetic-run
 const rows = [{ id: "event-one", sequence: 1, stage: "ROUND_ONE", state: "STARTED", occurred_at: run.updated_at }];
 const json = (value: unknown) => new Response(JSON.stringify(value));
 function Harness({ value = run }: { value?: typeof run }) { const [current, setCurrent] = useState(value); return <><p data-testid="status">{current.status}</p><AnalysisJobPanel run={current} onUpdate={setCurrent} /></>; }
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); sessionStorage.clear(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); sessionStorage.clear(); });
+
+it("keeps polling task status when progress history never responds", async () => {
+  vi.useFakeTimers();
+  let reads = 0;
+  const fetcher = vi.fn((url: string) => url.endsWith("/progress")
+    ? new Promise<Response>(() => {})
+    : Promise.resolve(json(++reads === 1 ? run : { ...run, status: "SUCCEEDED", payload: { ...run.payload, stage: "FINISHED" } })));
+  vi.stubGlobal("fetch", fetcher);
+  render(<Harness />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2001); });
+  expect(screen.getByTestId("status")).toHaveTextContent("SUCCEEDED");
+  expect(reads).toBe(2);
+  expect(fetcher.mock.calls.filter(([url]) => url.endsWith("/progress"))).toHaveLength(1);
+});
+
+it("takes a final history snapshot if status ended while an older history read was in flight", async () => {
+  vi.useFakeTimers();
+  let releaseStatus!: (value: Response) => void;
+  let releaseHistory!: (value: Response) => void;
+  let historyReads = 0;
+  vi.stubGlobal("fetch", vi.fn((url: string) => !url.endsWith("/progress")
+    ? new Promise<Response>((resolve) => { releaseStatus = resolve; })
+    : ++historyReads === 1 ? new Promise<Response>((resolve) => { releaseHistory = resolve; })
+      : Promise.resolve(json([{ ...rows[0], stage: "FINISHED", state: "COMPLETED" }]))));
+  render(<Harness />);
+  await act(async () => releaseStatus(json({ ...run, status: "SUCCEEDED" })));
+  await act(async () => releaseHistory(json(rows)));
+  await act(async () => { await vi.advanceTimersByTimeAsync(2001); });
+  expect(screen.getByText(/任务结束.*完成/)).toBeVisible();
+  expect(historyReads).toBe(2);
+});
+
+it("bounds stalled history reads and refreshes without submitting another analysis", async () => {
+  vi.useFakeTimers();
+  let stalled = true;
+  const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith("/progress") && stalled
+    ? new Promise<Response>(() => {})
+    : Promise.resolve(json(url.endsWith("/progress") ? rows : { ...run, status: "SUCCEEDED" })));
+  vi.stubGlobal("fetch", fetcher);
+  render(<Harness />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(15001); });
+  expect(screen.getByRole("alert")).toHaveTextContent("阶段历史读取超时");
+  expect(screen.getByTestId("status")).toHaveTextContent("SUCCEEDED");
+  stalled = false;
+  fireEvent.click(screen.getByRole("button", { name: "刷新任务进度" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByText(/第一轮.*开始/)).toBeVisible();
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+});
 
 it("loads real stage events without submitting models and explains cancellation cost", async () => {
   const fetcher = vi.fn((url: string, init?: RequestInit) => Promise.resolve(json(init?.method === "POST" ? { ...run, payload: { ...run.payload, stage: "CANCEL_REQUESTED" } } : url.endsWith("/progress") ? rows : run)));

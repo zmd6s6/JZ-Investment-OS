@@ -4,9 +4,30 @@ import { AnalysisPage } from "./AnalysisPage";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const run = { id: "synthetic-run", instrument_id: "synthetic-instrument", portfolio_id: "synthetic-portfolio", source: "PORTFOLIO", status: "SUCCEEDED", created_at: "2026-10-15T00:00:00Z", as_of: "2026-10-15T00:00:00Z", policy_version_label: "TEST_DEFAULT", failure_code: null };
-afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 describe("分析读取反馈", () => {
+  it("recovers a stalled detail read with an explicit read-only retry", async () => {
+    vi.useFakeTimers();
+    let stalled = true;
+    const fetcher = vi.fn((url: string, init?: RequestInit) => {
+      if (!url.startsWith("/api/v1/analysis-runs")) return Promise.resolve(json([]));
+      if (url.includes("?")) return Promise.resolve(json([run]));
+      return stalled ? new Promise<Response>(() => {}) : Promise.resolve(json({ ...run, payload: {} }));
+    });
+    vi.stubGlobal("fetch", fetcher);
+    render(<AnalysisPage />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    fireEvent.click(screen.getByRole("button", { name: "查看" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(15001); });
+    expect(screen.getByRole("alert")).toHaveTextContent("读取分析记录超时");
+    stalled = false;
+    fireEvent.click(screen.getByRole("button", { name: "重试读取报告" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+  });
   it("makes the portfolio filter visible and can show all reports without a write", async () => {
     sessionStorage.setItem("selected_portfolio_id", "synthetic-portfolio");
     const fetcher = vi.fn().mockImplementation(async () => json([]));
