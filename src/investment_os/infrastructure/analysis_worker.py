@@ -2,6 +2,7 @@
 
 from investment_os.application.agent_runtime import AgentRuntime
 from investment_os.application.analysis_jobs import AnalysisJobService
+from investment_os.application.analysis_models import AnalysisModelConfiguration
 from investment_os.application.analysis_orchestrator import default_registry
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
@@ -54,6 +55,7 @@ class AnalysisWorker:
                 list_profiles=profiles.list_data_profiles, get_credential=secrets.get
             ),
             catalog=catalog,
+            model_configuration=AnalysisModelConfiguration(profiles),
         )
         self.jobs = AnalysisJobService(SqlAlchemyAnalysisJobs(self._engine, sessions), product)
 

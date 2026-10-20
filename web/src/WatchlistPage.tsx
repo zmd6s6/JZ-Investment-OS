@@ -4,7 +4,7 @@ import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome"
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
 import { AnalysisStartDialog } from "./AnalysisStartDialog";
 import { apiFetch, readApiError } from "./writeApi";
-import { submitAnalysis } from "./analysisSubmission";
+import { submitAnalysis, type AnalysisModelSelection } from "./analysisSubmission";
 
 type WatchlistItem = {
   watchlist_item_id: string;
@@ -113,7 +113,7 @@ export function WatchlistPage() {
     }
   }
 
-  async function analyze(item: WatchlistItem, portfolioId: string) {
+  async function analyze(item: WatchlistItem, portfolioId: string, models: AnalysisModelSelection) {
     if (busy) return;
     setAnalysisTarget(null);
     setBusy(true);
@@ -121,7 +121,7 @@ export function WatchlistPage() {
     setError(null);
     setMessage(null);
     try {
-      const run = await submitAnalysis({ instrument_id: item.instrument_id, portfolio_id: portfolioId, source: "WATCHLIST" });
+      const run = await submitAnalysis({ instrument_id: item.instrument_id, portfolio_id: portfolioId, source: "WATCHLIST", ...models });
       try { sessionStorage.setItem("selected_portfolio_id", portfolioId); } catch { /* session storage is optional */ }
       window.location.href = `/analysis?run_id=${encodeURIComponent(run.id)}`;
     } catch (reason) { setError(reason instanceof Error ? reason.message : "分析未完成，请查看运行列表后再重试。"); }
@@ -134,7 +134,7 @@ export function WatchlistPage() {
       title="我的观察清单"
       subtitle="记录尚未持有但想研究的标的。添加后可选择组合上下文发起分析，不会创建持仓。"
     >
-      {analysisTarget ? <AnalysisStartDialog label={`${analysisTarget.symbol} ${analysisTarget.name}`} onCancel={() => setAnalysisTarget(null)} onConfirm={(portfolioId) => void analyze(analysisTarget, portfolioId)} /> : null}
+      {analysisTarget ? <AnalysisStartDialog label={`${analysisTarget.symbol} ${analysisTarget.name}`} onCancel={() => setAnalysisTarget(null)} onConfirm={(portfolioId, models) => void analyze(analysisTarget, portfolioId, models)} /> : null}
       <div className="action-feedback">
       <StatusBanner kind="error" text={error} />
       <StatusBanner kind="ok" text={message} />

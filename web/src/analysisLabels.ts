@@ -1,6 +1,14 @@
 /** Human-readable labels for machine failure codes shown in the analysis UI. */
 
+export function tokenPriceLabel(value: unknown): string {
+  if (typeof value !== "string" || !value) return "未配置";
+  // Presentation only: strip database padding without Number/float conversion.
+  return /^-?\d+\.\d+$/.test(value) ? value.replace(/0+$/, "").replace(/\.$/, "") : value;
+}
+
 const FAILURE_LABELS: Record<string, string> = {
+  ANALYSIS_MODEL_CONFIGURATION_CHANGED: "固定模型配置已改变或停用，未自动换用模型",
+  ANALYSIS_MODEL_CONFIGURATION_MISSING: "旧任务未固定模型配置，未自动调用当前模型",
   // run-level failure_code
   INSUFFICIENT_EVIDENCE: "缺少可用证据",
   GATEWAY_FAILURE: "模型服务调用失败",

@@ -594,6 +594,8 @@ class StartAnalysisRequest(StrictResponse):
     portfolio_id: UUID
     source: Literal["PORTFOLIO", "WATCHLIST", "RESEARCH"] = "PORTFOLIO"
     evidence_ids: list[UUID] | None = Field(default=None, max_length=50)
+    model_profile_id: UUID | None = None
+    model_configuration_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class SubmitAnalysisJobRequest(StartAnalysisRequest):

@@ -77,6 +77,14 @@ class AnalysisJobService:
                 sorted(str(i) for i in inp.evidence_ids) if inp.evidence_ids is not None else None,
                 str(retry_of) if retry_of else None,
             ]
+            + (
+                [
+                    str(inp.model_profile_id) if inp.model_profile_id else None,
+                    inp.model_configuration_hash,
+                ]
+                if inp.model_profile_id is not None or inp.model_configuration_hash is not None
+                else []
+            )
         )
         return await self._port.submit(
             request_id,

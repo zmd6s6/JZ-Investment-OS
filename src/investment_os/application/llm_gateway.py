@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
+from investment_os.application.analysis_models import FrozenRoleModel
 from investment_os.domain.agent import AgentRole
 from investment_os.domain.errors import DomainError, DomainErrorCode
 
@@ -37,8 +38,11 @@ class LLMGatewayRequest:
     system_instruction: str | None = None
     input_payload_json: str | None = None
     budget_task_id: UUID | None = None
+    model_binding: FrozenRoleModel | None = None
 
     def __post_init__(self) -> None:
+        if self.model_binding is not None and self.model_binding.role != self.role:
+            raise DomainError(DomainErrorCode.INVARIANT_VIOLATION, "model binding role mismatch")
         _positive(self.timeout_seconds, "timeout_seconds")
         _positive(self.max_output_tokens, "max_output_tokens")
         if (

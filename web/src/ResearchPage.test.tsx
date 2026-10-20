@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ResearchPage } from "./ResearchPage";
+import { syntheticModelOptions } from "./testAnalysisModels";
 
 const a = { instrument_id: "synthetic-a", market: "SSE", symbol: "600011", name: "合成甲", asset_type: "EQUITY", currency: "CNY", sector: "" };
 const b = { ...a, instrument_id: "synthetic-b", name: "合成乙", symbol: "600012" };
@@ -10,6 +11,7 @@ const draft = { preview_id: "synthetic-preview", profile_id: profile.id, instrum
 vi.mock("./InstrumentSearchBox", () => ({ InstrumentSearchBox: ({ onSelect }: { onSelect: (hit: typeof a) => void }) => <div><button onClick={() => onSelect(a)}>选择甲</button><button onClick={() => onSelect(b)}>选择乙</button></div> }));
 function json(value: unknown) { return new Response(JSON.stringify(value), { headers: { "Content-Type": "application/json" } }); }
 function defaults(url: string) {
+  if (url === "/api/v1/analysis-model-options") return json(syntheticModelOptions);
   if (url === "/api/v1/settings/data-providers") return json([profile]);
   if (url === "/api/v1/research/capabilities") return json({ provider_types: ["BOCHA_WEB_SEARCH"] });
   if (url === "/api/v1/instruments/synthetic-a") return json(a);

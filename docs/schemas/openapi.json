@@ -1,6 +1,69 @@
 {
   "components": {
     "schemas": {
+      "AgentRole": {
+        "enum": [
+          "MACRO",
+          "INDUSTRY",
+          "FUNDAMENTAL",
+          "MARKET_QUANT",
+          "EVENT",
+          "PORTFOLIO",
+          "PORTFOLIO",
+          "RISK",
+          "RISK",
+          "DEVILS_ADVOCATE",
+          "CIO",
+          "REVIEW",
+          "REVIEW"
+        ],
+        "title": "AgentRole",
+        "type": "string"
+      },
+      "AnalysisModelOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_hash": {
+            "title": "Configuration Hash",
+            "type": "string"
+          },
+          "default_bindings": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenRoleModel"
+            },
+            "title": "Default Bindings",
+            "type": "array"
+          },
+          "missing_roles": {
+            "items": {
+              "$ref": "#/components/schemas/AgentRole"
+            },
+            "title": "Missing Roles",
+            "type": "array"
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenModelProfile"
+            },
+            "title": "Profiles",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configuration_hash",
+          "profiles",
+          "default_bindings",
+          "missing_roles"
+        ],
+        "title": "AnalysisModelOptions",
+        "type": "object"
+      },
       "AnalysisProgressResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1344,6 +1407,131 @@
           "items"
         ],
         "title": "EvidenceLibraryResponse",
+        "type": "object"
+      },
+      "FrozenModelProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_hash": {
+            "title": "Configuration Hash",
+            "type": "string"
+          },
+          "input_token_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Token Price"
+          },
+          "max_tokens": {
+            "title": "Max Tokens",
+            "type": "integer"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "output_token_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Token Price"
+          },
+          "pricing_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Currency"
+          },
+          "pricing_effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Effective At"
+          },
+          "pricing_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Version"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "provider_type": {
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "provider_type",
+          "model_name",
+          "timeout_seconds",
+          "max_tokens",
+          "pricing_version",
+          "pricing_currency",
+          "input_token_price",
+          "output_token_price",
+          "pricing_effective_at",
+          "configuration_hash"
+        ],
+        "title": "FrozenModelProfile",
+        "type": "object"
+      },
+      "FrozenRoleModel": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/FrozenModelProfile"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          }
+        },
+        "required": [
+          "role",
+          "profile"
+        ],
+        "title": "FrozenRoleModel",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -3199,6 +3387,30 @@
             "title": "Instrument Id",
             "type": "string"
           },
+          "model_configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Configuration Hash"
+          },
+          "model_profile_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Profile Id"
+          },
           "portfolio_id": {
             "format": "uuid",
             "title": "Portfolio Id",
@@ -3245,6 +3457,30 @@
             "format": "uuid",
             "title": "Instrument Id",
             "type": "string"
+          },
+          "model_configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Configuration Hash"
+          },
+          "model_profile_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Profile Id"
           },
           "portfolio_id": {
             "format": "uuid",
@@ -3898,6 +4134,27 @@
           }
         },
         "summary": "Retry Analysis Job",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-model-options": {
+      "get": {
+        "operationId": "analysis_model_options_api_v1_analysis_model_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisModelOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Analysis Model Options",
         "tags": [
           "analysis"
         ]

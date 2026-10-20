@@ -7,6 +7,7 @@ import {
   gateLabel,
   runStatusLabel,
   stanceLabel,
+  tokenPriceLabel,
 } from "./analysisLabels";
 import { readAnalysisJson } from "./analysisReads";
 import { AnalysisJobPanel } from "./AnalysisJobPanel";
@@ -36,11 +37,16 @@ function FrozenInputs({ value }: { value: unknown }) {
   const snapshot = value as Record<string, unknown>;
   const evidence = Array.isArray(snapshot.evidence) ? snapshot.evidence.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object") : [];
   const portfolio = snapshot.portfolio && typeof snapshot.portfolio === "object" ? snapshot.portfolio as Record<string, unknown> : null;
+  const plan = snapshot.model_plan && typeof snapshot.model_plan === "object" ? snapshot.model_plan as Record<string, unknown> : null;
+  const bindings = plan && Array.isArray(plan.bindings) ? plan.bindings as { role: string; profile: Record<string, unknown> }[] : [];
   const text = (item: unknown) => typeof item === "string" ? item : "未记录";
   return <details className="frozen-inputs"><summary>本次分析输入快照 · {evidence.length} 条证据</summary>
     <p>选择方式：{snapshot.selection_mode === "EXPLICIT" ? "用户明确勾选" : "兼容入口的有界近期资料"} · 冻结时点：{text(snapshot.as_of)} · 政策：{text(snapshot.policy_version_label)}</p>
     <p className="hint-text">输入摘要：{text(snapshot.input_hash)}。这里展示运行当时保存的值，不重新抓取当前资料。</p>
     {portfolio ? <p>当时组合：{text(portfolio.name)} · 记账币种 {text(portfolio.base_currency)} · 现金 {text(portfolio.cash_balance)}</p> : null}
+    <h4>本次固定的模型与定价</h4>
+    <p className="hint-text">{plan ? `选择方式：${plan.mode === "SINGLE_PROFILE" ? "单一档案用于全部八角色" : "启动时角色映射"}。这里是提交时摘要，不查询当前设置；预算仍按调用时有效的预算门禁检查。` : "此历史运行未固定模型档案与定价，不用当前设置追补。"}</p>
+    {bindings.map((b) => <article className="evidence-card" key={b.role}><strong>{roleNames[b.role] ?? b.role} · {text(b.profile.name)} · {text(b.profile.model_name)}</strong><p>定价版本 {text(b.profile.pricing_version)} · 币种 {text(b.profile.pricing_currency)} · 每 Token 输入 {tokenPriceLabel(b.profile.input_token_price)} / 输出 {tokenPriceLabel(b.profile.output_token_price)}</p><p className="hint-text">档案 ID：{text(b.profile.profile_id)} · 配置摘要：{text(b.profile.configuration_hash)}</p></article>)}
     {evidence.map((item) => <article className="evidence-card" key={text(item.evidence_id)}><strong>{text(item.summary)}</strong><p>{text(item.source_name)} · 获取渠道 {text(item.provider)} · {text(item.source_tier)}</p><p className="hint-text">证据 ID：{text(item.evidence_id)} · 内容摘要：{text(item.content_hash)}</p><p className="hint-text">观察：{text(item.observed_at)} · 可用：{text(item.available_at)} · 到期：{text(item.expires_at)}</p><p className="hint-text">来源定位（不自动访问）：{text(item.source_locator)}</p></article>)}
   </details>;
 }

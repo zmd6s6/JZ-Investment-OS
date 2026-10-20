@@ -16,6 +16,7 @@ from pydantic import AwareDatetime
 from sqlalchemy import select
 
 from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
+from investment_os.application.analysis_models import AnalysisModelOptions
 from investment_os.application.analysis_product import ProductAnalysisService
 from investment_os.application.analysis_run import AnalysisRunService
 from investment_os.application.evidence import derive_display_freshness
@@ -1660,6 +1661,18 @@ def create_app(
             raise HTTPException(status_code=503, detail="analysis_jobs_unavailable")
         return analysis_job_service
 
+    @application.get(
+        "/api/v1/analysis-model-options", response_model=AnalysisModelOptions, tags=["analysis"]
+    )
+    async def analysis_model_options() -> AnalysisModelOptions:
+        from investment_os.application.errors import ApplicationError
+
+        product, _ = _analysis_service_or_503()
+        try:
+            return await product.model_options()
+        except ApplicationError as error:
+            raise HTTPException(status_code=503, detail=error.code.value) from error
+
     def job_error(error: AnalysisJobError) -> HTTPException:
         code = str(error)
         return HTTPException(status_code=404 if code.endswith("not_found") else 409, detail=code)
@@ -1684,6 +1697,8 @@ def create_app(
                     evidence_ids=tuple(request.evidence_ids)
                     if request.evidence_ids is not None
                     else None,
+                    model_profile_id=request.model_profile_id,
+                    model_configuration_hash=request.model_configuration_hash,
                 ),
             )
         except AnalysisJobError as error:
@@ -1754,6 +1769,8 @@ def create_app(
                     evidence_ids=tuple(request.evidence_ids)
                     if request.evidence_ids is not None
                     else None,
+                    model_profile_id=request.model_profile_id,
+                    model_configuration_hash=request.model_configuration_hash,
                 )
             )
         except ApplicationError as exc:

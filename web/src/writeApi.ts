@@ -92,6 +92,8 @@ export async function readApiError(response: Response): Promise<string> {
   if (code.startsWith("RESEARCH_PREVIEW_") && code.endsWith("CONFLICT")) return "这个预览已使用其他请求或选择确认过，不能覆盖原记录。请找回原预览查看已保存结果。";
   if (code.startsWith("RESEARCH_PREVIEW_")) return "预览或所选候选已不可用，整批确认未完成。请找回预览核对标的、有效期和所选内容。";
   if (code === "ANALYSIS_EVIDENCE_SELECTION_INVALID") return "所选证据含缺失、跨标的、重复、未来或过期内容，分析未启动。请刷新并重新勾选，不会偷偷替换成其他资料。";
+  if (code === "ANALYSIS_MODEL_CONFIGURATION_CHANGED") return "模型或定价配置已改变，未换用新配置。请重新打开分析确认窗口，核对模型与费用后再明确提交。";
+  if (code === "ANALYSIS_MODEL_CONFIGURATION_INVALID") return "分析模型尚未就绪。请检查模型档案已启用、已配置凭据，并补全角色映射；也可在分析窗口选择一个模型用于全部角色。";
   if (code === "ANALYSIS_JOB_REQUEST_CONFLICT") return "同一任务标识对应了不同请求，不能覆盖原任务。请先到分析运行核对原结果。";
   if (code === "ANALYSIS_JOB_NOT_RETRYABLE") return "此运行尚未失败或取消，不能重新发起。请先查看当前运行，避免重复费用。";
   if (code === "ANALYSIS_JOB_NOT_FOUND") return "该记录不是可操作的后台任务，或已不存在。旧同步报告仍可阅读。";

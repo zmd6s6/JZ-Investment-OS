@@ -27,11 +27,12 @@ test.beforeEach(async ({ page, request }) => {
 });
 test.afterEach(async ({ request }) => { await request.post("/api/v1/test-only/analysis/release", { headers }); });
 
-async function start(page: import("@playwright/test").Page) {
+async function start(page: import("@playwright/test").Page, modelId?: string) {
   await page.goto(`/research?instrument_id=${instrumentId}`);
   await page.getByRole("checkbox", { name: `用于本次分析 ${evidenceTitle}`, exact: true }).check();
   await page.getByRole("button", { name: "选择组合并分析" }).click();
   await page.getByLabel("分析所用组合").selectOption(portfolioId);
+  if (modelId) await page.getByLabel("本次分析模型").selectOption(modelId);
   await page.getByRole("button", { name: "确认启动分析" }).click();
   await expect(page).toHaveURL(/\/analysis\?run_id=[0-9a-f-]+$/);
   return new URL(page.url()).searchParams.get("run_id")!;
@@ -53,6 +54,50 @@ test("real queued run survives navigation and reload, then displays actual stage
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
+test("explicit per-run model selection survives reload and does not change global role assignments", async ({ page, request }) => {
+  const configured = { name: `合成单次模型-${Date.now()}`, provider_type: "OPENAI_COMPATIBLE", base_url: "https://synthetic.example.test/v1", model_name: "fixture-explicit-only", timeout_seconds: 30, max_tokens: 2048, enabled: true, credential: "synthetic-fixture-only", pricing_version: "synthetic-explicit-v1", pricing_currency: "USD", input_token_price: "0.000001", output_token_price: "0.000002" };
+  const created = await request.post("/api/v1/settings/model-providers", { headers, data: configured });
+  expect(created.status()).toBe(201);
+  const modelId = (await created.json()).id;
+  const before = await (await request.get("/api/v1/analysis-model-options", { headers })).json();
+  const id = await start(page, modelId);
+  await expect.poll(async () => (await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(5);
+  await request.post("/api/v1/test-only/analysis/release", { headers });
+  await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
+  await page.reload();
+  await page.getByText(/本次分析输入快照 · 1 条证据/).click();
+  await expect(page.getByText("本次固定的模型与定价", { exact: true })).toBeVisible();
+  await expect(page.getByText(/定价版本 synthetic-explicit-v1/).first()).toBeVisible();
+  const run = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
+  expect(run.payload.input_snapshot.model_plan.selected_profile_id).toBe(modelId);
+  const stats = await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json();
+  expect(stats.calls).toBe(8);
+  expect(stats.profile_ids).toEqual(Array(8).fill(modelId));
+  const after = await (await request.get("/api/v1/analysis-model-options", { headers })).json();
+  expect(after.default_bindings).toEqual(before.default_bindings);
+});
+
+test("a changed model configuration requires renewed confirmation before any model call", async ({ page, request }) => {
+  const profile = { name: `合成配置冲突-${Date.now()}`, provider_type: "OPENAI_COMPATIBLE", base_url: "https://synthetic.example.test/v1", model_name: "fixture-conflict-only", timeout_seconds: 30, max_tokens: 2048, enabled: true, credential: "synthetic-fixture-only", pricing_version: "synthetic-v1", pricing_currency: "USD", input_token_price: "0.000001", output_token_price: "0.000002" };
+  const modelId = (await (await request.post("/api/v1/settings/model-providers", { headers, data: profile })).json()).id;
+  await page.goto(`/research?instrument_id=${instrumentId}`);
+  await page.getByRole("checkbox", { name: `用于本次分析 ${evidenceTitle}`, exact: true }).check();
+  await page.getByRole("button", { name: "选择组合并分析" }).click();
+  await page.getByLabel("分析所用组合").selectOption(portfolioId);
+  await page.getByLabel("本次分析模型").selectOption(modelId);
+  const changed = await request.put(`/api/v1/settings/model-providers/${modelId}`, { headers, data: { ...profile, credential: null, max_tokens: 1024 } });
+  expect(changed.status()).toBe(200);
+  await page.getByRole("button", { name: "确认启动分析" }).click();
+  await expect(page.getByRole("alert")).toContainText("模型或定价配置已改变");
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(0);
+  await page.getByRole("button", { name: "选择组合并分析" }).click();
+  await page.getByLabel("分析所用组合").selectOption(portfolioId);
+  await page.getByLabel("本次分析模型").selectOption(modelId);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.getByRole("button", { name: "暂不分析" }).click();
 });
 
 test("cancel confirmation prevents further stages without deleting history", async ({ page, request }) => {

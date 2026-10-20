@@ -3,7 +3,7 @@ import { AnalysisStartDialog } from "./AnalysisStartDialog";
 import { InstrumentHit, InstrumentSearchBox } from "./InstrumentSearchBox";
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
-import { submitAnalysis } from "./analysisSubmission";
+import { submitAnalysis, type AnalysisModelSelection } from "./analysisSubmission";
 
 type Profile = { id: string; name: string; provider_type: string; enabled: boolean; credential_configured: boolean; retention_days: number };
 type EvidenceItem = { evidence_id: string; source_name: string; source_locator: string; source_tier: string; provider: string; evidence_type: string; title: string; excerpt: string; observed_at: string; available_at: string; ingested_at: string; expires_at: string | null; freshness_status: string; content_hash: string };
@@ -160,11 +160,11 @@ export function ResearchPage() {
     finally { submitting.current = false; setSaving(false); }
   }
 
-  async function analyze(portfolioId: string) {
+  async function analyze(portfolioId: string, models: AnalysisModelSelection) {
     if (submitting.current || !instrument || !evidenceIds.length) return;
     submitting.current = true; setAnalyzing(true); setAnalysisOpen(false); setError(null);
     try {
-      const run = await submitAnalysis({ instrument_id: instrument.instrument_id, portfolio_id: portfolioId, source: "RESEARCH", evidence_ids: evidenceIds });
+      const run = await submitAnalysis({ instrument_id: instrument.instrument_id, portfolio_id: portfolioId, source: "RESEARCH", evidence_ids: evidenceIds, ...models });
       try { sessionStorage.setItem("selected_portfolio_id", portfolioId); } catch { /* optional */ }
       window.location.href = `/analysis?run_id=${encodeURIComponent(run.id)}`;
     } catch (reason) { setError(reason instanceof Error ? reason.message : "分析未完成，请先查看运行列表。"); }
@@ -172,7 +172,7 @@ export function ResearchPage() {
   }
 
   return <ProductChrome eyebrow="证据优先" title="研究资料" subtitle="先选标的和来源、核对公开查询，再获取资料。搜索线索不是行情，也不是已核实的事实。">
-    {analysisOpen && instrument ? <AnalysisStartDialog label={`${instrument.symbol} ${instrument.name}`} evidenceCount={evidenceIds.length} onCancel={() => setAnalysisOpen(false)} onConfirm={(id) => void analyze(id)} /> : null}
+    {analysisOpen && instrument ? <AnalysisStartDialog label={`${instrument.symbol} ${instrument.name}`} evidenceCount={evidenceIds.length} onCancel={() => setAnalysisOpen(false)} onConfirm={(id, models) => void analyze(id, models)} /> : null}
     <div className="action-feedback"><StatusBanner kind="error" text={error} /><StatusBanner kind="ok" text={message} /><StatusBanner kind="info" text={busy ? "正在向所选数据源查询候选资料… 请保留页面，不要重复点击。" : saving ? "正在读取或确认所选资料… 不调用供应商或模型。" : analyzing ? "正在保存后台分析任务；成功后打开真实运行进度，可离开或刷新页面。" : null} /></div>
     <Panel title="1 · 选择研究对象" description="从持仓或观察清单进入会自动带入标的；此处也可搜索本地目录。">
       {!busy && !saving && !analyzing ? <InstrumentSearchBox onSelect={selectInstrument} /> : null}

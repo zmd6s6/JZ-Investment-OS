@@ -9,6 +9,7 @@ import pytest
 from investment_os.application.agent_registry import AgentRoleRegistry, PromptBundle
 from investment_os.application.agent_runtime import AgentRunFailure, AgentRuntime
 from investment_os.application.analysis_context import AnalysisEvidence, freeze_analysis_context
+from investment_os.application.analysis_models import FrozenModelProfile, FrozenRoleModel
 from investment_os.application.llm_budget import (
     LLMBudgetPolicy,
     LLMBudgetReservation,
@@ -178,6 +179,57 @@ def _request(**overrides: object) -> LLMGatewayRequest:
     }
     values.update(overrides)
     return LLMGatewayRequest(**values)  # type: ignore[arg-type]
+
+
+async def test_frozen_model_does_not_resolve_new_mapping_and_changed_price_makes_no_network_call():
+    from dataclasses import replace
+
+    from investment_os.application.llm_gateway import LLMGatewayFailure
+
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "{}"}}],
+                "usage": {"prompt_tokens": 7, "completion_tokens": 3},
+            },
+        )
+
+    gateway, service, configured = await _configured_gateway(handler=httpx.MockTransport(handler))
+    binding = FrozenRoleModel(role=AgentRole.MACRO, profile=FrozenModelProfile.capture(configured))
+    await service.delete_role_assignment("DEFAULT")
+    result = await gateway.complete(_request(model_binding=binding))
+    assert result.pricing_version == configured.pricing_version and len(requests) == 1
+    # Use the test persistence port to emulate an owner editing prices between stages.
+    port = service._settings_port
+    await port.save_model_profile(replace(configured, input_token_price=Decimal("0.009")))
+    with pytest.raises(LLMGatewayFailure, match="frozen model configuration changed"):
+        await gateway.complete(_request(model_binding=binding))
+    assert len(requests) == 1
+
+
+def test_frozen_model_binding_cannot_impersonate_another_role():
+    from dataclasses import replace
+
+    from investment_os.domain.errors import DomainError
+
+    profile = ModelProviderProfile(
+        uuid4(),
+        "合成",
+        "OPENAI_COMPATIBLE",
+        "https://models.example.test",
+        "synthetic",
+        None,
+        30,
+        100,
+        True,
+    )
+    binding = FrozenRoleModel(role=AgentRole.RISK, profile=FrozenModelProfile.capture(profile))
+    with pytest.raises(DomainError, match="binding role mismatch"):
+        replace(_request(), model_binding=binding)
 
 
 async def test_openai_compatible_gateway_routes_role_and_enforces_profile_budgets() -> None:

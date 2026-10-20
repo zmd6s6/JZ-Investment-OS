@@ -3,7 +3,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
 import { AnalysisStartDialog } from "./AnalysisStartDialog";
-import { submitAnalysis } from "./analysisSubmission";
+import { submitAnalysis, type AnalysisModelSelection } from "./analysisSubmission";
 import { apiFetch, readApiError } from "./writeApi";
 
 type PortfolioPosition = {
@@ -365,7 +365,7 @@ export function PortfolioPage() {
     }
   }
 
-  async function startAnalysis(instrumentId: string) {
+  async function startAnalysis(instrumentId: string, models: AnalysisModelSelection) {
     if (!selected) return;
     const position = selected.positions.find((p) => p.instrument_id === instrumentId);
     const label = position ? `${position.market} ${position.symbol} ${position.name}` : instrumentId;
@@ -378,6 +378,7 @@ export function PortfolioPage() {
           instrument_id: instrumentId,
           portfolio_id: selected.portfolio_id,
           source: "PORTFOLIO",
+          ...models,
       });
       setMessage("分析任务已保存，正在打开实时运行详情。");
       window.location.href = `/analysis?run_id=${encodeURIComponent(run.id)}`;
@@ -395,7 +396,7 @@ export function PortfolioPage() {
       title="我的持仓"
       subtitle="先选择组合，再录入现金和分仓；在持仓一览发起团队分析。记账不会产生交易。"
     >
-      {analysisTarget && selected ? <AnalysisStartDialog label={`${analysisTarget.symbol} ${analysisTarget.name}`} portfolio={selected} onCancel={() => setAnalysisTarget(null)} onConfirm={() => { const id = analysisTarget.instrument_id; setAnalysisTarget(null); void startAnalysis(id); }} /> : null}
+      {analysisTarget && selected ? <AnalysisStartDialog label={`${analysisTarget.symbol} ${analysisTarget.name}`} portfolio={selected} onCancel={() => setAnalysisTarget(null)} onConfirm={(_portfolioId, models) => { const id = analysisTarget.instrument_id; setAnalysisTarget(null); void startAnalysis(id, models); }} /> : null}
       <nav className="section-nav" aria-label="持仓操作"><a href="#portfolios">1. 选择或创建组合</a><a href="#position-entry">2. 录入持仓</a><a href="#csv-import">批量导入</a><a href="#holdings">3. 查看持仓 / 分析</a></nav>
       <div className="action-feedback">
       <StatusBanner kind="error" text={error} />

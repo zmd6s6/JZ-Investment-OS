@@ -6,9 +6,19 @@ import {
   gateLabel,
   runStatusLabel,
   stanceLabel,
+  tokenPriceLabel,
 } from "./analysisLabels";
 
 describe("analysisLabels", () => {
+  it("displays exact token prices without database padding or floating point rounding", () => {
+    expect(tokenPriceLabel("0.000001000000000000")).toBe("0.000001");
+    expect(tokenPriceLabel("0.000000000000000001")).toBe("0.000000000000000001");
+    expect(tokenPriceLabel("12345678901234567890.1200")).toBe("12345678901234567890.12");
+    expect(tokenPriceLabel("10.000")).toBe("10");
+    expect(tokenPriceLabel("0.000")).toBe("0");
+    expect(tokenPriceLabel("1.0E-20")).toBe("1.0E-20");
+    expect(tokenPriceLabel(null)).toBe("未配置");
+  });
   it("explains known failure codes with Chinese text while keeping the raw code", () => {
     const explained = explainFailure("MISSING_REFERENCE_QUOTES");
     expect(explained).toBe("缺少行情报价（MISSING_REFERENCE_QUOTES）");

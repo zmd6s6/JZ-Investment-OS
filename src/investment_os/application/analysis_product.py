@@ -8,6 +8,10 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from investment_os.application.analysis_inputs import AnalysisInputsPort
+from investment_os.application.analysis_models import (
+    AnalysisModelConfiguration,
+    AnalysisModelOptions,
+)
 from investment_os.application.analysis_orchestrator import (
     AnalysisRequest,
     AnalysisRunResult,
@@ -30,6 +34,8 @@ class StartAnalysisInput:
     source: str = "PORTFOLIO"
     as_of: datetime | None = None
     evidence_ids: tuple[UUID, ...] | None = None
+    model_profile_id: UUID | None = None
+    model_configuration_hash: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,12 +55,34 @@ class ProductAnalysisService:
         market_data: MarketDataPort,
         catalog: InstrumentCatalogPort | None = None,
         policy_version_label: str = "TEST_DEFAULT",
+        model_configuration: AnalysisModelConfiguration | None = None,
     ) -> None:
         self._inputs, self._portfolios, self._runs = inputs, portfolios, analysis_runs
         self._committee, self._market_data, self._catalog = committee, market_data, catalog
         self._policy_version_label = policy_version_label
+        self._models = model_configuration
+
+    async def model_options(self) -> AnalysisModelOptions:
+        if self._models is None:
+            raise ApplicationError(
+                ApplicationErrorCode.ANALYSIS_MODEL_CONFIGURATION_INVALID,
+                "model configuration unavailable",
+            )
+        return await self._models.options()
 
     async def prepare(self, inp: StartAnalysisInput) -> PreparedAnalysis:
+        if self._models is None and (
+            inp.model_profile_id is not None or inp.model_configuration_hash is not None
+        ):
+            raise ApplicationError(
+                ApplicationErrorCode.ANALYSIS_MODEL_CONFIGURATION_INVALID,
+                "model configuration unavailable",
+            )
+        model_plan = (
+            await self._models.freeze(inp.model_profile_id, inp.model_configuration_hash)
+            if self._models
+            else None
+        )
         portfolio = await self._portfolios.get_portfolio(inp.portfolio_id)
         if portfolio is None:
             raise ApplicationError(
@@ -82,6 +110,7 @@ class ProductAnalysisService:
                     else "LEGACY_RECENT",
                     "portfolio": asdict(portfolio),
                     "evidence": [item.provenance for item in selected],
+                    "model_plan": model_plan.model_dump(mode="json") if model_plan else None,
                 },
                 default=str,
             )
@@ -105,6 +134,7 @@ class ProductAnalysisService:
             instrument_market=market,
             instrument_symbol=symbol,
             instrument_currency=currency or portfolio.base_currency,
+            model_plan=model_plan,
         )
         return PreparedAnalysis(request, snapshot)
 
@@ -114,6 +144,31 @@ class ProductAnalysisService:
         *,
         progress: AnalysisProgress | None = None,
     ) -> AnalysisRunResult:
+        if self._models is not None and request.model_plan is None:
+            return AnalysisRunResult(
+                status="FAILED",
+                payload=None,
+                failure_code="ANALYSIS_MODEL_CONFIGURATION_MISSING",
+                failure_detail="旧任务未固定模型配置, 未自动调用当前模型。请核对后明确新建运行。",
+            )
+        if request.model_plan is not None:
+            try:
+                if self._models is None:
+                    raise ApplicationError(
+                        ApplicationErrorCode.ANALYSIS_MODEL_CONFIGURATION_CHANGED,
+                        "frozen models cannot be verified",
+                    )
+                await self._models.validate(request.model_plan)
+            except ApplicationError:
+                return AnalysisRunResult(
+                    status="FAILED",
+                    payload=None,
+                    failure_code="ANALYSIS_MODEL_CONFIGURATION_CHANGED",
+                    failure_detail=(
+                        "本次固定的模型档案已修改、停用或不可用; "
+                        "未自动换用模型。请核对设置后明确新建运行。"
+                    ),
+                )
         return await execute_analysis(
             request,
             committee=self._committee,

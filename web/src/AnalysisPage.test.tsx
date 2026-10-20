@@ -1,12 +1,27 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalysisPage } from "./AnalysisPage";
+import { syntheticModelOptions } from "./testAnalysisModels";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const run = { id: "synthetic-run", instrument_id: "synthetic-instrument", portfolio_id: "synthetic-portfolio", source: "PORTFOLIO", status: "SUCCEEDED", created_at: "2026-10-15T00:00:00Z", as_of: "2026-10-15T00:00:00Z", policy_version_label: "TEST_DEFAULT", failure_code: null };
 afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 describe("分析读取反馈", () => {
+  it("renders frozen model and pricing values without consulting current model settings", async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.includes("?")) return json([run]);
+      if (!url.startsWith("/api/v1/analysis-runs")) return json([]);
+      return json({ ...run, payload: { input_snapshot: { evidence: [], model_plan: { mode: "ROLE_MAPPING", bindings: syntheticModelOptions.default_bindings } } } });
+    });
+    vi.stubGlobal("fetch", fetcher);
+    render(<AnalysisPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "查看" }));
+    fireEvent.click(await screen.findByText(/本次分析输入快照/));
+    expect(screen.getByText("本次固定的模型与定价")).toBeVisible();
+    expect(screen.getAllByText(/定价版本 synthetic-v1/)).toHaveLength(8);
+    expect(fetcher.mock.calls.some(([url]) => url.includes("model-providers") || url.includes("model-options"))).toBe(false);
+  });
   it("recovers a stalled detail read with an explicit read-only retry", async () => {
     vi.useFakeTimers();
     let stalled = true;

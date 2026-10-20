@@ -1,5 +1,6 @@
 import asyncio
 import json
+from dataclasses import replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -10,15 +11,17 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import DBAPIError
-from test_research_previews import preview, setup
+from test_research_previews import Secrets, preview, setup
 
 from investment_os.api.app import create_app
 from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
+from investment_os.application.analysis_models import AnalysisModelConfiguration
 from investment_os.application.analysis_orchestrator import AnalysisRunResult
 from investment_os.application.analysis_product import ProductAnalysisService, StartAnalysisInput
 from investment_os.application.analysis_run import AnalysisRunService
 from investment_os.application.llm_gateway import LLMGatewayResponse
 from investment_os.application.portfolio_book import PortfolioBookService
+from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
@@ -32,8 +35,10 @@ from investment_os.infrastructure.persistence.models import (
     AnalysisProgressRecord,
     AnalysisRunRecord,
     EventLogRecord,
+    ModelProviderProfileRecord,
     OutboxEventRecord,
 )
+from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
 from investment_os.infrastructure.settings import Settings
 
 
@@ -51,6 +56,7 @@ async def jobs_setup(engine):
         name="合成后台任务组合", base_currency="CNY", cash_balance="10000"
     )
     runs = AnalysisRunService(SessionAnalysisRunPort(factory))
+    models = await configure_models(factory)
     product = ProductAnalysisService(
         inputs=SqlAlchemyAnalysisInputs(factory),
         portfolios=portfolios,
@@ -58,6 +64,7 @@ async def jobs_setup(engine):
         committee=None,
         market_data=None,
         catalog=catalog,
+        model_configuration=models,
     )
     port = SqlAlchemyAnalysisJobs(engine, factory)
     service = AnalysisJobService(port, product)
@@ -66,6 +73,27 @@ async def jobs_setup(engine):
     )
     await client.aclose()
     return factory, portfolios, runs, product, port, service, inp
+
+
+async def configure_models(factory):
+    settings = ProviderSettingsService(SqlAlchemyProviderSettingsStore(factory), Secrets())
+    profile = await settings.save_model_profile(
+        profile_id=None,
+        name="合成分析模型",
+        provider_type="OPENAI_COMPATIBLE",
+        base_url="https://models.example.test/v1",
+        model_name="synthetic-model",
+        timeout_seconds=30,
+        max_tokens=2048,
+        enabled=True,
+        credential="synthetic-test-only",
+        pricing_version="synthetic-v1",
+        pricing_currency="USD",
+        input_token_price=Decimal("0.000001"),
+        output_token_price=Decimal("0.000002"),
+    )
+    await settings.save_role_assignment(role="DEFAULT", model_provider_profile_id=profile.id)
+    return AnalysisModelConfiguration(settings)
 
 
 async def test_concurrent_submit_claim_and_restart_keep_frozen_inputs(database_engine):
@@ -301,10 +329,115 @@ async def test_production_worker_composition_consumes_queue_and_persists_real_st
     result = await runs.get(run.id)
     assert result.status == "SUCCEEDED" and len(calls) == 8
     assert {request.budget_task_id for request in calls} == {run.id}
+    assert all(request.model_binding is not None for request in calls)
     assert result.payload["input_snapshot"] == run.payload["input_snapshot"]
     # Neutral synthetic specialists map to HOLD, never a new exposure.
     assert result.payload["decision"]["action"] == "HOLD"
     assert "MISSING_REFERENCE_QUOTES" in result.payload["failures"]
+
+
+async def test_model_options_and_explicit_choice_are_frozen_with_stale_confirmation_rejected(
+    database_engine,
+):
+    factory, _, runs, product, _, jobs, inp = await jobs_setup(database_engine)
+    app = create_app(
+        analysis_product_service=product,
+        analysis_run_service=runs,
+        analysis_job_service=jobs,
+        write_api_token="synthetic-model-auth",
+    )
+    headers = {"Authorization": "Bearer synthetic-model-auth"}
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        choices = (await client.get("/api/v1/analysis-model-options")).json()
+        assert len(choices["default_bindings"]) == 8 and "credential" not in json.dumps(choices)
+        identity = choices["profiles"][0]["profile_id"]
+        body = {
+            "request_id": str(uuid4()),
+            "instrument_id": str(inp.instrument_id),
+            "portfolio_id": str(inp.portfolio_id),
+            "model_profile_id": identity,
+            "model_configuration_hash": choices["configuration_hash"],
+        }
+        response = await client.post("/api/v1/analysis-jobs", json=body, headers=headers)
+        assert response.status_code == 202
+        plan = response.json()["payload"]["input_snapshot"]["model_plan"]
+        assert plan["selected_profile_id"] == identity and plan["mode"] == "SINGLE_PROFILE"
+        assert all(b["profile"]["pricing_version"] == "synthetic-v1" for b in plan["bindings"])
+        assert (await client.post("/api/v1/analysis-jobs", json=body, headers=headers)).json()[
+            "id"
+        ] == body["request_id"]
+        async with factory() as session, session.begin():
+            row = await session.get(ModelProviderProfileRecord, UUID(identity))
+            row.max_tokens += 1
+        # An already submitted request is not re-prepared or overwritten after settings changes.
+        assert (await client.post("/api/v1/analysis-jobs", json=body, headers=headers)).json()[
+            "payload"
+        ]["input_snapshot"]["model_plan"] == plan
+        stale = await client.post(
+            "/api/v1/analysis-jobs", json={**body, "request_id": str(uuid4())}, headers=headers
+        )
+        assert (
+            stale.status_code == 422
+            and stale.json()["detail"] == "ANALYSIS_MODEL_CONFIGURATION_CHANGED"
+        )
+        conflict = await client.post(
+            "/api/v1/analysis-jobs",
+            json={**body, "model_profile_id": str(uuid4())},
+            headers=headers,
+        )
+        assert conflict.status_code == 409
+        invalid = await client.post(
+            "/api/v1/analysis-jobs",
+            json={
+                **body,
+                "request_id": str(uuid4()),
+                "model_configuration_hash": None,
+                "model_profile_id": str(uuid4()),
+            },
+            headers=headers,
+        )
+        assert invalid.status_code == 422
+
+
+async def test_queued_changed_pricing_fails_before_models_and_snapshot_stays_immutable(
+    database_engine,
+):
+    factory, _, runs, product, _, jobs, inp = await jobs_setup(database_engine)
+    run = await jobs.submit(uuid4(), inp)
+    frozen = run.payload["input_snapshot"]
+    profile_id = UUID(frozen["model_plan"]["bindings"][0]["profile"]["profile_id"])
+    async with factory() as session, session.begin():
+        row = await session.get(ModelProviderProfileRecord, profile_id)
+        row.input_token_price = Decimal("0.009")
+    # The fixture has no committee: any attempt to execute a model would fail this assertion.
+    assert product._committee is None
+    assert await jobs.run_once()
+    result = await runs.get(run.id)
+    assert (
+        result.status == "FAILED" and result.failure_code == "ANALYSIS_MODEL_CONFIGURATION_CHANGED"
+    )
+    assert result.payload["input_snapshot"] == frozen
+    next_run = await jobs.retry(run.id, uuid4())
+    assert next_run.id != run.id and next_run.payload["retry_of"] == str(run.id)
+    assert (
+        next_run.payload["input_snapshot"]["model_plan"]["bindings"][0]["profile"][
+            "input_token_price"
+        ]
+        != frozen["model_plan"]["bindings"][0]["profile"]["input_token_price"]
+    )
+
+
+async def test_old_queued_input_without_model_plan_is_not_silently_bound_to_current_models(
+    database_engine,
+):
+    _, _, _, product, _, _, inp = await jobs_setup(database_engine)
+    prepared = await product.prepare(inp)
+    result = await product.execute_prepared(replace(prepared.request, model_plan=None))
+    assert (
+        result.status == "FAILED" and result.failure_code == "ANALYSIS_MODEL_CONFIGURATION_MISSING"
+    )
 
 
 async def test_api_enqueues_without_running_models_and_requires_write_auth(database_engine):

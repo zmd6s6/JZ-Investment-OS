@@ -22,6 +22,7 @@ from investment_os.application.analysis_context import (
     EvidenceSourceTier,
     freeze_analysis_context,
 )
+from investment_os.application.analysis_models import ANALYSIS_ROLES, AnalysisModelPlan
 from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.committee import (
     detect_stance_conflicts,
@@ -68,7 +69,7 @@ ROUND_ONE = (
     AgentRole.MARKET_QUANT,
     AgentRole.EVENT,
 )
-ALL_ANALYSIS_ROLES = (*ROUND_ONE, AgentRole.DEVILS_ADVOCATE, AgentRole.PORTFOLIO, AgentRole.RISK)
+ALL_ANALYSIS_ROLES = ANALYSIS_ROLES
 
 DEFAULT_POSITION_POLICY = PositionPolicy(
     single_instrument_max=Weight(Decimal("0.08")),
@@ -188,6 +189,7 @@ def build_analysis_request_factory(
     portfolio_meta: dict[str, Any],
     positions_meta: list[dict[str, Any]],
     budget_task_id: UUID | None = None,
+    model_plan: AnalysisModelPlan | None = None,
 ) -> Any:
     """Build a request factory that embeds real research materials for agents."""
 
@@ -252,6 +254,9 @@ def build_analysis_request_factory(
         return LLMGatewayRequest(
             request_id=uuid4(),
             budget_task_id=budget_task_id,
+            model_binding=next((b for b in model_plan.bindings if b.role == role), None)
+            if model_plan
+            else None,
             role=role,
             prompt_bundle_hash=_prompt_hash(role),
             input_snapshot_hash=role_input.context.input_snapshot_hash,
@@ -292,6 +297,7 @@ class AnalysisRequest:
     instrument_symbol: str = ""
     instrument_currency: str = ""
     budget_task_id: UUID | None = None
+    model_plan: AnalysisModelPlan | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -613,6 +619,7 @@ async def execute_analysis(
         portfolio_meta=portfolio_meta,
         positions_meta=positions_meta,
         budget_task_id=request.budget_task_id,
+        model_plan=request.model_plan,
     )
     if progress:
         await progress("PREPARING", "COMPLETED")

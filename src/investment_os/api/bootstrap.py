@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 
 from investment_os.application.analysis_jobs import AnalysisJobService
+from investment_os.application.analysis_models import AnalysisModelConfiguration
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import ProviderSettingsService
@@ -118,6 +119,7 @@ def create_production_app() -> FastAPI:
         committee=committee,
         market_data=market_data,
         catalog=catalog_adapter,
+        model_configuration=AnalysisModelConfiguration(provider_settings_service),
     )
 
     return create_app(

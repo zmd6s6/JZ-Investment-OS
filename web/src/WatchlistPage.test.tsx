@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WatchlistPage } from "./WatchlistPage";
 import { setWriteToken } from "./writeApi";
+import { syntheticModelOptions } from "./testAnalysisModels";
 
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 const item = { watchlist_item_id: "synthetic-watch", instrument_id: "synthetic-instrument", symbol: "600000", market: "SSE", name: "合成观察标的" };
@@ -10,6 +11,7 @@ const portfolio = { portfolio_id: "synthetic-portfolio", name: "合成上下文"
 describe("观察清单研究入口", () => {
   it("confirms context before calling analysis and preserves the watchlist on failure", async () => {
     const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/v1/analysis-model-options") return new Response(JSON.stringify(syntheticModelOptions));
       if (url === "/api/v1/watchlist") return new Response(JSON.stringify([item]));
       if (url === "/api/v1/portfolios") return new Response(JSON.stringify([portfolio]));
       if (init?.method === "POST") return new Response('{}', { status: 503 });

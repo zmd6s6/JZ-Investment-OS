@@ -1,6 +1,7 @@
 import { apiFetch, readApiError } from "./writeApi";
 
-type Input = { instrument_id: string; portfolio_id: string; source: "PORTFOLIO" | "WATCHLIST" | "RESEARCH"; evidence_ids?: string[] };
+export type AnalysisModelSelection = { model_profile_id?: string; model_configuration_hash: string };
+type Input = { instrument_id: string; portfolio_id: string; source: "PORTFOLIO" | "WATCHLIST" | "RESEARCH"; evidence_ids?: string[] } & Partial<AnalysisModelSelection>;
 const key = "investment_os_pending_analysis";
 let pending: { fingerprint: string; requestId: string } | null = null;
 

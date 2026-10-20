@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PortfolioPage } from "./PortfolioPage";
+import { syntheticModelOptions } from "./testAnalysisModels";
 
 type Portfolio = {
   portfolio_id: string;
@@ -65,6 +66,7 @@ describe("PortfolioPage stale response protection", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string, init?: RequestInit) => {
+        if (url === "/api/v1/analysis-model-options") return Promise.resolve(jsonBody(syntheticModelOptions));
         if (init?.method === "POST" && url === "/api/v1/portfolios") {
           return Promise.resolve(jsonBody(created, true, 201));
         }
@@ -273,6 +275,7 @@ describe("PortfolioPage stale response protection", () => {
         if (init?.method === "POST" && url === "/api/v1/analysis-jobs") {
           return pendingRun as unknown as Response;
         }
+        if (url === "/api/v1/analysis-model-options") return Promise.resolve(jsonBody(syntheticModelOptions));
         if (typeof url === "string" && url.includes("/policy/review")) {
           return Promise.resolve(
             jsonBody({
@@ -300,6 +303,7 @@ describe("PortfolioPage stale response protection", () => {
     fireEvent.click(screen.getByRole("button", { name: "立即分析" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("可能调用付费模型");
     expect(screen.queryByText(/已载入 600519/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "确认启动分析" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "确认启动分析" }));
 
     // The banner must appear immediately, not only after the run finishes.

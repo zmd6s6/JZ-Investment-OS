@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from investment_os.application.analysis_models import FrozenModelProfile
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.llm_gateway import (
     LLMGatewayFailure,
@@ -55,7 +56,20 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
 
     async def complete(self, request: LLMGatewayRequest) -> LLMGatewayResponse:
         try:
-            profile = await self._provider_settings.model_for_role(request.role.value)
+            if request.model_binding is None:
+                profile = await self._provider_settings.model_for_role(request.role.value)
+            else:
+                frozen = request.model_binding.profile
+                current = await self._provider_settings.get_model_profile(frozen.profile_id)
+                if (
+                    current is None
+                    or not current.enabled
+                    or FrozenModelProfile.capture(current) != frozen
+                ):
+                    raise LLMGatewayFailure(
+                        "frozen model configuration changed or disabled; no fallback"
+                    )
+                profile = current
         except (LookupError, ValueError) as exc:
             raise LLMGatewayFailure("configured model provider is unavailable") from exc
         credential = await self._credential_for(profile)
