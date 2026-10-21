@@ -7,6 +7,7 @@ export function tokenPriceLabel(value: unknown): string {
 }
 
 const FAILURE_LABELS: Record<string, string> = {
+  ANALYSIS_RECORDING_FAILED: "研究主表保存失败，未发布成功报告，不自动重放模型，请核对费用",
   THESIS_UNKNOWN: "投资逻辑缺失或支持资料不新鲜，本次按未知处理",
   THESIS_BROKEN_REVIEW_REQUIRED: "已失效的持仓逻辑要求复核，减仓候选不是交易授权",
   ANALYSIS_THESIS_INVALID: "固定投资逻辑的版本、内容或支持资料校验失败",

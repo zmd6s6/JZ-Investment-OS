@@ -22,6 +22,7 @@ from investment_os.application.analysis_product import PreparedAnalysis, StartAn
 from investment_os.application.analysis_progress import AnalysisCancelled, AnalysisStage, StageState
 from investment_os.application.analysis_run import AnalysisRunRead
 from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
+from investment_os.infrastructure.analysis_research import publish_research
 from investment_os.infrastructure.analysis_run_store import _read
 from investment_os.infrastructure.persistence.models import (
     AnalysisJobRecord,
@@ -260,11 +261,17 @@ class SqlAlchemyAnalysisJobs:
                 if cancelled
                 else result.failure_detail
             )
+            manifest = None
+            if not cancelled and result.status == "SUCCEEDED" and result.research is not None:
+                if result.payload is None:
+                    raise ValueError("successful research requires report payload")
+                manifest = await publish_research(session, run, result.research)
             run.payload_json = {
                 **run.payload_json,
                 **(
                     result.payload.to_dict() if result.payload is not None and not cancelled else {}
                 ),
+                **({"research_records": manifest} if manifest is not None else {}),
                 "stage": "FINISHED",
             }
             job.finished_at = datetime.now(UTC)
@@ -356,7 +363,19 @@ class SqlAlchemyAnalysisJobs:
                 "ANALYSIS_EXECUTION_FAILED",
                 "分析执行异常; 请核对配置、运行记录与费用后再决定是否重试。",
             )
-        await self._finish(run_id, token, result)
+        try:
+            await self._finish(run_id, token, result)
+        except Exception:
+            await self._finish(
+                run_id,
+                token,
+                AnalysisRunResult(
+                    "FAILED",
+                    None,
+                    "ANALYSIS_RECORDING_FAILED",
+                    "研究记录未能原子保存, 未发布成功报告, 不自动重放模型。请核对运行与费用。",
+                ),
+            )
         return True
 
     async def work_once(self, execute: ExecuteJob) -> bool:

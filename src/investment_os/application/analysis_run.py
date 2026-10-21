@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Protocol
 from uuid import UUID
 
+from investment_os.application.analysis_research import CompletedResearch
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 
 
@@ -49,6 +50,7 @@ class AnalysisRunPort(Protocol):
         payload: dict[str, Any] | None = None,
         failure_code: str | None = None,
         failure_detail: str | None = None,
+        research: CompletedResearch | None = None,
     ) -> AnalysisRunRead | None: ...
 
     async def get(self, run_id: UUID) -> AnalysisRunRead | None: ...
@@ -156,6 +158,7 @@ class AnalysisRunService:
         payload: dict[str, Any] | None = None,
         failure_code: str | None = None,
         failure_detail: str | None = None,
+        research: CompletedResearch | None = None,
     ) -> AnalysisRunRead:
         updated = await self._port.update_status(
             run_id,
@@ -163,6 +166,7 @@ class AnalysisRunService:
             payload=payload,
             failure_code=failure_code,
             failure_detail=failure_detail,
+            **({"research": research} if research is not None else {}),
         )
         if updated is None:
             raise ApplicationError(

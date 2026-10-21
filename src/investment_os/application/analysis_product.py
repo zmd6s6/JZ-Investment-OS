@@ -370,8 +370,20 @@ class ProductAnalysisService:
                 failure_code=result.failure_code or "ANALYSIS_FAILED",
                 failure_detail=result.failure_detail or "分析失败",
             )
-        return await self._runs.finish(
-            running_id,
-            status="SUCCEEDED",
-            payload={**result.payload.to_dict(), "input_snapshot": snapshot},
-        )
+        try:
+            return await self._runs.finish(
+                running_id,
+                status="SUCCEEDED",
+                payload={**result.payload.to_dict(), "input_snapshot": snapshot},
+                research=getattr(result, "research", None),
+            )
+        except Exception:
+            return await self._runs.finish(
+                running_id,
+                status="FAILED",
+                payload={"input_snapshot": snapshot},
+                failure_code="ANALYSIS_RECORDING_FAILED",
+                failure_detail=(
+                    "研究记录未能原子保存, 未发布成功报告, 不自动重放模型。请核对运行与费用。"
+                ),
+            )

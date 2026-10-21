@@ -1,10 +1,10 @@
 # PRODUCT-06 — 端到端 Analysis Orchestration
 
-- 状态：`IN_PROGRESS`（输入 / 后台任务、模型 / 行情、政策 / Thesis 固定与人工逻辑工作台已实现；团队自动更新链、独立策略、Risk / Decision 主表关联及整体验收尚未收口）
+- 状态：`IN_PROGRESS`（输入 / 后台任务、版本固定、人工逻辑工作台及委员会 / Agent / Risk 主表已实现；团队更新、独立策略、正式 Decision 主表链及整体验收尚未收口）
 - 前置条件：`PRODUCT-05` 已由所有者接受；可用的已授权模型与数据档案、Portfolio/Watchlist 产品流均已验证
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md` §2、§4、§6、§9、§11、§12、§16 至 §19
 - 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0004`、`ADR-0005`、`ADR-0006`、`ADR-0007`、`ADR-0010`、
-  `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`、`ADR-0020`、`ADR-0021`、`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0025`
+  `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`、`ADR-0020`、`ADR-0021`、`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0025`、`ADR-0026`
 - 安全基线：`auto_trade=false`；外部研究和模型输出均不可信；结果仅为影子 Decision
 
 ## 目标
@@ -73,7 +73,19 @@
 
 ## 实施记录
 
-- 2026-10-21（人工投资逻辑工作台，ADR-0025，本轮最新）：
+- 2026-10-21（研究主表与只读追溯，ADR-0026，本轮最新）：
+  - 复用已有主表保存实际委员会、AgentRun / Opinion、两轮消息 / 冲突、Risk 与正规化证据关联；保留完整校验后结构、失败 / 修复状态、实际时间、模型 / Prompt 摘要、用量与原始响应 hash，不保存原始自由输出或密钥。Portfolio / Risk 不冒充第三轮。
+  - 后台锁运行、校验 token / 取消后，主表、报告终态、回执、审计 / Outbox 同事务；同步入口同样原子。失败全批回滚且明确 ANALYSIS_RECORDING_FAILED，不自动重放费用。旧 Worker / 重复终态与取消竞争不发布工件。旧结果没有完整工件仍兼容，明确未记录，不补造历史。
+  - 新增版本化只读 GET research-records 与报告按钮，按只追加回执关联实际主表；校验输入 / 标的 / 归属 / 证据集合和 Risk 内容 hash。显示实际 ID / 内容摘要、角色观点和引用、历史有效期；UNKNOWN 不冒充 PASS，不把旧风险当当前授权。读取有界、失败保留内容、切换丢弃迟到响应，不调用供应商。
+  - 正式 InvestmentDecision 仍 NOT_REGISTERED：独立策略版本与完整链未接入，不伪造已批准 Policy / Strategy 或放宽原正式表外键。无新迁移 / 依赖 / Prompt / AgentOpinion 输出协议 / 真实投资规则变更；新增 ORM 映射的是已有证据表，OpenAPI 仅新增只读接口。
+  - 定向 PostgreSQL 九项先通过，含 PASS / VETO / UNKNOWN、同步与后台回滚、取消竞争、旧 Worker、重复终态、上下文篡改与旧报告不追补；自审再加同步提交回执丢失回归，已提交成功的原终态不会被降为失败，晚到写入不改已关联研究。最终完整后端 **613 passed / 87.84%**，领域行 **98.33% / 分支90.60%**；前端 **97/97** 与生产构建通过。此前612项是补该边界前的结果，最终以后述本轮提交为准。
+  - 最终 Chrome 七文件串行 **28/28**：真实队列 / Worker + 合成模型，报告可读到委员会与8项真实角色主表、Risk PASS与正式Decision缺口，重复读取主表不增模型调用，390px仍无溢出。前轮28/28后修正组件key，重建dist / 重建本轮合成浏览器库后最终完整复跑28/28。本机会话 **3/3**，新增GET未配对401 / 配对后不存在运行404；没有对用户会话库签发授权。
+  - Ruff格式（298文件）/ 检查、mypy（114文件）、OpenAPI / Policy Schema --check、Compose config / diff check通过；只读密钥扫描389文件新增0，pip-audit无已知漏洞（本项目非PyPI跳过自身）。uv.lock / 迁移未改；验证缓存运行时实测certifi2026.10.19，当前src / tests / dist只读挂载，不冒充本轮新交付镜像或18102升级。
+  - 后端 `.venv/Scripts/python.exe .runtime/run_market_tmpfs_tests.py -xq` 固定15435本轮命名合成内存盘库与独立临时秘密路径；前端 `node node_modules/vitest/vitest.mjs run --pool=threads --maxWorkers=1 --reporter=dot`、`npm run build`。浏览器 `analysis_jobs / onboarding / settings / portfolio_watchlist / interaction_feedback / product_journey / thesis` 七文件 `--workers=1`；local_session单独隔离库串行。独立原生研究检索三项、真实模型 / 行情、本轮完整新镜像与断电恢复 NOT VERIFIED。
+  - 保留中途失败：首轮全量鉴权测试依赖默认 Token，受旧用例缓存影响得到405；改为显式合成 Token，分别验证未授权401 / 已授权不支持写入405。随后旧摘要夹具没有 research 属性而被错误标为保存失败，修正兼容读取可选字段，不补造主表。前端修正重复兄弟 key 警告与切换期间的读取句柄；首次 npm 构建误在根目录执行，回正确 web 目录构建通过。最后一轮浏览器在 API 尚未就绪时准备钩子 socket hang up，未进入后台产品步骤；确认隔离端点就绪后原套件串行复跑，不放宽断言 / 等待期限。
+  - 仅合成模型、隔离 PostgreSQL / Worker；没有真实付费调用或所有者18102部署，不复用旧备份重启授权。继续 P6 的独立策略 / 正式 Decision、团队 Thesis 更新、估值 / 特征 / FX 与剩余矩阵，不进入P7 / PR-09。
+
+- 2026-10-21（人工投资逻辑工作台，ADR-0025）：
   - `/thesis` 可从导航或研究页进入：选择标的，编辑摘要、逐条引用资料的支柱 / 催化剂 / 风险、失效条件、监控项与修订原因；明确保存才写入。新建默认 UNKNOWN，合法状态转换复用领域规则，BROKEN 无快捷恢复。保存不调用模型、不批准交易。
   - 新增版本化、严格拒绝未知字段的 workspace / 保存命令与类型化端口；服务端 UTC 和证据校验不接受客户端来源等级 / hash / 时间。最多50个独立引用，缺失 / 跨标的 / 未来 / 陈旧 / 到期拒绝；无记录不建占位。
   - 请求级咨询锁 + 标的行锁 + 最终指针 CAS；复用既有 writer 的 hash / 语义 diff，但参与调用者事务。版本、引用、实际 before / after 审计、保存回执 / Outbox 一起提交或回滚。同请求同内容返回原回执，异内容复用拒绝；无实质变化不制造空版本。损坏旧内容拒绝修订，不覆盖历史。

@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from hashlib import sha256
@@ -73,6 +74,8 @@ class AgentRunResult:
     raw_output_hashes: tuple[str, ...]
     attempts: tuple[AgentRunAttempt, ...]
     failure: AgentRunFailure | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if self.repair_count < 0 or self.repair_count > 2:
@@ -131,6 +134,11 @@ class AgentRuntime:
         self._gateway = BoundedLLMGateway(gateway)
 
     async def run(self, *, request: LLMGatewayRequest, context: AnalysisContext) -> AgentRunResult:
+        started_at = datetime.now(UTC)
+        result = await self._run(request=request, context=context)
+        return replace(result, started_at=started_at, ended_at=datetime.now(UTC))
+
+    async def _run(self, *, request: LLMGatewayRequest, context: AnalysisContext) -> AgentRunResult:
         bundle = self._registry.require(request.role)
         if request.prompt_bundle_hash != bundle.content_hash:
             raise ApplicationError(

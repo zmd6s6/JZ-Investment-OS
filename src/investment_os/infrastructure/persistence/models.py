@@ -322,6 +322,18 @@ class AgentOpinionRecord(AuditFieldsMixin, Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class AgentOpinionEvidenceRecord(Base):
+    """ORM mapping for the existing immutable normalized provenance table."""
+
+    __tablename__ = "agent_opinion_evidence"
+    agent_opinion_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("agent_opinion.id"), primary_key=True
+    )
+    evidence_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("evidence.id"), primary_key=True
+    )
+
+
 class CommitteeSessionRecord(AuditFieldsMixin, Base):
     """A complete immutable record of a committee's finite two-round lifecycle."""
 

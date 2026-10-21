@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
@@ -31,6 +31,7 @@ from investment_os.application.analysis_governance import (
 from investment_os.application.analysis_market import AnalysisMarketPlan
 from investment_os.application.analysis_models import ANALYSIS_ROLES, AnalysisModelPlan, digest
 from investment_os.application.analysis_progress import AnalysisProgress
+from investment_os.application.analysis_research import CompletedResearch
 from investment_os.application.analysis_thesis import AnalysisThesisInput
 from investment_os.application.committee import (
     detect_stance_conflicts,
@@ -435,6 +436,7 @@ class AnalysisRunResult:
     payload: AnalysisRunPayload | None
     failure_code: str | None = None
     failure_detail: str | None = None
+    research: CompletedResearch | None = None
 
 
 def _summarize_run(result: AgentRunResult) -> OpinionSummary:
@@ -595,11 +597,11 @@ async def _run_single_role(
     role: AgentRole,
     context: AnalysisContext,
     request_factory: Any,
-) -> AgentRunResult:
+) -> tuple[LLMGatewayRequest, AgentRunResult]:
     from investment_os.application.committee_runtime import CommitteeRoleInput as CRI
 
     request = request_factory(role, CRI(context=context))
-    return await runtime.run(request=request, context=context)
+    return request, await runtime.run(request=request, context=context)
 
 
 async def execute_analysis(
@@ -681,6 +683,7 @@ async def execute_analysis(
     if progress:
         await progress("PREPARING", "COMPLETED")
 
+    started_at = datetime.now(UTC)
     try:
         session = await committee.run_session(
             context=context,
@@ -711,7 +714,7 @@ async def execute_analysis(
     try:
         if progress:
             await progress("PORTFOLIO", "STARTED")
-        portfolio_result = await _run_single_role(
+        portfolio_request, portfolio_result = await _run_single_role(
             committee._agent_runtime,
             role=AgentRole.PORTFOLIO,
             context=context,
@@ -720,7 +723,7 @@ async def execute_analysis(
         if progress:
             await progress("PORTFOLIO", "COMPLETED")
             await progress("RISK", "STARTED")
-        risk_result = await _run_single_role(
+        risk_request, risk_result = await _run_single_role(
             committee._agent_runtime,
             role=AgentRole.RISK,
             context=context,
@@ -957,7 +960,22 @@ async def execute_analysis(
     # Fail the run only when committee/config failed; valuation gaps stay in payload.
     if progress:
         await progress("CIO", "COMPLETED")
-    return AnalysisRunResult(status="SUCCEEDED", payload=payload)
+    return AnalysisRunResult(
+        status="SUCCEEDED",
+        payload=payload,
+        research=CompletedResearch(
+            context,
+            session,
+            portfolio_request,
+            portfolio_result,
+            risk_request,
+            risk_result,
+            assessment,
+            started_at,
+            datetime.now(UTC),
+            tuple(committee._agent_runtime._registry.require(role) for role in ALL_ANALYSIS_ROLES),
+        ),
+    )
 
 
 async def _build_valuation_and_sizing(

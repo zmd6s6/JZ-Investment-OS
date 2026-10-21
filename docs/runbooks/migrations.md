@@ -1,5 +1,16 @@
 # 数据库迁移与恢复运行手册
 
+## P6 研究主表记录（2026-10-21，无新迁移）
+
+ADR-0026 复用既有 committee_session / agent_run / agent_opinion / committee_message / conflict_record /
+risk_assessment 及证据关联表。新增 ORM 映射 agent_opinion_evidence 对应的是已有表，不是自动建库。
+完成记录与报告、只追加关联回执、审计 / Outbox 同事务；取消 / 旧 Worker 不发布工件。保存失败标 ANALYSIS_RECORDING_FAILED，
+不重放付费调用。GET `/api/v1/analysis-runs/{run_id}/research-records` 只读取已保存记录，旧报告不回填。
+
+同步更新 API / Worker / 页面；仍用 0017 Schema。回滚前处理活动任务，保留全部主表、证据链接、事件和历史输入，不做数据库降级或删除。
+独立策略未接入，正式 InvestmentDecision 不创建；不能通过伪造外键或现场批准政策来“修复”缺口。
+所有者实例未自动升级；部署仍须单独授权、备份与恢复核验。隔离合成内存盘测试不替代真实供应商或断电恢复验收。
+
 ## P6 人工投资逻辑工作台（2026-10-21，无新迁移）
 
 ADR-0025 沿用既有 Thesis / Evidence 引用、只追加事件 / 审计 / Outbox 表。

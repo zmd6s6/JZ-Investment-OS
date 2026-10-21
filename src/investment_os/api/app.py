@@ -18,6 +18,7 @@ from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJo
 from investment_os.application.analysis_market import AnalysisMarketOptions, MarketAttemptEvent
 from investment_os.application.analysis_models import AnalysisModelOptions
 from investment_os.application.analysis_product import ProductAnalysisService
+from investment_os.application.analysis_research import AnalysisResearchReader, ResearchRecordView
 from investment_os.application.analysis_run import AnalysisRunService
 from investment_os.application.evidence import derive_display_freshness
 from investment_os.application.evidence_library import EvidenceLibraryPort
@@ -65,6 +66,7 @@ from investment_os.application.thesis_product import (
 )
 from investment_os.application.watchlist import WatchlistService
 from investment_os.domain.values import UtcTimestamp
+from investment_os.infrastructure.analysis_research import SqlAnalysisResearchReader
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
     SessionPortfolioBookPort,
@@ -393,6 +395,7 @@ def create_app(
     research_preview_service: ResearchPreviewService | None = None,
     analysis_job_service: AnalysisJobService | None = None,
     thesis_product_service: ThesisProductService | None = None,
+    analysis_research_reader: AnalysisResearchReader | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -402,6 +405,7 @@ def create_app(
     session_factory = None
     selected_thesis_reader = thesis_reader
     selected_thesis_product = thesis_product_service
+    selected_research_reader = analysis_research_reader
     selected_decision_journal_reader = decision_journal_reader
     selected_task_run_reader = task_run_reader
     selected_daily_report_reader = daily_report_reader
@@ -421,6 +425,7 @@ def create_app(
     if (
         selected_thesis_reader is None
         or selected_thesis_product is None
+        or selected_research_reader is None
         or selected_decision_journal_reader is None
         or selected_task_run_reader is None
         or selected_daily_report_reader is None
@@ -438,6 +443,8 @@ def create_app(
             selected_thesis_reader = SqlAlchemyThesisReader(session_factory)
         if selected_thesis_product is None:
             selected_thesis_product = ThesisProductService(SqlThesisProduct(session_factory))
+        if selected_research_reader is None:
+            selected_research_reader = SqlAnalysisResearchReader(session_factory)
         if selected_decision_journal_reader is None:
             selected_decision_journal_reader = SqlAlchemyDecisionJournalReader(session_factory)
         if selected_task_run_reader is None:
@@ -1785,6 +1792,20 @@ def create_app(
             raise HTTPException(
                 status_code=503, detail="analysis_market_audit_unavailable"
             ) from error
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}/research-records",
+        response_model=ResearchRecordView,
+        tags=["analysis"],
+    )
+    async def analysis_research_records(run_id: UUID) -> ResearchRecordView:
+        from investment_os.application.errors import ApplicationError
+
+        assert selected_research_reader is not None
+        try:
+            return await selected_research_reader.read(run_id)
+        except ApplicationError as exc:
+            raise _app_error_to_http(exc) from None
 
     @application.get(
         "/api/v1/analysis-runs/{run_id}/progress",

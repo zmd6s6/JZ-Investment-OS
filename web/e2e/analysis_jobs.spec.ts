@@ -54,6 +54,15 @@ test("real queued run survives navigation and reload, then displays actual stage
   await expect(page.getByText(/最终建议与规则闸门 · 完成/)).toBeVisible();
   await expect(page.getByRole("cell", { name: "fixture-only", exact: false }).first()).toBeVisible();
   await expect(page.getByText("投资逻辑：未知", { exact: true })).toBeVisible();
+  await page.getByRole("button",{name:"查看研究主表记录",exact:true}).click();
+  await expect(page.getByText("已保存委员会与风险主表 · 8 项角色运行",{exact:true})).toBeVisible();
+  await expect(page.getByText(/正式 Decision 尚未创建/)).toBeVisible();
+  const records=await (await request.get(`/api/v1/analysis-runs/${id}/research-records`,{headers})).json();
+  expect(records.status).toBe("RECORDED");
+  expect(records.risk.gate).toBe("PASS");
+  expect(records.agents).toHaveLength(8);
+  await page.getByRole("button",{name:"重新读取研究记录",exact:true}).click();
+  expect((await (await request.get(`/api/v1/analysis-runs/${id}/research-records`,{headers})).json())).toEqual(records);
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);

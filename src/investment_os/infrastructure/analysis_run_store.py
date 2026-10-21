@@ -9,7 +9,9 @@ from uuid import UUID, uuid4
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from investment_os.application.analysis_research import CompletedResearch
 from investment_os.application.analysis_run import AnalysisRunPort, AnalysisRunRead
+from investment_os.infrastructure.analysis_research import publish_research
 from investment_os.infrastructure.persistence.models import AnalysisRunRecord
 
 
@@ -86,7 +88,30 @@ class SqlAnalysisRunAdapter(AnalysisRunPort):
         payload: dict[str, Any] | None = None,
         failure_code: str | None = None,
         failure_detail: str | None = None,
+        research: CompletedResearch | None = None,
     ) -> AnalysisRunRead | None:
+        current = await self._session.scalar(
+            select(AnalysisRunRecord).where(AnalysisRunRecord.id == run_id).with_for_update()
+        )
+        if current is None:
+            return None
+        if "research_records" in current.payload_json and current.status not in (
+            "RUNNING",
+            "QUEUED",
+        ):
+            if (
+                payload is not None
+                and "input_snapshot" in payload
+                and payload["input_snapshot"] != current.payload_json.get("input_snapshot")
+            ):
+                raise ValueError("analysis input snapshot is immutable")
+            # A lost commit acknowledgement must not turn an already published success into failure.
+            return _read(current)
+        if research is not None:
+            if current.status != "RUNNING" or status != "SUCCEEDED" or payload is None:
+                raise ValueError("research requires an active successful finalization")
+            manifest = await publish_research(self._session, current, research)
+            payload = {**payload, "research_records": manifest}
         values: dict[str, Any] = {
             "status": status,
             "updated_at": datetime.now(UTC),
@@ -161,6 +186,7 @@ class SessionAnalysisRunPort(AnalysisRunPort):
         payload: dict[str, Any] | None = None,
         failure_code: str | None = None,
         failure_detail: str | None = None,
+        research: CompletedResearch | None = None,
     ) -> AnalysisRunRead | None:
         async with self._session_factory() as session:
             adapter = SqlAnalysisRunAdapter(session)
@@ -170,6 +196,7 @@ class SessionAnalysisRunPort(AnalysisRunPort):
                 payload=payload,
                 failure_code=failure_code,
                 failure_detail=failure_detail,
+                research=research,
             )
             await session.commit()
             return updated
