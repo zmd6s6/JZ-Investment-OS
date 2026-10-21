@@ -94,6 +94,10 @@ export async function readApiError(response: Response): Promise<string> {
   if (code === "ANALYSIS_EVIDENCE_SELECTION_INVALID") return "所选证据含缺失、跨标的、重复、未来或过期内容，分析未启动。请刷新并重新勾选，不会偷偷替换成其他资料。";
   if (code === "ANALYSIS_POLICY_INVALID") return "组合政策不明确、版本校验失败、批准不完整或尚未生效，分析未启动。请核对政策治理记录；系统未自动选择其他政策，也未修改限额。";
   if (code === "ANALYSIS_THESIS_INVALID") return "已保存的投资逻辑版本或支持资料无法通过校验，分析未启动。请核对版本、内容和资料记录；不是访问令牌问题，系统未用其他版本替换。";
+  if (code === "THESIS_EDIT_CONFLICT") return "投资逻辑已被其他操作更新，本次没有覆盖。输入已保留，请先核对最新版本，再决定是否重新整理保存。";
+  if (code === "THESIS_REQUEST_CONFLICT") return "这个保存标识已用于其他内容，不能覆盖原请求；请先核对历史版本。";
+  if (code === "THESIS_EVIDENCE_INVALID") return "支持资料含缺失、跨标的、未来、陈旧或到期内容，未保存。请为每条主张重新核对有效引用，不会自动替换资料。";
+  if (code === "THESIS_WRITE_INVALID") return "投资逻辑内容或状态转换不合法，未保存。请检查支柱、证据、失效条件及状态顺序；已失效逻辑不能在此快捷恢复有效。";
   if (code === "ANALYSIS_MODEL_CONFIGURATION_CHANGED") return "模型或定价配置已改变，未换用新配置。请重新打开分析确认窗口，核对模型与费用后再明确提交。";
   if (code === "ANALYSIS_MARKET_CONFIGURATION_CHANGED") return "行情档案配置已改变或停用，未自动换源。请重新打开分析确认窗口，核对来源顺序后再提交。";
   if (code === "ANALYSIS_MARKET_CONFIGURATION_INVALID") return "行情选择无效：请只选择已启用、有凭据且受支持的档案，不要重复；也可清空行情选择继续研究。";
@@ -112,6 +116,8 @@ export async function readApiError(response: Response): Promise<string> {
       name: "名称", base_url: "基础 URL", provider_type: "提供方类型",
       model_name: "模型名", timeout_seconds: "超时秒数", max_tokens: "最大 Tokens",
       credential: "提供方凭据", retention_days: "本地保留天数",
+      long_term_summary: "长期逻辑摘要", pillars: "逻辑支柱", description: "主张内容",
+      evidence_ids: "支持资料", invalidation_conditions: "失效条件", monitoring_conditions: "观察事项",
       market_timezone: "市场时区", task_token_limit: "单任务 Token 上限",
     };
     const names = Array.isArray(detail)

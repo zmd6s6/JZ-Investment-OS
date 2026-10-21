@@ -1149,6 +1149,12 @@ button[type="submit"] { border-radius: var(--radius-sm); }
 .evidence-list { display: grid; gap: 1rem; margin-top: 1rem; }
 .evidence-card { border: 1px solid var(--border, #dbe2ed); border-left: 3px solid #6366f1; border-radius: 8px; padding: 1rem; min-width: 0; }
 .evidence-card h3 { font-size: 1rem; margin: 0; overflow-wrap: anywhere; }
+.thesis-editor fieldset { display: grid; gap: 16px; }
+.thesis-editor label { display: grid; gap: 8px; line-height: 1.5; }
+.thesis-editor .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; cursor: pointer; }
+.thesis-editor .check-row input { flex: 0 0 auto; margin-top: 5px; }
+.thesis-editor .check-row span { min-width: 0; overflow-wrap: anywhere; }
+.thesis-editor section, .thesis-editor .evidence-card { display: grid; gap: 12px; }
 .evidence-excerpt { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; }
 .evidence-meta { display: grid; grid-template-columns: minmax(100px, 150px) minmax(0, 1fr); gap: .4rem .8rem; font-size: .85rem; }
 .evidence-meta dd { margin: 0; overflow-wrap: anywhere; }

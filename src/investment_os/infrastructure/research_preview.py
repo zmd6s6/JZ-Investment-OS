@@ -47,6 +47,7 @@ def append_event(
     topic: str = "research.collection",
     actor_type: str = "HUMAN",
     actor_id: str = "local_owner",
+    before_hash: str | None = None,
 ) -> None:
     session.add(
         AuditLogRecord(
@@ -55,7 +56,7 @@ def append_event(
             operation=operation,
             entity_type=aggregate,
             entity_id=identity,
-            before_hash=None,
+            before_hash=before_hash,
             after_hash=digest,
             ip_or_runtime_ref="product_ui",
             occurred_at=now,

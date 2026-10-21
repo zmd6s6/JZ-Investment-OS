@@ -9,6 +9,7 @@ const navItems = [
   { href: "/portfolio", label: "资产组合" },
   { href: "/watchlist", label: "观察清单" },
   { href: "/research", label: "研究资料" },
+  { href: "/thesis", label: "投资逻辑" },
   { href: "/analysis", label: "分析运行" },
   { href: "/settings", label: "设置与提供方" },
 ] as const;

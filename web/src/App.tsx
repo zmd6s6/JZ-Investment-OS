@@ -9,6 +9,7 @@ import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
 import { LocalAccessBoundary } from "./LocalAccess";
 import { ResearchPage } from "./ResearchPage";
+import { ThesisPage } from "./ThesisPage";
 
 type OnboardingStatus = "NOT_STARTED" | "IN_PROGRESS";
 type CapabilityStatus = "AVAILABLE" | "CONFIGURATION_REQUIRED" | "NOT_IMPLEMENTED";
@@ -198,6 +199,7 @@ function ProductRoutes() {
   if (path === "/watchlist") return <WatchlistPage />;
   if (path === "/analysis") return <AnalysisPage />;
   if (path === "/research") return <ResearchPage />;
+  if (path === "/thesis") return <ThesisPage />;
   return <HomePage />;
 }
 

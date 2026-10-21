@@ -176,6 +176,7 @@ export function ResearchPage() {
     <div className="action-feedback"><StatusBanner kind="error" text={error} /><StatusBanner kind="ok" text={message} /><StatusBanner kind="info" text={busy ? "正在向所选数据源查询候选资料… 请保留页面，不要重复点击。" : saving ? "正在读取或确认所选资料… 不调用供应商或模型。" : analyzing ? "正在保存后台分析任务；成功后打开真实运行进度，可离开或刷新页面。" : null} /></div>
     <Panel title="1 · 选择研究对象" description="从持仓或观察清单进入会自动带入标的；此处也可搜索本地目录。">
       {!busy && !saving && !analyzing ? <InstrumentSearchBox onSelect={selectInstrument} /> : null}
+      {instrument ? <a className="btn" href={`/thesis?instrument_id=${encodeURIComponent(instrument.instrument_id)}`}>维护此标的的投资逻辑</a> : null}
       {instrument ? <p className="context-note">当前标的：<strong>{instrument.name} · {instrument.market} {instrument.symbol}</strong>。资料关联不等于证明文章一定相关，请核对内容。</p> : <p>请选择标的。目录为空时，先到<a href="/watchlist">观察清单</a>添加研究对象。</p>}
     </Panel>
     <Panel title="2 · 明确获取来源" description="只调用本次选中的来源，不会自动启用、后台同步或失败换源。无需 Tushare Token。">

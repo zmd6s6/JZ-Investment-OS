@@ -2900,6 +2900,15 @@
         "title": "OnboardingStateResponse",
         "type": "object"
       },
+      "PillarStatus": {
+        "enum": [
+          "VALID",
+          "AT_RISK",
+          "INVALID"
+        ],
+        "title": "PillarStatus",
+        "type": "string"
+      },
       "PolicyMetadataSchema": {
         "additionalProperties": false,
         "properties": {
@@ -4016,6 +4025,44 @@
         "title": "RoleModelAssignmentResponse",
         "type": "object"
       },
+      "SaveThesisCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ThesisContentInput"
+          },
+          "expected_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version Id"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_version_id",
+          "content"
+        ],
+        "title": "SaveThesisCommand",
+        "type": "object"
+      },
       "StartAnalysisRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4374,6 +4421,115 @@
         "title": "TaskRunResponse",
         "type": "object"
       },
+      "ThesisChangeReason": {
+        "enum": [
+          "NEW_EVIDENCE",
+          "SCHEDULED_REVIEW",
+          "EVENT",
+          "HUMAN_CORRECTION"
+        ],
+        "title": "ThesisChangeReason",
+        "type": "string"
+      },
+      "ThesisClaimInput": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "description",
+          "evidence_ids"
+        ],
+        "title": "ThesisClaimInput",
+        "type": "object"
+      },
+      "ThesisContentInput": {
+        "additionalProperties": false,
+        "properties": {
+          "catalysts": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisClaimInput"
+            },
+            "maxItems": 20,
+            "title": "Catalysts",
+            "type": "array"
+          },
+          "change_reason": {
+            "$ref": "#/components/schemas/ThesisChangeReason"
+          },
+          "invalidation_conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisInvalidationInput"
+            },
+            "maxItems": 20,
+            "title": "Invalidation Conditions",
+            "type": "array"
+          },
+          "long_term_summary": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Long Term Summary",
+            "type": "string"
+          },
+          "monitoring_conditions": {
+            "items": {
+              "maxLength": 3000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Monitoring Conditions",
+            "type": "array"
+          },
+          "pillars": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisPillarInput"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Pillars",
+            "type": "array"
+          },
+          "risks": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisClaimInput"
+            },
+            "maxItems": 20,
+            "title": "Risks",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ThesisState"
+          }
+        },
+        "required": [
+          "state",
+          "long_term_summary",
+          "pillars",
+          "catalysts",
+          "risks",
+          "invalidation_conditions",
+          "monitoring_conditions",
+          "change_reason"
+        ],
+        "title": "ThesisContentInput",
+        "type": "object"
+      },
       "ThesisHistoryResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4403,6 +4559,67 @@
         "title": "ThesisHistoryResponse",
         "type": "object"
       },
+      "ThesisInvalidationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Condition",
+            "type": "string"
+          },
+          "measurement": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Measurement",
+            "type": "string"
+          },
+          "threshold": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Threshold",
+            "type": "string"
+          },
+          "window": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "condition",
+          "measurement",
+          "threshold",
+          "window"
+        ],
+        "title": "ThesisInvalidationInput",
+        "type": "object"
+      },
+      "ThesisPillarInput": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "$ref": "#/components/schemas/ThesisClaimInput"
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PillarStatus"
+          }
+        },
+        "required": [
+          "key",
+          "claim",
+          "status"
+        ],
+        "title": "ThesisPillarInput",
+        "type": "object"
+      },
       "ThesisPillarResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4429,6 +4646,48 @@
           "status"
         ],
         "title": "ThesisPillarResponse",
+        "type": "object"
+      },
+      "ThesisSaved": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "thesis_id": {
+            "format": "uuid",
+            "title": "Thesis Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thesis_id",
+          "version_id",
+          "version",
+          "content_hash",
+          "created"
+        ],
+        "title": "ThesisSaved",
         "type": "object"
       },
       "ThesisState": {
@@ -4574,6 +4833,107 @@
           "created_at"
         ],
         "title": "ThesisVersionResponse",
+        "type": "object"
+      },
+      "ThesisWorkspace": {
+        "additionalProperties": false,
+        "properties": {
+          "current_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Id"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisWorkspaceVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "current_version_id",
+          "versions"
+        ],
+        "title": "ThesisWorkspace",
+        "type": "object"
+      },
+      "ThesisWorkspaceVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ThesisContentInput"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "semantic_diff": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Diff"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "parent_version_id",
+          "content_hash",
+          "created_at",
+          "content"
+        ],
+        "title": "ThesisWorkspaceVersion",
         "type": "object"
       },
       "ValidationError": {
@@ -7289,6 +7649,100 @@
           }
         },
         "summary": "Thesis History",
+        "tags": [
+          "theses"
+        ]
+      },
+      "post": {
+        "operationId": "save_thesis_api_v1_theses__instrument_id__versions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveThesisCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisSaved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Thesis",
+        "tags": [
+          "theses"
+        ]
+      }
+    },
+    "/api/v1/theses/{instrument_id}/workspace": {
+      "get": {
+        "operationId": "thesis_workspace_api_v1_theses__instrument_id__workspace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisWorkspace"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Thesis Workspace",
         "tags": [
           "theses"
         ]

@@ -57,6 +57,12 @@ from investment_os.application.research_preview import (
     ResearchPreviewService,
 )
 from investment_os.application.research_runtime import ResearchProviderRuntime, ResearchRuntimeError
+from investment_os.application.thesis_product import (
+    SaveThesisCommand,
+    ThesisProductService,
+    ThesisSaved,
+    ThesisWorkspace,
+)
 from investment_os.application.watchlist import WatchlistService
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.catalog_portfolio import (
@@ -85,6 +91,7 @@ from investment_os.infrastructure.report_delivery import SqlAlchemyDailyReportRe
 from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
+from investment_os.infrastructure.thesis_product import SqlThesisProduct
 
 from .schemas import (
     AnalysisProgressResponse,
@@ -385,6 +392,7 @@ def create_app(
     evidence_library: EvidenceLibraryPort | None = None,
     research_preview_service: ResearchPreviewService | None = None,
     analysis_job_service: AnalysisJobService | None = None,
+    thesis_product_service: ThesisProductService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -393,6 +401,7 @@ def create_app(
     reader_engine = None
     session_factory = None
     selected_thesis_reader = thesis_reader
+    selected_thesis_product = thesis_product_service
     selected_decision_journal_reader = decision_journal_reader
     selected_task_run_reader = task_run_reader
     selected_daily_report_reader = daily_report_reader
@@ -411,6 +420,7 @@ def create_app(
     selected_evidence_library = evidence_library
     if (
         selected_thesis_reader is None
+        or selected_thesis_product is None
         or selected_decision_journal_reader is None
         or selected_task_run_reader is None
         or selected_daily_report_reader is None
@@ -426,6 +436,8 @@ def create_app(
             selected_evidence_library = SqlAlchemyEvidenceLibrary(session_factory)
         if selected_thesis_reader is None:
             selected_thesis_reader = SqlAlchemyThesisReader(session_factory)
+        if selected_thesis_product is None:
+            selected_thesis_product = ThesisProductService(SqlThesisProduct(session_factory))
         if selected_decision_journal_reader is None:
             selected_decision_journal_reader = SqlAlchemyDecisionJournalReader(session_factory)
         if selected_task_run_reader is None:
@@ -1217,6 +1229,39 @@ def create_app(
         return ProviderResearchFetchResponse(provider_profile_id=profile_id, results=results)
 
     @application.get(
+        "/api/v1/theses/{instrument_id}/workspace", response_model=ThesisWorkspace, tags=["theses"]
+    )
+    async def thesis_workspace(instrument_id: UUID) -> ThesisWorkspace:
+        from investment_os.application.errors import ApplicationError
+
+        assert selected_thesis_product is not None
+        try:
+            return await selected_thesis_product.workspace(instrument_id)
+        except ApplicationError as exc:
+            raise _app_error_to_http(exc) from None
+
+    @application.post(
+        "/api/v1/theses/{instrument_id}/versions", response_model=ThesisSaved, tags=["theses"]
+    )
+    async def save_thesis(instrument_id: UUID, request: SaveThesisCommand) -> ThesisSaved:
+        from investment_os.application.errors import ApplicationError
+        from investment_os.domain.errors import DomainError
+
+        assert selected_thesis_product is not None
+        try:
+            return await selected_thesis_product.save(instrument_id, request)
+        except ApplicationError as exc:
+            raise _app_error_to_http(exc) from None
+        except DomainError:
+            raise HTTPException(
+                422,
+                detail={
+                    "code": "THESIS_WRITE_INVALID",
+                    "message": "Invalid Thesis content or evidence references",
+                },
+            ) from None
+
+    @application.get(
         "/api/v1/theses/{instrument_id}", response_model=ThesisVersionResponse, tags=["theses"]
     )
     async def read_thesis(
@@ -1974,6 +2019,10 @@ def create_app(
 
         @application.get("/research", include_in_schema=False)
         async def research_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/thesis", include_in_schema=False)
+        async def thesis_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
     return application
