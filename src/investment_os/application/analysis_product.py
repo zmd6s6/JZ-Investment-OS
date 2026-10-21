@@ -146,6 +146,7 @@ class ProductAnalysisService:
         policy = await self._inputs.policy(inp.portfolio_id, as_of=as_of)
         governance = freeze_governance(policy)
         policy_label = policy.label
+        thesis = await self._inputs.thesis(inp.instrument_id, as_of=as_of)
         selected = await self._inputs.evidence(
             inp.instrument_id, as_of=as_of, evidence_ids=inp.evidence_ids
         )
@@ -157,6 +158,7 @@ class ProductAnalysisService:
                     "instrument_id": str(inp.instrument_id),
                     "policy_version_label": policy_label,
                     "governance": governance.snapshot(),
+                    "thesis": thesis.snapshot(),
                     "selection_mode": "EXPLICIT"
                     if inp.evidence_ids is not None
                     else "LEGACY_RECENT",
@@ -192,6 +194,9 @@ class ProductAnalysisService:
             market_plan=market_plan,
             governance=governance,
             input_snapshot_hash=snapshot["input_hash"],
+            thesis=thesis,
+            thesis_state=thesis.state,
+            thesis_version_id=thesis.version.id if thesis.version else None,
         )
         return PreparedAnalysis(request, snapshot)
 
@@ -202,6 +207,38 @@ class ProductAnalysisService:
         progress: AnalysisProgress | None = None,
         market_record: MarketRecorder | None = None,
     ) -> AnalysisRunResult:
+        if request.thesis is None:
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_THESIS_SNAPSHOT_MISSING",
+                "旧任务未固定投资逻辑版本, 未调用模型; 请核对后明确发起新运行。",
+            )
+        if (
+            request.thesis.instrument_id != request.instrument_id
+            or request.thesis.as_of != request.as_of
+            or request.thesis.state != request.thesis_state
+            or (request.thesis.version.id if request.thesis.version else None)
+            != request.thesis_version_id
+        ):
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_THESIS_INVALID",
+                "固定投资逻辑与运行输入不一致, 未调用模型。",
+            )
+        if any(
+            e.freshness == "FRESH"
+            and e.expires_at is not None
+            and e.expires_at <= datetime.now(UTC)
+            for e in request.thesis.evidence
+        ):
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_THESIS_EVIDENCE_UNAVAILABLE",
+                "排队期间投资逻辑的支持资料已过期, 未调用模型; 请先核对资料再明确发起新运行。",
+            )
         if request.governance is None:
             return AnalysisRunResult(
                 "FAILED",

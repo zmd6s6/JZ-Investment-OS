@@ -24,6 +24,7 @@ from investment_os.application.analysis_orchestrator import (
     freeze_governance,
 )
 from investment_os.application.analysis_product import ProductAnalysisService
+from investment_os.application.analysis_thesis import AnalysisThesisInput
 from investment_os.application.market_data import InMemoryMarketDataAdapter, MarketQuote
 from investment_os.application.policy_schema import InvestmentPolicySchema
 from investment_os.application.portfolio_book import PortfolioView
@@ -64,8 +65,9 @@ def frozen_policy(*, active=False, cap="8"):
 
 def request_for(policy):
     portfolio_id = uuid4()
+    instrument_id = uuid4()
     return AnalysisRequest(
-        instrument_id=uuid4(),
+        instrument_id=instrument_id,
         portfolio_id=portfolio_id,
         portfolio=PortfolioView(
             portfolio_id, "合成版本组合", "CNY", Decimal("10000"), "ACTIVE", ()
@@ -75,6 +77,7 @@ def request_for(policy):
         evidence=(),
         governance=freeze_governance(policy),
         input_snapshot_hash="a" * 64,
+        thesis=AnalysisThesisInput(instrument_id=instrument_id, as_of=NOW),
     )
 
 

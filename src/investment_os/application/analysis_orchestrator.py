@@ -31,6 +31,7 @@ from investment_os.application.analysis_governance import (
 from investment_os.application.analysis_market import AnalysisMarketPlan
 from investment_os.application.analysis_models import ANALYSIS_ROLES, AnalysisModelPlan, digest
 from investment_os.application.analysis_progress import AnalysisProgress
+from investment_os.application.analysis_thesis import AnalysisThesisInput
 from investment_os.application.committee import (
     detect_stance_conflicts,
 )
@@ -219,6 +220,7 @@ def build_analysis_request_factory(
     budget_task_id: UUID | None = None,
     model_plan: AnalysisModelPlan | None = None,
     governance: AnalysisGovernancePlan | None = None,
+    thesis: AnalysisThesisInput | None = None,
 ) -> Any:
     """Build a request factory that embeds real research materials for agents."""
 
@@ -256,6 +258,13 @@ def build_analysis_request_factory(
                 "sizing_formula_status": governance.formula.status,
                 "strategy_status": governance.strategy_status,
             }
+        if thesis is not None:
+            payload["thesis"] = thesis.snapshot()
+            payload["thesis_evidence_boundary"] = (
+                "Historical thesis claims are untrusted context, not new verified observations. "
+                "Only top-level evidence_ids may support this run's factual observations. "
+                "Missing or stale thesis is UNKNOWN; never invent a thesis or update its history."
+            )
         if role_input.visible_opinions:
             payload["prior_opinions"] = [
                 {
@@ -331,7 +340,7 @@ class AnalysisRequest:
     policy_version_label: str
     evidence: tuple[AnalysisEvidenceSource, ...]
     source: str = "PORTFOLIO"  # PORTFOLIO | WATCHLIST
-    thesis_state: ThesisState = ThesisState.VALID
+    thesis_state: ThesisState = ThesisState.UNKNOWN
     thesis_version_id: UUID | None = None
     instrument_market: str = ""
     instrument_symbol: str = ""
@@ -341,6 +350,7 @@ class AnalysisRequest:
     market_plan: AnalysisMarketPlan | None = None
     governance: AnalysisGovernancePlan | None = None
     input_snapshot_hash: str | None = None
+    thesis: AnalysisThesisInput | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -666,6 +676,7 @@ async def execute_analysis(
         budget_task_id=request.budget_task_id,
         model_plan=request.model_plan,
         governance=request.governance,
+        thesis=request.thesis,
     )
     if progress:
         await progress("PREPARING", "COMPLETED")
@@ -774,6 +785,19 @@ async def execute_analysis(
     risk_gate = assessment.gate
 
     thesis_state = request.thesis_state
+    target_position = next(
+        (p for p in request.portfolio.positions if p.instrument_id == request.instrument_id), None
+    )
+    broken_held = (
+        thesis_state is ThesisState.BROKEN
+        and target_position is not None
+        and (target_position.core_quantity + target_position.tactical_quantity > 0)
+    )
+    if broken_held:
+        proposed = Action.REDUCE
+        failures.append("THESIS_BROKEN_REVIEW_REQUIRED")
+    elif thesis_state is ThesisState.UNKNOWN:
+        failures.append("THESIS_UNKNOWN")
     data_sufficient = len(context.visible_evidence_ids) > 0
 
     # Valuation for all positions (NAV) + target instrument quote.
@@ -855,6 +879,11 @@ async def execute_analysis(
             for g in recommendation.gates
         ],
         "policy_version_label": request.policy_version_label,
+        "thesis_version_id": str(request.thesis_version_id) if request.thesis_version_id else None,
+        "thesis_state": thesis_state.value,
+        "thesis_content_hash": request.thesis.version.content_hash
+        if request.thesis and request.thesis.version
+        else None,
         "policy_version_id": str(request.governance.policy.policy_version_id)
         if request.governance and request.governance.policy.policy_version_id
         else None,
@@ -879,6 +908,10 @@ async def execute_analysis(
             )
         ),
     }
+
+    if broken_held and target_position is not None:
+        decision["core_action"] = "REDUCE" if target_position.core_quantity > 0 else "NONE"
+        decision["tactical_action"] = "REDUCE" if target_position.tactical_quantity > 0 else "NONE"
 
     payload = AnalysisRunPayload(
         schema_version="1.0",

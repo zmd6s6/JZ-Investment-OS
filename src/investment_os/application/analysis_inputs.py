@@ -7,6 +7,7 @@ from uuid import UUID
 
 from investment_os.application.analysis_governance import AnalysisPolicyPort
 from investment_os.application.analysis_orchestrator import AnalysisEvidenceSource
+from investment_os.application.analysis_thesis import AnalysisThesisPort
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,7 +16,7 @@ class SelectedAnalysisEvidence:
     provenance: dict[str, Any]
 
 
-class AnalysisInputsPort(AnalysisPolicyPort, Protocol):
+class AnalysisInputsPort(AnalysisPolicyPort, AnalysisThesisPort, Protocol):
     async def evidence(
         self,
         instrument_id: UUID,

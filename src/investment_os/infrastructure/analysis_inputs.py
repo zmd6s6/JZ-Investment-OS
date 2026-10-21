@@ -10,9 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from investment_os.application.analysis_governance import FrozenAnalysisPolicy
 from investment_os.application.analysis_inputs import SelectedAnalysisEvidence
 from investment_os.application.analysis_orchestrator import AnalysisEvidenceSource
+from investment_os.application.analysis_thesis import AnalysisThesisInput
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.evidence import FreshnessStatus, derive_display_freshness
 from investment_os.infrastructure.analysis_policy import SqlAnalysisPolicies
+from investment_os.infrastructure.analysis_thesis import SqlAnalysisThesis
 from investment_os.infrastructure.persistence.models import (
     EvidenceRecord,
 )
@@ -102,3 +104,6 @@ class SqlAlchemyAnalysisInputs:
 
     async def policy(self, portfolio_id: UUID | None, *, as_of: datetime) -> FrozenAnalysisPolicy:
         return await SqlAnalysisPolicies(self._sessions).policy(portfolio_id, as_of=as_of)
+
+    async def thesis(self, instrument_id: UUID, *, as_of: datetime) -> AnalysisThesisInput:
+        return await SqlAnalysisThesis(self._sessions).thesis(instrument_id, as_of=as_of)

@@ -7,13 +7,14 @@
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
 - 活跃路线图阶段：`PRODUCT-06 / P6 — Analysis Orchestration`
-- 阶段状态：`IN_PROGRESS`（输入 / 后台任务、模型 / 行情、政策文档与运行工件快照已实现；独立策略 / 主表关联、真实估值与阶段整体验收尚未收口）
+- 阶段状态：`IN_PROGRESS`（输入 / 后台任务、模型 / 行情、政策与既有 Thesis 版本固定已实现；Thesis 更新流、独立策略、Risk / Decision 主表关联及阶段整体验收尚未收口）
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
-- 上次状态更新：`2026-10-20`
+- 上次状态更新：`2026-10-21`
 
 ## 已建立
 
+- ADR-0024 已接受：按分析时点固定已保存的 Thesis 主表版本，缺失不默认为有效；该输入关联不代表完整主表链已交付。
 - 主工程规范、根工作约定、持续工作模式以及 ADR/阶段文档约定均已建立。
 - Python 3.12 项目元数据、锁文件、健康检查、Compose、CI、OpenAPI、依赖/许可证检查与密钥扫描已具备。
 - ADR-0001 至 ADR-0023 已被接受；其中明确了模块化单体边界、DSA Adapter、多提供方研究运行时、证据与时间语义、双轮委员会、风险否决、确定性仓位、学习治理、调度锁与 Outbox、安全、纯领域内核、显式多市场日历语义、本机浏览器会话、研究预览 / 输入冻结、持久化后台分析任务、单次模型配置固定、显式有序行情路由、可跨中断读取的行情尝试事件与政策 / 公式 / Prompt 摘要快照。
@@ -39,6 +40,13 @@
 不得仅因为主规范存在就推断以上项目已经完成。
 
 ## 当前授权工作
+
+2026-10-21，继续 P6，固定已保存 Thesis 主表版本（ADR-0024）：按发布范围与分析时点读取实际版本，固定 ID / 父版本 / 内容 / hash 与支持资料状态。
+无版本为 UNKNOWN，不再默认 VALID；损坏、跨标的或未来引用明确拒绝，不退回其他版本。八角色与确定性规则共用快照，旧引用不扩充本次事实证据。
+陈旧资料不授权增加暴露，已知 BROKEN 持仓产生明确的分仓减仓复核候选，不是批准或成交。后续更新不改排队任务 / 旧报告，显式新运行重新固定。
+中文报告显示实际历史逻辑与限制；不自动创建、修订或补写 Thesis。无新迁移 / 新依赖 / 真实参数选择；提交前发现现有 certifi 漏洞，单独更新该锁定项至 2026.10.19 并重新验证。
+所有者 18102 未更新，P6 仍 IN_PROGRESS。后端 / 浏览器 / 安全和镜像验证边界见 PRODUCT-06 本轮记录。
+下一步继续 P6 的 Thesis 创建 / 修订产品流、Risk / Decision 主表关联、独立策略与估值 / 特征 / FX 验收；不进入 P7 / PR-09，不用虚构的批准版本填充外键。
 
 2026-10-20，继续 P6，固定完整政策与运行工件（ADR-0023）：组合绑定政策优先，未绑定时只允许唯一 ACTIVE 回退；无 ACTIVE 时明确使用已发布的 TEST_DEFAULT 文档。
 批准主体 / 时间、版本归属 / 摘要、未来生效或多 ACTIVE 不明确时，在模型前拒绝，不选择最新或静默换政策。
@@ -198,7 +206,7 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
 | PRODUCT-03 | ACCEPTED | 已由 PR #14 合并；MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过 | 真实模型运行时 |
 | PRODUCT-04 | ACCEPTED | 已由 PR #15 合并到 `main`（`ba9b4fa`） | 多提供方数据运行时 |
 | PRODUCT-05 | ACCEPTED | 已由 PR #17 合并到 `main`（`8be5d87`） | Portfolio 与 Watchlist 产品 |
-| PRODUCT-06 | IN_PROGRESS | 页面证据选择、后台运行控制和模型 / 定价快照已具备；完整 Policy / 版本固定、主表关联及整体产品验收仍待收口 | 端到端 Analysis Orchestration |
+| PRODUCT-06 | IN_PROGRESS | 页面证据选择、后台控制、模型 / 定价 / 政策与 Thesis 版本固定已具备；Thesis 更新流、独立策略、Risk / Decision 主表关联及整体产品验收仍待收口 | 端到端 Analysis Orchestration |
 | PRODUCT-07 | PLANNED | 依赖 PRODUCT-06 `ACCEPTED` | 交互式决策与批准 |
 | PRODUCT-08 | PLANNED | 依赖 PRODUCT-07 `ACCEPTED` | 每日 AI 团队运行时 |
 | PRODUCT-09 | PLANNED | 依赖 PRODUCT-08 `ACCEPTED` | Beta 验收 |

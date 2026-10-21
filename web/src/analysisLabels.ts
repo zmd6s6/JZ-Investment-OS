@@ -7,6 +7,11 @@ export function tokenPriceLabel(value: unknown): string {
 }
 
 const FAILURE_LABELS: Record<string, string> = {
+  THESIS_UNKNOWN: "投资逻辑缺失或支持资料不新鲜，本次按未知处理",
+  THESIS_BROKEN_REVIEW_REQUIRED: "已失效的持仓逻辑要求复核，减仓候选不是交易授权",
+  ANALYSIS_THESIS_INVALID: "固定投资逻辑的版本、内容或支持资料校验失败",
+  ANALYSIS_THESIS_SNAPSHOT_MISSING: "旧任务未固定投资逻辑，未自动调用当前模型",
+  ANALYSIS_THESIS_EVIDENCE_UNAVAILABLE: "排队期间投资逻辑支持资料已过期，未调用模型",
   SIZING_STRATEGY_NOT_APPROVED: "仓位公式仍为工程测试版，独立策略未批准，不允许新增暴露",
   ANALYSIS_GOVERNANCE_SNAPSHOT_MISSING: "旧任务未固定政策与运行规则，未自动调用模型",
   ANALYSIS_GOVERNANCE_CHANGED: "固定政策或运行规则校验失败，未自动调用新版本",

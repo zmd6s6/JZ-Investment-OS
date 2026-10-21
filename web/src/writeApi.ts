@@ -93,6 +93,7 @@ export async function readApiError(response: Response): Promise<string> {
   if (code.startsWith("RESEARCH_PREVIEW_")) return "预览或所选候选已不可用，整批确认未完成。请找回预览核对标的、有效期和所选内容。";
   if (code === "ANALYSIS_EVIDENCE_SELECTION_INVALID") return "所选证据含缺失、跨标的、重复、未来或过期内容，分析未启动。请刷新并重新勾选，不会偷偷替换成其他资料。";
   if (code === "ANALYSIS_POLICY_INVALID") return "组合政策不明确、版本校验失败、批准不完整或尚未生效，分析未启动。请核对政策治理记录；系统未自动选择其他政策，也未修改限额。";
+  if (code === "ANALYSIS_THESIS_INVALID") return "已保存的投资逻辑版本或支持资料无法通过校验，分析未启动。请核对版本、内容和资料记录；不是访问令牌问题，系统未用其他版本替换。";
   if (code === "ANALYSIS_MODEL_CONFIGURATION_CHANGED") return "模型或定价配置已改变，未换用新配置。请重新打开分析确认窗口，核对模型与费用后再明确提交。";
   if (code === "ANALYSIS_MARKET_CONFIGURATION_CHANGED") return "行情档案配置已改变或停用，未自动换源。请重新打开分析确认窗口，核对来源顺序后再提交。";
   if (code === "ANALYSIS_MARKET_CONFIGURATION_INVALID") return "行情选择无效：请只选择已启用、有凭据且受支持的档案，不要重复；也可清空行情选择继续研究。";

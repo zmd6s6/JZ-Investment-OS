@@ -486,6 +486,12 @@ async def test_production_worker_composition_consumes_queue_and_persists_real_st
         for request in calls
     )
     assert result.payload["decision"]["governance_hash"] is not None
+    assert result.payload["decision"]["thesis_state"] == "UNKNOWN"
+    assert result.payload["decision"]["thesis_version_id"] is None
+    assert all(
+        json.loads(request.input_payload_json)["thesis"]["effective_state"] == "UNKNOWN"
+        for request in calls
+    )
     assert "SIZING_STRATEGY_NOT_APPROVED" in result.payload["failures"]
     assert result.payload["input_snapshot"] == run.payload["input_snapshot"]
     # Neutral synthetic specialists map to HOLD, never a new exposure.

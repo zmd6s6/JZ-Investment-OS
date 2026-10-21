@@ -101,7 +101,7 @@ def _claim_from_payload(value: object, *, field: str) -> EvidenceBackedClaim:
     )
 
 
-def _content_from_record(record: ThesisVersionRecord) -> ThesisContent:
+def thesis_content_from_record(record: ThesisVersionRecord) -> ThesisContent:
     pillars = tuple(
         ThesisPillar(
             key=str(pillar["key"]),
@@ -232,7 +232,7 @@ class SqlAlchemyThesisWriter:
                         details={"thesis_id": str(thesis.id)},
                     )
                 try:
-                    previous_content = _content_from_record(current)
+                    previous_content = thesis_content_from_record(current)
                 except (DomainError, KeyError, TypeError, ValueError) as exc:
                     raise ApplicationError(
                         ApplicationErrorCode.THESIS_VERSION_CORRUPT,

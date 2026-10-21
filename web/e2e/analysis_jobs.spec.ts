@@ -53,9 +53,37 @@ test("real queued run survives navigation and reload, then displays actual stage
   await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
   await expect(page.getByText(/最终建议与规则闸门 · 完成/)).toBeVisible();
   await expect(page.getByRole("cell", { name: "fixture-only", exact: false }).first()).toBeVisible();
+  await expect(page.getByText("投资逻辑：未知", { exact: true })).toBeVisible();
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
+test("queued thesis version reaches all agents and remains fixed after a new version and refresh", async ({ page, request }) => {
+  const created = await request.post(`/api/v1/test-only/analysis/thesis?instrument_id=${instrumentId}`, { headers });
+  expect(created.status()).toBe(200);
+  const first = await created.json();
+  const id = await start(page);
+  const queued = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
+  expect(queued.payload.input_snapshot.thesis.version.id).toBe(first.id);
+  expect(queued.payload.input_snapshot.thesis.effective_state).toBe("VALID");
+  const changed = await request.post(`/api/v1/test-only/analysis/thesis?instrument_id=${instrumentId}`, { headers });
+  expect(changed.status()).toBe(200);
+  expect((await changed.json()).id).not.toBe(first.id);
+  await request.post("/api/v1/test-only/analysis/release", { headers });
+  await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
+  await page.getByText(`投资逻辑 · 固定版本 ${first.version} · 有效`, { exact: true }).click();
+  await expect(page.getByText(`合成固定逻辑版本 ${first.version}`, { exact: true })).toBeVisible();
+  const finished = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
+  expect(finished.payload.input_snapshot.thesis).toEqual(queued.payload.input_snapshot.thesis);
+  expect(finished.payload.decision.thesis_version_id).toBe(first.id);
+  const stats = await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json();
+  expect(stats.thesis_version_ids).toEqual(Array(8).fill(first.id));
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.reload();
+  await expect(page.getByText(`投资逻辑 · 固定版本 ${first.version} · 有效`, { exact: true })).toBeVisible();
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
 });
 
 test("market ordering controls actual selected sources, records fallback and preserves history", async ({ page, request }) => {

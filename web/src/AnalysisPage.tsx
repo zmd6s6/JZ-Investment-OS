@@ -13,6 +13,7 @@ import { readAnalysisJson } from "./analysisReads";
 import { AnalysisJobPanel } from "./AnalysisJobPanel";
 import { DurableMarketAudit } from "./AnalysisMarketAudit";
 import { AnalysisGovernance } from "./AnalysisGovernance";
+import { AnalysisThesis } from "./AnalysisThesis";
 
 const roleNames: Record<string, string> = { MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官" };
 
@@ -275,6 +276,7 @@ export function AnalysisPage() {
           <details><summary>运行与关联标识</summary><p className="hint-text">运行 {selected.id} · 标的 {selected.instrument_id} · 组合 {selected.portfolio_id}</p></details>
           <FrozenInputs value={selected.payload.input_snapshot} />
           <AnalysisGovernance value={(selected.payload.input_snapshot as { governance?: unknown } | undefined)?.governance} />
+          <AnalysisThesis value={(selected.payload.input_snapshot as { thesis?: unknown } | undefined)?.thesis} />
           <AnalysisJobPanel key={selected.id} run={selected} onUpdate={(row) => {
             setSelected((current) => current?.id === row.id ? { ...current, ...row } : current);
             setRuns((current) => current.map((item) => item.id === row.id ? { ...item, ...row } : item));
