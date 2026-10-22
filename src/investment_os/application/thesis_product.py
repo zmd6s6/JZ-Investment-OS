@@ -5,6 +5,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from investment_os.application.thesis_review import (
+    TeamThesisProvenance,
+    TeamThesisReview,
+    TeamThesisSource,
+)
 from investment_os.domain.enums import ThesisState
 from investment_os.domain.thesis import (
     EvidenceBackedClaim,
@@ -75,6 +80,7 @@ class SaveThesisCommand(ThesisDto):
     request_id: UUID
     expected_version_id: UUID | None
     content: ThesisContentInput
+    review_source: TeamThesisSource | None = None
 
 
 class ThesisSaved(ThesisDto):
@@ -94,6 +100,7 @@ class ThesisWorkspaceVersion(ThesisDto):
     created_at: str
     content: ThesisContentInput
     semantic_diff: dict[str, object] | None = None
+    review_sources: tuple[TeamThesisProvenance, ...] = ()
 
 
 class ThesisWorkspace(ThesisDto):
@@ -104,6 +111,7 @@ class ThesisWorkspace(ThesisDto):
 
 
 class ThesisProductPort(Protocol):
+    async def team_review(self, run_id: UUID) -> TeamThesisReview: ...
     async def workspace(self, instrument_id: UUID) -> ThesisWorkspace: ...
     async def save(self, instrument_id: UUID, command: SaveThesisCommand) -> ThesisSaved: ...
 
@@ -111,6 +119,9 @@ class ThesisProductPort(Protocol):
 class ThesisProductService:
     def __init__(self, port: ThesisProductPort):
         self._port = port
+
+    async def team_review(self, run_id: UUID) -> TeamThesisReview:
+        return await self._port.team_review(run_id)
 
     async def workspace(self, instrument_id: UUID) -> ThesisWorkspace:
         return await self._port.workspace(instrument_id)

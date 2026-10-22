@@ -7,13 +7,14 @@
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
 - 活跃路线图阶段：`PRODUCT-06 / P6 — Analysis Orchestration`
-- 阶段状态：`IN_PROGRESS`（输入 / 后台任务、测试策略工件固定、人工逻辑工作台及委员会 / Agent / Risk 主表记录已实现；团队逻辑更新、已批准策略、正式 Decision 主表链及阶段整体验收尚未收口）
+- 阶段状态：`IN_PROGRESS`（输入 / 后台任务、测试策略工件固定、团队观点辅助草稿、人工逻辑工作台及委员会 / Agent / Risk 主表记录已实现；自动团队逻辑更新、已批准策略、正式 Decision 主表链及阶段整体验收尚未收口）
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 上次状态更新：`2026-10-22`
 
 ## 已建立
 
+- ADR-0028 已接受：成功分析的实际团队观点可只读带入人工草稿，默认不选、不改逻辑状态；保存前校验来源 / 标的 / 固定基准，来源回执与版本 / 审计 / Outbox 原子提交，历史可回看来源分析。
 - ADR-0027 已接受：在已有 StrategyVersion 表登记实际测试公式 / Prompt 摘要 / 源码指纹，固定到输入、各角色和影子建议；工件始终 DRAFT / TEST_DEFAULT、未批准 / 未激活。代码或主表不符时在模型 / 行情前拒绝，不换版本。
 - ADR-0026 已接受：分析完成时原子保存实际委员会、Agent 运行 / 观点、Risk 及证据关联；报告支持只读核对。正式 Decision 未创建，不用占位政策 / 策略补外键。
 - ADR-0025 已接受：投资逻辑工作台支持明确创建 / 修订、逐条证据引用、原子版本 / 审计 / Outbox、保存回执与旧编辑器冲突保护；不是团队自动生成或投资批准。
@@ -43,6 +44,15 @@
 不得仅因为主规范存在就推断以上项目已经完成。
 
 ## 当前授权工作
+
+2026-10-22，继续 P6，补齐「分析报告 → 团队观点勾选 → 人工逻辑草稿 → 明确保存 → 来源回看」（ADR-0028）。
+只读取实际主表的结构化观察，保留未知项和历史风险门；同角色第二轮失败不复用第一轮。默认全不勾选，不调用模型、不自动生成 VALID / BROKEN。
+加入草稿不改摘要 / 状态，支柱默认受挑战；最终保存沿用当前证据校验、基准 CAS 与幂等回执，校验分析 / 观点 / 标的归属，拒绝旧基准套新版本。
+只追加来源回执可回到原分析；旧版本与已保存报告不变，无来源的旧命令摘要兼容。自动语义影响裁决及正式 Decision 完整链仍未完成。
+最终后端648项 / 88.25%、前端104项及构建、隔离Chrome29/29通过，安全 / 基线检查通过；详细命令、失败与未验证边界见PRODUCT-06最新记录。
+没有真实付费调用、迁移 / 新依赖或18102部署，不复用旧重启授权，仍不进入P7 / PR-09。
+
+以下为之前纵切的历史记录。
 
 2026-10-22，继续 P6，交付独立测试策略工件登记与分析版本固定（ADR-0027）：完整测试公式、八角色 Prompt 摘要及工具白名单、实际 Python 包源码指纹，复用既有只追加 StrategyVersion 表。
 同内容并发复用一个 DRAFT 身份；新内容分配新版本，登记 / 审计 / Event / Outbox 同事务。没有选择真实限额或批准 / 激活策略。
@@ -236,7 +246,7 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
 | PRODUCT-03 | ACCEPTED | 已由 PR #14 合并；MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过 | 真实模型运行时 |
 | PRODUCT-04 | ACCEPTED | 已由 PR #15 合并到 `main`（`ba9b4fa`） | 多提供方数据运行时 |
 | PRODUCT-05 | ACCEPTED | 已由 PR #17 合并到 `main`（`8be5d87`） | Portfolio 与 Watchlist 产品 |
-| PRODUCT-06 | IN_PROGRESS | 页面证据选择、后台控制、版本固定、人工 Thesis 与委员会 / Agent / Risk 主表已具备；团队更新、独立策略、正式 Decision 关联及整体验收仍待收口 | 端到端 Analysis Orchestration |
+| PRODUCT-06 | IN_PROGRESS | 页面证据选择、后台控制、测试策略固定、团队辅助草稿 / 人工 Thesis 与委员会 / Agent / Risk 主表已具备；自动团队更新、已批准策略、正式 Decision 关联及整体验收仍待收口 | 端到端 Analysis Orchestration |
 | PRODUCT-07 | PLANNED | 依赖 PRODUCT-06 `ACCEPTED` | 交互式决策与批准 |
 | PRODUCT-08 | PLANNED | 依赖 PRODUCT-07 `ACCEPTED` | 每日 AI 团队运行时 |
 | PRODUCT-09 | PLANNED | 依赖 PRODUCT-08 `ACCEPTED` | Beta 验收 |

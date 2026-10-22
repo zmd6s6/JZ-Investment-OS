@@ -3,15 +3,16 @@ import { InstrumentHit, InstrumentSearchBox } from "./InstrumentSearchBox";
 import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { readAnalysisJson } from "./analysisReads";
 import { apiFetch, readApiError } from "./writeApi";
+import { TeamThesisDraft, TeamSource, TeamSuggestion } from "./TeamThesisDraft";
 
 type Claim = { description: string; evidence_ids: string[] };
 type Pillar = { key: string; claim: Claim; status: string };
 type Condition = { condition: string; measurement: string; threshold: string; window: string };
 type Content = { state: string; long_term_summary: string; pillars: Pillar[]; catalysts: Claim[]; risks: Claim[]; invalidation_conditions: Condition[]; monitoring_conditions: string[]; change_reason: string };
-type Version = { id: string; version: number; parent_version_id: string | null; content_hash: string; created_at: string; content: Content; semantic_diff: unknown };
+type Version = { id: string; version: number; parent_version_id: string | null; content_hash: string; created_at: string; content: Content; semantic_diff: unknown; review_sources?:{analysis_run_id:string;suggestion_ids:string[];input_hash:string;opinion_ids:string[]}[] };
 type Workspace = { instrument_id: string; current_version_id: string | null; versions: Version[] };
 type Evidence = { evidence_id: string; title: string; excerpt: string; source_name: string; freshness_status: string };
-type Pending = { request_id: string; expected_version_id: string | null; content: Content };
+type Pending = { request_id: string; expected_version_id: string | null; content: Content; review_source?:TeamSource };
 const stateNames: Record<string,string> = { UNKNOWN:"未知", VALID:"有效", STRENGTHENING:"增强", WEAKENING:"减弱", BROKEN:"已失效" };
 const transitions: Record<string,string[]> = { UNKNOWN:["UNKNOWN","VALID"],VALID:["VALID","STRENGTHENING","WEAKENING"],STRENGTHENING:["STRENGTHENING","VALID","WEAKENING"],WEAKENING:["WEAKENING","BROKEN"],BROKEN:["BROKEN"] };
 const blankClaim = (): Claim => ({ description:"",evidence_ids:[] });
@@ -51,6 +52,8 @@ function ClaimEditor({ label, value, evidence, disabled, onChange }: { label:str
 
 export function ThesisPage() {
   const [instrument,setInstrument]=useState<InstrumentHit|null>(null);
+  const [reviewRun,setReviewRun]=useState(()=>new URLSearchParams(window.location.search).get("analysis_run_id"));
+  const [reviewSource,setReviewSource]=useState<TeamSource|null>(null);
   const [workspace,setWorkspace]=useState<Workspace|null>(null);
   const [evidence,setEvidence]=useState<Evidence[]>([]);
   const [draft,setDraft]=useState<Content>(empty);
@@ -84,7 +87,7 @@ export function ThesisPage() {
       if(next.instrument_id!==id || !Array.isArray(next.versions) || !Array.isArray(library.items)) throw new Error("投资逻辑或资料响应不完整，未采用。");
       const current=next.versions.find(v=>v.id===next.current_version_id);
       if(next.current_version_id&&!current)throw new Error("未找到当前逻辑版本，未采用响应。");
-      setWorkspace(next);setEvidence(library.items);setDraft(current?structuredClone(current.content):empty());setDirty(false);pending.current=null;
+      setWorkspace(next);setEvidence(library.items);setDraft(current?structuredClone(current.content):empty());setDirty(false);setReviewSource(null);pending.current=null;
     }).catch(reason=>{if(!controller.signal.aborted&&generation===sequence.current)setError(reason instanceof Error?reason.message:"读取失败，请重试。");}).finally(()=>{if(!controller.signal.aborted&&generation===sequence.current)setLoading(false);});
     return ()=>controller.abort();
   },[id,refresh]);
@@ -92,14 +95,26 @@ export function ThesisPage() {
   function select(hit: InstrumentHit) {
     if(hit.instrument_id===id)return;
     if(busy.current || (dirty&&!window.confirm("切换标的会放弃尚未保存的内容，是否继续？")))return;
-    ++initialChoice.current;++sequence.current;setWorkspace(null);setEvidence([]);setDraft(empty());setInstrument(hit);setDirty(false);setMessage(null);
+    ++initialChoice.current;++sequence.current;setWorkspace(null);setEvidence([]);setDraft(empty());setInstrument(hit);setDirty(false);setMessage(null);setReviewRun(null);setReviewSource(null);
+  }
+  function adopt(source:TeamSource,suggestions:TeamSuggestion[]) {
+    if(busy.current||loading||!workspace||reviewSource)return;
+    const base=draft.pillars.filter(p=>p.claim.description.trim()||p.claim.evidence_ids.length);
+    const unique:TeamSuggestion[]=[];
+    const signature=(description:string,ids:string[])=>JSON.stringify([description.trim(),[...ids].sort()]);
+    const known=new Set(base.map(p=>signature(p.claim.description,p.claim.evidence_ids)));
+    for(const candidate of suggestions){const key=signature(candidate.claim,candidate.evidence_ids);if(!known.has(key)){known.add(key);unique.push(candidate);}}
+    if(!unique.length){setMessage("所选观点已在草稿中，没有重复加入，也未保存。");return;}
+    if(base.length+unique.length>20){setError("加入后将超过20个逻辑支柱，请减少勾选或先整理现有草稿；当前内容未改变。");return;}
+    change({...draft,pillars:[...base,...unique.map(s=>({key:`T-${crypto.randomUUID()}`,claim:{description:s.claim,evidence_ids:s.evidence_ids},status:"AT_RISK"}))],change_reason:"NEW_EVIDENCE"});
+    setReviewSource(source);setError(null);setMessage(`已加入 ${unique.length} 条团队观点到编辑草稿，尚未保存；逻辑状态未自动改变。`);
   }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if(busy.current||!id||!workspace)return;
     if([...draft.pillars.map(p=>p.claim),...draft.catalysts,...draft.risks].some(c=>!c.evidence_ids.length)){setError("每个逻辑支柱、催化剂和风险主张都需要至少一条支持资料，输入已保留。");return;}
-    const candidate={expected_version_id:workspace.current_version_id,content:{...structuredClone(draft),monitoring_conditions:draft.monitoring_conditions.map(item=>item.trim()).filter(Boolean)}};
-    if(!pending.current || JSON.stringify({expected_version_id:pending.current.expected_version_id,content:pending.current.content})!==JSON.stringify(candidate)) pending.current={request_id:crypto.randomUUID(),...candidate};
+    const candidate={expected_version_id:workspace.current_version_id,content:{...structuredClone(draft),monitoring_conditions:draft.monitoring_conditions.map(item=>item.trim()).filter(Boolean)},...(reviewSource?{review_source:reviewSource}:{})};
+    if(!pending.current || JSON.stringify({...pending.current,request_id:undefined})!==JSON.stringify(candidate)) pending.current={request_id:crypto.randomUUID(),...candidate};
     busy.current=true;setSaving(true);setError(null);setMessage(null);
     try {
       const result=await save(`/api/v1/theses/${encodeURIComponent(id)}/versions`,pending.current);
@@ -119,6 +134,8 @@ export function ThesisPage() {
     </Panel>
     {workspace?<Panel title="2 · 明确保存投资逻辑" description={`基准：${current?`版本 ${current.version}`:"尚无版本"}。冲突会阻止保存，不会覆盖他人的更新。`}>
       <p className="context-note">这里是你维护的研究判断，不是政策批准或交易授权。资料必须可用且有出处；新建默认“未知”。已失效逻辑的重新生效须完整复核，本页不提供快捷恢复。</p>
+      {reviewRun&&id?<TeamThesisDraft key={`${id}-${refresh}`} runId={reviewRun} instrumentId={id} baseVersionId={workspace.current_version_id} evidence={evidence} disabled={saving||loading} adopted={Boolean(reviewSource)} onApply={adopt}/>:null}
+      {reviewSource?<p className="context-note">本次保存将记录人工核对的分析／观点来源。<button type="button" className="btn ghost" disabled={saving} onClick={()=>{setReviewSource(null);setDirty(true);setMessage("已解除团队来源关联，编辑文字仍保留；后续按人工草稿保存。");}}>解除团队来源关联</button></p>:null}
       <form className="thesis-editor" onSubmit={e=>void submit(e)}><fieldset disabled={loading||saving} style={{border:0,padding:0,minWidth:0}}>
         <label>长期投资逻辑摘要<textarea required maxLength={3000} value={draft.long_term_summary} onChange={e=>change({...draft,long_term_summary:e.target.value})}/></label>
         <div className="form-grid"><label>逻辑状态<select aria-label="逻辑状态" value={draft.state} onChange={e=>change({...draft,state:e.target.value})}>{(current?transitions[current.content.state]??[current.content.state]:["UNKNOWN","VALID"]).map(state=><option key={state} value={state}>{stateNames[state]??state}</option>)}</select></label>
@@ -137,5 +154,6 @@ export function ThesisPage() {
       </fieldset></form>
     </Panel>:null}
     {workspace?<Panel title="3 · 历史版本与变更" description="所有旧版只读保留；当前分析使用启动时固定的版本。">{!workspace.versions.length?<p>尚无正式版本，未自动创建占位记录。</p>:workspace.versions.map(v=><details key={v.id}><summary>版本 {v.version} · {stateNames[v.content.state]??v.content.state} · {v.content.long_term_summary}</summary><p style={{overflowWrap:"anywhere"}}>版本 ID：{v.id} · 前版：{v.parent_version_id??"无"} · 内容摘要：{v.content_hash}</p><p>保存时间：{v.created_at}</p><pre className="hint-text">{JSON.stringify({内容:v.content,语义变更:v.semantic_diff},null,2)}</pre></details>)}</Panel>:null}
+    {workspace?.versions.some(v=>v.review_sources?.length)?<Panel title="4 · 人工核对的团队来源" description="这是人工整理时核对的来源，不表示模型自动更新或投资批准。">{workspace.versions.flatMap(v=>(v.review_sources??[]).map((source,index)=><article className="evidence-card" key={`${v.id}-${index}`}><p>投资逻辑版本 {v.version} · 核对 {source.suggestion_ids.length} 条团队观点</p><a className="btn ghost" href={`/analysis?run_id=${encodeURIComponent(source.analysis_run_id)}`}>查看来源分析报告</a><p className="hint-text" style={{overflowWrap:"anywhere"}}>分析 ID：{source.analysis_run_id} · 输入摘要：{source.input_hash}<br/>观点 ID：{source.opinion_ids.join("、")}</p></article>))}</Panel>:null}
   </ProductChrome>;
 }

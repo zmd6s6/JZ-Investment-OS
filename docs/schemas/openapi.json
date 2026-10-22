@@ -4136,6 +4136,16 @@
             "title": "Request Id",
             "type": "string"
           },
+          "review_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamThesisSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "schema_version": {
             "const": "1.0",
             "default": "1.0",
@@ -4507,6 +4517,201 @@
           "error"
         ],
         "title": "TaskRunResponse",
+        "type": "object"
+      },
+      "TeamThesisProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_run_id": {
+            "format": "uuid",
+            "title": "Analysis Run Id",
+            "type": "string"
+          },
+          "input_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "opinion_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Opinion Ids",
+            "type": "array"
+          },
+          "suggestion_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Suggestion Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "analysis_run_id",
+          "input_hash",
+          "suggestion_ids",
+          "opinion_ids"
+        ],
+        "title": "TeamThesisProvenance",
+        "type": "object"
+      },
+      "TeamThesisReview": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_run_id": {
+            "format": "uuid",
+            "title": "Analysis Run Id",
+            "type": "string"
+          },
+          "as_of": {
+            "title": "As Of",
+            "type": "string"
+          },
+          "base_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version Id"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "risk_gate": {
+            "enum": [
+              "PASS",
+              "VETO",
+              "UNKNOWN"
+            ],
+            "title": "Risk Gate",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/TeamThesisSuggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "analysis_run_id",
+          "instrument_id",
+          "as_of",
+          "input_hash",
+          "base_version_id",
+          "suggestions",
+          "unknowns",
+          "risk_gate",
+          "limitations"
+        ],
+        "title": "TeamThesisReview",
+        "type": "object"
+      },
+      "TeamThesisSource": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_run_id": {
+            "format": "uuid",
+            "title": "Analysis Run Id",
+            "type": "string"
+          },
+          "suggestion_ids": {
+            "items": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Suggestion Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "analysis_run_id",
+          "suggestion_ids"
+        ],
+        "title": "TeamThesisSource",
+        "type": "object"
+      },
+      "TeamThesisSuggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Claim",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opinion_id": {
+            "format": "uuid",
+            "title": "Opinion Id",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "opinion_id",
+          "role",
+          "stage",
+          "claim",
+          "evidence_ids"
+        ],
+        "title": "TeamThesisSuggestion",
         "type": "object"
       },
       "ThesisChangeReason": {
@@ -4995,6 +5200,14 @@
               }
             ],
             "title": "Parent Version Id"
+          },
+          "review_sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamThesisProvenance"
+            },
+            "title": "Review Sources",
+            "type": "array"
           },
           "semantic_diff": {
             "anyOf": [
@@ -5650,6 +5863,49 @@
           }
         },
         "summary": "Analysis Research Records",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/thesis-review": {
+      "get": {
+        "operationId": "analysis_thesis_review_api_v1_analysis_runs__run_id__thesis_review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamThesisReview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Thesis Review",
         "tags": [
           "analysis"
         ]

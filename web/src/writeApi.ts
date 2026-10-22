@@ -97,6 +97,8 @@ export async function readApiError(response: Response): Promise<string> {
   if (code === "ANALYSIS_THESIS_INVALID") return "已保存的投资逻辑版本或支持资料无法通过校验，分析未启动。请核对版本、内容和资料记录；不是访问令牌问题，系统未用其他版本替换。";
   if (code === "ANALYSIS_RESEARCH_INVALID") return "研究主表关联或内容校验失败，未采用不完整记录。请核对运行记录，不要重新启动分析来代替只读重试。";
   if (code === "THESIS_EDIT_CONFLICT") return "投资逻辑已被其他操作更新，本次没有覆盖。输入已保留，请先核对最新版本，再决定是否重新整理保存。";
+  if (code === "THESIS_REVIEW_UNAVAILABLE") return "这次分析没有可校验的完整研究记录或逻辑基准，不能直接生成团队草稿。旧报告不会被补造，也不会自动调用模型。";
+  if (code === "THESIS_REVIEW_SOURCE_INVALID") return "团队观点来源与当前标的或逻辑基准不一致，本次未保存。草稿已保留，请核对原分析与最新版本；系统不会覆盖或自动换来源。";
   if (code === "THESIS_REQUEST_CONFLICT") return "这个保存标识已用于其他内容，不能覆盖原请求；请先核对历史版本。";
   if (code === "THESIS_EVIDENCE_INVALID") return "支持资料含缺失、跨标的、未来、陈旧或到期内容，未保存。请为每条主张重新核对有效引用，不会自动替换资料。";
   if (code === "THESIS_WRITE_INVALID") return "投资逻辑内容或状态转换不合法，未保存。请检查支柱、证据、失效条件及状态顺序；已失效逻辑不能在此快捷恢复有效。";

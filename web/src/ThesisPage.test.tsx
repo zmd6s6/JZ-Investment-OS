@@ -33,6 +33,34 @@ async function fillFirst() {
 }
 
 describe("人工投资逻辑工作台",()=>{
+  it("团队来源只显式加入草稿，保留人工摘要与状态，最后保存来源关联",async()=>{
+    window.history.replaceState({},"","/thesis?instrument_id=asset-a&analysis_run_id=run-a");
+    const posts:Record<string,unknown>[]=[];
+    let saved=false;
+    vi.spyOn(globalThis,"fetch").mockImplementation(async(input,init)=>{
+      const url=String(input);
+      if(init?.method==="POST"){posts.push(JSON.parse(String(init.body)));saved=true;return response({version_id:"version-b",version:2,created:true});}
+      if(url.includes("thesis-review"))return response({analysis_run_id:"run-a",instrument_id:"asset-a",base_version_id:"version-a",as_of:"2026-10-22",input_hash:"a".repeat(64),unknowns:[],risk_gate:"UNKNOWN",limitations:[],suggestions:[{id:"opinion-a:0",opinion_id:"opinion-a",role:"FUNDAMENTAL",stage:"ROUND_1",claim:"团队新增合成观察",evidence_ids:["evidence-a"]}]});
+      if(url.includes("/workspace"))return response({instrument_id:"asset-a",current_version_id:saved?"version-b":"version-a",versions:[saved?{...version,id:"version-b",version:2,content:posts[0].content,review_sources:[{analysis_run_id:"run-a",suggestion_ids:["opinion-a:0"],opinion_ids:["opinion-a"],input_hash:"a".repeat(64)}]}:version]});
+      if(url.includes("/evidence?"))return response({items:[evidence]});
+      return response(instrument);
+    });
+    render(<ThesisPage/>);
+    fireEvent.change(await screen.findByLabelText("长期投资逻辑摘要"),{target:{value:"保留人工整理的长期判断"}});
+    expect(posts).toHaveLength(0);
+    fireEvent.click(await screen.findByRole("checkbox",{name:"带入团队观点 1 · 基本面"}));
+    fireEvent.click(screen.getByRole("button",{name:"将勾选观点加入编辑草稿"}));
+    expect(screen.getByLabelText("长期投资逻辑摘要")).toHaveValue("保留人工整理的长期判断");
+    expect(screen.getByLabelText("逻辑状态")).toHaveValue("UNKNOWN");
+    expect(screen.getByLabelText("逻辑支柱 2")).toHaveValue("团队新增合成观察");
+    expect(screen.getByLabelText("支柱 2 状态")).toHaveValue("AT_RISK");
+    expect(posts).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button",{name:"保存投资逻辑新版本"}));
+    await screen.findByText("已保存投资逻辑版本 2，历史未被覆盖。");
+    expect(posts[0].review_source).toEqual({analysis_run_id:"run-a",suggestion_ids:["opinion-a:0"]});
+    expect(await screen.findByRole("heading",{name:"4 · 人工核对的团队来源"})).toBeVisible();
+    expect(screen.getByRole("link",{name:"查看来源分析报告"})).toHaveAttribute("href","/analysis?run_id=run-a");
+  });
   it("无记录不自动创建，通过表单明确保存并展示历史",async()=>{
     let saved=false;
     const posts:Record<string,unknown>[]=[];

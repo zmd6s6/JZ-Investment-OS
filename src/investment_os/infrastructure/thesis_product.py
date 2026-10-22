@@ -18,6 +18,11 @@ from investment_os.application.thesis_product import (
     ThesisWorkspace,
     ThesisWorkspaceVersion,
 )
+from investment_os.application.thesis_review import (
+    TeamThesisProvenance,
+    TeamThesisReview,
+    TeamThesisReviewService,
+)
 from investment_os.domain.enums import ThesisState
 from investment_os.domain.errors import DomainError
 from investment_os.domain.state_machines import ThesisTransitionContext, transition_thesis
@@ -45,6 +50,16 @@ def invalid(message: str) -> ApplicationError:
 class SqlThesisProduct:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]):
         self._sessions = sessions
+
+    async def team_review(self, run_id: UUID) -> TeamThesisReview:
+        from investment_os.application.analysis_run import AnalysisRunService
+        from investment_os.infrastructure.analysis_research import SqlAnalysisResearchReader
+        from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
+
+        return await TeamThesisReviewService(
+            AnalysisRunService(SessionAnalysisRunPort(self._sessions)),
+            SqlAnalysisResearchReader(self._sessions),
+        ).read(run_id)
 
     async def workspace(self, instrument_id: UUID) -> ThesisWorkspace:
         async with self._sessions() as session:
@@ -78,6 +93,15 @@ class SqlThesisProduct:
                     .order_by(ThesisVersionRecord.version.desc())
                 )
             )
+            receipts = list(
+                await session.scalars(
+                    select(EventLogRecord).where(
+                        EventLogRecord.event_type == "THESIS_PRODUCT_SAVED",
+                        EventLogRecord.aggregate_type == "thesis_product_write",
+                        EventLogRecord.payload_json["instrument_id"].astext == str(instrument_id),
+                    )
+                )
+            )
             versions = []
             for row in rows:
                 try:
@@ -95,6 +119,12 @@ class SqlThesisProduct:
                                 thesis_content_payload(content)
                             ),
                             semantic_diff=row.metadata_json.get("semantic_diff"),
+                            review_sources=tuple(
+                                TeamThesisProvenance.model_validate(e.payload_json["review_source"])
+                                for e in receipts
+                                if e.payload_json.get("review_source") is not None
+                                and e.payload_json["result"]["version_id"] == str(row.id)
+                            ),
                         )
                     )
                 except (ValueError, TypeError, KeyError, DomainError):
@@ -105,10 +135,14 @@ class SqlThesisProduct:
 
     async def save(self, instrument_id: UUID, command: SaveThesisCommand) -> ThesisSaved:
         content = command.content.to_domain()
+        command_payload = command.model_dump(mode="json", exclude={"request_id"})
+        if command.review_source is None:
+            # Preserve replay hashes for commands issued before review provenance existed.
+            command_payload.pop("review_source")
         fingerprint = content_hash(
             {
                 "instrument_id": str(instrument_id),
-                "command": command.model_dump(mode="json", exclude={"request_id"}),
+                "command": command_payload,
             }
         )
         try:
@@ -147,6 +181,27 @@ class SqlThesisProduct:
                         ApplicationErrorCode.THESIS_EDIT_CONFLICT,
                         "Thesis changed since the editor was loaded",
                     )
+                review_source = None
+                if command.review_source is not None:
+                    review = await self.team_review(command.review_source.analysis_run_id)
+                    requested = set(command.review_source.suggestion_ids)
+                    selected = [s for s in review.suggestions if s.id in requested]
+                    if (
+                        review.instrument_id != instrument_id
+                        or review.base_version_id != current_id
+                        or len(selected) != len(requested)
+                    ):
+                        raise ApplicationError(
+                            ApplicationErrorCode.THESIS_REVIEW_SOURCE_INVALID,
+                            "review belongs to another instrument or baseline, "
+                            "or has unknown suggestions",
+                        )
+                    review_source = TeamThesisProvenance(
+                        analysis_run_id=review.analysis_run_id,
+                        input_hash=review.input_hash,
+                        suggestion_ids=command.review_source.suggestion_ids,
+                        opinion_ids=tuple(dict.fromkeys(s.opinion_id for s in selected)),
+                    ).model_dump(mode="json")
                 now = datetime.now(UTC)
                 evidence = list(
                     await uow.session.scalars(
@@ -225,6 +280,7 @@ class SqlThesisProduct:
                         if command.expected_version_id
                         else None,
                         "result": saved.model_dump(mode="json"),
+                        "review_source": review_source,
                     },
                     now,
                     aggregate="thesis_product_write",

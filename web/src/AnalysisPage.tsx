@@ -319,6 +319,7 @@ export function AnalysisPage() {
             </div>
           ) : null}
 
+          {selected.status==="SUCCEEDED"?<section className="context-note"><a className="btn" href={`/thesis?instrument_id=${encodeURIComponent(selected.instrument_id)}&analysis_run_id=${encodeURIComponent(selected.id)}`}>将团队观点整理为投资逻辑草稿</a><p className="hint-text">只读取本次已保存的观点，需逐条勾选、核对并明确保存；不重跑模型、不自动修改逻辑或批准交易。</p></section>:null}
           <AnalysisResearch key={`research-${selected.id}`} runId={selected.id}/>
           <h3>团队协作与分歧</h3>
           <p className="context-note">协作协议：专家独立分析 → 冲突检测 → 定向质疑与反方审查（最多两轮）→ 组合经理 / 风险经理 → 确定性规则 → 最终建议。此处说明协议，不代表实时执行进度。</p>

@@ -64,6 +64,7 @@ from investment_os.application.thesis_product import (
     ThesisSaved,
     ThesisWorkspace,
 )
+from investment_os.application.thesis_review import TeamThesisReview
 from investment_os.application.watchlist import WatchlistService
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.analysis_research import SqlAnalysisResearchReader
@@ -1804,6 +1805,20 @@ def create_app(
         assert selected_research_reader is not None
         try:
             return await selected_research_reader.read(run_id)
+        except ApplicationError as exc:
+            raise _app_error_to_http(exc) from None
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}/thesis-review",
+        response_model=TeamThesisReview,
+        tags=["analysis"],
+    )
+    async def analysis_thesis_review(run_id: UUID) -> TeamThesisReview:
+        from investment_os.application.errors import ApplicationError
+
+        assert selected_thesis_product is not None
+        try:
+            return await selected_thesis_product.team_review(run_id)
         except ApplicationError as exc:
             raise _app_error_to_http(exc) from None
 
