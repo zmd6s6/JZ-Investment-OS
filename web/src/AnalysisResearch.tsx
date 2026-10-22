@@ -42,7 +42,7 @@ export function AnalysisResearch({runId}:{runId:string}) {
         <p>证据引用：{data.risk.evidence_ids.join("、")||"无；不视为通过"}</p>
         <details><summary>查看风险旗与解除条件</summary><pre>{JSON.stringify({硬风险:data.risk.hard_flags,软风险:data.risk.soft_flags},null,2)}</pre></details>
       </article>:null}
-      <p className="banner banner-info">正式 Decision 尚未创建：独立策略版本未接入，政策／策略及完整版本链仍待收口。当前是影子建议，不是待审批、获批或已成交记录。</p>
+      <p className="banner banner-info">正式 Decision 尚未创建：已批准政策／策略及完整估值、仓位版本链仍待收口。测试工件登记不是批准。当前是影子建议，不是待审批、获批或已成交记录。</p>
       {data.agents.map(agent=><details key={agent.opinion_id}><summary>{stages[agent.stage]??agent.stage} · {roles[agent.role]??agent.role} · {agent.error_code?"资料不足／运行失败":stanceLabel(agent.stance)}</summary>
         <p>{agent.model_name} · {agent.prompt_version} · 置信度 {agent.confidence}</p>
         <p className="hint-text">实际运行：{agent.started_at} → {agent.ended_at}<br/>AgentRun：{agent.agent_run_id}<br/>Opinion：{agent.opinion_id}<br/>内容摘要：{agent.content_hash}<br/>Prompt 摘要：{agent.prompt_hash}</p>

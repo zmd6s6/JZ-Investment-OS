@@ -170,7 +170,11 @@ test("policy review and historical report expose fixed policy, formula and promp
   const governance = queued.payload.input_snapshot.governance;
   expect(governance.policy.mode).toBe("TEST_DEFAULT");
   expect(governance.formula.status).toBe("TEST_DEFAULT");
-  expect(governance.strategy_status).toBe("NOT_CONFIGURED");
+  expect(governance.strategy_status).toBe("TEST_DEFAULT");
+  expect(governance.strategy.status).toBe("DRAFT");
+  expect(governance.strategy.mode).toBe("TEST_DEFAULT");
+  expect(governance.strategy.id).toMatch(/^[0-9a-f-]{36}$/);
+  expect(governance.strategy.code_ref).toMatch(/^sha256:[0-9a-f]{64}$/);
   expect(governance.prompts).toHaveLength(8);
   const review = await (await request.get(`/api/v1/policy/review?portfolio_id=${portfolioId}`, { headers })).json();
   expect(review.snapshot.content_hash).toBe(governance.policy.content_hash);
@@ -184,6 +188,9 @@ test("policy review and historical report expose fixed policy, formula and promp
   await expect(page.getByText("政策：TEST_DEFAULT（工程测试值）", { exact: true })).toBeVisible();
   await expect(page.getByText("宏观 · p6-v3", { exact: true })).toBeVisible();
   await expect(page.getByText(/当前公式仍是 TEST_DEFAULT/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: `测试策略 v${governance.strategy.version} · DRAFT（未批准）`, exact: true })).toBeVisible();
+  await expect(page.getByText(/策略版本 ID：/)).toContainText(governance.strategy.id);
+  await expect(page.getByText(/未激活投资策略/)).toBeVisible();
   const finished = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
   expect(finished.payload.input_snapshot.governance).toEqual(governance);
   expect(finished.payload.decision.policy_content_hash).toBe(governance.policy.content_hash);

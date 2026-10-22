@@ -28,6 +28,7 @@ from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
 from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
+from investment_os.infrastructure.analysis_strategy import SqlAnalysisStrategies
 from investment_os.infrastructure.analysis_worker import AnalysisWorker
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
@@ -74,6 +75,7 @@ async def jobs_setup(engine):
         market_configuration=AnalysisMarketConfiguration(market_settings, markets.supported_types),
         market_factory=markets,
         market_audit=SqlAnalysisMarketAudit(factory),
+        strategy_catalog=SqlAnalysisStrategies(factory),
     )
     port = SqlAlchemyAnalysisJobs(engine, factory)
     service = AnalysisJobService(port, product)

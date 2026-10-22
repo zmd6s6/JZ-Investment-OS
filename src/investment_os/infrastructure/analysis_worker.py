@@ -18,6 +18,7 @@ from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
 from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
 from investment_os.infrastructure.analysis_run_store import SessionAnalysisRunPort
+from investment_os.infrastructure.analysis_strategy import SqlAnalysisStrategies
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
     SessionPortfolioBookPort,
@@ -63,6 +64,7 @@ class AnalysisWorker:
             ),
             market_factory=market_factory,
             market_audit=SqlAnalysisMarketAudit(sessions),
+            strategy_catalog=SqlAnalysisStrategies(sessions),
         )
         self.jobs = AnalysisJobService(SqlAlchemyAnalysisJobs(self._engine, sessions), product)
 

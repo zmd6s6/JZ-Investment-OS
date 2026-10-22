@@ -159,16 +159,52 @@ class FrozenPrompt(FrozenGovernanceModel):
     allowed_tools: tuple[AgentTool, ...]
 
 
+class FrozenAnalysisStrategy(FrozenGovernanceModel):
+    """Identity of the actual test artifacts, never an investment approval."""
+
+    schema_version: Literal["1.0"] = "1.0"
+    id: UUID
+    version: int = Field(gt=0)
+    status: Literal["DRAFT"] = "DRAFT"
+    mode: Literal["TEST_DEFAULT"] = "TEST_DEFAULT"
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    code_ref: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    formula: FrozenSizingFormula
+    prompts: tuple[FrozenPrompt, ...]
+
+    def rules(self) -> dict[str, Any]:
+        return self.model_dump(mode="json", exclude={"id", "version", "status", "content_hash"})
+
+    @model_validator(mode="after")
+    def consistent(self) -> Self:
+        if digest(self.rules()) != self.content_hash:
+            raise ValueError("strategy content hash mismatch")
+        return self
+
+
 class AnalysisGovernancePlan(FrozenGovernanceModel):
     schema_version: Literal["1.0"] = "1.0"
     policy: FrozenAnalysisPolicy
     formula: FrozenSizingFormula
     prompts: tuple[FrozenPrompt, ...]
-    # No independent, approved StrategyVersion is wired into P6 yet. Never invent one.
-    strategy_status: Literal["NOT_CONFIGURED"] = "NOT_CONFIGURED"
+    strategy_status: Literal["NOT_CONFIGURED", "TEST_DEFAULT"] = "NOT_CONFIGURED"
+    strategy: FrozenAnalysisStrategy | None = None
+
+    @model_validator(mode="after")
+    def consistent_strategy(self) -> Self:
+        if (self.strategy is None) != (self.strategy_status == "NOT_CONFIGURED"):
+            raise ValueError("strategy status differs from frozen identity")
+        if self.strategy and (
+            self.strategy.formula != self.formula or self.strategy.prompts != self.prompts
+        ):
+            raise ValueError("strategy artifacts differ from actual runtime rules")
+        return self
 
     def snapshot(self) -> dict[str, Any]:
         payload = self.model_dump(mode="json")
+        if self.strategy is None:
+            # Keep the content hash of historical, pre-registration inputs unchanged.
+            payload.pop("strategy")
         entry = payload["policy"]["config"]["entry"]
         entry["require_thesis_states"] = sorted(entry["require_thesis_states"])
         return payload
@@ -181,3 +217,9 @@ class AnalysisGovernancePlan(FrozenGovernanceModel):
     def allows_new_exposure(self) -> bool:
         # Even an approved policy cannot authorize the still-test-only sizing strategy.
         return False
+
+
+class AnalysisStrategyCatalog(Protocol):
+    async def freeze(self, plan: AnalysisGovernancePlan) -> FrozenAnalysisStrategy: ...
+
+    async def validate(self, plan: AnalysisGovernancePlan) -> None: ...

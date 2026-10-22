@@ -34,10 +34,12 @@ class Gateway:
     def __init__(self, mode="PASS"):
         self.calls = 0
         self.mode = mode
+        self.inputs = []
 
     async def complete(self, request):
         self.calls += 1
         value = json.loads(request.input_payload_json)
+        self.inputs.append(value)
         data = {
             "schema_version": "1.0",
             "agent_role": request.role.value,
@@ -116,6 +118,15 @@ async def test_completed_analysis_records_actual_agents_risk_and_immutable_links
     assert await port.work_once(execute)
     completed = await runs.get(run.id)
     assert completed.status == "SUCCEEDED"
+    strategy = run.payload["input_snapshot"]["governance"]["strategy"]
+    assert completed.payload["decision"]["strategy_version_id"] == strategy["id"]
+    assert completed.payload["decision"]["strategy_content_hash"] == strategy["content_hash"]
+    assert all(
+        data["strategy"]["id"] == strategy["id"]
+        and data["strategy"]["status"] == "DRAFT"
+        and data["strategy"]["code_ref"] == strategy["code_ref"]
+        for data in gateway.inputs
+    )
     view = await SqlAnalysisResearchReader(sessions).read(run.id)
     assert (
         view.status == "RECORDED" and view.input_hash == run.payload["input_snapshot"]["input_hash"]

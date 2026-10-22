@@ -7,6 +7,8 @@ export function tokenPriceLabel(value: unknown): string {
 }
 
 const FAILURE_LABELS: Record<string, string> = {
+  ANALYSIS_STRATEGY_SNAPSHOT_MISSING: "旧任务未固定独立测试策略，未调用模型，请核对后明确新建运行",
+  ANALYSIS_STRATEGY_CHANGED: "固定测试策略、代码或主表校验失败，未自动换版本或调用模型",
   ANALYSIS_RECORDING_FAILED: "研究主表保存失败，未发布成功报告，不自动重放模型，请核对费用",
   THESIS_UNKNOWN: "投资逻辑缺失或支持资料不新鲜，本次按未知处理",
   THESIS_BROKEN_REVIEW_REQUIRED: "已失效的持仓逻辑要求复核，减仓候选不是交易授权",

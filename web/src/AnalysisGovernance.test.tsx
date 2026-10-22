@@ -24,6 +24,28 @@ it("never backfills an old report with current policy metadata", () => {
   expect(fetcher).not.toHaveBeenCalled();
 });
 
+it("shows the recorded draft test identity and code without activating or rereading it", () => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  render(<AnalysisGovernance value={{ strategy_status: "TEST_DEFAULT", strategy: { id: "synthetic-strategy-id", version: 7, status: "DRAFT", mode: "TEST_DEFAULT", content_hash: hash, code_ref: `sha256:${hash}` } }} />);
+  fireEvent.click(screen.getByText("政策与运行规则版本 · 只读快照"));
+  expect(screen.getByRole("heading", { name: "测试策略 v7 · DRAFT（未批准）" })).toBeVisible();
+  expect(screen.getByText(/策略版本 ID：synthetic-strategy-id/)).toBeVisible();
+  expect(screen.getByText(/未激活投资策略/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: /激活/ })).toBeNull();
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("does not claim a test identity for old or incompatible strategy metadata", () => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  const view = render(<AnalysisGovernance value={{ strategy_status: "NOT_CONFIGURED" }} />);
+  fireEvent.click(screen.getByText("政策与运行规则版本 · 只读快照"));
+  expect(screen.getByText(/未记录可验证的独立测试策略身份/)).toBeVisible();
+  view.rerender(<AnalysisGovernance value={{ strategy_status: "TEST_DEFAULT", strategy: { id: "bad", version: 1, status: "ACTIVE", mode: "TEST_DEFAULT" } }} />);
+  expect(screen.getByText(/未记录可验证的独立测试策略身份/)).toBeVisible();
+  expect(screen.queryByRole("heading", { name: /测试策略 v/ })).toBeNull();
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
 it("reads the selected portfolio policy with precise labels and only issues GETs", async () => {
   sessionStorage.setItem("selected_portfolio_id", "synthetic-portfolio");
   const fetcher = vi.fn(async (_url: string) => new Response(JSON.stringify({ active_policy_version: "TEST_DEFAULT", policy_status: "TEST_DEFAULT", is_test_default: true, limits: [{ key: "single_instrument_max_pct", value: "8" }], snapshot: { content_hash: hash }, warning: "工程测试值，不是真实投资限额" })));

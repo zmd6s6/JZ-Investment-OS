@@ -259,6 +259,10 @@ def build_analysis_request_factory(
                 "sizing_formula_status": governance.formula.status,
                 "strategy_status": governance.strategy_status,
             }
+            if governance.strategy is not None:
+                payload["strategy"] = governance.strategy.model_dump(
+                    mode="json", exclude={"formula", "prompts"}
+                )
         if thesis is not None:
             payload["thesis"] = thesis.snapshot()
             payload["thesis_evidence_boundary"] = (
@@ -894,6 +898,12 @@ async def execute_analysis(
         if request.governance
         else None,
         "governance_hash": request.governance.content_hash if request.governance else None,
+        "strategy_version_id": str(request.governance.strategy.id)
+        if request.governance and request.governance.strategy
+        else None,
+        "strategy_content_hash": request.governance.strategy.content_hash
+        if request.governance and request.governance.strategy
+        else None,
         "core_action": final_action.value
         if final_action in (Action.BUY, Action.ADD, Action.HOLD)
         else "NONE",

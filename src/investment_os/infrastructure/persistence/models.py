@@ -66,6 +66,21 @@ class InvestmentPolicyVersionRecord(AuditFieldsMixin, Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class StrategyVersionRecord(AuditFieldsMixin, Base):
+    """Existing append-only strategy table; registration does not activate a strategy."""
+
+    __tablename__ = "strategy_version"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    rules_json: Mapped[JSON] = mapped_column(JSONB, nullable=False)
+    prompt_bundle_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(255))
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class InstrumentRecord(AuditFieldsMixin, Base):
     """Local catalog identity for one listed instrument (PRODUCT-05)."""
 

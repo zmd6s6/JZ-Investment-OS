@@ -7,7 +7,10 @@ from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from uuid import UUID
 
-from investment_os.application.analysis_governance import FrozenAnalysisPolicy
+from investment_os.application.analysis_governance import (
+    AnalysisStrategyCatalog,
+    FrozenAnalysisPolicy,
+)
 from investment_os.application.analysis_inputs import AnalysisInputsPort
 from investment_os.application.analysis_market import (
     AnalysisMarketConfiguration,
@@ -74,6 +77,7 @@ class ProductAnalysisService:
         market_configuration: AnalysisMarketConfiguration | None = None,
         market_factory: AnalysisMarketFactory | None = None,
         market_audit: MarketAuditPort | None = None,
+        strategy_catalog: AnalysisStrategyCatalog | None = None,
     ) -> None:
         self._inputs, self._portfolios, self._runs = inputs, portfolios, analysis_runs
         self._committee, self._market_data, self._catalog = committee, market_data, catalog
@@ -81,6 +85,7 @@ class ProductAnalysisService:
         self._models = model_configuration
         self._markets, self._market_factory = market_configuration, market_factory
         self._market_audit = market_audit
+        self._strategies = strategy_catalog
 
     async def market_events(self, run_id: UUID) -> tuple[MarketAttemptEvent, ...]:
         await self._runs.get(run_id)
@@ -150,6 +155,11 @@ class ProductAnalysisService:
         selected = await self._inputs.evidence(
             inp.instrument_id, as_of=as_of, evidence_ids=inp.evidence_ids
         )
+        if self._strategies is not None:
+            strategy = await self._strategies.freeze(governance)
+            governance = type(governance).model_validate(
+                {**governance.model_dump(), "strategy": strategy, "strategy_status": "TEST_DEFAULT"}
+            )
         snapshot = json.loads(
             json.dumps(
                 {
@@ -246,10 +256,33 @@ class ProductAnalysisService:
                 "ANALYSIS_GOVERNANCE_SNAPSHOT_MISSING",
                 "旧任务未固定政策与运行工件, 未调用模型。请核对后明确新建运行。",
             )
+        if self._strategies is not None and request.governance.strategy is None:
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_STRATEGY_SNAPSHOT_MISSING",
+                "旧任务未固定独立测试策略, 未调用模型; 请核对后明确发起新运行。",
+            )
+        if request.governance.strategy is not None:
+            try:
+                if self._strategies is None:
+                    raise ValueError("strategy catalog unavailable")
+                await self._strategies.validate(request.governance)
+            except (ApplicationError, ValueError):
+                return AnalysisRunResult(
+                    "FAILED",
+                    None,
+                    "ANALYSIS_STRATEGY_CHANGED",
+                    "固定测试策略、代码或主表校验失败, 未调用模型或行情; "
+                    "请核对服务版本后明确发起新运行。",
+                )
         try:
             request.governance.policy.require_available(request.as_of)
             if (
-                request.governance != freeze_governance(request.governance.policy)
+                request.governance.model_copy(
+                    update={"strategy": None, "strategy_status": "NOT_CONFIGURED"}
+                )
+                != freeze_governance(request.governance.policy)
                 or request.policy_version_label != request.governance.policy.label
             ):
                 raise ValueError("frozen runtime artifacts differ")
