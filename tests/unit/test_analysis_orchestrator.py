@@ -237,6 +237,11 @@ async def test_execute_analysis_succeeds_with_synthetic_inputs() -> None:
     }
     assert len(payload["opinions"]) == 8  # 5 specialists + DA + PM + RISK
     assert payload["valuation"]["status"] == "OK"
+    assert payload["sizing"]["status"] == "BLOCKED"
+    assert "target_quantity" not in payload["sizing"]
+    assert "SIZING_CONTEXT_INCOMPLETE" in payload["failures"]
+    assert "INSUFFICIENT_VALUATION_FOR_EXPOSURE" in payload["failures"]
+    assert payload["decision"]["action"] not in {"BUY", "ADD"}
     assert payload["risk"]["gate"] in {"PASS", "VETO", "UNKNOWN"}
     assert payload["policy_version_label"] == "TEST_DEFAULT"
     assert events == [

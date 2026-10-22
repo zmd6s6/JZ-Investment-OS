@@ -201,7 +201,7 @@ def test_prompt_hash_tracks_actual_instruction_not_just_version_label(monkeypatc
     assert _prompt_hash(AgentRole.MACRO) != _prompt_hash(AgentRole.INDUSTRY)
 
 
-async def test_sizing_receives_frozen_policy_limits_not_test_default_constants(monkeypatch):
+async def test_incomplete_sizing_keeps_frozen_policy_identity_without_calling_engine(monkeypatch):
     request = request_for(frozen_policy(active=True, cap="2"))
     market = InMemoryMarketDataAdapter()
     market.put(
@@ -214,16 +214,13 @@ async def test_sizing_receives_frozen_policy_limits_not_test_default_constants(m
             volatility=Decimal("0.20"),
         )
     )
-    import investment_os.application.analysis_orchestrator as orchestrator
-
-    original = orchestrator.size_position
     seen = []
 
     def capture(formula, sizing_request):
-        seen.append(sizing_request.policy.single_instrument_max.value)
-        return original(formula, sizing_request)
+        seen.append(sizing_request)
+        raise AssertionError("incomplete inputs must not reach domain sizing")
 
-    monkeypatch.setattr(orchestrator, "size_position", capture)
+    monkeypatch.setattr("investment_os.domain.sizing.size_position", capture)
     valuation, sizing, failures = await _build_valuation_and_sizing(
         request=request,
         market_data=market,
@@ -242,9 +239,14 @@ async def test_sizing_receives_frozen_policy_limits_not_test_default_constants(m
         ),
         thesis_state=ThesisState.VALID,
     )
-    assert valuation["status"] == "OK" and failures == []
-    assert seen == [Decimal("0.02")]
-    assert sizing["target_weight"] == "0.02"
+    assert valuation["status"] == "OK" and failures == ["SIZING_CONTEXT_INCOMPLETE"]
+    assert seen == []
+    assert sizing["status"] == "BLOCKED"
+    assert "target_quantity" not in sizing and "target_weight" not in sizing
+    assert (
+        request.governance.policy.config.to_domain().position.single_instrument_max.value
+        == Decimal("0.02")
+    )
     assert sizing["policy_version_id"] == str(request.governance.policy.policy_version_id)
     assert sizing["policy_content_hash"] == request.governance.policy.content_hash
     assert not request.governance.allows_new_exposure

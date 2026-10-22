@@ -33,6 +33,7 @@ from investment_os.application.analysis_models import ANALYSIS_ROLES, AnalysisMo
 from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.analysis_research import CompletedResearch
 from investment_os.application.analysis_thesis import AnalysisThesisInput
+from investment_os.application.analysis_valuation import build_analysis_valuation
 from investment_os.application.committee import (
     detect_stance_conflicts,
 )
@@ -60,16 +61,14 @@ from investment_os.domain.agent import (
 )
 from investment_os.domain.enums import (
     Action,
-    PositionBucket,
     RiskGateState,
     RiskIntent,
     ThesisState,
 )
 from investment_os.domain.policy import PositionPolicy
-from investment_os.domain.portfolio import PortfolioCapacityInputs
 from investment_os.domain.risk import RiskAssessment, RiskFlag, RiskFlagKind, RiskSeverity
-from investment_os.domain.sizing import SizingFormula, SizingRequest, size_position
-from investment_os.domain.values import Quantity, UtcTimestamp, Weight, exact_decimal
+from investment_os.domain.sizing import SizingFormula
+from investment_os.domain.values import UtcTimestamp, Weight
 
 ROUND_ONE = (
     AgentRole.MACRO,
@@ -827,7 +826,7 @@ async def execute_analysis(
     # Missing valuation/pricing means insufficient data for risk-increasing actions.
     valuation_ok = valuation.get("status") == "OK"
     if proposed in (Action.BUY, Action.ADD) and (
-        not valuation_ok or (sizing is None or sizing.get("status") == "FAILED")
+        not valuation_ok or (sizing is None or sizing.get("status") != "OK")
     ):
         failures.append("INSUFFICIENT_VALUATION_FOR_EXPOSURE")
         data_sufficient = False
@@ -997,223 +996,71 @@ async def _build_valuation_and_sizing(
     assessment: RiskAssessment,
     thesis_state: ThesisState,
 ) -> tuple[dict[str, Any], dict[str, Any] | None, list[str]]:
-    failures: list[str] = []
     positions = request.portfolio.positions
-    instrument_ids = tuple({p.instrument_id for p in positions} | {request.instrument_id})
-    instruments: dict[UUID, tuple[str, str, str]] = {
-        p.instrument_id: (p.market, p.symbol, p.currency) for p in positions
-    }
-    if request.instrument_id not in instruments:
-        instruments[request.instrument_id] = (
+    instrument_ids = tuple(
+        sorted({p.instrument_id for p in positions} | {request.instrument_id}, key=str)
+    )
+    instruments = {p.instrument_id: (p.market, p.symbol, p.currency) for p in positions}
+    instruments.setdefault(
+        request.instrument_id,
+        (
             request.instrument_market,
             request.instrument_symbol,
             request.instrument_currency or request.portfolio.base_currency,
-        )
-    # Prefer symbol-aware chain API when available.
+        ),
+    )
     quotes = await market_data.get_reference_quotes(
         instrument_ids, as_of=request.as_of, instruments=instruments
     )
-    missing = [str(i) for i in instrument_ids if i not in quotes]
-
-    currencies = {p.currency for p in positions} | {request.portfolio.base_currency}
-    # FX fail-closed for multi-currency
-    if len(currencies) > 1:
-        failures.append("FX_SOURCE_MISSING_MULTI_CURRENCY")
-        valuation = {
-            "status": "FAILED",
-            "reason": "multi-currency portfolio requires FX",
-            "missing_quotes": missing,
-            "currencies": sorted(currencies),
-        }
-        return valuation, None, failures
-
-    if missing and len(positions) > 0:
-        failures.append("MISSING_REFERENCE_QUOTES")
-        valuation = {
-            "status": "PARTIAL",
-            "reason": "missing reference quotes for NAV",
-            "missing_quotes": missing,
-            "currencies": sorted(currencies),
-        }
-        return valuation, None, failures
-
-    # NAV = cash + sum(qty * price) for positions with quotes
-    nav = exact_decimal(request.portfolio.cash_balance)
-    price_by_id = {p.instrument_id: quotes.get(p.instrument_id) for p in positions}
-    for pos in positions:
-        quote = price_by_id[pos.instrument_id]
-        if quote is None:
-            failures.append("MISSING_REFERENCE_QUOTES")
-            return (
-                {
-                    "status": "FAILED",
-                    "reason": "missing quote",
-                    "missing_quotes": missing or [str(pos.instrument_id)],
-                    "currencies": sorted(currencies),
-                },
-                None,
-                failures,
-            )
-        if quote.currency != request.portfolio.base_currency:
-            failures.append("FX_SOURCE_MISSING_MULTI_CURRENCY")
-            return (
-                {
-                    "status": "FAILED",
-                    "reason": f"quote currency {quote.currency} != base "
-                    + request.portfolio.base_currency,
-                    "missing_quotes": [],
-                    "currencies": sorted(currencies),
-                },
-                None,
-                failures,
-            )
-        qty = pos.core_quantity + pos.tactical_quantity
-        nav += exact_decimal(qty) * quote.reference_price
-
-    if nav <= 0:
-        failures.append("NAV_NON_POSITIVE")
-        return {"status": "FAILED", "reason": "nav not positive"}, None, failures
-
-    target_quote = quotes.get(request.instrument_id)
-    if target_quote is None:
-        failures.append("MISSING_REFERENCE_QUOTES")
-        return (
-            {
-                "status": "FAILED",
-                "reason": "target instrument quote missing",
-                "missing_quotes": [str(request.instrument_id)],
-                "currencies": sorted(currencies),
-            },
-            None,
-            failures,
-        )
-
-    ok_valuation: dict[str, Any] = {
-        "status": "OK",
-        "nav": str(nav),
-        "base_currency": request.portfolio.base_currency,
-        "source": target_quote.source,
-        "source_rank": target_quote.source_rank,
-        "degraded": target_quote.degraded,
-        "as_of": target_quote.as_of.isoformat(),
-        "target_reference_price": str(target_quote.reference_price),
-        "missing_quotes": [],
-        "currencies": sorted(currencies),
-        "single_currency_limit": True,
-        "quote_sources": sorted({q.source for q in quotes.values()}),
-        "degraded_instruments": sorted(str(i) for i, q in quotes.items() if q.degraded),
-        "position_values": [
-            {
-                "instrument_id": str(p.instrument_id),
-                "symbol": next(
-                    (
-                        x.symbol
-                        for x in request.portfolio.positions
-                        if x.instrument_id == p.instrument_id
-                    ),
-                    "",
-                ),
-                "quantity": str(p.core_quantity + p.tactical_quantity),
-                "price": (
-                    str(quotes[p.instrument_id].reference_price)
-                    if p.instrument_id in quotes
-                    else None
-                ),
-                "source": (quotes[p.instrument_id].source if p.instrument_id in quotes else None),
-                "degraded": (
-                    quotes[p.instrument_id].degraded if p.instrument_id in quotes else None
-                ),
-            }
-            for p in positions
-        ],
+    valuation = build_analysis_valuation(
+        portfolio=request.portfolio,
+        target_id=request.instrument_id,
+        target_currency=instruments[request.instrument_id][2],
+        as_of=request.as_of,
+        quotes=quotes,
+    )
+    # These inputs have no authoritative product port yet. Never fill them with
+    # zero sector exposure, full capacity, a default lot or guessed volatility.
+    missing_inputs = [
+        "PRICE_FRESHNESS_UNVERIFIED",
+        "VOLATILITY_INPUT_MISSING",
+        "LIQUIDITY_CAPACITY_MISSING",
+        "RISK_BUDGET_CAPACITY_MISSING",
+        "LOT_SIZE_MISSING",
+        "PENDING_EXPOSURE_UNAVAILABLE",
+    ]
+    if valuation.unclassified_value is None or valuation.unclassified_value > 0:
+        missing_inputs.append("SECTOR_CLASSIFICATION_INCOMPLETE")
+    target_position = next((p for p in positions if p.instrument_id == request.instrument_id), None)
+    if target_position is None or not target_position.sector.strip():
+        missing_inputs.append("TARGET_SECTOR_MISSING")
+    if valuation.status != "OK":
+        missing_inputs.append("VALUATION_INCOMPLETE")
+    sizing = {
+        "status": "BLOCKED",
+        "reason_codes": missing_inputs,
+        "valuation_input_hash": valuation.input_hash,
+        "requested_action": proposed.value,
+        "risk_intent": risk_intent.value,
+        "risk_gate": assessment.gate.value,
+        "thesis_state": thesis_state.value,
+        "policy_version_label": request.policy_version_label,
+        "policy_version_id": str(request.governance.policy.policy_version_id)
+        if request.governance and request.governance.policy.policy_version_id
+        else None,
+        "policy_content_hash": request.governance.policy.content_hash
+        if request.governance
+        else None,
+        "formula_version": request.governance.formula.version
+        if request.governance
+        else DEFAULT_SIZING_FORMULA.version,
+        "formula_status": "TEST_DEFAULT",
     }
-
-    # Build capacity from current positions of target instrument.
-    target_pos = next((p for p in positions if p.instrument_id == request.instrument_id), None)
-    target_qty = (
-        (target_pos.core_quantity + target_pos.tactical_quantity) if target_pos else Decimal("0")
+    return (
+        valuation.model_dump(mode="json"),
+        sizing,
+        [*valuation.reason_codes, "SIZING_CONTEXT_INCOMPLETE"],
     )
-    target_value = exact_decimal(target_qty) * target_quote.reference_price
-    target_weight = Weight(min(Decimal("1"), target_value / nav)) if nav else Weight(Decimal("0"))
-    current_bucket_weight = target_weight
-    current_bucket_quantity = Quantity(exact_decimal(target_qty) if target_pos else Decimal("0"))
-
-    # Reconcile: weight * nav / price must equal quantity. Adjust by using weight derived
-    # from quantity * price / nav (exact).
-    expected_qty = target_weight.value * nav / target_quote.reference_price
-    # Use exact quantity via weight that reconciles.
-    if expected_qty != current_bucket_quantity.value:
-        # recompute weight from exact identity
-        current_bucket_weight = Weight(
-            min(Decimal("1"), current_bucket_quantity.value * target_quote.reference_price / nav)
-        )
-
-    gross_value = sum(
-        (p.core_quantity + p.tactical_quantity)
-        * (quotes[p.instrument_id].reference_price if p.instrument_id in quotes else Decimal("0"))
-        for p in positions
-    )
-    gross_weight = min(Decimal("1"), gross_value / nav) if nav else Decimal("0")
-    capacity = PortfolioCapacityInputs(
-        instrument_weight=target_weight,
-        sector_weight=Weight(Decimal("0")),
-        gross_exposure=Weight(gross_weight),
-        pending_instrument_weight=Weight(Decimal("0")),
-        pending_sector_weight=Weight(Decimal("0")),
-        pending_gross_exposure=Weight(Decimal("0")),
-        risk_budget_capacity=Weight(Decimal("1")),
-        liquidity_capacity=Weight(Decimal("1")),
-    )
-    # Unknown sector stays zero; policy limits still apply.
-
-    try:
-        if proposed not in (Action.BUY, Action.ADD):
-            # Still compute sizing for transparency when we have inputs
-            pass
-        request_obj = SizingRequest(
-            action=proposed,
-            bucket=PositionBucket.CORE,
-            risk_intent=risk_intent,
-            current_bucket_weight=current_bucket_weight,
-            current_bucket_quantity=current_bucket_quantity,
-            nav=nav,
-            reference_price=target_quote.reference_price,
-            lot_size=Quantity(Decimal("1")),
-            instrument_volatility=target_quote.volatility,
-            capacity_inputs=capacity,
-            policy=request.governance.policy.config.to_domain().position
-            if request.governance
-            else DEFAULT_POSITION_POLICY,
-            risk_assessment=assessment,
-            thesis_state=thesis_state,
-            as_of=UtcTimestamp(request.as_of),
-        )
-        formula = (
-            request.governance.formula.to_domain() if request.governance else DEFAULT_SIZING_FORMULA
-        )
-        result = size_position(formula, request_obj)
-        sizing: dict[str, Any] | None = {
-            "formula_version": result.formula_version,
-            "input_hash": result.input_hash,
-            "target_weight": str(result.target_weight.value),
-            "delta_weight": str(result.delta_weight),
-            "target_quantity": str(result.target_quantity.value),
-            "delta_quantity": str(result.delta_quantity),
-            "reason_codes": list(result.reason_codes),
-            "policy_version_label": request.policy_version_label,
-            "policy_version_id": str(request.governance.policy.policy_version_id)
-            if request.governance and request.governance.policy.policy_version_id
-            else None,
-            "policy_content_hash": request.governance.policy.content_hash
-            if request.governance
-            else None,
-            "formula_status": "TEST_DEFAULT",
-        }
-    except Exception as exc:  # sizing fail-closed without killing the run
-        failures.append("SIZING_INPUT_INVALID")
-        sizing = {"status": "FAILED", "reason": str(exc)[:300]}
-
-    return ok_valuation, sizing, failures
 
 
 def new_run_id() -> UUID:

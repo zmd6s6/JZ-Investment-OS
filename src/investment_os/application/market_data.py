@@ -41,7 +41,7 @@ class MarketQuote:
     source: str
     source_rank: int = 0
     degraded: bool = False
-    volatility: Decimal = Decimal("0.20")
+    volatility: Decimal | None = None
     provider_detail: str = ""
 
 
@@ -116,13 +116,10 @@ class ChainedMarketDataPort:
     def __init__(
         self,
         sources: tuple[MarketDataSourcePort, ...],
-        *,
-        volatility_default: Decimal = Decimal("0.20"),
     ) -> None:
         if not sources:
             raise ValueError("at least one market data source is required")
         self._sources = sources
-        self._volatility_default = volatility_default
 
     @property
     def source_names(self) -> tuple[str, ...]:
@@ -163,7 +160,6 @@ class ChainedMarketDataPort:
                     source=source.name,
                     source_rank=rank,
                     degraded=rank > 0,
-                    volatility=self._volatility_default,
                 )
                 pending.pop(instrument_id, None)
         return found

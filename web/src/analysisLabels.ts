@@ -7,6 +7,18 @@ export function tokenPriceLabel(value: unknown): string {
 }
 
 const FAILURE_LABELS: Record<string, string> = {
+  SIZING_CONTEXT_INCOMPLETE: "仓位输入尚不完整，未生成建议数量",
+  PRICE_FRESHNESS_UNVERIFIED: "报价的交易级新鲜度与真实可用时间尚未验证",
+  VOLATILITY_INPUT_MISSING: "缺少可追溯的波动率特征，不使用固定 20%",
+  LIQUIDITY_CAPACITY_MISSING: "缺少流动性容量，不按 100% 填充",
+  RISK_BUDGET_CAPACITY_MISSING: "缺少确定性风险预算容量，不按 100% 填充",
+  LOT_SIZE_MISSING: "缺少已核实的交易单位，不默认一股",
+  PENDING_EXPOSURE_UNAVAILABLE: "待执行暴露尚未接入权威读取，不推定为零",
+  SECTOR_CLASSIFICATION_INCOMPLETE: "持仓行业分类或市值不完整，不推定零暴露",
+  TARGET_SECTOR_MISSING: "分析标的缺少明确行业分类",
+  VALUATION_INCOMPLETE: "净值或目标报价不完整，不能计算建议数量",
+  VALUATION_INPUT_INVALID: "冻结持仓或现金输入校验失败",
+  INVALID_REFERENCE_QUOTES: "报价身份、币种、价格或时间校验失败",
   ANALYSIS_STRATEGY_SNAPSHOT_MISSING: "旧任务未固定独立测试策略，未调用模型，请核对后明确新建运行",
   ANALYSIS_STRATEGY_CHANGED: "固定测试策略、代码或主表校验失败，未自动换版本或调用模型",
   ANALYSIS_RECORDING_FAILED: "研究主表保存失败，未发布成功报告，不自动重放模型，请核对费用",

@@ -69,6 +69,7 @@ async def test_tushare_parses_numeric_close_as_decimal() -> None:
     assert instrument_id in quotes
     assert quotes[instrument_id].reference_price == Decimal("1500.5")
     assert isinstance(quotes[instrument_id].reference_price, Decimal)
+    assert quotes[instrument_id].volatility is None
 
 
 async def test_tushare_parses_official_data_fields_items_envelope() -> None:

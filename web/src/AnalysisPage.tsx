@@ -15,6 +15,7 @@ import { DurableMarketAudit } from "./AnalysisMarketAudit";
 import { AnalysisGovernance } from "./AnalysisGovernance";
 import { AnalysisThesis } from "./AnalysisThesis";
 import { AnalysisResearch } from "./AnalysisResearch";
+import { AnalysisValuation } from "./AnalysisValuation";
 
 const roleNames: Record<string, string> = { MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官" };
 
@@ -216,6 +217,7 @@ export function AnalysisPage() {
         {runs.length === 0 ? (
           <EmptyState title={loading ? "正在加载运行" : error ? "暂时无法读取运行" : "暂无运行"} hint={loading ? "请稍候，尚未完成读取。" : error ? "请根据上方提示处理，然后刷新运行列表。" : "从组合页或观察清单发起一次分析。"} />
         ) : (
+          <div className="analysis-table-scroll">
           <table className="data-table">
             <thead>
               <tr>
@@ -263,6 +265,7 @@ export function AnalysisPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Panel>
 
@@ -325,6 +328,7 @@ export function AnalysisPage() {
           <p className="context-note">协作协议：专家独立分析 → 冲突检测 → 定向质疑与反方审查（最多两轮）→ 组合经理 / 风险经理 → 确定性规则 → 最终建议。此处说明协议，不代表实时执行进度。</p>
           {payload.conflicts?.length ? <ul className="tip-list">{(payload.conflicts as Record<string, unknown>[]).map((conflict, index) => <li key={index}>分歧类型 {String(conflict.kind ?? "未提供")} · 参与角色 {Array.isArray(conflict.roles) ? conflict.roles.map((role) => roleNames[String(role)] ?? String(role)).join("、") : "未提供"}</li>)}</ul> : <p className="hint-text">本报告未提供冲突记录；这不代表所有角色观点一致。</p>}
           <h3>投资团队意见</h3>
+          <div className="analysis-table-scroll">
           <table className="data-table">
             <thead>
               <tr>
@@ -363,10 +367,12 @@ export function AnalysisPage() {
               ))}
             </tbody>
           </table>
+          </div>
 
           <details><summary>查看风险旗与解除条件</summary>{Array.isArray(payload.risk?.flags) && payload.risk.flags.length ? <ul className="tip-list">{(payload.risk.flags as Record<string, unknown>[]).map((flag, index) => <li key={index}>{String(flag.code ?? "未提供")} · {String(flag.severity ?? "未提供")}<p>解除条件：{String(flag.release_condition ?? "未提供")}</p><p className="muted">证据引用：{Array.isArray(flag.evidence_ids) ? flag.evidence_ids.map(String).join("、") : "未提供"}</p></li>)}</ul> : <p className="hint-text">未提供风险旗，不代表风险已经排除。</p>}</details>
 
           <h3>估值与仓位</h3>
+          <AnalysisValuation valuation={payload.valuation} sizing={payload.sizing} />
           <DurableMarketAudit key={`market-${selected.id}`} runId={selected.id} active={selected.status === "RUNNING" || selected.status === "QUEUED"} tracked={(selected.payload.input_snapshot as { market_audit_version?: string } | undefined)?.market_audit_version === "1.0"} fallback={payload.valuation?.market_data} />
           {payload.failures?.includes("MISSING_REFERENCE_QUOTES") ? (
             <p className="banner banner-info">未配置可用行情或未获取到报价：可继续阅读研究意见，暂不能计算完整市值和建议数量。可在设置中配置已授权的行情源；没有 Tushare Token 不影响其他已配置功能。</p>

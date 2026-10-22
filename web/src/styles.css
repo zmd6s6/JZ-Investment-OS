@@ -28,6 +28,13 @@
   --font: "PingFang SC", "Microsoft YaHei UI", "Noto Sans SC", system-ui, sans-serif;
 }
 
+.valuation-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; }
+.valuation-summary > div { min-width: 0; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-sm); }
+.valuation-summary dt { color: var(--ink-soft); font-size: .85rem; }
+.valuation-summary dd { margin: 6px 0 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.analysis-table-scroll { min-width: 0; max-width: 100%; overflow-x: auto; }
+.analysis-table-scroll .data-table { display: table; min-width: 680px; }
+
 * {
   box-sizing: border-box;
 }
@@ -526,6 +533,7 @@ input:not([type]), input[type="url"] { width: 100%; border: 1px solid var(--line
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .banner-ok {

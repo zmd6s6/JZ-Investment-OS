@@ -75,15 +75,12 @@ class RefreshableTushareChain:
         *,
         list_profiles: Any,
         get_credential: Any,
-        volatility_default: Decimal = Decimal("0.20"),
     ) -> None:
         from investment_os.application.market_data import ChainedMarketDataPort
 
         self._list_profiles = list_profiles
         self._get_credential = get_credential
-        self._chain = ChainedMarketDataPort(
-            (InMemoryMarketDataAdapter(),), volatility_default=volatility_default
-        )
+        self._chain = ChainedMarketDataPort((InMemoryMarketDataAdapter(),))
 
     async def _refresh_sources(self) -> None:
         from investment_os.application.market_data import (
@@ -244,7 +241,6 @@ class TushareMarketDataAdapter:
                 source=self.name,
                 source_rank=0,
                 degraded=False,
-                volatility=Decimal("0.20"),
                 provider_detail=f"TUSHARE daily {ts_code} {trade_date}",
             )
         return found

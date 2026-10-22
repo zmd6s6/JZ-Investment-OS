@@ -103,6 +103,8 @@ test("market ordering controls actual selected sources, records fallback and pre
     expect(created.status()).toBe(201); ids.push((await created.json()).id);
   }
   // Select backup first, then move primary above it: displayed order must drive execution.
+  const held = await request.post(`/api/v1/portfolios/${portfolioId}/positions`, { headers, data: { market: "SSE", symbol: "600082", name: "后台合成标的", asset_type: "EQUITY", currency: "CNY", sector: "合成估值行业", core_quantity: "200", tactical_quantity: "50", average_cost: "10", core_average_cost: "10", tactical_average_cost: "10", core_reason: "合成估值测试", tactical_reason: "合成估值测试" } });
+  expect(held.status()).toBe(200);
   const id = await start(page, undefined, [names[1], names[0]], names[0]);
   await request.post("/api/v1/test-only/analysis/release", { headers });
   await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
@@ -110,9 +112,25 @@ test("market ordering controls actual selected sources, records fallback and pre
   expect(run.payload.input_snapshot.market_plan.profiles.map((p: { profile_id: string }) => p.profile_id)).toEqual(ids.slice(0, 2));
   expect(run.payload.valuation.market_data.attempts.map((p: { status: string }) => p.status)).toEqual(["NO_DATA", "SUCCEEDED"]);
   expect(run.payload.valuation.market_data.attempts[1].quotes[0].reference_price).toBe("12.3456789");
+  const exactValue = (value: string) => value.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+  expect(exactValue(run.payload.valuation.nav)).toBe("13086.419725");
+  expect(exactValue(run.payload.valuation.position_values[0].core_value)).toBe("2469.13578");
+  expect(exactValue(run.payload.valuation.position_values[0].tactical_value)).toBe("617.283945");
+  expect(run.payload.sizing.status).toBe("BLOCKED");
+  expect(run.payload.sizing.target_quantity).toBeUndefined();
+  expect(run.payload.sizing.reason_codes).toContain("VOLATILITY_INPUT_MISSING");
+  await expect(page.getByRole("table", { name: "冻结持仓估值明细" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "200 / 50", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "2469.13578 / 617.283945", exact: true })).toBeVisible();
+  await expect(page.getByText("暂不生成建议数量", { exact: true })).toBeVisible();
+  const frozenValuation = run.payload.valuation;
+  const changed = await request.put(`/api/v1/portfolios/${portfolioId}/cash`, { headers, data: { cash_balance: "20000" } });
+  expect(changed.status()).toBe(200);
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).market_profile_ids).toEqual(ids.slice(0, 2));
   await page.reload();
   await expect(page.getByRole("heading", { name: "行情调用记录", exact: true })).toBeVisible();
+  expect((await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json()).payload.valuation).toEqual(frozenValuation);
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
   await expect(page.getByText(`第 1 档 · ${names[0]}`, { exact: true })).toBeVisible();
   await expect(page.getByText(`第 2 档 · ${names[1]}`, { exact: true })).toBeVisible();
   const events = await (await request.get(`/api/v1/analysis-runs/${id}/market-attempts`, { headers })).json();

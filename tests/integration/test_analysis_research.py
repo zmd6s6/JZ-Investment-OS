@@ -118,6 +118,12 @@ async def test_completed_analysis_records_actual_agents_risk_and_immutable_links
     assert await port.work_once(execute)
     completed = await runs.get(run.id)
     assert completed.status == "SUCCEEDED"
+    assert completed.payload["valuation"]["calculation_version"] == "portfolio-valuation-v1"
+    assert completed.payload["valuation"]["nav"] is not None  # cash-only snapshot is known
+    assert completed.payload["valuation"]["target_reference_price"] is None
+    assert completed.payload["sizing"]["status"] == "BLOCKED"
+    assert "target_quantity" not in completed.payload["sizing"]
+    assert "SIZING_CONTEXT_INCOMPLETE" in completed.payload["failures"]
     strategy = run.payload["input_snapshot"]["governance"]["strategy"]
     assert completed.payload["decision"]["strategy_version_id"] == strategy["id"]
     assert completed.payload["decision"]["strategy_content_hash"] == strategy["content_hash"]
@@ -162,6 +168,8 @@ async def test_completed_analysis_records_actual_agents_risk_and_immutable_links
         job = await session.get(AnalysisJobRecord, run.id)
         token = job.worker_token
     before = gateway.calls
+    # Re-reading a completed result does not quote, call models or alter its valuation.
+    assert (await runs.get(run.id)).payload["valuation"] == completed.payload["valuation"]
     from investment_os.application.analysis_orchestrator import AnalysisRunResult
 
     await port._finish(run.id, token, AnalysisRunResult("FAILED", None, "LATE", "late"))

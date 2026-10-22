@@ -60,6 +60,7 @@ async def test_chain_uses_primary_then_marks_degraded_fallback() -> None:
     assert quotes[b].source == "SECONDARY"
     assert quotes[b].degraded is True
     assert quotes[b].source_rank == 1
+    assert quotes[a].volatility is None and quotes[b].volatility is None
 
 
 async def test_chain_falls_back_to_synthetic_when_real_sources_miss() -> None:
@@ -83,3 +84,11 @@ async def test_chain_falls_back_to_synthetic_when_real_sources_miss() -> None:
     )
     assert quotes[instrument_id].source == "SYNTHETIC"
     assert quotes[instrument_id].degraded is True
+
+
+async def test_chain_preserves_explicit_feature_instead_of_overwriting_with_default() -> None:
+    now, identity = datetime(2026, 10, 22, tzinfo=UTC), uuid4()
+    memory = InMemoryMarketDataAdapter()
+    memory.put(MarketQuote(identity, Decimal("10"), "CNY", now, "合成", volatility=Decimal("0.37")))
+    quotes = await ChainedMarketDataPort((memory,)).get_reference_quotes((identity,), as_of=now)
+    assert quotes[identity].volatility == Decimal("0.37")
