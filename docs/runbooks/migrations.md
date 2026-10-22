@@ -174,6 +174,26 @@ ADR-0030复用feature_snapshot和现有只追加Event / Audit / Outbox。输入�
 API / Worker / 页面同步交付；新只读execution-context可在失败后核对。旧报告不回填，旧代码队列仍受策略指纹守卫，回滚保留全部历史。
 无新服务、数据源、投资限额、策略激活或交易权限。所有者实例部署仍须独立备份 / 重启授权。
 
+### 本轮所有者实例受控升级记录
+
+2026-10-22，按本轮明确授权，代码53e4b16全部本地验证及远程六项CI通过后，18102 API / Worker同步升级至
+`personal-ai-investment-os:p6-context-53e4b16`（镜像482cf9c9dd12）。149个生产输入及页面构建文件已核对，运行不挂工作树。
+Schema仍为20261016_0017，无新增迁移；没有启用数据源、调用真实模型、合并PR或修改投资状态。
+
+本机备份位置：`.runtime/backups/p6-context-53e4b16-20261022/`（被Git忽略，不上传或公开）。
+其中包含PostgreSQL归档、原加密凭据 / 本机会话卷、业务表摘要、备份 / 部署核验记录、旧镜像回退覆盖及
+当前Windows账户DPAPI保护的恢复配置；不要把密文保护解除后写入日志或提交仓库。
+归档已实际恢复至独立库 `investment_os_p6_context_restorecheck_20261022`，57张表计数与内容摘要一致；该库保留用于核验，不是业务写入目标。
+升级后57张业务表及原凭据 / 全部会话授权业务行不变，Worker凭据卷只读。SQLite仅文件头计数变化不代表会话丢失，应比较授权表业务行。
+
+恢复路径已核对：旧API / Worker镜像标签分别为 `personal-ai-investment-os:p6-before-context-api-20261022` 与
+`personal-ai-investment-os:p6-before-context-worker-20261022`，备份的rollback-images.json固定原镜像ID，已验证Compose可解析。
+应用回退前先停止入队、核对并处理活动任务，再用加密恢复配置同步回退API / Worker / 页面；没有Schema降级需求，不删除新增历史。
+本轮固定目标脚本 `.runtime/p6_deploy_context_20261022.py` 的 `rollback-app` 模式仅回退应用，不恢复数据库或删除凭据 / 会话；
+使用前须重新确认目标与授权，不能把此记录当作未来操作授权。数据库真实恢复应先在隔离目标验证并另行明确授权，不能直接覆盖业务库。
+
+本轮验证仅部署健康、HTTP页面 / 业务只读、未授权401、历史报告不回填及数据保全；不代表真实提供方、GUI完整流程、断电恢复或P6整体接受。
+
 ## 验证查询（核心约束与当前版本）
 
 确认迁移 head 和可靠任务约束：
