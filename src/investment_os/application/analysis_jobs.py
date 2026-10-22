@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Literal, Protocol
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from investment_os.application.analysis_market import MarketRecorder
 from investment_os.application.analysis_orchestrator import AnalysisRequest, AnalysisRunResult
@@ -24,6 +24,12 @@ class AnalysisWorkItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
     schema_version: Literal["1.0"] = "1.0"
     request: AnalysisRequest
+
+    @model_validator(mode="after")
+    def no_stored_execution_lease(self) -> "AnalysisWorkItem":
+        if self.request.execution_lease is not None:
+            raise ValueError("execution lease is runtime-only")
+        return self
 
 
 class AnalysisJobError(ValueError):

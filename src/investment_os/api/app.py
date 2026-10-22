@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 
+from investment_os.application.analysis_execution_context import ExecutionContextView
 from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
 from investment_os.application.analysis_market import AnalysisMarketOptions, MarketAttemptEvent
 from investment_os.application.analysis_models import AnalysisModelOptions
@@ -1793,6 +1794,24 @@ def create_app(
             raise HTTPException(
                 status_code=503, detail="analysis_market_audit_unavailable"
             ) from error
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}/execution-context",
+        response_model=ExecutionContextView,
+        tags=["analysis"],
+    )
+    async def analysis_execution_context(run_id: UUID) -> ExecutionContextView:
+        from investment_os.application.errors import ApplicationError
+
+        product, _runs = _analysis_service_or_503()
+        try:
+            return await product.execution_context(run_id)
+        except ApplicationError as error:
+            raise _app_error_to_http(error) from None
+        except RuntimeError:
+            raise HTTPException(
+                status_code=503, detail="analysis_execution_context_unavailable"
+            ) from None
 
     @application.get(
         "/api/v1/analysis-runs/{run_id}/research-records",

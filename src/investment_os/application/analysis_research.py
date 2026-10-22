@@ -37,6 +37,8 @@ class ResearchRecordView(BaseModel):
     status: Literal["RECORDED", "NOT_RECORDED"]
     committee_session_id: UUID | None = None
     input_hash: str | None = None
+    runtime_input_hash: str | None = None
+    feature_snapshot_id: UUID | None = None
     agents: tuple[dict[str, object], ...] = ()
     risk: dict[str, object] | None = None
     decision_status: Literal["NOT_REGISTERED"] = "NOT_REGISTERED"

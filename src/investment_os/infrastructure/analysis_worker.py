@@ -13,6 +13,7 @@ from investment_os.application.market_data import InMemoryMarketDataAdapter
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
+from investment_os.infrastructure.analysis_execution_context import SqlAnalysisExecutionContexts
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
@@ -65,6 +66,7 @@ class AnalysisWorker:
             market_factory=market_factory,
             market_audit=SqlAnalysisMarketAudit(sessions),
             strategy_catalog=SqlAnalysisStrategies(sessions),
+            execution_context_store=SqlAnalysisExecutionContexts(sessions),
         )
         self.jobs = AnalysisJobService(SqlAlchemyAnalysisJobs(self._engine, sessions), product)
 

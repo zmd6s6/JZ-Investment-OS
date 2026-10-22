@@ -13,6 +13,7 @@ from investment_os.application.research_preview import content_hash
 from investment_os.domain.errors import DomainError
 from investment_os.domain.risk import RiskAssessment, RiskFlag, RiskFlagKind, RiskSeverity
 from investment_os.domain.values import UtcTimestamp
+from investment_os.infrastructure.analysis_execution_context import read_execution_context
 from investment_os.infrastructure.persistence.agent_observability import (
     agent_opinion_record_from_result,
     agent_run_record_from_result,
@@ -47,11 +48,24 @@ async def publish_research(
     session: AsyncSession,
     run: AnalysisRunRecord,
     research: CompletedResearch,
+    valuation: dict[str, Any] | None = None,
 ) -> dict[str, object]:
     """Caller owns the locked run and transaction; no independent commit here."""
     snapshot = run.payload_json["input_snapshot"]
+    execution = await read_execution_context(session, run)
+    runtime_hash = (
+        execution.receipt.runtime_input_hash if execution.receipt else snapshot["input_hash"]
+    )
+    if execution.valuation is not None and (
+        valuation is None
+        or any(
+            valuation.get(key) != value
+            for key, value in execution.valuation.model_dump(mode="json").items()
+        )
+    ):
+        raise invalid()
     if (
-        research.context.input_snapshot_hash != snapshot["input_hash"]
+        research.context.input_snapshot_hash != runtime_hash
         or research.context.instrument_id != run.instrument_id
         or research.context.as_of.value != run.as_of
         or research.assessment.as_of.value != run.as_of
@@ -110,8 +124,9 @@ async def publish_research(
         if (
             result.started_at is None
             or result.ended_at is None
+            or (execution.receipt is not None and execution.receipt.recorded_at > result.started_at)
             or result.ended_at < result.started_at
-            or request.input_snapshot_hash != snapshot["input_hash"]
+            or request.input_snapshot_hash != runtime_hash
             or result.opinion.instrument_id != run.instrument_id
             or result.opinion.as_of != research.context.as_of
         ):
@@ -221,12 +236,16 @@ async def publish_research(
         "schema_version": "1.0",
         "run_id": str(run.id),
         "input_hash": snapshot["input_hash"],
+        "runtime_input_hash": runtime_hash,
+        "feature_snapshot_id": str(execution.receipt.feature_snapshot_id)
+        if execution.receipt
+        else None,
         "committee_session_id": str(session_id),
         "risk_assessment_id": str(risk.id),
         "risk_content_hash": risk.content_hash,
         "agents": entries,
         "decision_status": "NOT_REGISTERED",
-        "limitations": ["STRATEGY_VERSION_NOT_LINKED", "FORMAL_DECISION_NOT_CREATED"],
+        "limitations": ["SIZING_CONTEXT_INCOMPLETE", "FORMAL_DECISION_NOT_CREATED"],
     }
     append_event(
         session,
@@ -275,6 +294,18 @@ class SqlAnalysisResearchReader:
                     limitations=("HISTORICAL_RECORDS_NOT_BACKFILLED",),
                 )
             manifest = event.payload_json
+            execution = await read_execution_context(session, run)
+            runtime_hash = (
+                execution.receipt.runtime_input_hash
+                if execution.receipt
+                else manifest["input_hash"]
+            )
+            if manifest.get(
+                "runtime_input_hash", manifest["input_hash"]
+            ) != runtime_hash or manifest.get("feature_snapshot_id") != (
+                str(execution.receipt.feature_snapshot_id) if execution.receipt else None
+            ):
+                raise invalid()
             committee = await session.get(
                 CommitteeSessionRecord, UUID(manifest["committee_session_id"])
             )
@@ -285,10 +316,18 @@ class SqlAnalysisResearchReader:
                 or risk.session_id != committee.id
                 or committee.correlation_id != run_id
                 or risk.correlation_id != run_id
-                or committee.input_snapshot_hash != manifest["input_hash"]
+                or committee.input_snapshot_hash != runtime_hash
                 or manifest["input_hash"] != run.payload_json["input_snapshot"]["input_hash"]
                 or committee.instrument_id != run.instrument_id
                 or risk.content_hash != manifest["risk_content_hash"]
+            ):
+                raise invalid()
+            if execution.valuation is not None and (
+                run.payload_json.get("context_hash") != runtime_hash
+                or any(
+                    run.payload_json.get("valuation", {}).get(key) != value
+                    for key, value in execution.valuation.model_dump(mode="json").items()
+                )
             ):
                 raise invalid()
             agents = []
@@ -301,7 +340,7 @@ class SqlAnalysisResearchReader:
                     or opinion.agent_run_id != agent.id
                     or agent.correlation_id != run_id
                     or opinion.correlation_id != run_id
-                    or agent.input_snapshot_hash != manifest["input_hash"]
+                    or agent.input_snapshot_hash != runtime_hash
                     or agent.agent_role != entry["role"]
                     or opinion.instrument_id != run.instrument_id
                 ):
@@ -378,7 +417,11 @@ class SqlAnalysisResearchReader:
                 run_id=run_id,
                 status="RECORDED",
                 committee_session_id=committee.id,
-                input_hash=committee.input_snapshot_hash,
+                input_hash=manifest["input_hash"],
+                runtime_input_hash=runtime_hash,
+                feature_snapshot_id=execution.receipt.feature_snapshot_id
+                if execution.receipt
+                else None,
                 agents=tuple(agents),
                 risk={
                     "id": str(risk.id),

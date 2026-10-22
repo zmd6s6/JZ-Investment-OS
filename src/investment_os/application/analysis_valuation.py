@@ -58,6 +58,7 @@ class AnalysisValuation(ValuationModel):
     status: Literal["OK", "PARTIAL", "FAILED"]
     as_of: datetime
     input_hash: str
+    instrument_id: UUID
     portfolio_id: UUID
     base_currency: str
     cash_balance: ExactDecimal
@@ -66,6 +67,7 @@ class AnalysisValuation(ValuationModel):
     gross_exposure: ExactDecimal | None
     cash_weight: ExactDecimal | None
     target_reference_price: ExactDecimal | None
+    target_currency: str
     target_quote_as_of: datetime | None
     target_core_weight: ExactDecimal | None
     target_tactical_weight: ExactDecimal | None
@@ -235,6 +237,7 @@ def build_analysis_valuation(
             else "OK",
             as_of=as_of,
             input_hash=digest(snapshot),
+            instrument_id=target_id,
             portfolio_id=portfolio.portfolio_id,
             base_currency=portfolio.base_currency,
             cash_balance=cash,
@@ -245,6 +248,7 @@ def build_analysis_valuation(
             else None,
             cash_weight=cash / nav if weights_known and nav else None,
             target_reference_price=target.reference_price if target else None,
+            target_currency=target_currency,
             target_quote_as_of=target.as_of if target else None,
             target_core_weight=target_position.core_weight if target_position else zero,
             target_tactical_weight=target_position.tactical_weight if target_position else zero,

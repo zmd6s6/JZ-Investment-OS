@@ -5,7 +5,7 @@ import { gateLabel, stanceLabel } from "./analysisLabels";
 
 type Agent = {stage:string;role:string;agent_run_id:string;opinion_id:string;status:string;error_code:string|null;model_name:string;prompt_version:string;prompt_hash:string;content_hash:string;started_at:string;ended_at:string;stance:string;confidence:string;observations:{claim:string;evidence_ids:string[]}[];unknowns:string[]};
 type Risk = {id:string;gate:string;content_hash:string;as_of:string;expires_at:string;veto:boolean;veto_codes:string[];hard_flags:unknown[];soft_flags:unknown[];evidence_ids:string[]};
-type Records = {run_id:string;status:"RECORDED"|"NOT_RECORDED";committee_session_id:string|null;input_hash:string|null;agents:Agent[];risk:Risk|null;decision_status:"NOT_REGISTERED"};
+type Records = {run_id:string;status:"RECORDED"|"NOT_RECORDED";committee_session_id:string|null;input_hash:string|null;runtime_input_hash?:string|null;feature_snapshot_id?:string|null;agents:Agent[];risk:Risk|null;decision_status:"NOT_REGISTERED"};
 const roles:Record<string,string>={MACRO:"宏观研究",INDUSTRY:"行业研究",FUNDAMENTAL:"基本面研究",MARKET_QUANT:"市场与量化",EVENT:"事件研究",DEVILS_ADVOCATE:"反方审查",PORTFOLIO:"组合经理",RISK:"风险经理"};
 const stages:Record<string,string>={ROUND_1:"第一轮",ROUND_2:"第二轮",PORTFOLIO:"委员会后 · 组合评估",RISK:"委员会后 · 风险评估"};
 
@@ -36,6 +36,7 @@ export function AnalysisResearch({runId}:{runId:string}) {
     {data?.status==="RECORDED"?<>
       <p>已保存委员会与风险主表 · {data.agents.length} 项角色运行</p>
       <p className="hint-text">委员会 ID：{data.committee_session_id} · 固定输入摘要：{data.input_hash}</p>
+      {data.feature_snapshot_id?<p className="hint-text">团队共享的 FeatureSnapshot：{data.feature_snapshot_id}<br/>实际模型输入摘要：{data.runtime_input_hash}；不同于仅含排队资料的请求摘要。</p>:<p className="hint-text">旧研究未关联本版模型前估值快照，不追补。</p>}
       {data.risk?<article className="evidence-card"><h4>已保存的风险评估 · {gateLabel(data.risk.gate)}</h4>
         <p>评估时点：{data.risk.as_of} · 历史有效期至：{data.risk.expires_at}</p>
         <p className="hint-text">Risk ID：{data.risk.id} · 内容摘要：{data.risk.content_hash}</p>

@@ -265,7 +265,9 @@ class SqlAlchemyAnalysisJobs:
             if not cancelled and result.status == "SUCCEEDED" and result.research is not None:
                 if result.payload is None:
                     raise ValueError("successful research requires report payload")
-                manifest = await publish_research(session, run, result.research)
+                manifest = await publish_research(
+                    session, run, result.research, result.payload.valuation
+                )
             run.payload_json = {
                 **run.payload_json,
                 **(
@@ -350,7 +352,9 @@ class SqlAlchemyAnalysisJobs:
                 )
                 if unavailable
                 else await execute(
-                    replace(work.request, budget_task_id=run_id), progress, market_record
+                    replace(work.request, budget_task_id=run_id, execution_lease=token),
+                    progress,
+                    market_record,
                 )
             )
         except AnalysisCancelled:

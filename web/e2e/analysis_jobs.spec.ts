@@ -47,6 +47,11 @@ test("real queued run survives navigation and reload, then displays actual stage
   await page.goto("/portfolio");
   await page.goto(`/analysis?run_id=${id}`);
   await expect(page.getByText(/当前阶段：第一轮/)).toBeVisible();
+  await page.getByRole("button", { name: "核对模型前估值快照", exact: true }).click();
+  await expect(page.getByText(/模型前上下文已固定/)).toBeVisible();
+  const prepared = await (await request.get(`/api/v1/analysis-runs/${id}/execution-context`, { headers })).json();
+  expect(prepared.status).toBe("RECORDED");
+  expect(prepared.receipt.feature_snapshot_id).toMatch(/^[a-f0-9-]{36}$/);
   await page.reload();
   await expect(page.getByText(/当前阶段：第一轮/)).toBeVisible();
   await request.post("/api/v1/test-only/analysis/release", { headers });
@@ -61,6 +66,8 @@ test("real queued run survives navigation and reload, then displays actual stage
   expect(records.status).toBe("RECORDED");
   expect(records.risk.gate).toBe("PASS");
   expect(records.agents).toHaveLength(8);
+  expect(records.feature_snapshot_id).toBe(prepared.receipt.feature_snapshot_id);
+  expect(records.runtime_input_hash).toBe(prepared.receipt.runtime_input_hash);
   await page.getByRole("button",{name:"重新读取研究记录",exact:true}).click();
   expect((await (await request.get(`/api/v1/analysis-runs/${id}/research-records`,{headers})).json())).toEqual(records);
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
@@ -167,7 +174,7 @@ for (const mode of ["cancel", "interrupt"] as const) {
     await expect(page.getByText(mode === "cancel" ? /报价齐全；查询/ : /已保存调用意图，结果未知/)).toBeVisible();
     const stats = await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json();
     expect(stats.market_profile_ids).toEqual([profileId]);
-    expect(stats.calls).toBe(8);
+    expect(stats.calls).toBe(0); // 行情准备早于模型，取消 / 中断不产生模型调用。
   });
 }
 
@@ -212,7 +219,11 @@ test("policy review and historical report expose fixed policy, formula and promp
   const finished = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
   expect(finished.payload.input_snapshot.governance).toEqual(governance);
   expect(finished.payload.decision.policy_content_hash).toBe(governance.policy.content_hash);
-  expect(finished.payload.context_hash).toBe(finished.payload.input_snapshot.input_hash);
+  const execution = await (await request.get(`/api/v1/analysis-runs/${id}/execution-context`, { headers })).json();
+  expect(execution.status).toBe("RECORDED");
+  expect(execution.receipt.request_input_hash).toBe(finished.payload.input_snapshot.input_hash);
+  expect(finished.payload.context_hash).toBe(execution.receipt.runtime_input_hash);
+  expect(finished.payload.context_hash).not.toBe(finished.payload.input_snapshot.input_hash);
   expect(["BUY", "ADD"]).not.toContain(finished.payload.decision.action);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);

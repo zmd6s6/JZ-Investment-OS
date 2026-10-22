@@ -36,6 +36,7 @@ from investment_os.domain.thesis import (
     ThesisContent,
     ThesisPillar,
 )
+from investment_os.infrastructure.analysis_execution_context import SqlAnalysisExecutionContexts
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
@@ -181,6 +182,7 @@ product = ProductAnalysisService(
     market_factory=market_factory,
     market_audit=SqlAnalysisMarketAudit(sessions),
     strategy_catalog=SqlAnalysisStrategies(sessions),
+    execution_context_store=SqlAnalysisExecutionContexts(sessions),
 )
 jobs = AnalysisJobService(SqlAlchemyAnalysisJobs(engine, sessions), product)
 app = create_fixture_app()

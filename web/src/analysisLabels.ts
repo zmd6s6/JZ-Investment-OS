@@ -7,6 +7,7 @@ export function tokenPriceLabel(value: unknown): string {
 }
 
 const FAILURE_LABELS: Record<string, string> = {
+  ANALYSIS_CONTEXT_RECORDING_FAILED: "模型前上下文保存失败，未调用模型；请核对行情费用和服务配置",
   SIZING_CONTEXT_INCOMPLETE: "仓位输入尚不完整，未生成建议数量",
   PRICE_FRESHNESS_UNVERIFIED: "报价的交易级新鲜度与真实可用时间尚未验证",
   VOLATILITY_INPUT_MISSING: "缺少可追溯的波动率特征，不使用固定 20%",

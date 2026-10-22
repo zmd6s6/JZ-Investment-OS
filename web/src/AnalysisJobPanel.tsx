@@ -6,7 +6,7 @@ import { readAnalysisJson } from "./analysisReads";
 type Run = { id: string; status: string; payload: Record<string, unknown>; failure_code: string | null; failure_detail: string | null; updated_at: string };
 type Event = { id: string; sequence: number; stage: string; state: string; occurred_at: string };
 const active = (status: string) => status === "QUEUED" || status === "RUNNING";
-const stages: Record<string, string> = { QUEUED: "后台排队", PREPARING: "核对冻结输入", ROUND_ONE: "第一轮 · 五位专家独立分析", CONFLICTS: "识别观点冲突", ROUND_TWO: "第二轮 · 定向质疑与反方审查", PORTFOLIO: "组合经理评估", RISK: "风险经理评估", VALUATION_SIZING: "确定性估值与仓位计算", CIO: "最终建议与规则闸门", CANCEL_REQUESTED: "已请求取消，等待阶段边界", FINISHED: "任务结束" };
+const stages: Record<string, string> = { QUEUED: "后台排队", PREPARING: "核对冻结输入、读取行情与保存估值", ROUND_ONE: "第一轮 · 五位专家独立分析", CONFLICTS: "识别观点冲突", ROUND_TWO: "第二轮 · 定向质疑与反方审查", PORTFOLIO: "组合经理评估", RISK: "风险经理评估", VALUATION_SIZING: "确定性估值与仓位计算", CIO: "最终建议与规则闸门", CANCEL_REQUESTED: "已请求取消，等待阶段边界", FINISHED: "任务结束" };
 const states: Record<string, string> = { STARTED: "开始", COMPLETED: "完成", FAILED: "失败", CANCELLED: "取消", REQUESTED: "请求已记录" };
 
 export function AnalysisJobPanel({ run, onUpdate }: { run: Run; onUpdate: (run: Run) => void }) {

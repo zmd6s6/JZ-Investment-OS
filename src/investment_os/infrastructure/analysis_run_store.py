@@ -110,7 +110,9 @@ class SqlAnalysisRunAdapter(AnalysisRunPort):
         if research is not None:
             if current.status != "RUNNING" or status != "SUCCEEDED" or payload is None:
                 raise ValueError("research requires an active successful finalization")
-            manifest = await publish_research(self._session, current, research)
+            manifest = await publish_research(
+                self._session, current, research, payload.get("valuation")
+            )
             payload = {**payload, "research_records": manifest}
         values: dict[str, Any] = {
             "status": status,

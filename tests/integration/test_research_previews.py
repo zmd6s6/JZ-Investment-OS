@@ -240,6 +240,10 @@ async def test_selected_inputs_are_frozen_before_models_and_cannot_be_rewritten(
             )
 
         monkeypatch.setattr("investment_os.application.analysis_product.execute_analysis", execute)
+        from investment_os.infrastructure.analysis_execution_context import (
+            SqlAnalysisExecutionContexts,
+        )
+
         product = ProductAnalysisService(
             inputs=SqlAlchemyAnalysisInputs(factory),
             portfolios=portfolios,
@@ -247,6 +251,7 @@ async def test_selected_inputs_are_frozen_before_models_and_cannot_be_rewritten(
             committee=None,
             market_data=None,
             catalog=catalog_port,
+            execution_context_store=SqlAnalysisExecutionContexts(factory),
         )
         run = await product.start(
             StartAnalysisInput(

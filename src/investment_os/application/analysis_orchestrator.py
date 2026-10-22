@@ -8,7 +8,7 @@ allows), and a CIO-gated shadow Decision. No orders, no policy mutation.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -22,6 +22,12 @@ from investment_os.application.analysis_context import (
     EvidenceSourceTier,
     freeze_analysis_context,
 )
+from investment_os.application.analysis_execution_context import (
+    FEATURE_SET,
+    ContextRecorder,
+    ExecutionContextFailure,
+    execution_input_hash,
+)
 from investment_os.application.analysis_governance import (
     AnalysisGovernancePlan,
     FrozenAnalysisPolicy,
@@ -33,7 +39,7 @@ from investment_os.application.analysis_models import ANALYSIS_ROLES, AnalysisMo
 from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.analysis_research import CompletedResearch
 from investment_os.application.analysis_thesis import AnalysisThesisInput
-from investment_os.application.analysis_valuation import build_analysis_valuation
+from investment_os.application.analysis_valuation import AnalysisValuation, build_analysis_valuation
 from investment_os.application.committee import (
     detect_stance_conflicts,
 )
@@ -221,6 +227,7 @@ def build_analysis_request_factory(
     model_plan: AnalysisModelPlan | None = None,
     governance: AnalysisGovernancePlan | None = None,
     thesis: AnalysisThesisInput | None = None,
+    valuation: AnalysisValuation | None = None,
 ) -> Any:
     """Build a request factory that embeds real research materials for agents."""
 
@@ -247,6 +254,17 @@ def build_analysis_request_factory(
             "evidence_ids": sorted(str(i) for i in role_input.context.visible_evidence_ids),
             "input_snapshot_hash": role_input.context.input_snapshot_hash,
         }
+        if valuation is not None:
+            payload["deterministic_portfolio_context"] = {
+                "feature_set_version": FEATURE_SET,
+                "valuation": valuation.model_dump(mode="json"),
+                "boundary": (
+                    "Program-computed portfolio context, not external Evidence "
+                    "or trading authority. "
+                    "Do not recalculate or fill unknowns. Factual observations still require "
+                    "visible evidence_ids. Market features and sizing remain incomplete."
+                ),
+            }
         if governance is not None:
             payload["policy"] = {
                 "label": governance.policy.label,
@@ -355,6 +373,7 @@ class AnalysisRequest:
     governance: AnalysisGovernancePlan | None = None
     input_snapshot_hash: str | None = None
     thesis: AnalysisThesisInput | None = None
+    execution_lease: UUID | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -614,6 +633,7 @@ async def execute_analysis(
     market_data: MarketDataPort,
     logger: Any | None = None,
     progress: AnalysisProgress | None = None,
+    context_recorder: ContextRecorder | None = None,
 ) -> AnalysisRunResult:
     """Run one full bounded analysis and return a serializable result."""
 
@@ -646,6 +666,22 @@ async def execute_analysis(
     )
     if request.input_snapshot_hash is not None:
         context = replace(context, input_snapshot_hash=request.input_snapshot_hash)
+
+    valuation_result = await _load_analysis_valuation(request, market_data)
+    runtime_hash = execution_input_hash(context.input_snapshot_hash, valuation_result)
+    if context_recorder is not None:
+        try:
+            receipt = await context_recorder(valuation_result)
+            if receipt.runtime_input_hash != runtime_hash:
+                raise ExecutionContextFailure("execution context receipt mismatch")
+        except ExecutionContextFailure:
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_CONTEXT_RECORDING_FAILED",
+                "模型前估值上下文保存失败, 未调用模型。已发行情请求可能计费, 请先核对记录。",
+            )
+    context = replace(context, input_snapshot_hash=runtime_hash)
 
     instrument_meta = {
         "instrument_id": str(request.instrument_id),
@@ -682,6 +718,7 @@ async def execute_analysis(
         model_plan=request.model_plan,
         governance=request.governance,
         thesis=request.thesis,
+        valuation=valuation_result,
     )
     if progress:
         await progress("PREPARING", "COMPLETED")
@@ -816,6 +853,7 @@ async def execute_analysis(
         risk_intent=_risk_intent_from_portfolio(pm.opinion if pm else None),
         assessment=assessment,
         thesis_state=thesis_state,
+        valuation=valuation_result,
     )
     failures.extend(valuation_failures)
     if progress:
@@ -987,15 +1025,10 @@ async def execute_analysis(
     )
 
 
-async def _build_valuation_and_sizing(
-    *,
+async def _load_analysis_valuation(
     request: AnalysisRequest,
     market_data: MarketDataPort,
-    proposed: Action,
-    risk_intent: RiskIntent,
-    assessment: RiskAssessment,
-    thesis_state: ThesisState,
-) -> tuple[dict[str, Any], dict[str, Any] | None, list[str]]:
+) -> AnalysisValuation:
     positions = request.portfolio.positions
     instrument_ids = tuple(
         sorted({p.instrument_id for p in positions} | {request.instrument_id}, key=str)
@@ -1012,13 +1045,28 @@ async def _build_valuation_and_sizing(
     quotes = await market_data.get_reference_quotes(
         instrument_ids, as_of=request.as_of, instruments=instruments
     )
-    valuation = build_analysis_valuation(
+    return build_analysis_valuation(
         portfolio=request.portfolio,
         target_id=request.instrument_id,
         target_currency=instruments[request.instrument_id][2],
         as_of=request.as_of,
         quotes=quotes,
     )
+
+
+async def _build_valuation_and_sizing(
+    *,
+    request: AnalysisRequest,
+    market_data: MarketDataPort,
+    proposed: Action,
+    risk_intent: RiskIntent,
+    assessment: RiskAssessment,
+    thesis_state: ThesisState,
+    valuation: AnalysisValuation | None = None,
+) -> tuple[dict[str, Any], dict[str, Any] | None, list[str]]:
+    positions = request.portfolio.positions
+    if valuation is None:
+        valuation = await _load_analysis_valuation(request, market_data)
     # These inputs have no authoritative product port yet. Never fill them with
     # zero sector exposure, full capacity, a default lot or guessed volatility.
     missing_inputs = [

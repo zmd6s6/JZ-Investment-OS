@@ -23,6 +23,7 @@ from investment_os.application.analysis_run import AnalysisRunService
 from investment_os.application.llm_gateway import LLMGatewayResponse
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.provider_settings import ProviderSettingsService
+from investment_os.infrastructure.analysis_execution_context import SqlAnalysisExecutionContexts
 from investment_os.infrastructure.analysis_inputs import SqlAlchemyAnalysisInputs
 from investment_os.infrastructure.analysis_jobs import SqlAlchemyAnalysisJobs
 from investment_os.infrastructure.analysis_market import PlannedMarketDataFactory
@@ -76,6 +77,7 @@ async def jobs_setup(engine):
         market_factory=markets,
         market_audit=SqlAnalysisMarketAudit(factory),
         strategy_catalog=SqlAnalysisStrategies(factory),
+        execution_context_store=SqlAnalysisExecutionContexts(factory),
     )
     port = SqlAlchemyAnalysisJobs(engine, factory)
     service = AnalysisJobService(port, product)
@@ -421,7 +423,7 @@ async def test_production_worker_composition_consumes_queue_and_persists_real_st
     migrated_database_url,
     monkeypatch,
 ):
-    _, _, runs, _, _, service, inp = await jobs_setup(database_engine)
+    _, _, runs, product, _, service, inp = await jobs_setup(database_engine)
     run = await service.submit(uuid4(), inp)
     calls = []
 
@@ -478,10 +480,18 @@ async def test_production_worker_composition_consumes_queue_and_persists_real_st
     assert result.status == "SUCCEEDED" and len(calls) == 8
     assert {request.budget_task_id for request in calls} == {run.id}
     assert all(request.model_binding is not None for request in calls)
+    execution = await product.execution_context(run.id)
+    assert execution.receipt.request_input_hash == run.payload["input_snapshot"]["input_hash"]
+    assert execution.receipt.runtime_input_hash != execution.receipt.request_input_hash
     assert all(
-        request.input_snapshot_hash == run.payload["input_snapshot"]["input_hash"]
+        request.input_snapshot_hash == execution.receipt.runtime_input_hash for request in calls
+    )
+    assert all(
+        json.loads(request.input_payload_json)["deterministic_portfolio_context"]["valuation"]
+        == execution.valuation.model_dump(mode="json")
         for request in calls
     )
+    assert all("execution_lease" not in json.loads(request.input_payload_json) for request in calls)
     assert all(
         json.loads(request.input_payload_json)["policy"]["content_hash"]
         == run.payload["input_snapshot"]["governance"]["policy"]["content_hash"]

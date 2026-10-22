@@ -107,6 +107,7 @@ def create_production_app() -> FastAPI:
     analysis_runs = AnalysisRunService(SessionAnalysisRunPort(session_factory))
 
     market_factory = PlannedMarketDataFactory(provider_settings_service, secret_store)
+    from investment_os.infrastructure.analysis_execution_context import SqlAnalysisExecutionContexts
     from investment_os.infrastructure.analysis_market_audit import SqlAnalysisMarketAudit
     from investment_os.infrastructure.analysis_strategy import SqlAnalysisStrategies
 
@@ -124,6 +125,7 @@ def create_production_app() -> FastAPI:
         market_factory=market_factory,
         market_audit=SqlAnalysisMarketAudit(session_factory),
         strategy_catalog=SqlAnalysisStrategies(session_factory),
+        execution_context_store=SqlAnalysisExecutionContexts(session_factory),
     )
 
     return create_app(

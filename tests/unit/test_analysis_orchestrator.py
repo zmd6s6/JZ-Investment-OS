@@ -160,7 +160,7 @@ def _portfolio(instrument_id: object) -> PortfolioView:
 
 
 @pytest.mark.asyncio
-async def test_execute_analysis_succeeds_with_synthetic_inputs() -> None:
+async def test_execute_analysis_succeeds_with_synthetic_inputs(monkeypatch) -> None:
     from investment_os.application.analysis_orchestrator import default_registry
 
     instrument_id = uuid4()
@@ -185,6 +185,14 @@ async def test_execute_analysis_succeeds_with_synthetic_inputs() -> None:
         for role in roles_round_one + extra_roles
     )
     gateway = SyntheticLLMGateway(responses)
+    calls = []
+    complete = gateway.complete
+
+    async def capture(req):
+        calls.append(req)
+        return await complete(req)
+
+    monkeypatch.setattr(gateway, "complete", capture)
     committee = CommitteeRuntime(agent_runtime=AgentRuntime(registry=registry, gateway=gateway))
 
     adapter = InMemoryMarketDataAdapter()
@@ -216,6 +224,14 @@ async def test_execute_analysis_succeeds_with_synthetic_inputs() -> None:
     )
 
     events = []
+    quote_calls = []
+    get_quotes = adapter.get_reference_quotes
+
+    async def capture_quotes(*args, **kwargs):
+        quote_calls.append(args)
+        return await get_quotes(*args, **kwargs)
+
+    monkeypatch.setattr(adapter, "get_reference_quotes", capture_quotes)
 
     async def progress(stage, state):
         events.append((stage, state))
@@ -242,6 +258,15 @@ async def test_execute_analysis_succeeds_with_synthetic_inputs() -> None:
     assert "SIZING_CONTEXT_INCOMPLETE" in payload["failures"]
     assert "INSUFFICIENT_VALUATION_FOR_EXPOSURE" in payload["failures"]
     assert payload["decision"]["action"] not in {"BUY", "ADD"}
+    import json
+
+    assert len(quote_calls) == 1 and len(calls) == 8
+    assert all(r.input_snapshot_hash == payload["context_hash"] for r in calls)
+    assert all(
+        json.loads(r.input_payload_json)["deterministic_portfolio_context"]["valuation"]
+        == payload["valuation"]
+        for r in calls
+    )
     assert payload["risk"]["gate"] in {"PASS", "VETO", "UNKNOWN"}
     assert payload["policy_version_label"] == "TEST_DEFAULT"
     assert events == [
@@ -345,6 +370,42 @@ async def test_execute_analysis_fails_without_evidence() -> None:
     )
     assert result.status == "FAILED"
     assert result.failure_code == "INSUFFICIENT_EVIDENCE"
+
+
+async def test_execution_context_commit_failure_stops_before_any_model(monkeypatch):
+    from investment_os.application.analysis_execution_context import ExecutionContextFailure
+    from investment_os.application.analysis_orchestrator import default_registry
+
+    identity = uuid4()
+    request = AnalysisRequest(
+        identity,
+        uuid4(),
+        _portfolio(identity),
+        NOW,
+        "TEST_DEFAULT",
+        (AnalysisEvidenceSource(uuid4(), "a" * 64, NOW - timedelta(hours=1)),),
+    )
+    gateway = SyntheticLLMGateway(())
+    calls = []
+
+    async def forbidden(request):
+        calls.append(request)
+        raise AssertionError("model must not be called")
+
+    async def fail_context(value):
+        raise ExecutionContextFailure("synthetic commit failure")
+
+    monkeypatch.setattr(gateway, "complete", forbidden)
+    result = await execute_analysis(
+        request,
+        committee=CommitteeRuntime(
+            agent_runtime=AgentRuntime(registry=default_registry(), gateway=gateway)
+        ),
+        market_data=InMemoryMarketDataAdapter(),
+        context_recorder=fail_context,
+    )
+    assert result.status == "FAILED" and result.failure_code == "ANALYSIS_CONTEXT_RECORDING_FAILED"
+    assert calls == []
 
 
 def test_agent_prompt_embeds_full_agentopinion_contract() -> None:

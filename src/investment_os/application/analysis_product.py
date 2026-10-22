@@ -7,6 +7,13 @@ from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from uuid import UUID
 
+from investment_os.application.analysis_execution_context import (
+    AnalysisExecutionContextStore,
+    ContextRecorder,
+    ExecutionContextFailure,
+    ExecutionContextReceipt,
+    ExecutionContextView,
+)
 from investment_os.application.analysis_governance import (
     AnalysisStrategyCatalog,
     FrozenAnalysisPolicy,
@@ -33,8 +40,9 @@ from investment_os.application.analysis_orchestrator import (
     execute_analysis,
     freeze_governance,
 )
-from investment_os.application.analysis_progress import AnalysisProgress
+from investment_os.application.analysis_progress import AnalysisCancelled, AnalysisProgress
 from investment_os.application.analysis_run import AnalysisRunRead, AnalysisRunService
+from investment_os.application.analysis_valuation import AnalysisValuation
 from investment_os.application.committee_runtime import CommitteeRuntime
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.instrument_catalog import InstrumentCatalogPort
@@ -78,6 +86,7 @@ class ProductAnalysisService:
         market_factory: AnalysisMarketFactory | None = None,
         market_audit: MarketAuditPort | None = None,
         strategy_catalog: AnalysisStrategyCatalog | None = None,
+        execution_context_store: AnalysisExecutionContextStore | None = None,
     ) -> None:
         self._inputs, self._portfolios, self._runs = inputs, portfolios, analysis_runs
         self._committee, self._market_data, self._catalog = committee, market_data, catalog
@@ -86,6 +95,13 @@ class ProductAnalysisService:
         self._markets, self._market_factory = market_configuration, market_factory
         self._market_audit = market_audit
         self._strategies = strategy_catalog
+        self._execution_contexts = execution_context_store
+
+    async def execution_context(self, run_id: UUID) -> ExecutionContextView:
+        await self._runs.get(run_id)
+        if self._execution_contexts is None:
+            raise RuntimeError("execution context store unavailable")
+        return await self._execution_contexts.read(run_id)
 
     async def market_events(self, run_id: UUID) -> tuple[MarketAttemptEvent, ...]:
         await self._runs.get(run_id)
@@ -352,11 +368,40 @@ class ProductAnalysisService:
                 )
             market_data = self._market_factory.for_plan(plan, attempts.append, market_record)
         try:
+            recorder: ContextRecorder | None = None
+            if request.budget_task_id is not None:
+                if self._execution_contexts is None:
+                    raise ExecutionContextFailure("execution context store unavailable")
+
+                async def record_context(value: AnalysisValuation) -> ExecutionContextReceipt:
+                    assert (
+                        self._execution_contexts is not None and request.budget_task_id is not None
+                    )
+                    try:
+                        return await self._execution_contexts.save(
+                            request.budget_task_id,
+                            value,
+                            worker_token=request.execution_lease,
+                        )
+                    except AnalysisCancelled:
+                        raise
+                    except Exception:
+                        raise ExecutionContextFailure("execution context commit failed") from None
+
+                recorder = record_context
             result = await execute_analysis(
                 request,
                 committee=self._committee,
                 market_data=market_data,
-                **({"progress": progress} if progress is not None else {}),
+                progress=progress,
+                context_recorder=recorder,
+            )
+        except ExecutionContextFailure:
+            return AnalysisRunResult(
+                "FAILED",
+                None,
+                "ANALYSIS_CONTEXT_RECORDING_FAILED",
+                "模型前上下文存储未装配, 未调用模型。请检查服务配置, 不需要更换令牌。",
             )
         except MarketAuditFailure:
             return AnalysisRunResult(

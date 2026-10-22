@@ -15,6 +15,7 @@ import { DurableMarketAudit } from "./AnalysisMarketAudit";
 import { AnalysisGovernance } from "./AnalysisGovernance";
 import { AnalysisThesis } from "./AnalysisThesis";
 import { AnalysisResearch } from "./AnalysisResearch";
+import { AnalysisExecutionContext } from "./AnalysisExecutionContext";
 import { AnalysisValuation } from "./AnalysisValuation";
 
 const roleNames: Record<string, string> = { MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官" };
@@ -324,6 +325,7 @@ export function AnalysisPage() {
 
           {selected.status==="SUCCEEDED"?<section className="context-note"><a className="btn" href={`/thesis?instrument_id=${encodeURIComponent(selected.instrument_id)}&analysis_run_id=${encodeURIComponent(selected.id)}`}>将团队观点整理为投资逻辑草稿</a><p className="hint-text">只读取本次已保存的观点，需逐条勾选、核对并明确保存；不重跑模型、不自动修改逻辑或批准交易。</p></section>:null}
           <AnalysisResearch key={`research-${selected.id}`} runId={selected.id}/>
+          <AnalysisExecutionContext key={`execution-${selected.id}`} runId={selected.id}/>
           <h3>团队协作与分歧</h3>
           <p className="context-note">协作协议：专家独立分析 → 冲突检测 → 定向质疑与反方审查（最多两轮）→ 组合经理 / 风险经理 → 确定性规则 → 最终建议。此处说明协议，不代表实时执行进度。</p>
           {payload.conflicts?.length ? <ul className="tip-list">{(payload.conflicts as Record<string, unknown>[]).map((conflict, index) => <li key={index}>分歧类型 {String(conflict.kind ?? "未提供")} · 参与角色 {Array.isArray(conflict.roles) ? conflict.roles.map((role) => roleNames[String(role)] ?? String(role)).join("、") : "未提供"}</li>)}</ul> : <p className="hint-text">本报告未提供冲突记录；这不代表所有角色观点一致。</p>}
