@@ -82,6 +82,7 @@
   - Ruff格式321文件 / 检查、mypy122文件、OpenAPI / Policy Schema --check、Compose config / diff检查通过；OpenAPI仅增加路由与响应DTO，无迁移 / 锁 / 生产依赖 / Prompt / AgentOpinion输出 / 投资规则变化。只读密钥扫描420文件新增0，不改扫描基线；pip-audit正常重试后无已知漏洞（非PyPI本项目自身跳过）。
   - 命令：`.venv/Scripts/python.exe .runtime/run_daily_tmpfs_tests_20261023.py -xq`（固定15435本轮合成内存盘库），`scripts/check_domain_coverage.py`；前端 `npm test -- --pool=threads --maxWorkers=1 --reporter=dot`、`npm run build`。Chrome设置E2E_SYNTHETIC_ANALYSIS=1 / 18107 / 合成访问令牌，执行 `analysis_jobs / onboarding / settings / portfolio_watchlist / interaction_feedback / product_journey / thesis --workers=1`，输出保留 `.runtime/citation-browser-20261023`。
   - 保留中间失败：首轮前端126通过 / 1失败，原测试按平铺文本定位引用，改为核对嵌套引用完整内容；第二轮127通过但构建发现RTL不支持exact选项，移除不支持参数（字符串名称仍精确匹配），最终127项与构建通过，不放宽风险断言。pip-audit首次PyPI TLS EOF失败，未关闭证书验证 / 改代理，正常重试通过。jsdom导航与既有Starlette兼容警告不当作浏览器证据。
+  - 首次远程质量检查在密钥扫描拦截合成拒绝投影测试的api_key字符串（must-not-project），不是实际凭据；仅为该行添加明确合成夹具的pragma，不改扫描规则 / 基线、不移除负向断言。本机只读扫描此前新增0不能替代CI扫描；标准hook复跑未发现新秘密，但Windows自动修剪已有.env示例基线而退出3，不冒充通过。已原样恢复工具自行更改的基线并核对无diff，随后重新推送远程Linux完整复验。
   - 使用锁一致53e4b16缓存完整镜像作隔离运行时，只读挂本轮src / tests / dist，不冒充新完整交付镜像。核对ID后清理本轮18107 API、15435 PostgreSQL及专用网络；--rm内存盘仅合成数据不可恢复，测试输出保留，所有者数据未删除。18102仍为53e4b16，不复用旧部署授权，无真实付费模型 / 来源调用。原生研究、本机会话浏览器、断电恢复及真实提供方本轮NOT VERIFIED。
   - 本纵切可审阅，P6仍IN_PROGRESS；完整市场特征 / FX / 仓位、已批准策略、正式Decision与整体验收未完成，不进入P7 / PR-09。远程CI以本轮新提交为准。
 

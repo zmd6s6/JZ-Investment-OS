@@ -7,7 +7,7 @@ def test_text_projection_is_allowlisted_and_preserves_plain_untrusted_html():
     raw = {
         "summary": "<script>synthetic-only</script>",
         "content": "合成正文",
-        "api_key": "must-not-project",
+        "api_key": "must-not-project",  # pragma: allowlist secret - 合成拒绝投影夹具, 非凭据
         "headers": {"Authorization": "must-not-project"},
         "nested": {"content": "must-not-project"},
     }
