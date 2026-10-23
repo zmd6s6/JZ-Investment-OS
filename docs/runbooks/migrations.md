@@ -1,5 +1,26 @@
 # 数据库迁移与恢复运行手册
 
+## 18102本轮受控升级记录（2026-10-23，49c824a）
+
+所有者本轮明确允许备份、核验恢复、同步升级并重启；该授权已执行完毕，不自动延续到以后部署。
+API / Worker现为同一完整镜像 `personal-ai-investment-os:p6-history-49c824a`（bf4945f4f536），153个生产输入 / 页面文件已核对，无工作树挂载。
+Schema仍20261016_0017；API18102 / PostgreSQL15433保持回环，Worker凭据卷只读，未设置调度日历。
+
+备份路径：`.runtime/backups/p6-history-49c824a-20261023/`，Git忽略、不上传，目录ACL限当前Windows账户和SYSTEM。
+包含数据库自定义归档、原凭据 / 会话卷、表计数 / 摘要、backup / deployment / surface核验JSON和DPAPI加密恢复配置。
+恢复环境 / 主密钥只以当前Windows账户DPAPI密文保存，不可写入日志或明文环境文件；这不是跨账户 / 跨机灾难恢复保证。
+归档已实际恢复到独立库 `investment_os_p6_history_restorecheck_20261023`，57张业务表计数 / 内容摘要一致；该库保留，不是业务写入目标。
+
+升级后57表、原凭据密文、全部会话 / 授权事件保持一致，两端原4项凭据可解密。SQLite仅文件头变更计数变化，不能据此误判会话丢失。
+6个页面路由、2个静态资源、实际新Schema / 受保护读取 / 未授权401通过，10份旧报告不补造上下文，活动分析任务0。
+未新建会话、开启来源、调用模型 / 行情、改变投资政策 / 持仓或合并PR；HTTP读取与健康不替代完整GUI或P6验收。
+
+旧镜像标签为 `personal-ai-investment-os:p6-before-history-api-20261023` 与 `personal-ai-investment-os:p6-before-history-worker-20261023`，
+原镜像ID固定在本轮备份rollback-images.json，Compose已核验可解析。
+未来需要应用回退时，先取得相应授权、停止入队并核对 / 处理活动任务，再使用本轮固定目标脚本
+`.runtime/p6_deploy_history_20261023.py rollback-app` 同步回退API / Worker / 页面；不自动恢复数据库、降级Schema或删除新增历史。
+实际数据库恢复先在独立目标校验，再请求明确切换决定，禁止直接覆盖业务库。
+
 ## P6 显式目标历史日线（2026-10-23，无新迁移）
 
 ADR-0033 扩展分析提交include_market_history（默认false，严格布尔）与market_plan可选history_target_id。
