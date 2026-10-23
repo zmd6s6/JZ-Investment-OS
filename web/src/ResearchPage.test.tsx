@@ -53,7 +53,7 @@ describe("页面化研究资料", () => {
     expect(posts).toHaveLength(1);
     expect(posts[0][0]).toBe(`/api/v1/research/providers/${profile.id}/preview`);
     expect(JSON.parse(posts[0][1]!.body as string)).toMatchObject({ query: "合成公开查询", instrument_id: a.instrument_id, max_results: 5 });
-    await act(async () => release(json(draft)));
+    await act(async () => release(json({ ...draft, preview_id: JSON.parse(posts[0][1]!.body as string).request_id })));
     expect(await screen.findByRole("checkbox", { name: "保存候选 合成公告" })).not.toBeChecked();
     expect(screen.getByRole("button", { name: "仅保存所选资料" })).toBeDisabled();
     expect(screen.getByText("这个标的还没有已存资料")).toBeVisible();
