@@ -38,6 +38,11 @@ test("human thesis create, revise, reload and feed the frozen version into team 
   expect(first.versions).toHaveLength(1);
   await page.getByLabel("长期投资逻辑摘要").fill("合成长期逻辑第二版");
   await page.getByLabel("逻辑状态",{exact:true}).selectOption("STRENGTHENING");
+  await page.getByText("保存前核对修改（2 项）",{exact:true}).click();
+  const preview=page.locator("details").filter({has:page.getByText("保存前核对修改（2 项）",{exact:true})});
+  await expect(preview.getByText("合成长期逻辑第一版",{exact:true})).toBeVisible();
+  await expect(preview.getByText("合成长期逻辑第二版",{exact:true})).toBeVisible();
+  expect((await (await request.get(`/api/v1/theses/${id}/workspace`,{headers})).json()).versions).toHaveLength(1);
   await page.getByRole("button",{name:"保存投资逻辑新版本",exact:true}).click();
   await expect(page.getByText("已保存投资逻辑版本 2，历史未被覆盖。",{exact:true})).toBeVisible();
   await page.reload();

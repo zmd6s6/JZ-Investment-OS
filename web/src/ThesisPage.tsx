@@ -4,6 +4,7 @@ import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { readAnalysisJson } from "./analysisReads";
 import { apiFetch, readApiError } from "./writeApi";
 import { TeamThesisDraft, TeamSource, TeamSuggestion } from "./TeamThesisDraft";
+import { ThesisDraftChanges } from "./ThesisDraftChanges";
 
 type Claim = { description: string; evidence_ids: string[] };
 type Pillar = { key: string; claim: Claim; status: string };
@@ -150,6 +151,7 @@ export function ThesisPage() {
         <button type="button" className="btn" disabled={draft.invalidation_conditions.length>=20} onClick={()=>change({...draft,invalidation_conditions:[...draft.invalidation_conditions,{condition:"",measurement:"",threshold:"",window:""}]})}>添加失效条件</button>
         <label>持续观察事项（每行一项，最多20项）<textarea value={draft.monitoring_conditions.join("\n")} onChange={e=>change({...draft,monitoring_conditions:e.target.value.split("\n")})}/></label>
         <p className="hint-text">摘要是人工判断；每个事实主张单独关联证据。保存只更新逻辑版本，不会重新运行已有分析。</p>
+        <ThesisDraftChanges before={current?.content??null} after={draft}/>
         <button type="submit" className="btn primary">{saving?"正在保存…":"保存投资逻辑新版本"}</button>
       </fieldset></form>
     </Panel>:null}

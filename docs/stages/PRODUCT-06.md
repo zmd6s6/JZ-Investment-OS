@@ -74,6 +74,14 @@
 
 ## 实施记录
 
+- 2026-10-23（团队辅助草稿的保存前对照，沿用ADR-0025 / 0028）：
+  - 工作台保存按钮前新增只读对照，逐字段显示摘要 / 状态、支柱和证据、催化剂 / 风险、失效条件、监控项与原因的载入值及草稿值；未改字段不列出。新建无基准和无修改分别提示。普通文本显示，不执行外部HTML，不改原输入、不发请求、不自动改变任何状态或创建版本。
+  - 这是结构化字段对照，不冒充团队自动语义裁决、服务端正式diff或批准。仍由原保存路径执行证据 / 状态机 / 基准CAS / 幂等回执 / 事务；没有新增后端、公共Schema、迁移、依赖或投资规则。
+  - 前端完整140/140及生产构建通过；Chrome thesis.spec.ts串行3/3（22.7秒），实际查看两项修改前后值、核对查看后仍只有原版本，再保存 / 刷新、核对旧历史和模型输入；同时回归旧编辑器拒绝覆盖、团队观点人工保存与390px布局。真实PostgreSQL / 队列配合合成模型，无真实付费调用。
+  - Ruff格式 / 检查、mypy123文件、OpenAPI / Policy Schema --check、Compose config和diff检查通过；标准密钥扫描结果以本轮工具输出为准。命令：web下npm test -- --pool=threads --maxWorkers=1 --reporter=dot、npm run build；隔离18107 / 15435、E2E_SYNTHETIC_ANALYSIS=1 / Chrome，npm run test:e2e -- thesis.spec.ts --workers=1，输出.runtime/thesis-draft-changes-20261023。
+  - 完整后端、其余浏览器矩阵、新交付镜像、真实供应商及所有者GUI本轮NOT VERIFIED，不借上轮通过数。开发时修正null合并与逻辑或混用的语法优先级后再完成构建。仅本轮命名合成栈，未改变18102 / 凭据 / 会话；P6仍IN_PROGRESS，自动团队更新、正式Decision与完整Sizing等继续待完成，不进入P7。
+  - 标准密钥扫描429文件通过，原基线无diff。已核对完整容器ID后清理本轮原生18107服务与15435内存盘测试库；仅合成数据不可恢复，浏览器输出保留，无所有者数据删除。
+
 - 2026-10-23（本轮另行授权后的18102多来源版本部署，代码55c2062）：
   - 所有者明确回复「允许本轮备份、同步升级并重启」。部署前当前55c2062的push / PR两轮quality / compose-smoke / secrets共六项SUCCESS、工作树干净；只做受控部署，不合并PR、启用来源或调用真实付费提供方。
   - 完整Dockerfile构建 `personal-ai-investment-os:p6-multisource-55c2062`，实际镜像ffe3a1876969；153个生产源码 / 迁移 / 配置 / 锁 / README与页面构建文件核对一致，无工作树挂载。锁定依赖和Python3.12.15，新JS为index-B32dN3pL.js；不是此前隔离测试运行时的热挂载部署。
