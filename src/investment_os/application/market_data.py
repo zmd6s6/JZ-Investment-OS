@@ -18,6 +18,7 @@ from typing import Protocol
 from uuid import UUID
 
 from investment_os.application.market_features import DailyMarketBar
+from investment_os.application.market_history import MarketHistory
 from investment_os.domain.values import exact_decimal
 
 
@@ -31,6 +32,7 @@ class QuoteRequest:
     market: str
     symbol: str
     expected_currency: str = "CNY"
+    include_history: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +47,7 @@ class MarketQuote:
     volatility: Decimal | None = None
     provider_detail: str = ""
     daily_bar: DailyMarketBar | None = None
+    history: MarketHistory | None = None
 
 
 class MarketDataSourcePort(Protocol):
@@ -175,6 +178,16 @@ def ensure_price(value: Decimal | str | int, field: str = "price") -> Decimal:
 
 
 def ensure_daily_bar(quote: MarketQuote) -> None:
+    if quote.history is not None:
+        history = MarketHistory.model_validate(
+            {name: getattr(quote.history, name) for name in MarketHistory.model_fields}
+        )
+        if (
+            history.instrument_id != quote.instrument_id
+            or history.reference_at != quote.as_of
+            or (history.bars and history.bars[-1].close != quote.reference_price)
+        ):
+            raise ValueError("history does not match reference quote")
     if quote.daily_bar is None:
         return
     bar = DailyMarketBar.model_validate(
@@ -184,6 +197,7 @@ def ensure_daily_bar(quote: MarketQuote) -> None:
         bar.instrument_id != quote.instrument_id
         or bar.as_of != quote.as_of
         or bar.close != quote.reference_price
+        or (quote.history is not None and quote.history.bars and quote.history.bars[-1] != bar)
     ):
         raise ValueError("daily bar does not match reference quote")
 

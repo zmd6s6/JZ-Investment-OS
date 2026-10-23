@@ -142,6 +142,10 @@ class SqlAnalysisExecutionContexts:
             ):
                 raise invalid()
             frozen_book = TypeAdapter(PortfolioView).validate_json(json.dumps(book))
+            if valuation.target_historical_features is not None and (
+                snapshot.get("market_plan") or {}
+            ).get("history_target_id") != str(run.instrument_id):
+                raise invalid()
             quotes = {
                 p.instrument_id: MarketQuote(
                     p.instrument_id,
@@ -172,6 +176,9 @@ class SqlAnalysisExecutionContexts:
                     bool(valuation.degraded),
                     daily_bar=valuation.target_market_features.bar
                     if valuation.target_market_features is not None
+                    else None,
+                    history=valuation.target_historical_features.history
+                    if valuation.target_historical_features is not None
                     else None,
                 )
             expected = build_analysis_valuation(

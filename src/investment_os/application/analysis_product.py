@@ -62,6 +62,7 @@ class StartAnalysisInput:
     model_configuration_hash: str | None = None
     market_profile_ids: tuple[UUID, ...] | None = None
     market_configuration_hash: str | None = None
+    include_market_history: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,14 +131,20 @@ class ProductAnalysisService:
 
     async def prepare(self, inp: StartAnalysisInput) -> PreparedAnalysis:
         if self._markets is None and (
-            inp.market_profile_ids is not None or inp.market_configuration_hash is not None
+            inp.market_profile_ids is not None
+            or inp.market_configuration_hash is not None
+            or inp.include_market_history
         ):
             raise ApplicationError(
                 ApplicationErrorCode.ANALYSIS_MARKET_CONFIGURATION_INVALID,
                 "market configuration unavailable",
             )
         market_plan = (
-            await self._markets.freeze(inp.market_profile_ids or (), inp.market_configuration_hash)
+            await self._markets.freeze(
+                inp.market_profile_ids or (),
+                inp.market_configuration_hash,
+                history_target_id=inp.instrument_id if inp.include_market_history else None,
+            )
             if self._markets
             else None
         )
@@ -339,6 +346,11 @@ class ProductAnalysisService:
         if self._market_factory is not None:
             plan = request.market_plan or AnalysisMarketPlan()
             try:
+                if plan.history_target_id not in (None, request.instrument_id):
+                    raise ApplicationError(
+                        ApplicationErrorCode.ANALYSIS_MARKET_CONFIGURATION_INVALID,
+                        "history target differs from analysis",
+                    )
                 if self._markets is None:
                     raise ApplicationError(
                         ApplicationErrorCode.ANALYSIS_MARKET_CONFIGURATION_CHANGED,

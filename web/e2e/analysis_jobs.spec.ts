@@ -27,7 +27,7 @@ test.beforeEach(async ({ page, request }) => {
 });
 test.afterEach(async ({ request }) => { await request.post("/api/v1/test-only/analysis/release", { headers }); await request.post("/api/v1/test-only/analysis/market-release", { headers }); });
 
-async function start(page: import("@playwright/test").Page, modelId?: string, marketNames?: string[], moveUp?: string) {
+async function start(page: import("@playwright/test").Page, modelId?: string, marketNames?: string[], moveUp?: string, history = false) {
   await page.goto(`/research?instrument_id=${instrumentId}`);
   await page.getByRole("checkbox", { name: `用于本次分析 ${evidenceTitle}`, exact: true }).check();
   await page.getByRole("button", { name: "选择组合并分析" }).click();
@@ -35,6 +35,8 @@ async function start(page: import("@playwright/test").Page, modelId?: string, ma
   if (modelId) await page.getByLabel("本次分析模型").selectOption(modelId);
   for (const name of marketNames ?? []) await page.getByRole("checkbox", { name: `使用行情源 ${name} · TUSHARE_MARKET`, exact: true }).check();
   if (moveUp) await page.getByRole("button", { name: `上移 ${moveUp}`, exact: true }).click();
+  await expect(page.getByRole("checkbox", { name: "读取目标历史日线", exact: true })).not.toBeChecked();
+  if (history) await page.getByRole("checkbox", { name: "读取目标历史日线", exact: true }).check();
   await page.getByRole("button", { name: "确认启动分析" }).click();
   await expect(page).toHaveURL(/\/analysis\?run_id=[0-9a-f-]+$/);
   return new URL(page.url()).searchParams.get("run_id")!;
@@ -131,7 +133,7 @@ test("market ordering controls actual selected sources, records fallback and pre
   // Select backup first, then move primary above it: displayed order must drive execution.
   const held = await request.post(`/api/v1/portfolios/${portfolioId}/positions`, { headers, data: { market: "SSE", symbol: "600082", name: "后台合成标的", asset_type: "EQUITY", currency: "CNY", sector: "合成估值行业", core_quantity: "200", tactical_quantity: "50", average_cost: "10", core_average_cost: "10", tactical_average_cost: "10", core_reason: "合成估值测试", tactical_reason: "合成估值测试" } });
   expect(held.status()).toBe(200);
-  const id = await start(page, undefined, [names[1], names[0]], names[0]);
+  const id = await start(page, undefined, [names[1], names[0]], names[0], true);
   await request.post("/api/v1/test-only/analysis/release", { headers });
   await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
   const run = await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json();
@@ -153,8 +155,15 @@ test("market ordering controls actual selected sources, records fallback and pre
   expect(daily.source).toBe(names[1]);
   expect(daily.source_rank).toBe(1); expect(daily.degraded).toBe(true);
   expect(daily.sizing_ready).toBe(false);
+  const historical = run.payload.valuation.target_historical_features;
+  expect(run.payload.input_snapshot.market_plan.history_target_id).toBe(instrumentId);
+  expect(historical.sample_count).toBe(20); expect(historical.mean_volume_shares).toBe("12345");
+  expect(historical.mean_turnover).toBe("152407.405"); expect(historical.sizing_ready).toBe(false);
+  await expect(page.getByRole("region", { name: "历史行情统计", exact: true })).toBeVisible();
   const preparedDaily = await (await request.get(`/api/v1/analysis-runs/${id}/execution-context`, { headers })).json();
   expect(preparedDaily.valuation.target_market_features).toEqual(daily);
+  expect(preparedDaily.valuation.target_historical_features).toEqual(historical);
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).history_feature_hashes).toEqual(Array(8).fill(historical.input_hash));
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).daily_feature_hashes).toEqual(Array(8).fill(daily.input_hash));
   await expect(page.getByRole("region", { name: "单日行情观察", exact: true })).toBeVisible();
   await expect(page.getByText("23.456789%", { exact: true })).toBeVisible();

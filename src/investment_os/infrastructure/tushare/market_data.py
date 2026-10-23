@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_EVEN, Context, Decimal, InvalidOperation, localcontext
 from typing import Any
 from uuid import UUID
@@ -20,6 +21,7 @@ from investment_os.application.market_data import (
     tushare_symbol,
 )
 from investment_os.application.market_features import DailyMarketBar
+from investment_os.application.market_history import MarketHistory
 from investment_os.domain.errors import DomainError
 from investment_os.domain.values import exact_decimal
 
@@ -177,6 +179,73 @@ class TushareMarketDataAdapter:
         if self._owns_client:
             await self._client.aclose()
 
+    async def _history(self, request: QuoteRequest, quote: MarketQuote) -> MarketHistory:
+        base = dict(instrument_id=request.instrument_id, reference_at=quote.as_of)
+        end = quote.as_of.astimezone(ZoneInfo("Asia/Shanghai"))
+        ts_code = tushare_symbol(request.market, request.symbol)
+        payload = {
+            "api_name": "daily",
+            "token": self._token,
+            "params": {
+                "ts_code": ts_code,
+                "start_date": (end - timedelta(days=89)).strftime("%Y%m%d"),
+                "end_date": end.strftime("%Y%m%d"),
+            },
+            "fields": "ts_code,trade_date,close,open,high,low,pre_close,vol,amount",
+        }
+        try:
+            response = await self._client.post(TUSHARE_URL, json=payload)
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return MarketHistory(**base, status="UNAVAILABLE", reason="REQUEST_FAILED")
+        try:
+            body = json.loads(response.text, parse_float=Decimal, parse_int=Decimal)
+            if not isinstance(body, dict) or body.get("code") != 0:
+                raise ValueError("history response invalid")
+            data = body["data"]
+            fields, items = data["fields"], data["items"]
+            if (
+                not isinstance(fields, list)
+                or not all(isinstance(f, str) for f in fields)
+                or len(set(fields)) != len(fields)
+                or not isinstance(items, list)
+                or len(items) > 90
+            ):
+                raise ValueError("history envelope invalid")
+            code, day, close = (fields.index(f) for f in ("ts_code", "trade_date", "close"))
+            bars = []
+            for row in items:
+                if (
+                    not isinstance(row, list)
+                    or len(row) != len(fields)
+                    or row[code] != ts_code
+                    or not isinstance(row[day], str)
+                    or len(row[day]) != 8
+                ):
+                    raise ValueError("history row invalid")
+                at = (
+                    datetime.strptime(row[day], "%Y%m%d")
+                    .replace(hour=15, tzinfo=ZoneInfo("Asia/Shanghai"))
+                    .astimezone(UTC)
+                )
+                price = ensure_price(row[close])
+                bars.append(
+                    _daily_bar(fields, row, request, at, price)
+                    or DailyMarketBar(instrument_id=request.instrument_id, as_of=at, close=price)
+                )
+            if not bars:
+                return MarketHistory(**base, status="UNAVAILABLE", reason="NO_DATA")
+            history = MarketHistory(
+                **base, status="RECEIVED", bars=tuple(sorted(bars, key=lambda b: b.as_of))
+            )
+            if history.bars[-1].close != quote.reference_price or (
+                quote.daily_bar is not None and history.bars[-1] != quote.daily_bar
+            ):
+                raise ValueError("history reference differs")
+            return history
+        except (ValueError, TypeError, KeyError, IndexError, InvalidOperation, DomainError):
+            return MarketHistory(**base, status="UNAVAILABLE", reason="INVALID_RESPONSE")
+
     async def get_quotes(
         self,
         requests: tuple[QuoteRequest, ...],
@@ -283,4 +352,9 @@ class TushareMarketDataAdapter:
                 provider_detail=f"TUSHARE daily {ts_code} {trade_date}",
                 daily_bar=daily_bar,
             )
+            if req.include_history:
+                found[req.instrument_id] = replace(
+                    found[req.instrument_id],
+                    history=await self._history(req, found[req.instrument_id]),
+                )
         return found

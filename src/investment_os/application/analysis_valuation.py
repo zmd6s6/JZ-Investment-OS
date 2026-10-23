@@ -11,6 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
 from investment_os.application.analysis_models import digest
 from investment_os.application.market_data import MarketQuote, ensure_daily_bar, ensure_price
 from investment_os.application.market_features import DailyMarketFeatures, build_daily_features
+from investment_os.application.market_history import (
+    HistoricalMarketFeatures,
+    build_historical_features,
+)
 from investment_os.application.portfolio_book import PortfolioView
 from investment_os.domain.errors import DomainError
 from investment_os.domain.values import UtcTimestamp, exact_decimal
@@ -87,6 +91,9 @@ class AnalysisValuation(ValuationModel):
     single_currency_limit: Literal[True] = True
     price_availability: Literal["PROVIDER_TIME_ONLY"] = "PROVIDER_TIME_ONLY"
     target_market_features: DailyMarketFeatures | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    target_historical_features: HistoricalMarketFeatures | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -210,6 +217,17 @@ def build_analysis_valuation(
                 degraded=target.degraded,
             )
         target_position = next((r for r in rows if r.instrument_id == target_id), None)
+        historical_features = (
+            build_historical_features(
+                target.history,
+                source=target.source,
+                currency=target.currency,
+                source_rank=target.source_rank,
+                degraded=target.degraded,
+            )
+            if target is not None and target.history is not None
+            else None
+        )
         sectors: dict[str, Decimal] = {}
         unclassified = Decimal("0") if complete else None
         if complete:
@@ -245,6 +263,8 @@ def build_analysis_valuation(
         zero = Decimal("0") if weights_known else None
         if daily_features is not None:
             snapshot["target_market_features"] = daily_features.model_dump(mode="json")
+        if historical_features is not None:
+            snapshot["target_historical_features"] = historical_features.model_dump(mode="json")
         return AnalysisValuation(
             status="FAILED"
             if invalid or fx_missing or "NAV_NON_POSITIVE" in reasons
@@ -288,4 +308,5 @@ def build_analysis_valuation(
             unclassified_value=unclassified,
             reason_codes=tuple(dict.fromkeys(reasons)),
             target_market_features=daily_features,
+            target_historical_features=historical_features,
         )

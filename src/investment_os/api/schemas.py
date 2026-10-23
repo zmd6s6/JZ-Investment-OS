@@ -601,6 +601,7 @@ class StartAnalysisRequest(StrictResponse):
     model_configuration_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     market_profile_ids: list[UUID] | None = Field(default=None, max_length=10)
     market_configuration_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    include_market_history: bool = Field(default=False, strict=True)
 
 
 class SubmitAnalysisJobRequest(StartAnalysisRequest):

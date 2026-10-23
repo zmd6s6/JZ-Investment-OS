@@ -39,6 +39,20 @@ function DailyMarketObservations({ features }: { features: unknown }) {
   </section>;
 }
 
+function HistoricalObservations({ features }: { features: unknown }) {
+  const value = record(features), history = record(value.history), bars = rows(history.bars);
+  if (value.calculation_version !== "observed-daily-20-v1") return <p className="hint-text">本报告未记录历史行情统计；默认不查询，不根据当前数据补算。</p>;
+  const reasons: Record<string, string> = { REQUEST_FAILED: "历史请求失败", INVALID_RESPONSE: "历史响应未通过校验", NO_DATA: "来源未返回历史", NOT_PROVIDED: "适配器未提供历史", INSUFFICIENT_20_OBSERVATIONS: "不足20条观测", PREVIOUS_CLOSE_MISSING: "昨收口径缺失", VOLUME_MISSING: "成交量缺失", TURNOVER_MISSING: "成交额缺失" };
+  return <section aria-label="历史行情统计"><h4>历史行情统计（程序计算）</h4>
+    <p>实际窗口：{String(bars[0]?.as_of ?? "无样本")} → {String(bars[bars.length - 1]?.as_of ?? "无样本")}；返回 {bars.length} 条，最近采用 {String(value.sample_count)} / 20 条。</p>
+    {Boolean(history.reason) && <p role="note">{reasons[String(history.reason)] ?? "历史不可用"}；未换源补齐。</p>}
+    <dl className="valuation-summary"><div><dt>日收益样本标准差（非年化）</dt><dd>{percent(value.daily_return_sample_stddev)}</dd></div><div><dt>逐日口径累计变化</dt><dd>{percent(value.compounded_daily_return)}</dd></div><div><dt>平均成交量（股）</dt><dd>{amount(value.mean_volume_shares)}</dd></div><div><dt>平均成交额（{String(value.currency)}）</dt><dd>{amount(value.mean_turnover)}</dd></div></dl>
+    <p className="hint-text">每日日收益 = (收盘 − 提供方昨收) / 昨收，样本标准差分母为 n−1；不使用未复权相邻收盘直接拼收益。只描述收到的最近20条观测，不证明交易日连续、真实发布时间或历史时点可得性，不能用于回测或交易级仓位；均量 / 均额不是可交易容量。</p>
+    <p>来源：{String(value.source)}{value.degraded === true ? "（降级源）" : ""}；缺口：{Array.isArray(value.missing_fields) && value.missing_fields.length ? value.missing_fields.map(code => reasons[String(code)] ?? String(code)).join("、") : "未发现描述性字段缺失，不代表风险输入完整"}。</p>
+    <p className="muted" style={{ overflowWrap: "anywhere" }}>历史输入摘要：{String(value.input_hash)}</p>
+  </section>;
+}
+
 export function AnalysisValuation({ valuation, sizing }: { valuation: unknown; sizing: unknown }) {
   const value = record(valuation), size = record(sizing);
   if (value.calculation_version !== "portfolio-valuation-v1") return <p className="hint-text">此历史报告未记录本版估值对账，不按当前持仓补算；旧数值仅保留在技术数据中，不作为完整仓位依据。</p>;
@@ -56,6 +70,7 @@ export function AnalysisValuation({ valuation, sizing }: { valuation: unknown; s
     <p>对账状态：{value.status === "OK" ? "净值与持仓对账完整，仓位输入仍须单独检查" : value.status === "PARTIAL" ? "部分价格缺失，不以零补齐" : "估值校验未通过，不合并异币种或无效输入"}</p>
     <p className="muted">分析时点：{String(value.as_of ?? "未知")} · 行情仅提供参考时点，尚未验证交易级新鲜度与真实可用时间。</p>
     <DailyMarketObservations features={value.target_market_features} />
+    <HistoricalObservations features={value.target_historical_features} />
     {rows(value.position_values).length ? <details open><summary>逐项核对持仓与分仓</summary>
       <div style={{ overflowX: "auto" }}><table aria-label="冻结持仓估值明细"><thead><tr><th>标的 / 行业</th><th>Core / Tactical 数量</th><th>参考价 / 币种</th><th>Core / Tactical 市值</th><th>Core / Tactical 权重</th><th>来源 / 时间</th></tr></thead><tbody>
         {rows(value.position_values).map((row, i) => <tr key={`${row.instrument_id}-${i}`}>

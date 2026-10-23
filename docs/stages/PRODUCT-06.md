@@ -6,6 +6,7 @@
 - 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0004`、`ADR-0005`、`ADR-0006`、`ADR-0007`、`ADR-0010`、
   `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`、`ADR-0020`、`ADR-0021`、`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0025`、`ADR-0026`、`ADR-0027`、`ADR-0028`、`ADR-0029`、`ADR-0030`、`ADR-0031`、`ADR-0032`
 - 安全基线：`auto_trade=false`；外部研究和模型输出均不可信；结果仅为影子 Decision
+- 后续工程决策：`ADR-0033`（显式目标历史日线，不修改上述旧ADR）
 
 ## 目标
 
@@ -72,6 +73,19 @@
 所有者已明确授权的 profile 上进行，并记录脱敏结果。完成定义和证据齐备后方可 `READY_FOR_REVIEW`。
 
 ## 实施记录
+
+- 2026-10-23（显式历史日线与描述性统计，ADR-0033，本轮最新）：
+  - 启动窗口新增默认关闭的历史确认，需已选行情源；目标ID固定到market_plan，选择进入请求幂等摘要，false / 无字段保留旧摘要。严格布尔输入拒绝字符串 / 数字冒充确认；显式新运行保留历史选择和原来源顺序，按当前配置重新校验，不自动重放费用。
+  - 报价成功的同一源仅为目标额外查询一次，参考日及前89自然日，最多90条，未选不查、不查其他持仓历史、不自动扩大窗口。Tushare沿用官方daily、精确Decimal与单位转换；历史失败保留有效报价但标明失败，不为补历史再读下一源。选历史时批次上限两倍档案超时、逐HTTP仍为档案超时；账本标注历史查询范围，不冒充逐HTTP费用账单。
+  - 严格历史类型校验身份、带时区非未来时间、窗口 / 排序 / 日期唯一、参考收盘及与单日原始字段一致；最多90条原始数据参与摘要。程序对最近20条观测以逐行提供方昨收计算日收益，样本标准差分母n−1、不年化；另算逐日口径连乘变化与平均成交股数 / 金额。缺样本或字段未知，不补零或补交易日，独立128位Decimal上下文。
+  - 复用实际模型前FeatureSnapshot，保存端从原始样本重算，与冻结目标 / 组合核对后才提交；衍生值篡改零模型调用。全部角色、报告和只读上下文共用；无历史字段不序列化、不改变旧估值摘要、不补写旧报告。中文报告标明观测数量 / 实际范围 / 来源 / 降级 / 缺口与计算口径，不证明连续交易日、真实发布时间或历史时点可得性。Sizing仍BLOCKED，不替代年化波动率、交易容量、风险预算或FX。
+  - Windows完整后端763 passed / 88.77%（352.39秒），领域行98.33%（1178/1198）/ 分支90.60%（241/266）；前端129/129（24文件）及构建通过。最初定向44项（含模型前提交 / 篡改零调用），完整后端后自审新增同日成交字段冲突回归，修前1失败，改为拒绝历史但保留报价后最终定向86项通过；该最后边界由MockTransport复验，不冒充Chrome真实Tushare。最终提交全量以远程CI为准，不借上一提交结果。
+  - 首轮float负向测试仅捕获ValueError而实际抛出既有DomainError，修正为明确同时接受金融float禁令异常，未放宽领域规则；格式 / 导入问题修正后重跑。首轮Chrome与完整后端同时运行24/29，出现5秒页面导航等待及后续迟到任务调用计数污染，保留 `.runtime/history-browser-20261023`，不延长等待或删除断言。后端完成后只重建本轮合成浏览器库并串行，最终七文件29/29（2.1分钟，无跳过）；不据此推定所有负载 / Windows性能问题已解决。
+  - 新历史浏览器场景实走明确勾选 → 来源顺序 / 次源 → 后台分析 → 原始样本 / 精确均量均额与限制 → 刷新。模型前上下文 / 最终报告统计相同，八角色同一历史输入hash、模型始终8次、旧结果不随现金变更漂移，390px无横向撑宽。未勾选的其他启动场景均核对默认关闭。
+  - Ruff格式326文件 / 检查、mypy123文件、OpenAPI / Policy Schema --check、Compose config / diff通过。标准detect-secrets使用临时基线副本检查425仓库文件，无新增秘密；Windows仅修剪副本既有.env示例条目（退出3），原基线无diff。副本初次误把原基线公开摘要重扫，调整为标准hook自忽略基线的等价文件集合，未改仓库扫描规则 / 基线。pip-audit无已知漏洞（非PyPI本项目自身跳过）。
+  - 命令：`.venv/Scripts/python.exe .runtime/run_daily_tmpfs_tests_20261023.py -xq`（固定本轮15435合成内存盘库）、`scripts/check_domain_coverage.py`；最终定向 `pytest tests/unit/test_market_history.py tests/unit/test_tushare_history.py tests/unit/test_market_features.py tests/unit/test_analysis_market.py --no-cov -q`。前端 `npm test -- --pool=threads --maxWorkers=1 --reporter=dot`、`npm run build`。Chrome E2E_SYNTHETIC_ANALYSIS=1 / 18107 / 合成令牌，七文件 `analysis_jobs / onboarding / settings / portfolio_watchlist / interaction_feedback / product_journey / thesis --workers=1`，最终输出 `.runtime/history-browser-final-20261023`。
+  - 无新迁移 / 锁 / 依赖 / Prompt / AgentOpinion输出 / 投资规则改变；只用15435命名内存盘合成库、18107真实PG / 队列 / Worker与合成来源 / 模型，MockTransport测试历史HTTP，不使用真实Token。缓存53e4b16锁一致镜像挂当前只读源码 / dist，不是新完整交付镜像或18102升级。真实提供方 / 历史修订时点 / 断电恢复本轮NOT VERIFIED，P6保持IN_PROGRESS，不进入P7 / PR-09。
+  - 已核对ID清理本轮API / PostgreSQL / 网络；--rm内存盘仅合成数据、删除不可恢复，测试输出保留，所有者18102 / 15433及数据 / 凭据 / 会话未改动。同步API / Worker / 页面回退保留历史，不降级数据库；正式部署仍需新授权。
 
 - 2026-10-23（当次引用资料查看器，ADR-0032，本轮最新）：
   - 新增受保护版本化GET `/api/v1/analysis-runs/{run_id}/evidence/{evidence_id}`，类型化只读应用端口；先验证完整冻结快照hash、标的 / 组合 / 时点、最多50项及无重复引用，再按历史ID读取Evidence，不以近期列表 / 当前网页替代。跨运行引用404；内容 / 来源 / 时间篡改拒绝正文，旧元数据不足或资料缺失如实显示，零数据库写入。

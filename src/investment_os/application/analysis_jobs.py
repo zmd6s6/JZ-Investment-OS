@@ -107,6 +107,8 @@ class AnalysisJobService:
                 else []
             )
         )
+        if inp.include_market_history:
+            digest = content_hash([digest, {"include_market_history": True}])
         return await self._port.submit(
             request_id,
             digest,

@@ -10,7 +10,7 @@ import json
 import os
 import secrets
 from contextlib import asynccontextmanager, suppress
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -27,6 +27,7 @@ from investment_os.application.committee_runtime import CommitteeRuntime
 from investment_os.application.llm_gateway import LLMGatewayResponse
 from investment_os.application.market_data import InMemoryMarketDataAdapter, MarketQuote
 from investment_os.application.market_features import DailyMarketBar
+from investment_os.application.market_history import MarketHistory
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.domain.enums import ThesisState
@@ -83,6 +84,7 @@ class ControlledGateway:
         self.profile_ids = []
         self.thesis_version_ids = []
         self.daily_feature_hashes = []
+        self.history_feature_hashes = []
 
     async def complete(self, request):
         self.calls += 1
@@ -97,6 +99,12 @@ class ControlledGateway:
             .get("input_hash")
         )
         version = value.get("thesis", {}).get("version")
+        self.history_feature_hashes.append(
+            value.get("deterministic_portfolio_context", {})
+            .get("valuation", {})
+            .get("target_historical_features", {})
+            .get("input_hash")
+        )
         self.thesis_version_ids.append(version["id"] if version else None)
         await self.release.wait()
         return LLMGatewayResponse(
@@ -174,6 +182,27 @@ class SyntheticQuotes:
                     volume_shares="12345",
                     turnover="152407.405",
                 ),
+                history=MarketHistory(
+                    instrument_id=q.instrument_id,
+                    reference_at=as_of,
+                    status="RECEIVED",
+                    bars=tuple(
+                        DailyMarketBar(
+                            instrument_id=q.instrument_id,
+                            as_of=as_of - timedelta(days=19 - i),
+                            close="12.3456789",
+                            open="10.5",
+                            high="13",
+                            low="9",
+                            previous_close="10",
+                            volume_shares="12345",
+                            turnover="152407.405",
+                        )
+                        for i in range(20)
+                    ),
+                )
+                if q.include_history
+                else None,
             )
             for q in requests
         }
@@ -257,6 +286,7 @@ async def hold():
     gateway.profile_ids = []
     gateway.thesis_version_ids = []
     gateway.daily_feature_hashes = []
+    gateway.history_feature_hashes = []
     market_calls.clear()
     market_release.set()
     return {"mode": "synthetic", "held": True}
@@ -298,6 +328,7 @@ async def stats():
         "profile_ids": gateway.profile_ids,
         "thesis_version_ids": gateway.thesis_version_ids,
         "daily_feature_hashes": gateway.daily_feature_hashes,
+        "history_feature_hashes": gateway.history_feature_hashes,
         "market_profile_ids": market_calls,
     }
 

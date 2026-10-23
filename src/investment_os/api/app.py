@@ -1776,6 +1776,7 @@ def create_app(
                     if request.market_profile_ids is not None
                     else None,
                     market_configuration_hash=request.market_configuration_hash,
+                    include_market_history=request.include_market_history,
                 ),
             )
         except AnalysisJobError as error:
@@ -1930,6 +1931,7 @@ def create_app(
                     if request.market_profile_ids is not None
                     else None,
                     market_configuration_hash=request.market_configuration_hash,
+                    include_market_history=request.include_market_history,
                 )
             )
         except ApplicationError as exc:

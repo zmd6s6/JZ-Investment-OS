@@ -26,6 +26,7 @@ from investment_os.application.market_data import (
     ensure_daily_bar,
     ensure_price,
 )
+from investment_os.application.market_history import MarketHistory
 from investment_os.application.provider_settings import DataProviderProfile, ProviderSettingsService
 from investment_os.application.secrets import SecretStore
 from investment_os.domain.errors import DomainError
@@ -92,7 +93,14 @@ class PlannedMarketData:
         instruments: dict[UUID, tuple[str, str, str]] | None = None,
     ) -> dict[UUID, MarketQuote]:
         mapping = instruments or {}
-        pending = {i: QuoteRequest(i, *mapping.get(i, ("", "", "CNY"))) for i in instrument_ids}
+        pending = {
+            i: QuoteRequest(
+                i,
+                *mapping.get(i, ("", "", "CNY")),
+                include_history=i == self._plan.history_target_id,
+            )
+            for i in instrument_ids
+        }
         found: dict[UUID, MarketQuote] = {}
         for rank, saved in enumerate(self._plan.profiles):
             if not pending:
@@ -103,7 +111,11 @@ class PlannedMarketData:
                 name=saved.name,
                 provider_type=saved.provider_type,
                 rank=rank,
-                queries=tuple(f"{q.market}:{q.symbol}" for q in batch),
+                queries=tuple(
+                    f"{q.market}:{q.symbol}"
+                    + (" / history:90-calendar-days:20-observations" if q.include_history else "")
+                    for q in batch
+                ),
             )
             attempt_id = uuid4()
 
@@ -157,7 +169,9 @@ class PlannedMarketData:
                         current, credential, client
                     )
                     quotes = await asyncio.wait_for(
-                        source.get_quotes(batch, as_of=as_of), timeout=current.timeout_seconds
+                        source.get_quotes(batch, as_of=as_of),
+                        timeout=current.timeout_seconds
+                        * (2 if any(q.include_history for q in batch) else 1),
                     )
                 valid: dict[UUID, MarketQuote] = {}
                 for identity, quote in quotes.items():
@@ -170,6 +184,18 @@ class PlannedMarketData:
                     ):
                         raise ValueError("invalid quote identity, currency or time")
                     price = ensure_price(quote.reference_price)
+                    if quote.history is not None and not pending[identity].include_history:
+                        raise ValueError("history was not explicitly selected")
+                    if pending[identity].include_history and quote.history is None:
+                        quote = replace(
+                            quote,
+                            history=MarketHistory(
+                                instrument_id=identity,
+                                reference_at=quote.as_of,
+                                status="UNAVAILABLE",
+                                reason="NOT_PROVIDED",
+                            ),
+                        )
                     ensure_daily_bar(quote)
                     if quote.as_of + timedelta(days=current.retention_days) <= as_of:
                         raise ValueError("quote retention expired")

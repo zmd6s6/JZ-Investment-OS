@@ -3,6 +3,17 @@ import { afterEach, expect, it, vi } from "vitest";
 import { AnalysisValuation } from "./AnalysisValuation";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it("historical observations are read-only, nonannualized and keep failed queries explicit", () => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  const historical = { calculation_version: "observed-daily-20-v1", source: "合成历史源", currency: "CNY", sample_count: 20, daily_return_sample_stddev: "0.125", compounded_daily_return: "-0.25", mean_volume_shares: "109.5", mean_turnover: "1009.5", history: { bars: [{ as_of: "2026-10-01" }, { as_of: "2026-10-23" }] }, missing_fields: [], input_hash: "c".repeat(64) };
+  const { rerender } = render(<AnalysisValuation valuation={{ ...valuation, target_historical_features: historical }} sizing={sizing} />);
+  expect(screen.getByRole("region", { name: "历史行情统计" })).toBeVisible();
+  expect(screen.getByText("12.5%")).toBeVisible(); expect(screen.getByText("-25%")).toBeVisible();
+  expect(screen.getByText(/不能用于回测或交易级仓位/)).toBeVisible();
+  rerender(<AnalysisValuation valuation={{ ...valuation, target_historical_features: { ...historical, history: { bars: [], reason: "REQUEST_FAILED" }, daily_return_sample_stddev: null, mean_volume_shares: null, sample_count: 0, missing_fields: ["INSUFFICIENT_20_OBSERVATIONS"] } }} sizing={sizing} />);
+  expect(screen.getByText(/历史请求失败；未换源补齐/)).toBeVisible();
+  expect(screen.getByText(/不足20条观测/)).toBeVisible(); expect(fetcher).not.toHaveBeenCalled();
+});
 const valuation = {
   calculation_version: "portfolio-valuation-v1", status: "OK", base_currency: "CNY",
   cash_balance: "10000.0000", holdings_value: "2500", nav: "12500", cash_weight: "0.8",

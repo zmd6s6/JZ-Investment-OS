@@ -46,13 +46,14 @@ function FrozenInputs({ value }: { value: unknown }) {
   const portfolio = snapshot.portfolio && typeof snapshot.portfolio === "object" ? snapshot.portfolio as Record<string, unknown> : null;
   const plan = snapshot.model_plan && typeof snapshot.model_plan === "object" ? snapshot.model_plan as Record<string, unknown> : null;
   const bindings = plan && Array.isArray(plan.bindings) ? plan.bindings as { role: string; profile: Record<string, unknown> }[] : [];
-  const market = snapshot.market_plan && typeof snapshot.market_plan === "object" ? snapshot.market_plan as { profiles?: { profile_id: string; name: string; provider_type: string; configuration_hash: string }[] } : null;
+  const market = snapshot.market_plan && typeof snapshot.market_plan === "object" ? snapshot.market_plan as { history_target_id?: string; profiles?: { profile_id: string; name: string; provider_type: string; configuration_hash: string }[] } : null;
   const text = (item: unknown) => typeof item === "string" ? item : "未记录";
   return <details className="frozen-inputs"><summary>本次分析输入快照 · {evidence.length} 条证据</summary>
     <p>选择方式：{snapshot.selection_mode === "EXPLICIT" ? "用户明确勾选" : "兼容入口的有界近期资料"} · 冻结时点：{text(snapshot.as_of)} · 政策：{text(snapshot.policy_version_label)}</p>
     <p className="hint-text">输入摘要：{text(snapshot.input_hash)}。这里展示运行当时保存的值，不重新抓取当前资料。</p>
     {portfolio ? <p>当时组合：{text(portfolio.name)} · 记账币种 {text(portfolio.base_currency)} · 现金 {text(portfolio.cash_balance)}</p> : null}
     <h4>本次固定的行情顺序</h4>
+    {market?.history_target_id && <p>当时明确选择了目标历史日线：参考日及前89自然日，最多90条；不读取其他持仓历史。实际结果见历史行情统计，不把选择当作已取得数据。</p>}
     {market ? market.profiles?.length ? <ol className="tip-list">{market.profiles.map((p) => <li key={p.profile_id}>{p.name} · {p.provider_type}<p className="hint-text">档案 ID {p.profile_id} · 配置摘要 {p.configuration_hash}</p></li>)}</ol> : <p>不读取行情；未自动添加来源。</p> : <p className="hint-text">此历史运行未固定行情顺序，不追补。</p>}
     <h4>本次固定的模型与定价</h4>
     <p className="hint-text">{plan ? `选择方式：${plan.mode === "SINGLE_PROFILE" ? "单一档案用于全部八角色" : "启动时角色映射"}。这里是提交时摘要，不查询当前设置；预算仍按调用时有效的预算门禁检查。` : "此历史运行未固定模型档案与定价，不用当前设置追补。"}</p>

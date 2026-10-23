@@ -8,6 +8,19 @@ const hash = "b".repeat(64);
 const profiles = ["主行情", "备行情", "未选源"].map((name, index) => ({ profile_id: `synthetic-${index}`, name, provider_type: "TUSHARE_MARKET" }));
 
 describe("本次行情选择", () => {
+  it("history is opt-in, needs a selected source and clears with the previous confirmation", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ configuration_hash: hash, profiles }))));
+    const changed = vi.fn(); render(<AnalysisMarketChoices onChange={changed} />);
+    const history = screen.getByRole("checkbox", { name: "读取目标历史日线" });
+    expect(history).not.toBeChecked(); expect(history).toBeDisabled();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /使用行情源 主行情/ }));
+    expect(history).toBeEnabled(); expect(changed).toHaveBeenLastCalledWith({ market_profile_ids: ["synthetic-0"], market_configuration_hash: hash });
+    fireEvent.click(history);
+    expect(changed).toHaveBeenLastCalledWith({ market_profile_ids: ["synthetic-0"], market_configuration_hash: hash, include_market_history: true });
+    fireEvent.click(screen.getByRole("button", { name: "清空行情选择" }));
+    expect(history).not.toBeChecked(); expect(history).toBeDisabled();
+    expect(changed).toHaveBeenLastCalledWith({ market_profile_ids: [] });
+  });
   it("defaults to no sources, preserves explicit order, supports reorder and clear without a write", async () => {
     const fetcher = vi.fn(async (_url: string) => new Response(JSON.stringify({ configuration_hash: hash, profiles })));
     vi.stubGlobal("fetch", fetcher);
@@ -37,14 +50,15 @@ describe("本次行情选择", () => {
     fireEvent.click(screen.getByRole("button", { name: "重新读取行情配置" }));
     expect(await screen.findByText(/行情配置响应不完整/)).toBeVisible();
     expect(changed).toHaveBeenLastCalledWith({ market_profile_ids: [] });
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /使用行情源/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "读取目标历史日线" })).toBeDisabled();
   });
 
   it("limits a single run to ten sources", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ configuration_hash: hash, profiles: Array.from({ length: 11 }, (_, index) => ({ profile_id: String(index), name: `源${index}`, provider_type: "TUSHARE_MARKET" })) }))));
     render(<AnalysisMarketChoices onChange={vi.fn()} />);
     await screen.findByRole("checkbox", { name: /源10/ });
-    const boxes = screen.getAllByRole("checkbox");
+    const boxes = screen.getAllByRole("checkbox", { name: /使用行情源/ });
     for (const box of boxes.slice(0, 10)) fireEvent.click(box);
     expect(boxes[10]).toBeDisabled();
     fireEvent.click(boxes[0]);

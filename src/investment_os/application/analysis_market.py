@@ -43,9 +43,12 @@ class AnalysisMarketPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     schema_version: Literal["1.0"] = "1.0"
     profiles: tuple[FrozenMarketProfile, ...] = Field(default=(), max_length=10)
+    history_target_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def unique_profiles(self) -> "AnalysisMarketPlan":
+        if self.history_target_id is not None and not self.profiles:
+            raise ValueError("history requires explicitly selected market sources")
         if len({p.profile_id for p in self.profiles}) != len(self.profiles):
             raise ValueError("market profiles must not repeat")
         return self
@@ -136,7 +139,18 @@ class AnalysisMarketConfiguration:
             profiles=profiles,
         )
 
-    async def freeze(self, ids: tuple[UUID, ...], expected_hash: str | None) -> AnalysisMarketPlan:
+    async def freeze(
+        self,
+        ids: tuple[UUID, ...],
+        expected_hash: str | None,
+        *,
+        history_target_id: UUID | None = None,
+    ) -> AnalysisMarketPlan:
+        if history_target_id is not None and not ids:
+            raise ApplicationError(
+                ApplicationErrorCode.ANALYSIS_MARKET_CONFIGURATION_INVALID,
+                "history requires market choice",
+            )
         if not ids and expected_hash is None:
             return AnalysisMarketPlan()
         options = await self.options()
@@ -149,7 +163,9 @@ class AnalysisMarketConfiguration:
             raise ApplicationError(
                 ApplicationErrorCode.ANALYSIS_MARKET_CONFIGURATION_INVALID, "invalid market choice"
             )
-        return AnalysisMarketPlan(profiles=tuple(available[i] for i in ids))
+        return AnalysisMarketPlan(
+            profiles=tuple(available[i] for i in ids), history_target_id=history_target_id
+        )
 
     async def validate(self, plan: AnalysisMarketPlan) -> None:
         for saved in plan.profiles:

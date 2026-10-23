@@ -643,6 +643,16 @@
             "title": "Target Currency",
             "type": "string"
           },
+          "target_historical_features": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HistoricalMarketFeatures"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "target_market_features": {
             "anyOf": [
               {
@@ -2712,6 +2722,135 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HistoricalMarketFeatures": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "const": "PROVIDER_TIME_ONLY",
+            "default": "PROVIDER_TIME_ONLY",
+            "title": "Availability",
+            "type": "string"
+          },
+          "calculation_version": {
+            "const": "observed-daily-20-v1",
+            "default": "observed-daily-20-v1",
+            "title": "Calculation Version",
+            "type": "string"
+          },
+          "compounded_daily_return": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compounded Daily Return"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "daily_return_sample_stddev": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Return Sample Stddev"
+          },
+          "degraded": {
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "history": {
+            "$ref": "#/components/schemas/MarketHistory"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "mean_turnover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Turnover"
+          },
+          "mean_volume_shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Volume Shares"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Fields",
+            "type": "array"
+          },
+          "required_count": {
+            "const": 20,
+            "default": 20,
+            "title": "Required Count",
+            "type": "integer"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sizing_ready": {
+            "const": false,
+            "default": false,
+            "title": "Sizing Ready",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_rank": {
+            "title": "Source Rank",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_hash",
+          "history",
+          "source",
+          "currency",
+          "source_rank",
+          "degraded",
+          "sample_count",
+          "daily_return_sample_stddev",
+          "compounded_daily_return",
+          "mean_volume_shares",
+          "mean_turnover",
+          "missing_fields"
+        ],
+        "title": "HistoricalMarketFeatures",
+        "type": "object"
+      },
       "HoldingPeriodSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3465,6 +3604,62 @@
           "attempt"
         ],
         "title": "MarketAttemptEvent",
+        "type": "object"
+      },
+      "MarketHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "bars": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DailyMarketBar"
+            },
+            "maxItems": 90,
+            "title": "Bars",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "REQUEST_FAILED",
+                  "INVALID_RESPONSE",
+                  "NO_DATA",
+                  "NOT_PROVIDED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reference_at": {
+            "format": "date-time",
+            "title": "Reference At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RECEIVED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "reference_at",
+          "status"
+        ],
+        "title": "MarketHistory",
         "type": "object"
       },
       "ModelProviderProfileRequest": {
@@ -5321,6 +5516,11 @@
             ],
             "title": "Evidence Ids"
           },
+          "include_market_history": {
+            "default": false,
+            "title": "Include Market History",
+            "type": "boolean"
+          },
           "instrument_id": {
             "format": "uuid",
             "title": "Instrument Id",
@@ -5440,6 +5640,11 @@
               }
             ],
             "title": "Evidence Ids"
+          },
+          "include_market_history": {
+            "default": false,
+            "title": "Include Market History",
+            "type": "boolean"
           },
           "instrument_id": {
             "format": "uuid",
