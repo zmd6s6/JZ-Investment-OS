@@ -2,7 +2,9 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { EmptyState, Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { InstrumentSearchBox } from "./InstrumentSearchBox";
+import { AnalysisStartDialog } from "./AnalysisStartDialog";
 import { apiFetch, readApiError } from "./writeApi";
+import { submitAnalysis, type AnalysisLaunchSelection } from "./analysisSubmission";
 
 type WatchlistItem = {
   watchlist_item_id: string;
@@ -40,6 +42,9 @@ export function WatchlistPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [analysisTarget, setAnalysisTarget] = useState<WatchlistItem | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/v1/watchlist");
@@ -50,11 +55,12 @@ export function WatchlistPage() {
   useEffect(() => {
     void load().catch((reason: unknown) =>
       setError(reason instanceof Error ? reason.message : "加载失败"),
-    );
+    ).finally(() => setLoading(false));
   }, [load]);
 
   async function addItem(event: FormEvent) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -88,6 +94,7 @@ export function WatchlistPage() {
   }
 
   async function removeItem(item: WatchlistItem) {
+    if (busy) return;
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -106,14 +113,34 @@ export function WatchlistPage() {
     }
   }
 
+  async function analyze(item: WatchlistItem, portfolioId: string, models: AnalysisLaunchSelection) {
+    if (busy) return;
+    setAnalysisTarget(null);
+    setBusy(true);
+    setAnalyzing(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const run = await submitAnalysis({ instrument_id: item.instrument_id, portfolio_id: portfolioId, source: "WATCHLIST", ...models });
+      try { sessionStorage.setItem("selected_portfolio_id", portfolioId); } catch { /* session storage is optional */ }
+      window.location.href = `/analysis?run_id=${encodeURIComponent(run.id)}`;
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "分析未完成，请查看运行列表后再重试。"); }
+    finally { setBusy(false); setAnalyzing(false); }
+  }
+
   return (
     <ProductChrome
       eyebrow="观察清单"
-      title="我在盯的票"
-      subtitle="只记代码和名称。研究状态有数据才显示，没有就是「未提供」。"
+      title="我的观察清单"
+      subtitle="记录尚未持有但想研究的标的。添加后可选择组合上下文发起分析，不会创建持仓。"
     >
+      {analysisTarget ? <AnalysisStartDialog label={`${analysisTarget.symbol} ${analysisTarget.name}`} onCancel={() => setAnalysisTarget(null)} onConfirm={(portfolioId, models) => void analyze(analysisTarget, portfolioId, models)} /> : null}
+      <div className="action-feedback">
       <StatusBanner kind="error" text={error} />
       <StatusBanner kind="ok" text={message} />
+      <StatusBanner kind="info" text={analyzing ? "正在保存后台分析任务，随后打开真实运行进度；保存成功后可离开或刷新页面。" : loading ? "正在读取观察清单…" : null} />
+      </div>
+      {error ? <button type="button" className="btn" disabled={busy || loading} onClick={() => { setError(null); setLoading(true); void load().catch(() => setError("无法读取观察清单，请检查本地服务后重试。")).finally(() => setLoading(false)); }}>重新读取清单</button> : null}
 
       <div className="stat-row">
         <article className="stat-card">
@@ -128,8 +155,8 @@ export function WatchlistPage() {
         </article>
         <article className="stat-card warn">
           <span>下一步</span>
-          <strong>等分析</strong>
-          <small>分析功能接上后自动填充</small>
+          <strong>发起研究</strong>
+          <small>在下方清单点击「立即分析」</small>
         </article>
       </div>
 
@@ -182,15 +209,16 @@ export function WatchlistPage() {
         <Panel title="说明" tone="muted">
           <ul className="tip-list">
             <li>重复加入同一代码不会写两遍。</li>
-            <li>「未提供」= 还没分析，不是零。</li>
-            <li>这里不产生任何交易建议。</li>
+            <li>「未提供」表示没有可读数据，不等于零，也不一定表示从未分析。</li>
+            <li>分析需要一个组合上下文，可以是空持仓组合；标的不会因此被买入。</li>
+            <li>报告仅作研究，不产生订单。</li>
           </ul>
         </Panel>
       </div>
 
       <Panel title="清单">
         {items.length === 0 ? (
-          <EmptyState title="清单是空的" hint="在上面加一只票试试。" />
+          <EmptyState title={loading ? "正在读取清单" : error ? "清单暂不可读取" : "清单是空的"} hint="可用搜索选中标的，或填写代码与名称后点击「加入清单」。" />
         ) : (
           <table className="data-table">
             <thead>
@@ -245,6 +273,8 @@ export function WatchlistPage() {
                     </span>
                   </td>
                   <td>
+                    <a className="btn" href={`/research?instrument_id=${encodeURIComponent(item.instrument_id)}`}>研究资料</a>
+                    <button type="button" className="btn" disabled={busy} onClick={() => setAnalysisTarget(item)}>{analyzing ? "分析中…" : "立即分析"}</button>
                     <button
                       type="button"
                       className="btn danger ghost"

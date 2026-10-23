@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PortfolioPage } from "./PortfolioPage";
+import { syntheticModelOptions } from "./testAnalysisModels";
 
 type Portfolio = {
   portfolio_id: string;
@@ -65,6 +66,7 @@ describe("PortfolioPage stale response protection", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string, init?: RequestInit) => {
+        if (url === "/api/v1/analysis-model-options") return Promise.resolve(jsonBody(syntheticModelOptions));
         if (init?.method === "POST" && url === "/api/v1/portfolios") {
           return Promise.resolve(jsonBody(created, true, 201));
         }
@@ -241,5 +243,81 @@ describe("PortfolioPage stale response protection", () => {
     expect(previewUrls[0]).toContain("/api/v1/portfolios/bbb/csv/preview");
     expect(previewUrls[0]).not.toContain("/aaa/");
     expect(listCount).toBeLessThanOrEqual(listCountAfterMount + 2);
+  });
+
+  it("shows an in-flight analysis banner and button state while the run is pending", async () => {
+    const withPosition: Portfolio = {
+      ...portfolio("pos-1", "持仓组合"),
+      positions: [
+        {
+          position_id: "p1",
+          instrument_id: "inst-1",
+          market: "SSE",
+          symbol: "600519",
+          name: "贵州茅台",
+          asset_type: "EQUITY",
+          currency: "CNY",
+          sector: "Consumer",
+          core_quantity: "10",
+          tactical_quantity: "2",
+          average_cost: "1600",
+        },
+      ],
+    };
+    let finishRun!: (value: unknown) => void;
+    const pendingRun = new Promise((resolve) => {
+      finishRun = resolve;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === "POST" && url === "/api/v1/analysis-jobs") {
+          return pendingRun as unknown as Response;
+        }
+        if (url === "/api/v1/analysis-model-options") return Promise.resolve(jsonBody(syntheticModelOptions));
+        if (typeof url === "string" && url.includes("/policy/review")) {
+          return Promise.resolve(
+            jsonBody({
+              active_policy_version: "none",
+              policy_status: "TEST_DEFAULT",
+              is_test_default: true,
+              limits: [],
+              warning: "TEST_DEFAULT",
+            }),
+          );
+        }
+        if (typeof url === "string" && url.includes("import-audits")) {
+          return Promise.resolve(jsonBody([]));
+        }
+        if (url === "/api/v1/portfolios") {
+          return Promise.resolve(jsonBody([withPosition]));
+        }
+        return Promise.resolve(jsonBody({}, false, 404));
+      }),
+    );
+
+    render(<PortfolioPage />);
+    await waitFor(() => expect(currentPortfolioName()).toBe("持仓组合"));
+
+    fireEvent.click(screen.getByRole("button", { name: "立即分析" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("可能调用付费模型");
+    expect(screen.queryByText(/已载入 600519/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "确认启动分析" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "确认启动分析" }));
+
+    // The banner must appear immediately, not only after the run finishes.
+    await waitFor(() =>
+      expect(screen.getByText(/正在提交 SSE 600519 贵州茅台/)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/已用 \d+s/)).toBeInTheDocument();
+    const pendingButton = screen.getByRole("button", { name: /分析中/ });
+    expect(pendingButton).toBeDisabled();
+
+    // Keep the promise unresolved; the component must not crash or finish early.
+    await act(async () => {
+      finishRun(jsonBody({ id: "synthetic-queued-run", status: "QUEUED", failure_code: null }, true, 202));
+      await pendingRun;
+    });
   });
 });

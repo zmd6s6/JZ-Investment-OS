@@ -6,8 +6,10 @@ Review 状态。
 
 仓库当前包含 PR-01 至 PR-08 的开发工作：纯领域内核、PostgreSQL 持久化/审计/outbox 原语、合成
 DSA/Evidence/Thesis/Committee/Risk/Decision 工作流、明确的批准与禁用实盘执行关卡，以及只读个人 UI。
-项目也已接受 PRODUCT-01 至 PRODUCT-04：首次引导、设置/加密凭据存储、OpenAI-compatible 模型运行时和
-经端口隔离的多提供方数据运行时。它们不自动选择或启用提供方，也不提供组合导入、完整分析编排或实盘经纪商执行。
+项目已接受 PRODUCT-01 至 PRODUCT-05：首次引导、设置/加密凭据存储、OpenAI-compatible 模型运行时、
+经端口隔离的多提供方数据运行时、组合导入与观察清单。P6 已有分析与报告纵切，但完整页面化研究证据摄取与运行控制尚未收口。
+系统不自动选择或启用提供方，也不提供实盘经纪商执行。页面操作见[使用指南](docs/product/USER_GUIDE.md)，
+产品缺口与本轮修复见[交互复查](docs/product/UX_REVIEW_2026-10-15.md)。
 
 当前产品执行顺序是 P5（Portfolio 与 Watchlist）→ P6（分析编排）→ P7（交互式决策与批准）→ P8（每日 AI
 团队运行时）→ P9（Beta 验收）。PR-09 在 P9 经所有者接受前保持阻塞，不能视作发布就绪。完整状态见
@@ -35,6 +37,12 @@ PR-08 React 工作区位于 `web/`。仅用于开发的命令是在该目录中�
 无需浏览器 CORS 例外。
 
 ## 本地开发设置
+
+默认 Compose 只向 `127.0.0.1` 发布 API 与数据库端口。服务启动后，Windows 用户双击根目录的
+`打开投资工作台.cmd`，即可自动配对并打开页面，不必复制开发令牌。会话最长保留 30 天，支持刷新、新标签页与 API 重启；
+断开或过期后重新打开本地入口即可。非 Windows 平台使用 `uv run python scripts/open_local_ui.py`。
+此入口要求 Docker 服务正在运行，不负责安装 Docker / uv；多个部署可加 `--url http://127.0.0.1:端口`。
+会话不授权交易，也不自动启用或调用任何模型 / 数据源。细节见[使用指南](docs/product/USER_GUIDE.md)。
 
 PowerShell：
 

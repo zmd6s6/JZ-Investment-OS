@@ -1,4 +1,6 @@
 const TOKEN_KEY = "investment_os_write_token";
+let apiAuthMode: "bearer" | "local_session" = "bearer";
+export function setApiAuthMode(mode: "bearer" | "local_session") { apiAuthMode = mode; }
 
 export function getWriteToken(): string {
   try {
@@ -8,12 +10,13 @@ export function getWriteToken(): string {
   }
 }
 
-export function setWriteToken(token: string) {
+export function setWriteToken(token: string): boolean {
   try {
     if (token) sessionStorage.setItem(TOKEN_KEY, token);
     else sessionStorage.removeItem(TOKEN_KEY);
+    return true;
   } catch {
-    /* ignore */
+    return false;
   }
 }
 
@@ -21,28 +24,121 @@ export async function apiFetch(url: string, init: RequestInit = {}): Promise<Res
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-    const token = getWriteToken();
-    if (token) headers.set("Authorization", `Bearer ${token}`);
+    headers.set("X-Investment-OS", "local-ui");
+    const token = apiAuthMode === "bearer" ? getWriteToken() : "";
+    if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
   }
-  return fetch(url, { ...init, headers });
+  try {
+    const response = await fetch(url, { ...init, credentials: "same-origin", headers });
+    if (response.status === 401 && apiAuthMode === "local_session") window.dispatchEvent(new Event("investment-os:session-expired"));
+    return response;
+  } catch {
+    throw new Error("无法连接本地服务。请检查服务是否启动；若刚提交过操作，请先刷新核对结果，避免重复提交。");
+  }
+}
+
+export async function verifyWriteToken(token: string): Promise<void> {
+  if (!token.trim()) throw new Error("请输入本系统的写入令牌；它不是模型或数据源的 API Key。");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let response: Response;
+  try {
+    response = await apiFetch("/api/v1/auth/check", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token.trim()}` },
+      signal: controller.signal,
+    });
+  } catch (reason) {
+    if (controller.signal.aborted) throw new Error("本地访问验证超时，令牌未保存。请检查服务状态后重试。");
+    throw reason;
+  } finally {
+    clearTimeout(timeout);
+  }
+  if (response.status === 401)
+    throw new Error("写入令牌不正确或已失效。请核对服务端配置；不要填写模型或数据源的 API Key。");
+  if (!response.ok) throw new Error(await readApiError(response));
 }
 
 export async function readApiError(response: Response): Promise<string> {
+  let detail: unknown;
   try {
-    const body = (await response.json()) as {
-      detail?: string | { message?: string; code?: string };
-    };
-    if (typeof body.detail === "string") {
-      if (body.detail === "write_api_unauthorized") return "写操作需要写入令牌，请先在右上角配置";
-      if (body.detail === "write_api_token_not_configured")
-        return "服务端未配置写入令牌，写操作已禁用";
-      return body.detail;
-    }
-    if (body.detail && typeof body.detail === "object") {
-      return body.detail.message || body.detail.code || "请求被拒绝";
-    }
+    const body = (await response.json()) as { detail?: unknown; code?: unknown };
+    detail = body.detail ?? body.code;
   } catch {
-    /* ignore */
+    // HTML errors and proxy failures still get a useful, non-sensitive message.
   }
-  return `请求失败（HTTP ${response.status}）`;
+  const code = typeof detail === "string"
+    ? detail.toUpperCase()
+    : detail && typeof detail === "object" && "code" in detail
+      ? String(detail.code).toUpperCase()
+      : "";
+  if (code === "WRITE_API_TOKEN_NOT_CONFIGURED")
+    return "服务端尚未配置本系统的写入令牌，保存操作已禁用。请联系维护者配置；这不是模型或数据源 Key 的问题。";
+  if (code === "LOCAL_ACCESS_REQUIRED") return "本机访问已过期或未连接。请重新从「打开投资工作台.cmd」进入，不需要填写令牌或更换供应商 Key。";
+  if (code === "LOCAL_ORIGIN_MISMATCH" || code === "LOCAL_ORIGIN_REQUIRED") return "请求来源与本机工作台不一致，操作已阻止。请从本地启动入口打开正确地址。";
+  if (code === "LOCAL_ACCESS_UNAVAILABLE") return "本机会话存储暂不可用，操作未完成。请检查运行目录权限后重试，不要更换供应商密钥。";
+  if (code === "WRITE_API_UNAUTHORIZED" || response.status === 401)
+    return getWriteToken()
+      ? "本系统的写入令牌不正确或已失效。请在右上角重新配置，不需要更换模型或数据源 Key。"
+      : "尚未配置本系统的写入令牌。请点击右上角“配置写令牌”，保存后重试；它不是模型或数据源的 API Key。";
+  if (code === "SECRET_STORE_UNAVAILABLE")
+    return "加密凭据存储暂不可用，凭据未能保存。请联系维护者检查服务配置，不要自行更换加密主密钥。";
+  if (code === "CREDENTIAL_MISSING")
+    return "此提供方尚未配置凭据。请在对应档案中填写它自己的 API Key 或 Token，再测试连接。";
+  if (code === "RESEARCH_PROVIDER_REQUEST_REJECTED") return "所选研究来源暂不可用：请检查档案已启用、凭据可用、类型受支持，以及查询和单标的范围正确。未切换其他来源。";
+  if (code === "RESEARCH_PREVIEW_EXPIRED") return "预览确认窗口已过期，所选内容未入库。请明确重新查询并检查资料，系统不会自动产生费用。";
+  if (code === "RESEARCH_PREVIEW_NOT_FOUND") return "没有找到原预览；可能未成功取得结果。重新查询可能再次计费，请核对后明确发起。";
+  if (code === "RESEARCH_PREVIEW_SOURCE_DISABLED") return "预览对应的来源已停用、移除或没有凭据，本次确认已阻止；不会自动启用来源。";
+  if (code.startsWith("RESEARCH_PREVIEW_") && code.endsWith("CONFLICT")) return "这个预览已使用其他请求或选择确认过，不能覆盖原记录。请找回原预览查看已保存结果。";
+  if (code.startsWith("RESEARCH_PREVIEW_")) return "预览或所选候选已不可用，整批确认未完成。请找回预览核对标的、有效期和所选内容。";
+  if (code === "ANALYSIS_EVIDENCE_SELECTION_INVALID") return "所选证据含缺失、跨标的、重复、未来或过期内容，分析未启动。请刷新并重新勾选，不会偷偷替换成其他资料。";
+  if (code === "ANALYSIS_POLICY_INVALID") return "组合政策不明确、版本校验失败、批准不完整或尚未生效，分析未启动。请核对政策治理记录；系统未自动选择其他政策，也未修改限额。";
+  if (code === "ANALYSIS_STRATEGY_INVALID") return "测试策略工件或源码无法校验，分析未启动。请核对服务版本；不是访问令牌问题，系统未激活或替换投资策略。";
+  if (code === "ANALYSIS_THESIS_INVALID") return "已保存的投资逻辑版本或支持资料无法通过校验，分析未启动。请核对版本、内容和资料记录；不是访问令牌问题，系统未用其他版本替换。";
+  if (code === "ANALYSIS_EVIDENCE_INVALID") return "资料与本次冻结引用不一致，未展示正文。请核对记录；只读重试不会重新分析或调用来源。";
+  if (code === "ANALYSIS_EVIDENCE_NOT_FOUND") return "该资料不属于本次冻结引用，未读取其他资料。请返回报告核对引用。";
+  if (code === "ANALYSIS_RESEARCH_INVALID") return "研究主表关联或内容校验失败，未采用不完整记录。请核对运行记录，不要重新启动分析来代替只读重试。";
+  if (code === "THESIS_EDIT_CONFLICT") return "投资逻辑已被其他操作更新，本次没有覆盖。输入已保留，请先核对最新版本，再决定是否重新整理保存。";
+  if (code === "THESIS_REVIEW_UNAVAILABLE") return "这次分析没有可校验的完整研究记录或逻辑基准，不能直接生成团队草稿。旧报告不会被补造，也不会自动调用模型。";
+  if (code === "THESIS_REVIEW_SOURCE_INVALID") return "团队观点来源与当前标的或逻辑基准不一致，本次未保存。草稿已保留，请核对原分析与最新版本；系统不会覆盖或自动换来源。";
+  if (code === "THESIS_REQUEST_CONFLICT") return "这个保存标识已用于其他内容，不能覆盖原请求；请先核对历史版本。";
+  if (code === "THESIS_EVIDENCE_INVALID") return "支持资料含缺失、跨标的、未来、陈旧或到期内容，未保存。请为每条主张重新核对有效引用，不会自动替换资料。";
+  if (code === "THESIS_WRITE_INVALID") return "投资逻辑内容或状态转换不合法，未保存。请检查支柱、证据、失效条件及状态顺序；已失效逻辑不能在此快捷恢复有效。";
+  if (code === "ANALYSIS_MODEL_CONFIGURATION_CHANGED") return "模型或定价配置已改变，未换用新配置。请重新打开分析确认窗口，核对模型与费用后再明确提交。";
+  if (code === "ANALYSIS_MARKET_CONFIGURATION_CHANGED") return "行情档案配置已改变或停用，未自动换源。请重新打开分析确认窗口，核对来源顺序后再提交。";
+  if (code === "ANALYSIS_MARKET_CONFIGURATION_INVALID") return "行情选择无效：请只选择已启用、有凭据且受支持的档案，不要重复；也可清空行情选择继续研究。";
+  if (code === "ANALYSIS_MODEL_CONFIGURATION_INVALID") return "分析模型尚未就绪。请检查模型档案已启用、已配置凭据，并补全角色映射；也可在分析窗口选择一个模型用于全部角色。";
+  if (code === "ANALYSIS_JOB_REQUEST_CONFLICT") return "同一任务标识对应了不同请求，不能覆盖原任务。请先到分析运行核对原结果。";
+  if (code === "ANALYSIS_JOB_NOT_RETRYABLE") return "此运行尚未失败或取消，不能重新发起。请先查看当前运行，避免重复费用。";
+  if (code === "ANALYSIS_JOB_NOT_FOUND") return "该记录不是可操作的后台任务，或已不存在。旧同步报告仍可阅读。";
+  if (code === "ANALYSIS_JOBS_UNAVAILABLE") return "后台分析服务尚未部署或暂不可用。请联系维护者检查 API、Worker 和迁移，不要更换供应商密钥。";
+  if (code === "RESEARCH_PROVIDER_UNAVAILABLE") return "所选研究供应商连接失败或超时。请先检查已存资料，再决定是否重新调用；没有切换其他来源。";
+  if (code === "RESEARCH_INGESTION_UNAVAILABLE" || code === "RESEARCH_PROVIDER_RUNTIME_UNAVAILABLE") return "研究服务暂不可用。请检查 API 部署与数据库，不要更换模型密钥。";
+  if (response.status === 403) return "当前操作没有权限，未获授权。请检查本系统的访问配置，不要更换供应商 Key。";
+  if (response.status === 404) return "记录不存在或已被移除。请刷新列表后重新选择。";
+  if (response.status === 409) return "数据已被其他操作更新。请先刷新核对最新内容，再重新提交。";
+  if (response.status === 422) {
+    const fields: Record<string, string> = {
+      name: "名称", base_url: "基础 URL", provider_type: "提供方类型",
+      model_name: "模型名", timeout_seconds: "超时秒数", max_tokens: "最大 Tokens",
+      credential: "提供方凭据", retention_days: "本地保留天数",
+      long_term_summary: "长期逻辑摘要", pillars: "逻辑支柱", description: "主张内容",
+      evidence_ids: "支持资料", invalidation_conditions: "失效条件", monitoring_conditions: "观察事项",
+      market_timezone: "市场时区", task_token_limit: "单任务 Token 上限",
+    };
+    const names = Array.isArray(detail)
+      ? [...new Set(detail.flatMap((issue) => {
+          const loc = issue && typeof issue === "object" && "loc" in issue ? issue.loc : null;
+          const field = Array.isArray(loc) ? String(loc[loc.length - 1]) : "";
+          return fields[field] ? [fields[field]] : [];
+        }))]
+      : [];
+    return names.length
+      ? `填写内容未通过校验：${names.join("、")}。请检查这些字段的格式和允许范围，输入内容已保留。`
+      : "填写内容未通过校验。请检查必填项、格式和数值范围，输入内容已保留。";
+  }
+  if (response.status === 429) return "请求过于频繁或额度已用完。请稍后重试，并检查提供方额度和系统预算。";
+  if (response.status === 408 || response.status === 504)
+    return "等待服务响应超时，结果尚未确认。请先刷新核对运行或保存结果，不要立即重复提交。";
+  return `服务暂时无法完成请求（HTTP ${response.status}）。请先刷新核对结果；仍失败时联系维护者。请勿因此更换 API Key 或加密主密钥。`;
 }

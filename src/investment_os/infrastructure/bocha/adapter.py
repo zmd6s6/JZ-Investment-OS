@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from time import monotonic
@@ -51,11 +52,26 @@ class BochaWebSearchProvider:
             await self._client.aclose()
 
     async def fetch_artifacts(self, request: ResearchRequest) -> list[ResearchArtifactDTO]:
+        if len(request.instrument_ids) > 1:
+            raise ResearchProviderSchemaError("web search requires at most one explicit instrument")
         query = self._validated_query(request.query)
         count = self._validated_count(request.max_results)
         payload = await self._search(query=query, count=count)
         observed_at = request.as_of
-        return self._map_results(payload=payload, query=query, observed_at=observed_at)
+        artifacts = self._map_results(payload=payload, query=query, observed_at=observed_at)
+        if not request.instrument_ids:
+            return artifacts
+        instrument_id = request.instrument_ids[0]
+        # Owner association is context, not verified relevance or source quality.
+        # Hash the context too, so dedupe cannot return another instrument's row.
+        return [
+            replace(
+                artifact,
+                instrument_id=instrument_id,
+                payload={**artifact.payload, "requested_instrument_id": str(instrument_id)},
+            )
+            for artifact in artifacts
+        ]
 
     async def test_connection(self) -> ProviderTestResult:
         """Use a fixed harmless query only after the owner explicitly requests a test."""

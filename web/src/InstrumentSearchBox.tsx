@@ -20,25 +20,31 @@ export function InstrumentSearchBox({
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<InstrumentHit[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
 
   useEffect(() => {
     const q = query.trim();
+    setHits([]);
+    setSearched(false);
     if (q.length < 1) {
-      setHits([]);
+      setLoading(false);
       return;
     }
+    let cancelled = false;
+    const controller = new AbortController();
+    setLoading(true);
     const timer = window.setTimeout(() => {
-      void fetch(`/api/v1/instruments/search?q=${encodeURIComponent(q)}&limit=8`)
+      void fetch(`/api/v1/instruments/search?q=${encodeURIComponent(q)}&limit=8`, { signal: controller.signal })
         .then(async (response) => {
           if (!response.ok) throw new Error("搜索失败");
           return (await response.json()) as InstrumentHit[];
         })
-        .then(setHits)
-        .catch((reason: unknown) =>
-          setError(reason instanceof Error ? reason.message : "搜索失败"),
-        );
+        .then((rows) => { if (!cancelled) { setHits(rows); setSearched(true); } })
+        .catch(() => { if (!cancelled) setError("暂时无法搜索目录。可稍后重试，或在下方手动填写代码、名称与市场。"); })
+        .finally(() => { if (!cancelled) setLoading(false); });
     }, 200);
-    return () => window.clearTimeout(timer);
+    return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
   }, [query]);
 
   return (
@@ -52,7 +58,9 @@ export function InstrumentSearchBox({
         }}
         aria-label="标的搜索"
       />
-      {error ? <p className="banner banner-error">{error}</p> : null}
+      {loading ? <p className="hint-text" role="status">正在搜索标的…</p> : null}
+      {searched && !loading && hits.length === 0 ? <p className="hint-text" role="status">目录中没有匹配项。可在下方手动填写代码与名称；目录并不代表全部可交易证券。</p> : null}
+      {error ? <p className="banner banner-error" role="alert">{error}</p> : null}
       {hits.length > 0 ? (
         <ul className="search-hits">
           {hits.map((hit) => (

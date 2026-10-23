@@ -15,6 +15,7 @@ describe("product onboarding", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string) => {
+        if (url === "/api/v1/auth/session") return response({ mode: "bearer", authenticated: false, expires_at: null });
         if (url === "/api/v1/onboarding") {
           return response({ schema_version: "1.0", status: "NOT_STARTED", started_at: null });
         }
@@ -39,6 +40,7 @@ describe("product onboarding", () => {
 
   it("persists the start action through the onboarding API", async () => {
     const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+      if (url === "/api/v1/auth/session") return response({ mode: "bearer", authenticated: false, expires_at: null });
       if (url === "/api/v1/onboarding") {
         return response({ schema_version: "1.0", status: "NOT_STARTED", started_at: null });
       }
@@ -66,11 +68,12 @@ describe("product onboarding", () => {
     );
   });
 
-  it("keeps the PR-08 synthetic demo at a clearly labelled separate route", () => {
+  it("keeps the PR-08 synthetic demo at a clearly labelled separate route", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => response({ mode: "bearer", authenticated: false, expires_at: null })));
     window.history.pushState({}, "", "/demo/pr-08");
     render(<App />);
 
-    expect(screen.getByText("合成只读页面")).toBeInTheDocument();
+    expect(await screen.findByText("合成只读页面")).toBeInTheDocument();
     expect(
       screen.getByText("仅用于界面结构演示，不代表真实账户或可执行建议。"),
     ).toBeInTheDocument();
@@ -83,6 +86,7 @@ describe("product onboarding", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string) => {
+        if (url === "/api/v1/auth/session") return response({ mode: "bearer", authenticated: false, expires_at: null });
         if (url === "/api/v1/settings/system") {
           return response({
             schema_version: "1.0",

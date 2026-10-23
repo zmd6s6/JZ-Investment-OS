@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -28,6 +29,9 @@ class Settings(BaseSettings):
     secret_store_path: Path = Path(".runtime/provider-secrets.json")
     secret_store_key: str | None = None
     api_write_token: str | None = None
+    api_auth_mode: Literal["bearer", "local_session"] = "bearer"
+    local_origin: str = "http://127.0.0.1:8100"
+    local_access_store_path: Path = Path(".runtime/local-access.sqlite3")
 
 
 @lru_cache(maxsize=1)

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -120,3 +121,20 @@ async def test_repairs_share_task_budget_and_daily_capacity_is_reserved() -> Non
     await service.reserve(profile=profile(), request=request(task_id))
     with pytest.raises(LLMGatewayFailure, match="exceed"):
         await service.reserve(profile=profile(), request=request(task_id))
+
+
+async def test_distinct_role_requests_share_explicit_analysis_budget_identity() -> None:
+    policy = LLMBudgetPolicy("TEST_DEFAULT", "USD", 10000, 10000, Decimal("100"), Decimal("100"))
+    port = MemoryBudgetPort(policy)
+    service = LLMBudgetService(port)
+    run_id = uuid4()
+    first = replace(request(), budget_task_id=run_id)
+    second = replace(request(), role=AgentRole.INDUSTRY, budget_task_id=run_id)
+    assert first.request_id != second.request_id
+    for item in (
+        first,
+        second,
+        replace(second, repair_attempt=1, repair_error_code="INVALID_OUTPUT"),
+    ):
+        await service.reserve(profile=profile(), request=item)
+    assert {item.task_id for item in port.reservations} == {run_id}

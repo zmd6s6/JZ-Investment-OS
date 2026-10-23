@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.evidence import NormalizedEvidence, normalize_artifact
@@ -37,32 +38,45 @@ class SqlAlchemyEvidenceIngestor:
         normalized = normalize_artifact(artifact, ingested_at=self._now())
         correlation = correlation_id or uuid4()
         async with SqlAlchemyUnitOfWork(self._session_factory) as uow:
-            existing = await uow.evidence.get_by_source_content(
-                source_name=normalized.source_name,
-                source_locator=normalized.source_locator,
-                content_hash=normalized.content_hash,
-            )
-            if existing is not None:
-                return EvidenceIngestResult(evidence_id=existing.id, reused=True)
-            await uow.research_artifacts.append(
-                ResearchArtifactRecord(
-                    provider=normalized.provider,
-                    provider_ref=normalized.provider_ref,
-                    artifact_type=normalized.evidence_type,
-                    as_of=normalized.available_at.value,
-                    raw_payload_ref=normalized.source_locator,
-                    normalized_payload_json=dict(normalized.payload),
-                    content_hash=normalized.content_hash,
-                    created_by="evidence_ingestion",
-                    correlation_id=correlation,
-                    causation_id=None,
-                    metadata_json={"source_schema_version": normalized.source_schema_version},
-                )
-            )
-            record = self._record(normalized, correlation)
-            await uow.evidence.append(record)
+            result = await self.persist_in_uow(uow, normalized, correlation)
             await uow.commit()
-            return EvidenceIngestResult(evidence_id=record.id, reused=False)
+            return result
+
+    @staticmethod
+    async def persist_in_uow(
+        uow: SqlAlchemyUnitOfWork,
+        normalized: NormalizedEvidence,
+        correlation: UUID,
+    ) -> EvidenceIngestResult:
+        await uow.session.execute(
+            text("SELECT pg_advisory_xact_lock(:key)"),
+            {"key": int(normalized.content_hash[:15], 16)},
+        )
+        existing = await uow.evidence.get_by_source_content(
+            source_name=normalized.source_name,
+            source_locator=normalized.source_locator,
+            content_hash=normalized.content_hash,
+        )
+        if existing is not None:
+            return EvidenceIngestResult(evidence_id=existing.id, reused=True)
+        await uow.research_artifacts.append(
+            ResearchArtifactRecord(
+                provider=normalized.provider,
+                provider_ref=normalized.provider_ref,
+                artifact_type=normalized.evidence_type,
+                as_of=normalized.available_at.value,
+                raw_payload_ref=normalized.source_locator,
+                normalized_payload_json=dict(normalized.payload),
+                content_hash=normalized.content_hash,
+                created_by="evidence_ingestion",
+                correlation_id=correlation,
+                causation_id=None,
+                metadata_json={"source_schema_version": normalized.source_schema_version},
+            )
+        )
+        record = SqlAlchemyEvidenceIngestor._record(normalized, correlation)
+        await uow.evidence.append(record)
+        return EvidenceIngestResult(evidence_id=record.id, reused=False)
 
     @staticmethod
     def _record(normalized: NormalizedEvidence, correlation_id: UUID) -> EvidenceRecord:

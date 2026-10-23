@@ -72,7 +72,7 @@ test("csv import blocks dirty rows and accepts clean file", async ({ page }) => 
 test("watchlist is simple add/remove with Chinese empty states", async ({ page }) => {
   await authorize(page);
   await page.goto("/watchlist");
-  await expect(page.getByRole("heading", { name: "我在盯的票" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "我的观察清单" })).toBeVisible();
   await page.getByLabel("代码").fill("000001");
   await page.getByLabel("名称").fill("平安银行");
   await page.getByRole("button", { name: "加入清单" }).click();
@@ -88,7 +88,7 @@ test("watchlist is simple add/remove with Chinese empty states", async ({ page }
 
 test("home policy review is read-only and marks TEST_DEFAULT", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Investment Policy/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "投资政策 · 只读审阅", exact: true })).toBeVisible();
   await expect(page.getByText("TEST_DEFAULT", { exact: true }).first()).toBeVisible();
   await expect(
     page.getByText("我已阅读当前政策状态（系统不会在此修改限额）"),
