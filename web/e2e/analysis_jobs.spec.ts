@@ -17,7 +17,7 @@ test.beforeAll(async ({ request }) => {
   expect(identity.status()).toBe(201); instrumentId = (await identity.json()).instrument_id;
   const now = new Date(Date.now() - 10000).toISOString();
   evidenceTitle = `后台分析合成证据-${Date.now()}`;
-  const evidence = await request.post("/api/v1/research/ingest", { headers, data: { provider: "SYNTHETIC", provider_ref: `jobs-${Date.now()}`, artifact_type: "NEWS", instrument_id: instrumentId, source_name: "合成任务资料", source_locator: "https://synthetic.example.test/jobs", source_tier: "OTHER", observed_at: now, effective_at: now, available_at: now, expires_at: null, payload: { title: evidenceTitle, summary: "仅用于隔离浏览器验收" }, source_schema_version: "1.0", supersedes_id: null } });
+  const evidence = await request.post("/api/v1/research/ingest", { headers, data: { provider: "SYNTHETIC", provider_ref: `jobs-${Date.now()}`, artifact_type: "NEWS", instrument_id: instrumentId, source_name: "合成任务资料", source_locator: "https://synthetic.example.test/jobs", source_tier: "OTHER", observed_at: now, effective_at: now, available_at: now, expires_at: null, payload: { title: evidenceTitle, summary: "仅用于隔离浏览器验收", content: "<script>window.__syntheticEvidenceExecuted=true</script>合成保存正文，仅作为文字核对。" }, source_schema_version: "1.0", supersedes_id: null } });
   expect(evidence.status()).toBe(200);
 });
 
@@ -71,8 +71,27 @@ test("real queued run survives navigation and reload, then displays actual stage
   await page.getByRole("button",{name:"重新读取研究记录",exact:true}).click();
   expect((await (await request.get(`/api/v1/analysis-runs/${id}/research-records`,{headers})).json())).toEqual(records);
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
+  await page.getByText("完整观点 / 引用 / 未知项", { exact: true }).first().click();
+  const citationButton = page.getByRole("button", { name: /^查看引用资料 / }).first();
+  await citationButton.click();
+  const evidenceDialog = page.getByRole("dialog", { name: "当次引用资料", exact: true });
+  await expect(evidenceDialog.getByText("已核对：存储内容与本次引用一致。", { exact: true })).toBeVisible();
+  await expect(evidenceDialog.getByText("仅用于隔离浏览器验收", { exact: true })).toBeVisible();
+  await expect(evidenceDialog.getByText(/<script>window.__syntheticEvidenceExecuted/)).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__syntheticEvidenceExecuted)).toBeUndefined();
+  await expect(evidenceDialog.getByRole("link", { name: "在新标签打开来源（将联网）" })).toHaveAttribute("rel", "noopener noreferrer");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await evidenceDialog.getByRole("button", { name: "关闭资料，返回报告" }).click();
+  await expect(evidenceDialog).toHaveCount(0); await expect(citationButton).toBeFocused();
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "分析详情 · 成功" })).toBeVisible();
+  await page.getByText("完整观点 / 引用 / 未知项", { exact: true }).first().click();
+  await page.getByRole("button", { name: /^查看引用资料 / }).first().click();
+  await expect(page.getByRole("dialog").getByText("已核对：存储内容与本次引用一致。", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
 });
 
 test("queued thesis version reaches all agents and remains fixed after a new version and refresh", async ({ page, request }) => {

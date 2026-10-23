@@ -4,7 +4,7 @@
 - 前置条件：`PRODUCT-05` 已由所有者接受；可用的已授权模型与数据档案、Portfolio/Watchlist 产品流均已验证
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md` §2、§4、§6、§9、§11、§12、§16 至 §19
 - 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0004`、`ADR-0005`、`ADR-0006`、`ADR-0007`、`ADR-0010`、
-  `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`、`ADR-0020`、`ADR-0021`、`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0025`、`ADR-0026`、`ADR-0027`、`ADR-0028`、`ADR-0029`、`ADR-0030`、`ADR-0031`
+  `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`、`ADR-0020`、`ADR-0021`、`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0025`、`ADR-0026`、`ADR-0027`、`ADR-0028`、`ADR-0029`、`ADR-0030`、`ADR-0031`、`ADR-0032`
 - 安全基线：`auto_trade=false`；外部研究和模型输出均不可信；结果仅为影子 Decision
 
 ## 目标
@@ -72,6 +72,18 @@
 所有者已明确授权的 profile 上进行，并记录脱敏结果。完成定义和证据齐备后方可 `READY_FOR_REVIEW`。
 
 ## 实施记录
+
+- 2026-10-23（当次引用资料查看器，ADR-0032，本轮最新）：
+  - 新增受保护版本化GET `/api/v1/analysis-runs/{run_id}/evidence/{evidence_id}`，类型化只读应用端口；先验证完整冻结快照hash、标的 / 组合 / 时点、最多50项及无重复引用，再按历史ID读取Evidence，不以近期列表 / 当前网页替代。跨运行引用404；内容 / 来源 / 时间篡改拒绝正文，旧元数据不足或资料缺失如实显示，零数据库写入。
+  - 沿用normalize_artifact重新计算保存内容摘要；只返回标题与summary / snippet / text / content / description白名单文字，单片段20000 / 总正文64000字符，明确截断，不返回任意payload / 配置。VERIFIED仅表示存储内容与引用一致，不证明事实真实或模型读过全文。原快照、正文、风险与报告不改写。
+  - 报告观点、主表观点 / 风险及输入快照共用只读查看器。普通文字呈现不执行HTML，来源只允许用户明确点击无内嵌认证的HTTP(S)并使用noopener / noreferrer。15秒期限、中文处理中 / 错误 / 重试、Esc / 关闭 / 焦点返回与跨运行迟到响应隔离；当前过期仍显示历史和当时新鲜度，不允许因此重新分析或新增暴露。
+  - 定向后端20项（18集成 / 2投影）通过：跨运行在读取正文前拒绝、10类损坏、未来可用时间、旧快照 / 丢失原文、非近期且现已过期资料、受保护接口与零写入。最终完整后端730 passed / 88.66%（Windows，236.89秒），领域行98.33%（1178/1198）/ 分支90.60%（241/266）；前端127/127（24文件）及构建通过，新增查看器11项。
+  - 完整Chrome七文件29/29（1.9分钟），无跳过；真实PostgreSQL / 队列 / Worker、合成模型与来源，验证打开资料、保存的脚本文字不执行、来源链接安全、390px不溢出、关闭焦点返回、刷新后再次查看与Esc，始终8次模型调用，不因阅读重跑。不是借用上一提交结果。
+  - Ruff格式321文件 / 检查、mypy122文件、OpenAPI / Policy Schema --check、Compose config / diff检查通过；OpenAPI仅增加路由与响应DTO，无迁移 / 锁 / 生产依赖 / Prompt / AgentOpinion输出 / 投资规则变化。只读密钥扫描420文件新增0，不改扫描基线；pip-audit正常重试后无已知漏洞（非PyPI本项目自身跳过）。
+  - 命令：`.venv/Scripts/python.exe .runtime/run_daily_tmpfs_tests_20261023.py -xq`（固定15435本轮合成内存盘库），`scripts/check_domain_coverage.py`；前端 `npm test -- --pool=threads --maxWorkers=1 --reporter=dot`、`npm run build`。Chrome设置E2E_SYNTHETIC_ANALYSIS=1 / 18107 / 合成访问令牌，执行 `analysis_jobs / onboarding / settings / portfolio_watchlist / interaction_feedback / product_journey / thesis --workers=1`，输出保留 `.runtime/citation-browser-20261023`。
+  - 保留中间失败：首轮前端126通过 / 1失败，原测试按平铺文本定位引用，改为核对嵌套引用完整内容；第二轮127通过但构建发现RTL不支持exact选项，移除不支持参数（字符串名称仍精确匹配），最终127项与构建通过，不放宽风险断言。pip-audit首次PyPI TLS EOF失败，未关闭证书验证 / 改代理，正常重试通过。jsdom导航与既有Starlette兼容警告不当作浏览器证据。
+  - 使用锁一致53e4b16缓存完整镜像作隔离运行时，只读挂本轮src / tests / dist，不冒充新完整交付镜像。核对ID后清理本轮18107 API、15435 PostgreSQL及专用网络；--rm内存盘仅合成数据不可恢复，测试输出保留，所有者数据未删除。18102仍为53e4b16，不复用旧部署授权，无真实付费模型 / 来源调用。原生研究、本机会话浏览器、断电恢复及真实提供方本轮NOT VERIFIED。
+  - 本纵切可审阅，P6仍IN_PROGRESS；完整市场特征 / FX / 仓位、已批准策略、正式Decision与整体验收未完成，不进入P7 / PR-09。远程CI以本轮新提交为准。
 
 - 2026-10-23（目标单日行情观察，ADR-0031，本轮最新）：
   - 保留用户显式来源与同次日线请求，仅扩展开高低收 / 昨收 / 成交字段；按官方口径精确转换手→股、千元→元，128位独立Decimal上下文计算涨跌比例与日内振幅，不信任供应商百分数、不让LLM计算。没有新增历史查询或实际外部调用次数。

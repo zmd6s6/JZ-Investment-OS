@@ -17,6 +17,7 @@ import { AnalysisThesis } from "./AnalysisThesis";
 import { AnalysisResearch } from "./AnalysisResearch";
 import { AnalysisExecutionContext } from "./AnalysisExecutionContext";
 import { AnalysisValuation } from "./AnalysisValuation";
+import { EvidenceReaderProvider, EvidenceReferences } from "./AnalysisEvidence";
 
 const roleNames: Record<string, string> = { MACRO: "宏观研究", INDUSTRY: "行业研究", FUNDAMENTAL: "基本面研究", MARKET_QUANT: "市场与量化", EVENT: "事件研究", PORTFOLIO: "组合经理", RISK: "风险经理", DEVILS_ADVOCATE: "反方审查", CIO: "首席投资官" };
 
@@ -56,7 +57,7 @@ function FrozenInputs({ value }: { value: unknown }) {
     <h4>本次固定的模型与定价</h4>
     <p className="hint-text">{plan ? `选择方式：${plan.mode === "SINGLE_PROFILE" ? "单一档案用于全部八角色" : "启动时角色映射"}。这里是提交时摘要，不查询当前设置；预算仍按调用时有效的预算门禁检查。` : "此历史运行未固定模型档案与定价，不用当前设置追补。"}</p>
     {bindings.map((b) => <article className="evidence-card" key={b.role}><strong>{roleNames[b.role] ?? b.role} · {text(b.profile.name)} · {text(b.profile.model_name)}</strong><p>定价版本 {text(b.profile.pricing_version)} · 币种 {text(b.profile.pricing_currency)} · 每 Token 输入 {tokenPriceLabel(b.profile.input_token_price)} / 输出 {tokenPriceLabel(b.profile.output_token_price)}</p><p className="hint-text">档案 ID：{text(b.profile.profile_id)} · 配置摘要：{text(b.profile.configuration_hash)}</p></article>)}
-    {evidence.map((item) => <article className="evidence-card" key={text(item.evidence_id)}><strong>{text(item.summary)}</strong><p>{text(item.source_name)} · 获取渠道 {text(item.provider)} · {text(item.source_tier)}</p><p className="hint-text">证据 ID：{text(item.evidence_id)} · 内容摘要：{text(item.content_hash)}</p><p className="hint-text">观察：{text(item.observed_at)} · 可用：{text(item.available_at)} · 到期：{text(item.expires_at)}</p><p className="hint-text">来源定位（不自动访问）：{text(item.source_locator)}</p></article>)}
+    {evidence.map((item) => <article className="evidence-card" key={text(item.evidence_id)}><strong>{text(item.summary)}</strong><p>{text(item.source_name)} · 获取渠道 {text(item.provider)} · {text(item.source_tier)}</p><p className="hint-text">证据 ID：{text(item.evidence_id)} · 内容摘要：{text(item.content_hash)}</p><EvidenceReferences ids={[item.evidence_id]} /><p className="hint-text">观察：{text(item.observed_at)} · 可用：{text(item.available_at)} · 到期：{text(item.expires_at)}</p><p className="hint-text">来源定位（不自动访问）：{text(item.source_locator)}</p></article>)}
   </details>;
 }
 
@@ -272,6 +273,7 @@ export function AnalysisPage() {
 
       {selected ? (
         <div ref={reportRef} id="analysis-report">
+        <EvidenceReaderProvider key={selected.id} runId={selected.id}>
         <Panel
           title={`分析详情 · ${runStatusLabel(selected.status)}`}
           description={`分析时点 ${new Date(selected.as_of).toLocaleString("zh-CN")} · 政策版本 ${selected.policy_version_label}`}
@@ -359,7 +361,7 @@ export function AnalysisPage() {
                       </div>
                     ))}
                     <details><summary>完整观点 / 引用 / 未知项</summary>
-                      {(Array.isArray(op.claims) ? op.claims : []).map((claim, index) => <div key={index}><p>{String((claim as { claim?: unknown }).claim ?? "未提供")}</p><p className="muted">证据引用：{Array.isArray((claim as { evidence_ids?: unknown }).evidence_ids) ? ((claim as { evidence_ids: unknown[] }).evidence_ids).map(String).join("、") : "未提供"}</p></div>)}
+                      {(Array.isArray(op.claims) ? op.claims : []).map((claim, index) => <div key={index}><p>{String((claim as { claim?: unknown }).claim ?? "未提供")}</p><div className="muted">证据引用：<EvidenceReferences ids={(claim as { evidence_ids?: unknown }).evidence_ids} /></div></div>)}
                       <p>假设：{Array.isArray(op.assumptions) && op.assumptions.length ? op.assumptions.map(String).join("；") : "未提供"}</p>
                       <p>未知项：{Array.isArray(op.unknowns) && op.unknowns.length ? op.unknowns.map(String).join("；") : "未提供"}</p>
                     </details>
@@ -371,7 +373,7 @@ export function AnalysisPage() {
           </table>
           </div>
 
-          <details><summary>查看风险旗与解除条件</summary>{Array.isArray(payload.risk?.flags) && payload.risk.flags.length ? <ul className="tip-list">{(payload.risk.flags as Record<string, unknown>[]).map((flag, index) => <li key={index}>{String(flag.code ?? "未提供")} · {String(flag.severity ?? "未提供")}<p>解除条件：{String(flag.release_condition ?? "未提供")}</p><p className="muted">证据引用：{Array.isArray(flag.evidence_ids) ? flag.evidence_ids.map(String).join("、") : "未提供"}</p></li>)}</ul> : <p className="hint-text">未提供风险旗，不代表风险已经排除。</p>}</details>
+          <details><summary>查看风险旗与解除条件</summary>{Array.isArray(payload.risk?.flags) && payload.risk.flags.length ? <ul className="tip-list">{(payload.risk.flags as Record<string, unknown>[]).map((flag, index) => <li key={index}>{String(flag.code ?? "未提供")} · {String(flag.severity ?? "未提供")}<p>解除条件：{String(flag.release_condition ?? "未提供")}</p><div className="muted">证据引用：<EvidenceReferences ids={flag.evidence_ids} /></div></li>)}</ul> : <p className="hint-text">未提供风险旗，不代表风险已经排除。</p>}</details>
 
           <h3>估值与仓位</h3>
           <AnalysisValuation valuation={payload.valuation} sizing={payload.sizing} />
@@ -404,6 +406,7 @@ export function AnalysisPage() {
             </p>
           ) : null}
         </Panel>
+        </EvidenceReaderProvider>
         </div>
       ) : null}
     </ProductChrome>

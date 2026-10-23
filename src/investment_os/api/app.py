@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 
+from investment_os.application.analysis_evidence import AnalysisEvidenceReader, AnalysisEvidenceView
 from investment_os.application.analysis_execution_context import ExecutionContextView
 from investment_os.application.analysis_jobs import AnalysisJobError, AnalysisJobService
 from investment_os.application.analysis_market import AnalysisMarketOptions, MarketAttemptEvent
@@ -68,6 +69,7 @@ from investment_os.application.thesis_product import (
 from investment_os.application.thesis_review import TeamThesisReview
 from investment_os.application.watchlist import WatchlistService
 from investment_os.domain.values import UtcTimestamp
+from investment_os.infrastructure.analysis_evidence import SqlAnalysisEvidenceReader
 from investment_os.infrastructure.analysis_research import SqlAnalysisResearchReader
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
@@ -398,6 +400,7 @@ def create_app(
     analysis_job_service: AnalysisJobService | None = None,
     thesis_product_service: ThesisProductService | None = None,
     analysis_research_reader: AnalysisResearchReader | None = None,
+    analysis_evidence_reader: AnalysisEvidenceReader | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -408,6 +411,7 @@ def create_app(
     selected_thesis_reader = thesis_reader
     selected_thesis_product = thesis_product_service
     selected_research_reader = analysis_research_reader
+    selected_analysis_evidence = analysis_evidence_reader
     selected_decision_journal_reader = decision_journal_reader
     selected_task_run_reader = task_run_reader
     selected_daily_report_reader = daily_report_reader
@@ -428,6 +432,7 @@ def create_app(
         selected_thesis_reader is None
         or selected_thesis_product is None
         or selected_research_reader is None
+        or selected_analysis_evidence is None
         or selected_decision_journal_reader is None
         or selected_task_run_reader is None
         or selected_daily_report_reader is None
@@ -447,6 +452,8 @@ def create_app(
             selected_thesis_product = ThesisProductService(SqlThesisProduct(session_factory))
         if selected_research_reader is None:
             selected_research_reader = SqlAnalysisResearchReader(session_factory)
+        if selected_analysis_evidence is None:
+            selected_analysis_evidence = SqlAnalysisEvidenceReader(session_factory)
         if selected_decision_journal_reader is None:
             selected_decision_journal_reader = SqlAlchemyDecisionJournalReader(session_factory)
         if selected_task_run_reader is None:
@@ -1812,6 +1819,20 @@ def create_app(
             raise HTTPException(
                 status_code=503, detail="analysis_execution_context_unavailable"
             ) from None
+
+    @application.get(
+        "/api/v1/analysis-runs/{run_id}/evidence/{evidence_id}",
+        response_model=AnalysisEvidenceView,
+        tags=["analysis"],
+    )
+    async def analysis_evidence_detail(run_id: UUID, evidence_id: UUID) -> AnalysisEvidenceView:
+        from investment_os.application.errors import ApplicationError
+
+        assert selected_analysis_evidence is not None
+        try:
+            return await selected_analysis_evidence.read(run_id, evidence_id)
+        except ApplicationError as exc:
+            raise _app_error_to_http(exc) from None
 
     @application.get(
         "/api/v1/analysis-runs/{run_id}/research-records",

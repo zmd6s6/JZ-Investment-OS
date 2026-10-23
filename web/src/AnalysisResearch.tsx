@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { readAnalysisJson } from "./analysisReads";
 import { StatusBanner } from "./ProductChrome";
 import { gateLabel, stanceLabel } from "./analysisLabels";
+import { EvidenceReferences } from "./AnalysisEvidence";
 
 type Agent = {stage:string;role:string;agent_run_id:string;opinion_id:string;status:string;error_code:string|null;model_name:string;prompt_version:string;prompt_hash:string;content_hash:string;started_at:string;ended_at:string;stance:string;confidence:string;observations:{claim:string;evidence_ids:string[]}[];unknowns:string[]};
 type Risk = {id:string;gate:string;content_hash:string;as_of:string;expires_at:string;veto:boolean;veto_codes:string[];hard_flags:unknown[];soft_flags:unknown[];evidence_ids:string[]};
@@ -40,14 +41,14 @@ export function AnalysisResearch({runId}:{runId:string}) {
       {data.risk?<article className="evidence-card"><h4>已保存的风险评估 · {gateLabel(data.risk.gate)}</h4>
         <p>评估时点：{data.risk.as_of} · 历史有效期至：{data.risk.expires_at}</p>
         <p className="hint-text">Risk ID：{data.risk.id} · 内容摘要：{data.risk.content_hash}</p>
-        <p>证据引用：{data.risk.evidence_ids.join("、")||"无；不视为通过"}</p>
+        <div>证据引用：<EvidenceReferences ids={data.risk.evidence_ids} /></div>
         <details><summary>查看风险旗与解除条件</summary><pre>{JSON.stringify({硬风险:data.risk.hard_flags,软风险:data.risk.soft_flags},null,2)}</pre></details>
       </article>:null}
       <p className="banner banner-info">正式 Decision 尚未创建：已批准政策／策略及完整估值、仓位版本链仍待收口。测试工件登记不是批准。当前是影子建议，不是待审批、获批或已成交记录。</p>
       {data.agents.map(agent=><details key={agent.opinion_id}><summary>{stages[agent.stage]??agent.stage} · {roles[agent.role]??agent.role} · {agent.error_code?"资料不足／运行失败":stanceLabel(agent.stance)}</summary>
         <p>{agent.model_name} · {agent.prompt_version} · 置信度 {agent.confidence}</p>
         <p className="hint-text">实际运行：{agent.started_at} → {agent.ended_at}<br/>AgentRun：{agent.agent_run_id}<br/>Opinion：{agent.opinion_id}<br/>内容摘要：{agent.content_hash}<br/>Prompt 摘要：{agent.prompt_hash}</p>
-        {agent.observations.map((claim,i)=><p key={i}>{claim.claim}<span className="hint-text"> · 证据 {claim.evidence_ids.join("、")}</span></p>)}
+        {agent.observations.map((claim,i)=><div key={i}><p>{claim.claim}</p><div className="hint-text">证据：<EvidenceReferences ids={claim.evidence_ids} /></div></div>)}
         {agent.unknowns.length?<p>未知项：{agent.unknowns.join("；")}</p>:null}
       </details>)}
     </>:null}

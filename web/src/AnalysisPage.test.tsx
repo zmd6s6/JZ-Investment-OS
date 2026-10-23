@@ -143,7 +143,9 @@ describe("分析读取反馈", () => {
     expect(await screen.findByText("风险否决 是")).toBeVisible();
     expect(screen.queryByText("风险否决 否")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("完整观点 / 引用 / 未知项"));
-    expect(screen.getByText("证据引用：synthetic-evidence")).toBeVisible();
+    const citation = screen.getByText("synthetic-evidence");
+    expect(citation).toBeVisible();
+    expect(citation.closest(".muted")).toHaveTextContent("证据引用：synthetic-evidence");
     expect(screen.getByText("未知项：合成未知项")).toBeVisible();
   });
 });

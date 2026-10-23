@@ -95,6 +95,8 @@ export async function readApiError(response: Response): Promise<string> {
   if (code === "ANALYSIS_POLICY_INVALID") return "组合政策不明确、版本校验失败、批准不完整或尚未生效，分析未启动。请核对政策治理记录；系统未自动选择其他政策，也未修改限额。";
   if (code === "ANALYSIS_STRATEGY_INVALID") return "测试策略工件或源码无法校验，分析未启动。请核对服务版本；不是访问令牌问题，系统未激活或替换投资策略。";
   if (code === "ANALYSIS_THESIS_INVALID") return "已保存的投资逻辑版本或支持资料无法通过校验，分析未启动。请核对版本、内容和资料记录；不是访问令牌问题，系统未用其他版本替换。";
+  if (code === "ANALYSIS_EVIDENCE_INVALID") return "资料与本次冻结引用不一致，未展示正文。请核对记录；只读重试不会重新分析或调用来源。";
+  if (code === "ANALYSIS_EVIDENCE_NOT_FOUND") return "该资料不属于本次冻结引用，未读取其他资料。请返回报告核对引用。";
   if (code === "ANALYSIS_RESEARCH_INVALID") return "研究主表关联或内容校验失败，未采用不完整记录。请核对运行记录，不要重新启动分析来代替只读重试。";
   if (code === "THESIS_EDIT_CONFLICT") return "投资逻辑已被其他操作更新，本次没有覆盖。输入已保留，请先核对最新版本，再决定是否重新整理保存。";
   if (code === "THESIS_REVIEW_UNAVAILABLE") return "这次分析没有可校验的完整研究记录或逻辑基准，不能直接生成团队草稿。旧报告不会被补造，也不会自动调用模型。";

@@ -20,6 +20,135 @@
         "title": "AgentRole",
         "type": "string"
       },
+      "AnalysisEvidenceView": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_as_of": {
+            "format": "date-time",
+            "title": "Analysis As Of",
+            "type": "string"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceCitation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "freshness_at_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness At Run"
+          },
+          "freshness_now": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness Now"
+          },
+          "input_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Hash"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "NOT_RECORDED",
+              "SNAPSHOT_ONLY",
+              "CONTENT_UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "texts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SavedEvidenceText"
+            },
+            "title": "Texts",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "title_truncated": {
+            "default": false,
+            "title": "Title Truncated",
+            "type": "boolean"
+          },
+          "untrusted_content": {
+            "const": true,
+            "default": true,
+            "title": "Untrusted Content",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "run_id",
+          "evidence_id",
+          "instrument_id",
+          "analysis_as_of",
+          "read_at",
+          "status"
+        ],
+        "title": "AnalysisEvidenceView",
+        "type": "object"
+      },
       "AnalysisMarketOptions": {
         "additionalProperties": false,
         "properties": {
@@ -1879,6 +2008,105 @@
           "require_risk_pass"
         ],
         "title": "EntryPolicySchema",
+        "type": "object"
+      },
+      "EvidenceCitation": {
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "ingested_freshness_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingested Freshness Status"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_tier": {
+            "title": "Source Tier",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "content_hash",
+          "source_name",
+          "source_locator",
+          "source_tier",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "ingested_at",
+          "expires_at",
+          "summary"
+        ],
+        "title": "EvidenceCitation",
         "type": "object"
       },
       "EvidenceClaimResponse": {
@@ -5001,6 +5229,42 @@
         "title": "SaveThesisCommand",
         "type": "object"
       },
+      "SavedEvidenceText": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "enum": [
+              "summary",
+              "snippet",
+              "text",
+              "content",
+              "description"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "original_length": {
+            "title": "Original Length",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "field",
+          "text",
+          "original_length",
+          "truncated"
+        ],
+        "title": "SavedEvidenceText",
+        "type": "object"
+      },
       "SectorValuation": {
         "additionalProperties": false,
         "properties": {
@@ -6603,6 +6867,59 @@
           }
         },
         "summary": "Get Analysis Run",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/evidence/{evidence_id}": {
+      "get": {
+        "operationId": "analysis_evidence_detail_api_v1_analysis_runs__run_id__evidence__evidence_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evidence_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Evidence Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisEvidenceView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Evidence Detail",
         "tags": [
           "analysis"
         ]
