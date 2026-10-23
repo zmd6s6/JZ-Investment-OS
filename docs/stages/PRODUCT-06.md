@@ -74,6 +74,17 @@
 
 ## 实施记录
 
+- 2026-10-23（本轮另行授权后的18102多来源版本部署，代码55c2062）：
+  - 所有者明确回复「允许本轮备份、同步升级并重启」。部署前当前55c2062的push / PR两轮quality / compose-smoke / secrets共六项SUCCESS、工作树干净；只做受控部署，不合并PR、启用来源或调用真实付费提供方。
+  - 完整Dockerfile构建 `personal-ai-investment-os:p6-multisource-55c2062`，实际镜像ffe3a1876969；153个生产源码 / 迁移 / 配置 / 锁 / README与页面构建文件核对一致，无工作树挂载。锁定依赖和Python3.12.15，新JS为index-B32dN3pL.js；不是此前隔离测试运行时的热挂载部署。
+  - 固定investment-os-p6-browser-test目标：原API / Worker / PostgreSQL身份和回环18102 / 15433已核对，活动分析0、历史运行10、Schema0017、调度日历未设置。保留可解析旧镜像 / 恢复Compose后，只停止目标API / Worker，其他部署与PostgreSQL保持运行，停止后再核对活动任务0。
+  - 新目录 `.runtime/backups/p6-multisource-55c2062-20261023/` 不覆盖旧备份；写入恢复配置前关闭ACL继承，仅当前Windows账户和SYSTEM。主密钥 / 原环境仅Windows当前账户DPAPI密文，不输出秘密。pg_dump自定义归档 / pg_restore清单、凭据 / 会话卷已保存；实际恢复至新独立库investment_os_p6_multisource_restorecheck_20261023，57张表计数与内容摘要一致，恢复库保留且非业务目标。
+  - Alembic检查仍20261016_0017，无新Schema，57表再次一致。API / Worker同步重建同一ffe3a1876969镜像并健康，原环境 / 加密主密钥 / 路径 / local_session origin与回环端口保持，Worker凭据卷只读，不启用调度或更改预算。
+  - 升级后57业务表计数 / 内容摘要一致；凭据密文逐字节一致，API / Worker均可解密原4项凭据且无网络调用；全部local_grants / local_access_events一致，仅SQLite文件头计数变化。6页面路由、2实际静态包及新增多来源页面代码与本轮构建一致，研究能力 / 历史默认关闭Schema / 引用路由及受保护GET可用、未授权读取401。10份旧报告仍未补造上下文。
+  - 所有HTTP只读检查后另复制当前凭据 / 会话卷，再核对最终密文与会话 / 授权事件不变；57表再次一致、活动任务0。没有签发新会话、启动分析、调用真实博查 / Tushare / 模型、创建订单或写入投资状态；不使用生产清表夹具。
+  - 固定目标脚本 `.runtime/p6_deploy_multisource_20261023.py` 的status / prepare / stop / backup / migrate / start / verify，以及独立surface检查全部通过，无本轮操作失败。backup / deployment / surface验证JSON保留私有备份目录；旧49c824a固定回退标签及Compose可解析，应用回退不覆盖数据库 / 凭据 / 会话，未来操作须重新核对授权、任务与目标。
+  - 本轮部署授权已执行、不自动延续。HTTP / 健康 / 数据保全通过不冒充所有者GUI完整操作、真实来源 / 模型验收、跨账户 / 跨机灾备或断电恢复；这些本轮NOT VERIFIED。P6仍IN_PROGRESS，不进入P7 / PR-09。
+
 - 2026-10-23（显式多来源研究预览，ADR-0034，本轮最新）：
   - 研究页面选择一个来源与默认不选的附加档案，最多5个、每源数量乘来源数不超过50；核对完整顺序 / 每源数量 / 费用后逐源查询，变更计划须重新确认。仅已有registry支持的启用档案，不新增供应商适配器、自动启用、后台同步或故障加源。
   - 复用既有单来源预览 / 确认端口，每源独立UUID；成功、空结果、失败 / 未知分别保留。页面离开后不开始下一来源，已发调用可能继续 / 计费；不是后台队列或供应商侧exactly-once保证。地址保存最多5个预览ID，刷新仅GET找回，404不证明没有费用，未保存的勾选不恢复。

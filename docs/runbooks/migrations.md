@@ -1,6 +1,25 @@
 # 数据库迁移与恢复运行手册
 
-## 18102本轮受控升级记录（2026-10-23，49c824a）
+## 18102本轮受控升级记录（2026-10-23，55c2062）
+
+所有者针对55c2062另行明确允许备份、核验恢复、同步升级并重启；本轮已执行，不自动续用。
+API / Worker现为完整镜像 `personal-ai-investment-os:p6-multisource-55c2062`（ffe3a1876969），153个生产输入 / 页面文件核对一致，无工作树挂载。
+六项代码CI通过后，先确认无活动分析，再只停止目标API / Worker；Schema检查仍20261016_0017，无新结构迁移。
+回环18102 / 15433、原环境和Worker只读凭据卷保持，调度日历未设置，其他部署与PostgreSQL未停止。
+
+私有备份：`.runtime/backups/p6-multisource-55c2062-20261023/`，Git忽略、禁止上传；目录关闭ACL继承，仅当前Windows账户和SYSTEM。
+包含数据库自定义归档、原凭据 / 会话卷、表摘要、backup / deployment / surface验证JSON与deployment-plan.dpapi。
+恢复主密钥 / 环境仅当前Windows账户DPAPI密文；实际归档已恢复到独立库 `investment_os_p6_multisource_restorecheck_20261023`，57张表计数 / 内容摘要全部一致。
+该库保留，不作为业务目标，不承诺跨账户 / 跨机灾难恢复。禁止直接用归档覆盖业务库；真实恢复切换需重新核对目标并取得明确决定。
+
+升级及最终HTTP读取后，57业务表、原4项加密凭据、全部会话 / 授权事件保持一致；两端凭据可解密，6路由 / 2静态包 / 新多来源代码和受保护读取通过。
+10份旧报告不补造上下文、活动分析0、未授权读取401；未签发新会话、开启来源、调用模型 / 行情、改变持仓或合并PR。部署核验不等于完整GUI或P6接受。
+
+旧49c824a镜像保留为 `personal-ai-investment-os:p6-before-multisource-api-20261023` 和 `personal-ai-investment-os:p6-before-multisource-worker-20261023`，
+原ID固定于本轮rollback-images.json，Compose已核验可解析。未来应用回退时，先取得相应授权并核对活动任务 / 精确目标，再使用
+`.runtime/p6_deploy_multisource_20261023.py rollback-app` 同步恢复API / Worker / 页面；不降级Schema、删除历史或覆盖数据库 / 凭据 / 会话。
+
+## 18102前次受控升级记录（2026-10-23，49c824a）
 
 所有者本轮明确允许备份、核验恢复、同步升级并重启；该授权已执行完毕，不自动延续到以后部署。
 API / Worker现为同一完整镜像 `personal-ai-investment-os:p6-history-49c824a`（bf4945f4f536），153个生产输入 / 页面文件已核对，无工作树挂载。
