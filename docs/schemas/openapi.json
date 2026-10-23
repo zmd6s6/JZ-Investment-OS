@@ -514,6 +514,16 @@
             "title": "Target Currency",
             "type": "string"
           },
+          "target_market_features": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DailyMarketFeatures"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "target_quote_as_of": {
             "anyOf": [
               {
@@ -1025,6 +1035,234 @@
           "reason"
         ],
         "title": "CsvRowResultResponse",
+        "type": "object"
+      },
+      "DailyMarketBar": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "close": {
+            "title": "Close",
+            "type": "string"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "open": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open"
+          },
+          "previous_close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Close"
+          },
+          "previous_close_basis": {
+            "default": "PROVIDER_REPORTED",
+            "enum": [
+              "PROVIDER_REPORTED",
+              "EX_RIGHTS"
+            ],
+            "title": "Previous Close Basis",
+            "type": "string"
+          },
+          "turnover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnover"
+          },
+          "volume_shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Shares"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "as_of",
+          "close"
+        ],
+        "title": "DailyMarketBar",
+        "type": "object"
+      },
+      "DailyMarketFeatures": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "const": "PROVIDER_TIME_ONLY",
+            "default": "PROVIDER_TIME_ONLY",
+            "title": "Availability",
+            "type": "string"
+          },
+          "bar": {
+            "$ref": "#/components/schemas/DailyMarketBar"
+          },
+          "calculation_version": {
+            "const": "daily-observations-v1",
+            "default": "daily-observations-v1",
+            "title": "Calculation Version",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "daily_return": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Return"
+          },
+          "degraded": {
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "intraday_range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intraday Range"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Fields",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sizing_ready": {
+            "const": false,
+            "default": false,
+            "title": "Sizing Ready",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_rank": {
+            "title": "Source Rank",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "OK",
+              "PARTIAL"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turnover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnover"
+          },
+          "volume_shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Shares"
+          }
+        },
+        "required": [
+          "status",
+          "input_hash",
+          "bar",
+          "currency",
+          "source",
+          "source_rank",
+          "degraded",
+          "daily_return",
+          "intraday_range",
+          "volume_shares",
+          "turnover",
+          "missing_fields"
+        ],
+        "title": "DailyMarketFeatures",
         "type": "object"
       },
       "DailyReportResponse": {

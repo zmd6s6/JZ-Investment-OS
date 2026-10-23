@@ -126,6 +126,19 @@ test("market ordering controls actual selected sources, records fallback and pre
   expect(run.payload.sizing.status).toBe("BLOCKED");
   expect(run.payload.sizing.target_quantity).toBeUndefined();
   expect(run.payload.sizing.reason_codes).toContain("VOLATILITY_INPUT_MISSING");
+  const daily = run.payload.valuation.target_market_features;
+  expect(daily.daily_return).toBe("0.23456789");
+  expect(daily.intraday_range).toBe("0.4");
+  expect(daily.volume_shares).toBe("12345");
+  expect(daily.turnover).toBe("152407.405");
+  expect(daily.source).toBe(names[1]);
+  expect(daily.source_rank).toBe(1); expect(daily.degraded).toBe(true);
+  expect(daily.sizing_ready).toBe(false);
+  const preparedDaily = await (await request.get(`/api/v1/analysis-runs/${id}/execution-context`, { headers })).json();
+  expect(preparedDaily.valuation.target_market_features).toEqual(daily);
+  expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).daily_feature_hashes).toEqual(Array(8).fill(daily.input_hash));
+  await expect(page.getByRole("region", { name: "单日行情观察", exact: true })).toBeVisible();
+  await expect(page.getByText("23.456789%", { exact: true })).toBeVisible();
   await expect(page.getByRole("table", { name: "冻结持仓估值明细" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "200 / 50", exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "2469.13578 / 617.283945", exact: true })).toBeVisible();
@@ -137,6 +150,7 @@ test("market ordering controls actual selected sources, records fallback and pre
   await page.reload();
   await expect(page.getByRole("heading", { name: "行情调用记录", exact: true })).toBeVisible();
   expect((await (await request.get(`/api/v1/analysis-runs/${id}`, { headers })).json()).payload.valuation).toEqual(frozenValuation);
+  await expect(page.getByRole("region", { name: "单日行情观察", exact: true })).toBeVisible();
   expect((await (await request.get("/api/v1/test-only/analysis/stats", { headers })).json()).calls).toBe(8);
   await expect(page.getByText(`第 1 档 · ${names[0]}`, { exact: true })).toBeVisible();
   await expect(page.getByText(`第 2 档 · ${names[1]}`, { exact: true })).toBeVisible();

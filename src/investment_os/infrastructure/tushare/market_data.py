@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_EVEN, Context, Decimal, InvalidOperation, localcontext
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -19,10 +19,43 @@ from investment_os.application.market_data import (
     ensure_price,
     tushare_symbol,
 )
+from investment_os.application.market_features import DailyMarketBar
 from investment_os.domain.errors import DomainError
+from investment_os.domain.values import exact_decimal
 
 TUSHARE_PROVIDER_TYPE = "TUSHARE_MARKET"
 TUSHARE_URL = "https://api.tushare.pro"
+
+
+def _daily_bar(
+    fields: list[str], row: list[Any], request: QuoteRequest, as_of: datetime, price: Decimal
+) -> DailyMarketBar | None:
+    optional = ("open", "high", "low", "pre_close", "vol", "amount")
+    if not any(name in fields for name in optional):
+        return None
+
+    def number(name: str) -> Decimal | None:
+        if name not in fields:
+            return None
+        index = fields.index(name)
+        if index >= len(row):
+            raise ValueError("daily row incomplete")
+        return exact_decimal(row[index]) if row[index] is not None else None
+
+    with localcontext(Context(prec=128, rounding=ROUND_HALF_EVEN)):
+        volume, turnover = number("vol"), number("amount")
+        return DailyMarketBar(
+            instrument_id=request.instrument_id,
+            as_of=as_of,
+            close=price,
+            open=number("open"),
+            high=number("high"),
+            low=number("low"),
+            previous_close=number("pre_close"),
+            volume_shares=volume * Decimal("100") if volume is not None else None,
+            turnover=turnover * Decimal("1000") if turnover is not None else None,
+            previous_close_basis="EX_RIGHTS",
+        )
 
 
 class TushareConnectionTester:
@@ -168,7 +201,7 @@ class TushareMarketDataAdapter:
             "params": {
                 "trade_date": as_of.astimezone(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d")
             },
-            "fields": "ts_code,trade_date,close",
+            "fields": "ts_code,trade_date,close,open,high,low,pre_close,vol,amount",
         }
         try:
             response = await self._client.post(TUSHARE_URL, json=payload)
@@ -194,6 +227,8 @@ class TushareMarketDataAdapter:
         fields = data.get("fields")
         if not isinstance(items, list) or not isinstance(fields, list):
             raise MarketDataSourceFailure("market provider schema invalid")
+        if not all(isinstance(field, str) for field in fields) or len(fields) != len(set(fields)):
+            raise MarketDataSourceFailure("market provider fields ambiguous")
         try:
             code_idx = fields.index("ts_code")
             date_idx = fields.index("trade_date")
@@ -233,6 +268,10 @@ class TushareMarketDataAdapter:
                 raise MarketDataSourceFailure("market provider date invalid") from error
             if quote_as_of > as_of:
                 continue
+            try:
+                daily_bar = _daily_bar(fields, row, req, quote_as_of, price)
+            except (ValueError, TypeError, InvalidOperation, DomainError) as error:
+                raise MarketDataSourceFailure("market provider daily fields invalid") from error
             found[req.instrument_id] = MarketQuote(
                 instrument_id=req.instrument_id,
                 reference_price=price,
@@ -242,5 +281,6 @@ class TushareMarketDataAdapter:
                 source_rank=0,
                 degraded=False,
                 provider_detail=f"TUSHARE daily {ts_code} {trade_date}",
+                daily_bar=daily_bar,
             )
         return found

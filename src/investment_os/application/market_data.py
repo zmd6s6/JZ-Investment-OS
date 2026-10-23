@@ -17,6 +17,7 @@ from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
+from investment_os.application.market_features import DailyMarketBar
 from investment_os.domain.values import exact_decimal
 
 
@@ -43,6 +44,7 @@ class MarketQuote:
     degraded: bool = False
     volatility: Decimal | None = None
     provider_detail: str = ""
+    daily_bar: DailyMarketBar | None = None
 
 
 class MarketDataSourcePort(Protocol):
@@ -170,6 +172,20 @@ def ensure_price(value: Decimal | str | int, field: str = "price") -> Decimal:
     if price <= 0:
         raise ValueError(f"{field} must be positive")
     return price
+
+
+def ensure_daily_bar(quote: MarketQuote) -> None:
+    if quote.daily_bar is None:
+        return
+    bar = DailyMarketBar.model_validate(
+        {name: getattr(quote.daily_bar, name) for name in DailyMarketBar.model_fields}
+    )
+    if (
+        bar.instrument_id != quote.instrument_id
+        or bar.as_of != quote.as_of
+        or bar.close != quote.reference_price
+    ):
+        raise ValueError("daily bar does not match reference quote")
 
 
 def tushare_symbol(market: str, symbol: str) -> str:

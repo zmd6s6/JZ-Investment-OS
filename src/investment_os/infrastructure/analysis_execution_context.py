@@ -170,6 +170,9 @@ class SqlAnalysisExecutionContexts:
                     valuation.source,
                     valuation.source_rank or 0,
                     bool(valuation.degraded),
+                    daily_bar=valuation.target_market_features.bar
+                    if valuation.target_market_features is not None
+                    else None,
                 )
             expected = build_analysis_valuation(
                 portfolio=frozen_book,

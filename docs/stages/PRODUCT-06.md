@@ -4,7 +4,7 @@
 - 前置条件：`PRODUCT-05` 已由所有者接受；可用的已授权模型与数据档案、Portfolio/Watchlist 产品流均已验证
 - 治理规范：`INVESTMENT_OS_MASTER_SPEC.md` §2、§4、§6、§9、§11、§12、§16 至 §19
 - 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0004`、`ADR-0005`、`ADR-0006`、`ADR-0007`、`ADR-0010`、
-  `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`、`ADR-0020`、`ADR-0021`、`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0025`、`ADR-0026`、`ADR-0027`、`ADR-0028`、`ADR-0029`、`ADR-0030`
+  `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`、`ADR-0020`、`ADR-0021`、`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0025`、`ADR-0026`、`ADR-0027`、`ADR-0028`、`ADR-0029`、`ADR-0030`、`ADR-0031`
 - 安全基线：`auto_trade=false`；外部研究和模型输出均不可信；结果仅为影子 Decision
 
 ## 目标
@@ -72,6 +72,17 @@
 所有者已明确授权的 profile 上进行，并记录脱敏结果。完成定义和证据齐备后方可 `READY_FOR_REVIEW`。
 
 ## 实施记录
+
+- 2026-10-23（目标单日行情观察，ADR-0031，本轮最新）：
+  - 保留用户显式来源与同次日线请求，仅扩展开高低收 / 昨收 / 成交字段；按官方口径精确转换手→股、千元→元，128位独立Decimal上下文计算涨跌比例与日内振幅，不信任供应商百分数、不让LLM计算。没有新增历史查询或实际外部调用次数。
+  - 通用MarketQuote可选日线，严格校验金融数值 / OHLC / 正昨收、真实零成交与缺失、身份 / 时点 / 参考价一致；非法扩展不能静默丢掉后保留“可信”报价。进入实际FeatureSnapshot及运行摘要，提交端用原始日线重算 / 对账；所有角色与报告共用，仍无仓位数量。
+  - 可选字段为空不序列化、不加入旧估值摘要；旧主表 / 运行回执与历史不补写。只读中文展示精确比例、标准单位、来源 / 降级、时间与未知项，明确振幅不等于年化波动率、成交额不等于可交易容量，价格时点不证明真实发布时间。OpenAPI仅扩展可选估值响应，无新路由 / 表 / 迁移 / 依赖 / 系统Prompt或AgentOpinion输出变化。
+  - 最终后端完整710 passed / 88.62%（Windows，314.42秒），领域行98.33%（1178/1198）/ 分支90.60%（241/266）；定向62项、模型前存储与单日字段定向43项通过。前端116项 / 构建通过；完整Chrome七文件29/29（2.2分钟），无跳过，含新增单日精确值 / 实际次源降级、模型前已提交同一输入、8个角色同一摘要、历史刷新不漂移 / 不增模型调用和390px。不是借用上一提交结果。
+  - Ruff格式316文件 / 检查、mypy120文件、OpenAPI / Policy Schema --check、Compose config / diff检查通过；只读密钥扫描413文件新增0、pip-audit无已知漏洞（非PyPI本项目自身跳过），不改扫描基线。没有迁移或锁变更。
+  - 命令：`.venv/Scripts/python.exe .runtime/run_daily_tmpfs_tests_20261023.py -xq`，包装器固定本轮15435合成内存盘库 `investment_os_p6_daily_unit_20261023`，凭据 / 会话另用临时目录；前端 `npm test -- --pool=threads --maxWorkers=1 --reporter=dot`、`npm run build`。浏览器需E2E_SYNTHETIC_ANALYSIS=1、18107、Chrome与合成访问Token，执行 `analysis_jobs / onboarding / settings / portfolio_watchlist / interaction_feedback / product_journey / thesis --workers=1`，最终输出保留在忽略的 `.runtime/daily-browser-complete-20261023`。
+  - 保留中间验证限制：浏览器前两次未正确传入显式合成开关，各13通过 / 16跳过，不作为后台 / 新功能验收；修正为E2E_SYNTHETIC_ANALYSIS=1后完整串行复跑，不删除skip保护或放宽断言。早期model_copy非法float用例曾触发序列化警告，改为直接读取原始字段重验，不经字符串序列化绕过float禁令；之后定向无警告通过。
+  - 本轮只用命名15435内存盘合成库、18107合成模型 / 来源及真实PostgreSQL / Worker，不操作18102或复用昨日重启授权。真实提供方 / Token / 历史波动率 / FX / 交易级新鲜度、完整仓位、正式Decision与P6整体验收仍未完成；不进入P7 / PR-09。
+  - 浏览器使用锁未变化的已核对53e4b16完整镜像作缓存运行时，只读挂本轮src / tests / dist，不冒充本轮新完整交付镜像或部署。API / PostgreSQL / 网络已核对ID后清理；--rm内存盘只含本轮合成数据、删除不可恢复，测试输出保留，未删除所有者任何数据。原生研究 / 本机会话浏览器 / 断电恢复本轮NOT VERIFIED。本纵切可审阅，远程CI以新提交为准。
 
 - 2026-10-22（模型前组合计算上下文，ADR-0030，本轮最新）：
   - 行情 / 估值前移到PREPARING，原来委员会后才计算的NAV / 分仓结果现在先保存再传给每个角色，最终估值 / 仓位阶段复用同一结果，不再取第二次价。严格保留未知特征、TEST_DEFAULT与无建议数量边界，不以此宣称完整市场Feature或正式Decision。

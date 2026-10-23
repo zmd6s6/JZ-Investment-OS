@@ -6,10 +6,11 @@ from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
 
 from investment_os.application.analysis_models import digest
-from investment_os.application.market_data import MarketQuote, ensure_price
+from investment_os.application.market_data import MarketQuote, ensure_daily_bar, ensure_price
+from investment_os.application.market_features import DailyMarketFeatures, build_daily_features
 from investment_os.application.portfolio_book import PortfolioView
 from investment_os.domain.errors import DomainError
 from investment_os.domain.values import UtcTimestamp, exact_decimal
@@ -85,6 +86,9 @@ class AnalysisValuation(ValuationModel):
     reason_codes: tuple[str, ...]
     single_currency_limit: Literal[True] = True
     price_availability: Literal["PROVIDER_TIME_ONLY"] = "PROVIDER_TIME_ONLY"
+    target_market_features: DailyMarketFeatures | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 def build_analysis_valuation(
@@ -121,6 +125,7 @@ def build_analysis_valuation(
                 or quote.source_rank < 0
             ):
                 raise ValueError("invalid reference quote")
+            ensure_daily_bar(quote)
             valid[identity] = replace(
                 quote,
                 reference_price=ensure_price(quote.reference_price),
@@ -195,6 +200,15 @@ def build_analysis_valuation(
                 for r in rows
             ]
         target = valid.get(target_id)
+        daily_features = None
+        if target is not None and target.daily_bar is not None:
+            daily_features = build_daily_features(
+                target.daily_bar,
+                currency=target.currency,
+                source=target.source,
+                source_rank=target.source_rank,
+                degraded=target.degraded,
+            )
         target_position = next((r for r in rows if r.instrument_id == target_id), None)
         sectors: dict[str, Decimal] = {}
         unclassified = Decimal("0") if complete else None
@@ -229,6 +243,8 @@ def build_analysis_valuation(
             "reason_codes": sorted(set(reasons)),
         }
         zero = Decimal("0") if weights_known else None
+        if daily_features is not None:
+            snapshot["target_market_features"] = daily_features.model_dump(mode="json")
         return AnalysisValuation(
             status="FAILED"
             if invalid or fx_missing or "NAV_NON_POSITIVE" in reasons
@@ -271,4 +287,5 @@ def build_analysis_valuation(
             ),
             unclassified_value=unclassified,
             reason_codes=tuple(dict.fromkeys(reasons)),
+            target_market_features=daily_features,
         )

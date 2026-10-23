@@ -23,6 +23,7 @@ from investment_os.application.market_data import (
     MarketDataSourcePort,
     MarketQuote,
     QuoteRequest,
+    ensure_daily_bar,
     ensure_price,
 )
 from investment_os.application.provider_settings import DataProviderProfile, ProviderSettingsService
@@ -169,6 +170,7 @@ class PlannedMarketData:
                     ):
                         raise ValueError("invalid quote identity, currency or time")
                     price = ensure_price(quote.reference_price)
+                    ensure_daily_bar(quote)
                     if quote.as_of + timedelta(days=current.retention_days) <= as_of:
                         raise ValueError("quote retention expired")
                     valid[identity] = replace(

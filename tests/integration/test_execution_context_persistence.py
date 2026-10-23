@@ -3,6 +3,7 @@
 import asyncio
 import json
 from dataclasses import replace
+from decimal import Decimal
 from uuid import uuid4
 
 import httpx
@@ -23,7 +24,8 @@ from investment_os.application.analysis_orchestrator import (
 from investment_os.application.analysis_progress import AnalysisCancelled
 from investment_os.application.committee_runtime import CommitteeRuntime
 from investment_os.application.errors import ApplicationError
-from investment_os.application.market_data import InMemoryMarketDataAdapter
+from investment_os.application.market_data import InMemoryMarketDataAdapter, MarketQuote
+from investment_os.application.market_features import DailyMarketBar
 from investment_os.infrastructure.analysis_execution_context import (
     EVENT,
     SqlAnalysisExecutionContexts,
@@ -70,6 +72,73 @@ async def context_counts(sessions):
                 (OutboxEventRecord, OutboxEventRecord.topic == "analysis.inputs"),
             )
         ]
+
+
+@pytest.mark.parametrize("tamper", [False, True])
+async def test_daily_features_commit_before_all_models_and_modified_derivatives_are_rejected(
+    database_engine, tamper
+):
+    sessions, runs, product, _port, jobs, inp, _ = await configured(database_engine)
+
+    class Contexts(SqlAnalysisExecutionContexts):
+        async def save(self, run_id, valuation, *, worker_token=None):
+            if tamper:
+                valuation = valuation.model_copy(
+                    update={
+                        "target_market_features": valuation.target_market_features.model_copy(
+                            update={"daily_return": Decimal("999")}
+                        )
+                    }
+                )
+            return await super().save(run_id, valuation, worker_token=worker_token)
+
+    store = Contexts(sessions)
+    product._execution_contexts = store
+    gateway = ProbeGateway(store)
+    product._committee = CommitteeRuntime(
+        agent_runtime=AgentRuntime(registry=default_registry(), gateway=gateway)
+    )
+    run = await jobs.submit(uuid4(), inp)
+    daily = DailyMarketBar(
+        instrument_id=inp.instrument_id,
+        as_of=run.as_of,
+        close="11",
+        open="10",
+        high="12",
+        low="9",
+        previous_close="10",
+        volume_shares="12345",
+        turnover="129000.125",
+    )
+    # Explicit synthetic port in this fixture, never a production auto fallback.
+    product._market_factory = None
+    product._market_data = InMemoryMarketDataAdapter(
+        {
+            inp.instrument_id: MarketQuote(
+                inp.instrument_id, Decimal("11"), "CNY", run.as_of, "SYNTHETIC", daily_bar=daily
+            )
+        }
+    )
+    assert await jobs.run_once()
+    finished = await runs.get(run.id)
+    if tamper:
+        assert finished.status == "FAILED"
+        assert finished.failure_code == "ANALYSIS_CONTEXT_RECORDING_FAILED"
+        assert gateway.calls == 0 and await context_counts(sessions) == [0, 0, 0, 0]
+    else:
+        assert finished.status == "SUCCEEDED" and gateway.calls == 8
+        saved = await store.read(run.id)
+        features = saved.valuation.target_market_features
+        assert features.bar == daily and features.daily_return == Decimal("0.1")
+        assert features.sizing_ready is False and features.source == "SYNTHETIC"
+        assert finished.payload["valuation"]["target_market_features"] == features.model_dump(
+            mode="json"
+        )
+        assert await context_counts(sessions) == [1, 1, 1, 1]
+        assert finished.payload["sizing"]["status"] == "BLOCKED"
+        records = await SqlAnalysisResearchReader(sessions).read(run.id)
+        assert records.feature_snapshot_id == saved.receipt.feature_snapshot_id
+        assert (await runs.get(run.id)).payload["input_snapshot"] == run.payload["input_snapshot"]
 
 
 @pytest.mark.parametrize("fail", [False, True])

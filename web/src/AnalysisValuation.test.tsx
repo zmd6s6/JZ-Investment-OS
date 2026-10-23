@@ -46,3 +46,32 @@ it("truncates long display fractions without converting financial strings to flo
   expect(screen.getByText("9007199254740993.12345678…")).toBeVisible();
   expect(screen.getByText("12.34567891…%")).toBeVisible();
 });
+
+it("shows exact signed single-day observations with source and no false volatility or capacity", () => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  render(<AnalysisValuation valuation={{ ...valuation, target_market_features: {
+    calculation_version: "daily-observations-v1", currency: "CNY", source: "合成日线", degraded: true,
+    daily_return: "-0.123456789123456", intraday_range: "0.4", volume_shares: "9007199254740993", turnover: "12345.5",
+    bar: { open: "10", high: "12", low: "8", close: "8.76543210876544", previous_close: "10", previous_close_basis: "EX_RIGHTS", as_of: "2026-10-23T07:00:00Z" },
+    missing_fields: [], input_hash: "a".repeat(64), sizing_ready: false,
+  } }} sizing={sizing} />);
+  expect(screen.getByText("-12.34567891…%")).toBeVisible();
+  expect(screen.getByText("40%")).toBeVisible();
+  expect(screen.getByText("9007199254740993")).toBeVisible();
+  expect(screen.getByText(/来源：合成日线（降级源）/)).toBeVisible();
+  expect(screen.getByText(/日内振幅不等于历史/)).toBeVisible();
+  expect(screen.getByText("暂不生成建议数量")).toBeVisible();
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("does not backfill historical daily data and keeps missing data different from genuine zero", () => {
+  const { rerender } = render(<AnalysisValuation valuation={valuation} sizing={sizing} />);
+  expect(screen.getByText(/未记录单日行情观察/)).toBeVisible();
+  rerender(<AnalysisValuation valuation={{ ...valuation, target_market_features: {
+    calculation_version: "daily-observations-v1", currency: "CNY", daily_return: null, intraday_range: null,
+    volume_shares: "0", turnover: null, missing_fields: ["previous_close", "turnover"], bar: {},
+  } }} sizing={sizing} />);
+  expect(screen.getByText("0")).toBeVisible();
+  expect(screen.getAllByText("未知").length).toBeGreaterThan(2);
+  expect(screen.getByText(/单日数据不完整，未补零：昨收价、成交额/)).toBeVisible();
+});
