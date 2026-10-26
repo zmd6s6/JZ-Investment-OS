@@ -9,7 +9,11 @@ from test_analysis_thesis import frozen
 
 from investment_os.application.analysis_research import ResearchRecordView
 from investment_os.application.errors import ApplicationError
-from investment_os.application.thesis_review import TeamThesisReviewService, TeamThesisSource
+from investment_os.application.thesis_review import (
+    TeamThesisProvenance,
+    TeamThesisReviewService,
+    TeamThesisSource,
+)
 
 
 def fixture():
@@ -115,6 +119,33 @@ def test_review_source_requires_nonempty_unique_bounded_selection():
             TeamThesisSource(analysis_run_id=uuid4(), suggestion_ids=ids)
 
 
+def test_impact_source_requires_unique_combined_bounded_selection():
+    source = TeamThesisSource(analysis_run_id=uuid4(), impact_ids=("op:impact:0",))
+    assert source.suggestion_ids == ()
+    boundary = TeamThesisSource(
+        analysis_run_id=uuid4(),
+        suggestion_ids=("observation",),
+        impact_ids=tuple(str(i) for i in range(19)),
+    )
+    assert len(boundary.suggestion_ids) + len(boundary.impact_ids) == 20
+    legacy = TeamThesisProvenance.model_validate(
+        {
+            "analysis_run_id": uuid4(),
+            "input_hash": "a" * 64,
+            "suggestion_ids": ["op:0"],
+            "opinion_ids": [uuid4()],
+        }
+    )
+    assert legacy.impact_ids == ()
+    for fields in (
+        {"impact_ids": ("same", "same")},
+        {"suggestion_ids": ("observation",), "impact_ids": tuple(str(i) for i in range(20))},
+        {"impact_ids": ("",)},
+    ):
+        with pytest.raises(ValidationError):
+            TeamThesisSource(analysis_run_id=uuid4(), **fields)
+
+
 async def test_review_limit_is_explicit_not_fake_consensus():
     run, records, agent = fixture()
     agent["observations"] = [agent["observations"][0]] * 101
@@ -139,6 +170,9 @@ async def test_saved_impacts_keep_provenance_without_mutating_thesis():
     view = await TeamThesisReviewService(Read(run), Read(records)).read(run.id)
     assert len(view.impacts) == 1
     assert view.impacts[0].impact == "WEAKEN"
+    assert view.impacts[0].id == f"{agent['opinion_id']}:impact:0"
+    again = await TeamThesisReviewService(Read(run), Read(records)).read(run.id)
+    assert again.impacts == view.impacts
     assert view.impacts[0].baseline_status == "MATCHED"
     assert view.impacts[0].baseline_claim == "合成需求主张"
     assert str(view.impacts[0].opinion_id) == agent["opinion_id"]

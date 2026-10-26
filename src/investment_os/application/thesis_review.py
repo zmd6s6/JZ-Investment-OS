@@ -20,12 +20,19 @@ class ReviewDto(BaseModel):
 class TeamThesisSource(ReviewDto):
     analysis_run_id: UUID
     suggestion_ids: tuple[Annotated[str, StringConstraints(max_length=100)], ...] = Field(
-        min_length=1, max_length=20
+        default=(), max_length=20
+    )
+    impact_ids: tuple[Annotated[str, StringConstraints(min_length=1, max_length=100)], ...] = Field(
+        default=(), max_length=20
     )
 
     @model_validator(mode="after")
     def unique(self) -> Self:
-        if len(set(self.suggestion_ids)) != len(self.suggestion_ids):
+        if not 1 <= len(self.suggestion_ids) + len(self.impact_ids) <= 20:
+            raise ValueError("select between one and twenty review items")
+        if len(set(self.suggestion_ids)) != len(self.suggestion_ids) or len(
+            set(self.impact_ids)
+        ) != len(self.impact_ids):
             raise ValueError("review suggestions must be unique")
         return self
 
@@ -35,6 +42,7 @@ class TeamThesisProvenance(ReviewDto):
     input_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     suggestion_ids: tuple[str, ...]
     opinion_ids: tuple[UUID, ...]
+    impact_ids: tuple[str, ...] = ()
 
 
 class TeamThesisSuggestion(ReviewDto):
@@ -68,6 +76,7 @@ class SavedImpact(ReviewDto):
 
 
 class TeamThesisImpact(SavedImpact):
+    id: str
     opinion_id: UUID
     role: AgentRole
     stage: str
@@ -143,7 +152,7 @@ class TeamThesisReviewService:
                 if agent.status != "SUCCEEDED" or agent.error_code is not None:
                     unknowns.append(f"{role}: INSUFFICIENT_DATA")
                     continue
-                for impact in agent.thesis_impacts:
+                for index, impact in enumerate(agent.thesis_impacts):
                     if not {str(e) for e in impact.evidence_ids}.issubset(visible):
                         raise ValueError("impact exceeds this run's evidence boundary")
                     if len(impacts) < 100:
@@ -151,6 +160,7 @@ class TeamThesisReviewService:
                         impacts.append(
                             TeamThesisImpact(
                                 **impact.model_dump(),
+                                id=f"{agent.opinion_id}:impact:{index}",
                                 opinion_id=agent.opinion_id,
                                 role=role,
                                 stage=agent.stage,

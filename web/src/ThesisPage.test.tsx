@@ -33,6 +33,28 @@ async function fillFirst() {
 }
 
 describe("人工投资逻辑工作台",()=>{
+  it.each([0,20])("影响只补风险草稿，风险已满%s条时整批拒绝且保留人工内容",async(count)=>{
+    window.history.replaceState({},"","/thesis?instrument_id=asset-a&analysis_run_id=run-a");
+    const original={...content,risks:Array.from({length:count},(_,i)=>({description:`原人工风险 ${i+1}`,evidence_ids:["evidence-a"]}))};
+    const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async(input)=>{
+      const url=String(input);
+      if(url.includes("thesis-review"))return response({analysis_run_id:"run-a",instrument_id:"asset-a",base_version_id:"version-a",as_of:"2026-10-26",input_hash:"a".repeat(64),unknowns:[],risk_gate:"VETO",limitations:[],suggestions:[],impacts:[{id:"op:impact:0",opinion_id:"op",role:"FUNDAMENTAL",stage:"ROUND_1",pillar_key:"P1",impact:"BREAK",reason:"合成挑战理由",evidence_ids:["evidence-a"],baseline_status:"MATCHED",baseline_claim:"原合成主张",baseline_pillar_status:"VALID"}]});
+      if(url.includes("/workspace"))return response({instrument_id:"asset-a",current_version_id:"version-a",versions:[{...version,content:original}]});
+      if(url.includes("/evidence?"))return response({items:[evidence]});
+      return response(instrument);
+    });
+    render(<ThesisPage/>);
+    fireEvent.change(await screen.findByLabelText("长期投资逻辑摘要"),{target:{value:"正在编辑的人工摘要"}});
+    fireEvent.click(await screen.findByRole("checkbox",{name:"带入风险判断 1 · 基本面"}));
+    fireEvent.click(screen.getByRole("button",{name:"将勾选影响加入风险草稿"}));
+    expect(screen.getByLabelText("长期投资逻辑摘要")).toHaveValue("正在编辑的人工摘要");
+    expect(screen.getByLabelText("逻辑支柱 1")).toHaveValue("原合成主张");
+    expect(screen.getByLabelText("逻辑状态")).toHaveValue("UNKNOWN");
+    expect(screen.getByLabelText("支柱 1 状态")).toHaveValue("VALID");
+    if(count===20){expect(screen.getByText(/加入后将超过20条风险/)).toBeVisible();expect(screen.queryByLabelText("风险主张 21")).toBeNull();}
+    else expect(screen.getByLabelText("风险主张 1")).toHaveValue("团队待核对 · 支柱 P1 · 击穿判断：合成挑战理由");
+    expect(fetch.mock.calls.every(([,init])=>!init?.method)).toBe(true);
+  });
   it("团队来源只显式加入草稿，保留人工摘要与状态，最后保存来源关联",async()=>{
     window.history.replaceState({},"","/thesis?instrument_id=asset-a&analysis_run_id=run-a");
     const posts:Record<string,unknown>[]=[];

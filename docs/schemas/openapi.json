@@ -5909,6 +5909,10 @@
             "title": "Evidence Ids",
             "type": "array"
           },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
           "impact": {
             "enum": [
               "STRENGTHEN",
@@ -5947,6 +5951,7 @@
           "impact",
           "reason",
           "evidence_ids",
+          "id",
           "opinion_id",
           "role",
           "stage",
@@ -5962,6 +5967,14 @@
             "format": "uuid",
             "title": "Analysis Run Id",
             "type": "string"
+          },
+          "impact_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Impact Ids",
+            "type": "array"
           },
           "input_hash": {
             "pattern": "^[0-9a-f]{64}$",
@@ -6093,20 +6106,30 @@
             "title": "Analysis Run Id",
             "type": "string"
           },
+          "impact_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Impact Ids",
+            "type": "array"
+          },
           "suggestion_ids": {
+            "default": [],
             "items": {
               "maxLength": 100,
               "type": "string"
             },
             "maxItems": 20,
-            "minItems": 1,
             "title": "Suggestion Ids",
             "type": "array"
           }
         },
         "required": [
-          "analysis_run_id",
-          "suggestion_ids"
+          "analysis_run_id"
         ],
         "title": "TeamThesisSource",
         "type": "object"

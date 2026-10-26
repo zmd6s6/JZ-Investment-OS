@@ -94,3 +94,37 @@ it("late response from another run cannot replace the current draft source",asyn
   release(response(review));
   await waitFor(()=>expect(screen.queryByText("合成团队观察")).toBeNull());
 });
+
+it("only explicit eligible impact selection creates a risk draft callback, never a write",async()=>{
+  const eligible={...impact,id:"opinion-a:impact:0"};
+  const fetch=vi.spyOn(globalThis,"fetch").mockResolvedValue(response({...review,impacts:[eligible,{...eligible,id:"opinion-a:impact:1",impact:"STRENGTHEN"},{...eligible,id:"opinion-a:impact:2",baseline_status:"UNMATCHED"},{...impact}]}));
+  const apply=vi.fn();
+  render(<TeamThesisDraft {...props} onApplyRisks={apply}/>);
+  const checkbox=await screen.findByRole("checkbox",{name:"带入风险判断 1 · 基本面"});
+  expect(checkbox).not.toBeChecked();
+  expect(screen.getByRole("button",{name:"将勾选影响加入风险草稿"})).toBeDisabled();
+  for(const index of [2,3,4])expect(screen.getByRole("checkbox",{name:`带入风险判断 ${index} · 基本面`})).toBeDisabled();
+  fireEvent.click(checkbox);
+  fireEvent.click(screen.getByRole("button",{name:"将勾选影响加入风险草稿"}));
+  expect(apply).toHaveBeenCalledWith({analysis_run_id:"run-a",suggestion_ids:[],impact_ids:[eligible.id]},[eligible]);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(props.onApply).not.toHaveBeenCalled();
+});
+
+it("expired evidence and overly long risk text stay readable but cannot enter risk drafts",async()=>{
+  vi.spyOn(globalThis,"fetch").mockResolvedValue(response({...review,impacts:[{...impact,id:"op:impact:0"},{...impact,id:"op:impact:1",reason:"合".repeat(3001)}]}));
+  const apply=vi.fn();
+  const view=render(<TeamThesisDraft {...props} onApplyRisks={apply}/>);
+  expect(await screen.findByRole("checkbox",{name:"带入风险判断 2 · 基本面"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("checkbox",{name:"带入风险判断 1 · 基本面"}));
+  view.rerender(<TeamThesisDraft {...props} evidence={[]} onApplyRisks={apply}/>);
+  expect(screen.getByRole("button",{name:"将勾选影响加入风险草稿"})).toBeDisabled();
+  expect(apply).not.toHaveBeenCalled();
+});
+
+it("duplicate impact identifiers fail closed instead of adopting ambiguous entries",async()=>{
+  vi.spyOn(globalThis,"fetch").mockResolvedValue(response({...review,impacts:[{...impact,id:"duplicate"},{...impact,id:"duplicate"}]}));
+  render(<TeamThesisDraft {...props} onApplyRisks={vi.fn()}/>);
+  expect(await screen.findByText(/团队影响选择标识异常/)).toBeVisible();
+  expect(screen.queryByRole("button",{name:"将勾选影响加入风险草稿"})).toBeNull();
+});

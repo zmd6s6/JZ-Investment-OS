@@ -179,3 +179,96 @@ async def test_old_no_source_command_retains_its_request_hash_and_read_route_req
         response = await client.get(path, headers={"Authorization": "Bearer synthetic-review-auth"})
         assert response.status_code == 200 and len(response.json()["suggestions"]) == 8
     assert len((await service.workspace(inp.instrument_id)).versions) == 1
+
+
+async def impact_setup(engine):
+    sessions, _, _, _, jobs, inp, gateway = await configured(engine, "IMPACT")
+    service = ThesisProductService(SqlThesisProduct(sessions))
+    first = command(inp)
+    pillar = first.content.pillars[0].model_copy(update={"key": "demand"})
+    first = first.model_copy(
+        update={"content": first.content.model_copy(update={"pillars": (pillar,)})}
+    )
+    saved = await service.save(inp.instrument_id, first)
+    run = await jobs.submit(uuid4(), inp)
+    assert await jobs.run_once()
+    review = await service.team_review(run.id)
+    impact = review.impacts[0]
+    assert impact.baseline_status == "MATCHED"
+    request = command(inp, base=saved.version_id, summary="人工核对后的合成风险修订")
+    request = request.model_copy(
+        update={"review_source": TeamThesisSource(analysis_run_id=run.id, impact_ids=(impact.id,))}
+    )
+    return sessions, inp, gateway, run, service, request, review
+
+
+async def test_selected_real_impact_source_is_atomic_replayable_and_keeps_original_version(
+    database_engine,
+):
+    sessions, inp, gateway, run, service, request, review = await impact_setup(database_engine)
+    before = (await service.workspace(inp.instrument_id)).versions[0]
+    saved = await service.save(inp.instrument_id, request)
+    assert await service.save(inp.instrument_id, request) == saved
+    workspace = await service.workspace(inp.instrument_id)
+    assert len(workspace.versions) == 2 and workspace.versions[1] == before
+    source = workspace.versions[0].review_sources[0]
+    assert source.impact_ids == (review.impacts[0].id,) and source.suggestion_ids == ()
+    assert source.opinion_ids == (review.impacts[0].opinion_id,)
+    assert gateway.calls == 8 and source.analysis_run_id == run.id
+    async with sessions() as session:
+        event = await session.scalar(
+            select(EventLogRecord).where(EventLogRecord.aggregate_id == request.request_id)
+        )
+        assert event.payload_json["review_source"] == source.model_dump(mode="json")
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(OutboxEventRecord)
+                .where(OutboxEventRecord.event_id == event.id)
+            )
+            == 1
+        )
+
+
+@pytest.mark.parametrize("bad", ["unknown", "positive", "unmatched"])
+async def test_impact_selection_rejects_unknown_or_ineligible_source_without_writing(
+    database_engine, monkeypatch, bad
+):
+    _, inp, gateway, _, service, request, review = await impact_setup(database_engine)
+    if bad == "unknown":
+        request = request.model_copy(
+            update={
+                "review_source": request.review_source.model_copy(
+                    update={"impact_ids": (f"{uuid4()}:impact:0",)}
+                )
+            }
+        )
+    else:
+        changed = review.impacts[0].model_copy(
+            update={"impact": "STRENGTHEN"}
+            if bad == "positive"
+            else {"baseline_status": "UNMATCHED"}
+        )
+
+        async def read(_run_id):
+            return review.model_copy(update={"impacts": (changed,)})
+
+        monkeypatch.setattr(service._port, "team_review", read)
+    with pytest.raises(ApplicationError) as failure:
+        await service.save(inp.instrument_id, request)
+    assert failure.value.code.value == "THESIS_REVIEW_SOURCE_INVALID"
+    assert len((await service.workspace(inp.instrument_id)).versions) == 1 and gateway.calls == 8
+
+
+async def test_observation_only_source_preserves_legacy_request_hash(database_engine):
+    sessions, _, _, _, inp, _, _, service, request = await setup(database_engine)
+    await service.save(inp.instrument_id, request)
+    payload = request.model_dump(mode="json", exclude={"request_id"})
+    payload["review_source"].pop("impact_ids")
+    async with sessions() as session:
+        event = await session.scalar(
+            select(EventLogRecord).where(EventLogRecord.aggregate_id == request.request_id)
+        )
+        assert event.payload_json["request_hash"] == content_hash(
+            {"instrument_id": str(inp.instrument_id), "command": payload}
+        )

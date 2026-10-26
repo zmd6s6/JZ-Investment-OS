@@ -139,6 +139,9 @@ class SqlThesisProduct:
         if command.review_source is None:
             # Preserve replay hashes for commands issued before review provenance existed.
             command_payload.pop("review_source")
+        elif not command.review_source.impact_ids:
+            # Existing observation-only requests must replay with their original hash.
+            command_payload["review_source"].pop("impact_ids")
         fingerprint = content_hash(
             {
                 "instrument_id": str(instrument_id),
@@ -186,10 +189,17 @@ class SqlThesisProduct:
                     review = await self.team_review(command.review_source.analysis_run_id)
                     requested = set(command.review_source.suggestion_ids)
                     selected = [s for s in review.suggestions if s.id in requested]
+                    impact_ids = set(command.review_source.impact_ids)
+                    impacts = [i for i in review.impacts if i.id in impact_ids]
                     if (
                         review.instrument_id != instrument_id
                         or review.base_version_id != current_id
                         or len(selected) != len(requested)
+                        or len(impacts) != len(impact_ids)
+                        or any(
+                            i.baseline_status != "MATCHED" or i.impact not in ("WEAKEN", "BREAK")
+                            for i in impacts
+                        )
                     ):
                         raise ApplicationError(
                             ApplicationErrorCode.THESIS_REVIEW_SOURCE_INVALID,
@@ -200,7 +210,12 @@ class SqlThesisProduct:
                         analysis_run_id=review.analysis_run_id,
                         input_hash=review.input_hash,
                         suggestion_ids=command.review_source.suggestion_ids,
-                        opinion_ids=tuple(dict.fromkeys(s.opinion_id for s in selected)),
+                        impact_ids=command.review_source.impact_ids,
+                        opinion_ids=tuple(
+                            dict.fromkeys(
+                                [s.opinion_id for s in selected] + [i.opinion_id for i in impacts]
+                            )
+                        ),
                     ).model_dump(mode="json")
                 now = datetime.now(UTC)
                 evidence = list(

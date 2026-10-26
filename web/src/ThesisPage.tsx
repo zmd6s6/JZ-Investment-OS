@@ -3,14 +3,14 @@ import { InstrumentHit, InstrumentSearchBox } from "./InstrumentSearchBox";
 import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { readAnalysisJson } from "./analysisReads";
 import { apiFetch, readApiError } from "./writeApi";
-import { TeamThesisDraft, TeamSource, TeamSuggestion } from "./TeamThesisDraft";
+import { TeamThesisDraft, TeamSource, TeamSuggestion, TeamImpact, impactRiskDescription } from "./TeamThesisDraft";
 import { ThesisDraftChanges } from "./ThesisDraftChanges";
 
 type Claim = { description: string; evidence_ids: string[] };
 type Pillar = { key: string; claim: Claim; status: string };
 type Condition = { condition: string; measurement: string; threshold: string; window: string };
 type Content = { state: string; long_term_summary: string; pillars: Pillar[]; catalysts: Claim[]; risks: Claim[]; invalidation_conditions: Condition[]; monitoring_conditions: string[]; change_reason: string };
-type Version = { id: string; version: number; parent_version_id: string | null; content_hash: string; created_at: string; content: Content; semantic_diff: unknown; review_sources?:{analysis_run_id:string;suggestion_ids:string[];input_hash:string;opinion_ids:string[]}[] };
+type Version = { id: string; version: number; parent_version_id: string | null; content_hash: string; created_at: string; content: Content; semantic_diff: unknown; review_sources?:{analysis_run_id:string;suggestion_ids:string[];impact_ids?:string[];input_hash:string;opinion_ids:string[]}[] };
 type Workspace = { instrument_id: string; current_version_id: string | null; versions: Version[] };
 type Evidence = { evidence_id: string; title: string; excerpt: string; source_name: string; freshness_status: string };
 type Pending = { request_id: string; expected_version_id: string | null; content: Content; review_source?:TeamSource };
@@ -110,6 +110,17 @@ export function ThesisPage() {
     change({...draft,pillars:[...base,...unique.map(s=>({key:`T-${crypto.randomUUID()}`,claim:{description:s.claim,evidence_ids:s.evidence_ids},status:"AT_RISK"}))],change_reason:"NEW_EVIDENCE"});
     setReviewSource(source);setError(null);setMessage(`已加入 ${unique.length} 条团队观点到编辑草稿，尚未保存；逻辑状态未自动改变。`);
   }
+  function adoptRisks(source:TeamSource,impacts:TeamImpact[]) {
+    if(busy.current||loading||!workspace||reviewSource)return;
+    const signature=(claim:Claim)=>JSON.stringify([claim.description.trim(),[...claim.evidence_ids].sort()]);
+    const known=new Set(draft.risks.map(signature));
+    const added:Claim[]=[];
+    for(const item of impacts){const claim={description:impactRiskDescription(item),evidence_ids:[...item.evidence_ids]};if(!known.has(signature(claim))){known.add(signature(claim));added.push(claim);}}
+    if(!added.length){setMessage("所选风险已在草稿中，没有重复加入，也未保存。");return;}
+    if(draft.risks.length+added.length>20){setError("加入后将超过20条风险，请减少勾选或先整理草稿；当前内容未改变。");return;}
+    change({...draft,risks:[...draft.risks,...added],change_reason:"NEW_EVIDENCE"});
+    setReviewSource(source);setError(null);setMessage(`已加入 ${added.length} 条待核对风险，尚未保存；原支柱、摘要和逻辑状态均保留。`);
+  }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if(busy.current||!id||!workspace)return;
@@ -135,7 +146,7 @@ export function ThesisPage() {
     </Panel>
     {workspace?<Panel title="2 · 明确保存投资逻辑" description={`基准：${current?`版本 ${current.version}`:"尚无版本"}。冲突会阻止保存，不会覆盖他人的更新。`}>
       <p className="context-note">这里是你维护的研究判断，不是政策批准或交易授权。资料必须可用且有出处；新建默认“未知”。已失效逻辑的重新生效须完整复核，本页不提供快捷恢复。</p>
-      {reviewRun&&id?<TeamThesisDraft key={`${id}-${refresh}`} runId={reviewRun} instrumentId={id} baseVersionId={workspace.current_version_id} evidence={evidence} disabled={saving||loading} adopted={Boolean(reviewSource)} onApply={adopt}/>:null}
+      {reviewRun&&id?<TeamThesisDraft key={`${id}-${refresh}`} runId={reviewRun} instrumentId={id} baseVersionId={workspace.current_version_id} evidence={evidence} disabled={saving||loading} adopted={Boolean(reviewSource)} onApply={adopt} onApplyRisks={adoptRisks}/>:null}
       {reviewSource?<p className="context-note">本次保存将记录人工核对的分析／观点来源。<button type="button" className="btn ghost" disabled={saving} onClick={()=>{setReviewSource(null);setDirty(true);setMessage("已解除团队来源关联，编辑文字仍保留；后续按人工草稿保存。");}}>解除团队来源关联</button></p>:null}
       <form className="thesis-editor" onSubmit={e=>void submit(e)}><fieldset disabled={loading||saving} style={{border:0,padding:0,minWidth:0}}>
         <label>长期投资逻辑摘要<textarea required maxLength={3000} value={draft.long_term_summary} onChange={e=>change({...draft,long_term_summary:e.target.value})}/></label>
@@ -156,6 +167,6 @@ export function ThesisPage() {
       </fieldset></form>
     </Panel>:null}
     {workspace?<Panel title="3 · 历史版本与变更" description="所有旧版只读保留；当前分析使用启动时固定的版本。">{!workspace.versions.length?<p>尚无正式版本，未自动创建占位记录。</p>:workspace.versions.map(v=><details key={v.id}><summary>版本 {v.version} · {stateNames[v.content.state]??v.content.state} · {v.content.long_term_summary}</summary><p style={{overflowWrap:"anywhere"}}>版本 ID：{v.id} · 前版：{v.parent_version_id??"无"} · 内容摘要：{v.content_hash}</p><p>保存时间：{v.created_at}</p><pre className="hint-text">{JSON.stringify({内容:v.content,语义变更:v.semantic_diff},null,2)}</pre></details>)}</Panel>:null}
-    {workspace?.versions.some(v=>v.review_sources?.length)?<Panel title="4 · 人工核对的团队来源" description="这是人工整理时核对的来源，不表示模型自动更新或投资批准。">{workspace.versions.flatMap(v=>(v.review_sources??[]).map((source,index)=><article className="evidence-card" key={`${v.id}-${index}`}><p>投资逻辑版本 {v.version} · 核对 {source.suggestion_ids.length} 条团队观点</p><a className="btn ghost" href={`/analysis?run_id=${encodeURIComponent(source.analysis_run_id)}`}>查看来源分析报告</a><p className="hint-text" style={{overflowWrap:"anywhere"}}>分析 ID：{source.analysis_run_id} · 输入摘要：{source.input_hash}<br/>观点 ID：{source.opinion_ids.join("、")}</p></article>))}</Panel>:null}
+    {workspace?.versions.some(v=>v.review_sources?.length)?<Panel title="4 · 人工核对的团队来源" description="这是人工整理时核对的来源，不表示模型自动更新或投资批准。">{workspace.versions.flatMap(v=>(v.review_sources??[]).map((source,index)=><article className="evidence-card" key={`${v.id}-${index}`}><p>投资逻辑版本 {v.version} · 核对 {source.suggestion_ids.length} 条团队观点{source.impact_ids?.length?` / ${source.impact_ids.length} 条支柱影响`:""}</p><a className="btn ghost" href={`/analysis?run_id=${encodeURIComponent(source.analysis_run_id)}`}>查看来源分析报告</a><p className="hint-text" style={{overflowWrap:"anywhere"}}>分析 ID：{source.analysis_run_id} · 输入摘要：{source.input_hash}<br/>观点 ID：{source.opinion_ids.join("、")}{source.impact_ids?.length?<><br/>影响 ID：{source.impact_ids.join("、")}</>:null}</p></article>))}</Panel>:null}
   </ProductChrome>;
 }

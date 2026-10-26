@@ -1163,6 +1163,9 @@ button[type="submit"] { border-radius: var(--radius-sm); }
 .thesis-editor .check-row input { flex: 0 0 auto; margin-top: 5px; }
 .thesis-editor .check-row span { min-width: 0; overflow-wrap: anywhere; }
 .thesis-editor section, .thesis-editor .evidence-card { display: grid; gap: 12px; }
+.check-row.evidence-card { display: flex; align-items: flex-start; gap: 10px; margin-block: 12px; cursor: pointer; }
+.check-row.evidence-card > input { flex: 0 0 auto; margin-top: 5px; }
+.check-row.evidence-card > span { min-width: 0; overflow-wrap: anywhere; }
 .evidence-excerpt { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; }
 .evidence-meta { display: grid; grid-template-columns: minmax(100px, 150px) minmax(0, 1fr); gap: .4rem .8rem; font-size: .85rem; }
 .evidence-meta dd { margin: 0; overflow-wrap: anywhere; }
