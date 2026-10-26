@@ -2,3 +2,5 @@
 375b60264fb7745f955b2b3dcd37d46ba1117e48:.secrets.baseline:generic-api-key:130
 375b60264fb7745f955b2b3dcd37d46ba1117e48:.secrets.baseline:generic-api-key:139
 375b60264fb7745f955b2b3dcd37d46ba1117e48:.secrets.baseline:generic-api-key:148
+# 恢复的开发占位值单向摘要；与上面的初始基线摘要相同，不是访问凭据。
+351d9a8f0f97d8356b8d22db0f01f66baad78a66:.secrets.baseline:generic-api-key:134

@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -157,3 +158,46 @@ async def test_bocha_connection_tester_uses_fixed_harmless_query() -> None:
 
     assert result.status == "CONNECTION_SUCCEEDED"
     assert captured["body"] == {"query": "博查 API", "count": 1, "summary": True}
+
+
+async def test_bocha_explicit_instrument_association_has_distinct_content_hashes() -> None:
+    from investment_os.application.evidence import normalize_artifact
+
+    first_id, second_id = uuid4(), uuid4()
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=_response()))
+    ) as client:
+        provider = BochaWebSearchProvider(
+            profile=_profile(), credential="synthetic-credential", client=client
+        )
+        first = (
+            await provider.fetch_artifacts(
+                ResearchRequest((first_id,), UtcTimestamp(NOW), query="synthetic public query")
+            )
+        )[0]
+        second = (
+            await provider.fetch_artifacts(
+                ResearchRequest((second_id,), UtcTimestamp(NOW), query="synthetic public query")
+            )
+        )[0]
+    assert first.instrument_id == first_id
+    assert second.instrument_id == second_id
+    assert first.source_tier == second.source_tier == "OTHER"
+    assert (
+        normalize_artifact(first, ingested_at=NOW).content_hash
+        != normalize_artifact(second, ingested_at=NOW).content_hash
+    )
+
+
+async def test_bocha_rejects_ambiguous_multiple_instruments_before_network() -> None:
+    def unexpected(_: httpx.Request) -> httpx.Response:
+        raise AssertionError("ambiguous association must not call the provider")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(unexpected)) as client:
+        provider = BochaWebSearchProvider(
+            profile=_profile(), credential="synthetic-credential", client=client
+        )
+        with pytest.raises(ResearchProviderSchemaError, match="one explicit instrument"):
+            await provider.fetch_artifacts(
+                ResearchRequest((uuid4(), uuid4()), UtcTimestamp(NOW), query="synthetic query")
+            )

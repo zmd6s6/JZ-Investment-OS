@@ -1,6 +1,823 @@
 {
   "components": {
     "schemas": {
+      "AgentRole": {
+        "enum": [
+          "MACRO",
+          "INDUSTRY",
+          "FUNDAMENTAL",
+          "MARKET_QUANT",
+          "EVENT",
+          "PORTFOLIO",
+          "PORTFOLIO",
+          "RISK",
+          "RISK",
+          "DEVILS_ADVOCATE",
+          "CIO",
+          "REVIEW",
+          "REVIEW"
+        ],
+        "title": "AgentRole",
+        "type": "string"
+      },
+      "AnalysisEvidenceView": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_as_of": {
+            "format": "date-time",
+            "title": "Analysis As Of",
+            "type": "string"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceCitation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "freshness_at_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness At Run"
+          },
+          "freshness_now": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness Now"
+          },
+          "input_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Hash"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "NOT_RECORDED",
+              "SNAPSHOT_ONLY",
+              "CONTENT_UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "texts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SavedEvidenceText"
+            },
+            "title": "Texts",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "title_truncated": {
+            "default": false,
+            "title": "Title Truncated",
+            "type": "boolean"
+          },
+          "untrusted_content": {
+            "const": true,
+            "default": true,
+            "title": "Untrusted Content",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "run_id",
+          "evidence_id",
+          "instrument_id",
+          "analysis_as_of",
+          "read_at",
+          "status"
+        ],
+        "title": "AnalysisEvidenceView",
+        "type": "object"
+      },
+      "AnalysisMarketOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_hash": {
+            "title": "Configuration Hash",
+            "type": "string"
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenMarketProfile"
+            },
+            "title": "Profiles",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configuration_hash",
+          "profiles"
+        ],
+        "title": "AnalysisMarketOptions",
+        "type": "object"
+      },
+      "AnalysisModelOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_hash": {
+            "title": "Configuration Hash",
+            "type": "string"
+          },
+          "default_bindings": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenRoleModel"
+            },
+            "title": "Default Bindings",
+            "type": "array"
+          },
+          "missing_roles": {
+            "items": {
+              "$ref": "#/components/schemas/AgentRole"
+            },
+            "title": "Missing Roles",
+            "type": "array"
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenModelProfile"
+            },
+            "title": "Profiles",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configuration_hash",
+          "profiles",
+          "default_bindings",
+          "missing_roles"
+        ],
+        "title": "AnalysisModelOptions",
+        "type": "object"
+      },
+      "AnalysisProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "run_id",
+          "sequence",
+          "stage",
+          "state",
+          "occurred_at"
+        ],
+        "title": "AnalysisProgressResponse",
+        "type": "object"
+      },
+      "AnalysisRunDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Code"
+          },
+          "failure_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Detail"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "policy_version_label": {
+            "title": "Policy Version Label",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "instrument_id",
+          "portfolio_id",
+          "source",
+          "status",
+          "as_of",
+          "policy_version_label",
+          "failure_code",
+          "failure_detail",
+          "payload",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AnalysisRunDetailResponse",
+        "type": "object"
+      },
+      "AnalysisRunSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Code"
+          },
+          "failure_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Detail"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "policy_version_label": {
+            "title": "Policy Version Label",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "instrument_id",
+          "portfolio_id",
+          "source",
+          "status",
+          "as_of",
+          "policy_version_label",
+          "failure_code",
+          "failure_detail",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AnalysisRunSummaryResponse",
+        "type": "object"
+      },
+      "AnalysisValuation": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "base_currency": {
+            "title": "Base Currency",
+            "type": "string"
+          },
+          "calculation_version": {
+            "const": "portfolio-valuation-v1",
+            "default": "portfolio-valuation-v1",
+            "title": "Calculation Version",
+            "type": "string"
+          },
+          "cash_balance": {
+            "title": "Cash Balance",
+            "type": "string"
+          },
+          "cash_weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Weight"
+          },
+          "currencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Currencies",
+            "type": "array"
+          },
+          "degraded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degraded"
+          },
+          "degraded_instruments": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Degraded Instruments",
+            "type": "array"
+          },
+          "gross_exposure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Exposure"
+          },
+          "holdings_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holdings Value"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "missing_quotes": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Missing Quotes",
+            "type": "array"
+          },
+          "nav": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nav"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "position_values": {
+            "items": {
+              "$ref": "#/components/schemas/PositionValuation"
+            },
+            "title": "Position Values",
+            "type": "array"
+          },
+          "price_availability": {
+            "const": "PROVIDER_TIME_ONLY",
+            "default": "PROVIDER_TIME_ONLY",
+            "title": "Price Availability",
+            "type": "string"
+          },
+          "quote_sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Quote Sources",
+            "type": "array"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reason Codes",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sector_values": {
+            "items": {
+              "$ref": "#/components/schemas/SectorValuation"
+            },
+            "title": "Sector Values",
+            "type": "array"
+          },
+          "single_currency_limit": {
+            "const": true,
+            "default": true,
+            "title": "Single Currency Limit",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Rank"
+          },
+          "status": {
+            "enum": [
+              "OK",
+              "PARTIAL",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_core_weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Core Weight"
+          },
+          "target_currency": {
+            "title": "Target Currency",
+            "type": "string"
+          },
+          "target_historical_features": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HistoricalMarketFeatures"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_market_features": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DailyMarketFeatures"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_quote_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Quote As Of"
+          },
+          "target_reference_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Reference Price"
+          },
+          "target_tactical_weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Tactical Weight"
+          },
+          "target_weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Weight"
+          },
+          "unclassified_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unclassified Value"
+          }
+        },
+        "required": [
+          "status",
+          "as_of",
+          "input_hash",
+          "instrument_id",
+          "portfolio_id",
+          "base_currency",
+          "cash_balance",
+          "nav",
+          "holdings_value",
+          "gross_exposure",
+          "cash_weight",
+          "target_reference_price",
+          "target_currency",
+          "target_quote_as_of",
+          "target_core_weight",
+          "target_tactical_weight",
+          "target_weight",
+          "source",
+          "source_rank",
+          "degraded",
+          "missing_quotes",
+          "currencies",
+          "quote_sources",
+          "degraded_instruments",
+          "position_values",
+          "sector_values",
+          "unclassified_value",
+          "reason_codes"
+        ],
+        "title": "AnalysisValuation",
+        "type": "object"
+      },
+      "BehaviorPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "average_down_without_thesis_check": {
+            "title": "Average Down Without Thesis Check",
+            "type": "boolean"
+          },
+          "buy_only_because_price_fell": {
+            "title": "Buy Only Because Price Fell",
+            "type": "boolean"
+          },
+          "chase_high": {
+            "title": "Chase High",
+            "type": "boolean"
+          },
+          "frequent_trading": {
+            "title": "Frequent Trading",
+            "type": "boolean"
+          },
+          "reason_required_for_every_action": {
+            "title": "Reason Required For Every Action",
+            "type": "boolean"
+          },
+          "sell_only_because_position_is_profitable": {
+            "title": "Sell Only Because Position Is Profitable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chase_high",
+          "frequent_trading",
+          "buy_only_because_price_fell",
+          "sell_only_because_position_is_profitable",
+          "average_down_without_thesis_check",
+          "reason_required_for_every_action"
+        ],
+        "title": "BehaviorPolicySchema",
+        "type": "object"
+      },
+      "CandidateCommitResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "format": "uuid",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "reused": {
+            "title": "Reused",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "evidence_id",
+          "reused"
+        ],
+        "title": "CandidateCommitResponse",
+        "type": "object"
+      },
       "CsvImportAppliedRowResponse": {
         "additionalProperties": false,
         "properties": {
@@ -357,6 +1174,234 @@
           "reason"
         ],
         "title": "CsvRowResultResponse",
+        "type": "object"
+      },
+      "DailyMarketBar": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "close": {
+            "title": "Close",
+            "type": "string"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "open": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open"
+          },
+          "previous_close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Close"
+          },
+          "previous_close_basis": {
+            "default": "PROVIDER_REPORTED",
+            "enum": [
+              "PROVIDER_REPORTED",
+              "EX_RIGHTS"
+            ],
+            "title": "Previous Close Basis",
+            "type": "string"
+          },
+          "turnover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnover"
+          },
+          "volume_shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Shares"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "as_of",
+          "close"
+        ],
+        "title": "DailyMarketBar",
+        "type": "object"
+      },
+      "DailyMarketFeatures": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "const": "PROVIDER_TIME_ONLY",
+            "default": "PROVIDER_TIME_ONLY",
+            "title": "Availability",
+            "type": "string"
+          },
+          "bar": {
+            "$ref": "#/components/schemas/DailyMarketBar"
+          },
+          "calculation_version": {
+            "const": "daily-observations-v1",
+            "default": "daily-observations-v1",
+            "title": "Calculation Version",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "daily_return": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Return"
+          },
+          "degraded": {
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "intraday_range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intraday Range"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Fields",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sizing_ready": {
+            "const": false,
+            "default": false,
+            "title": "Sizing Ready",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_rank": {
+            "title": "Source Rank",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "OK",
+              "PARTIAL"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turnover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnover"
+          },
+          "volume_shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Shares"
+          }
+        },
+        "required": [
+          "status",
+          "input_hash",
+          "bar",
+          "currency",
+          "source",
+          "source_rank",
+          "degraded",
+          "daily_return",
+          "intraday_range",
+          "volume_shares",
+          "turnover",
+          "missing_fields"
+        ],
+        "title": "DailyMarketFeatures",
         "type": "object"
       },
       "DailyReportResponse": {
@@ -942,6 +1987,138 @@
         "title": "DecisionJournalResponse",
         "type": "object"
       },
+      "EntryPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "require_portfolio_capacity": {
+            "title": "Require Portfolio Capacity",
+            "type": "boolean"
+          },
+          "require_risk_pass": {
+            "title": "Require Risk Pass",
+            "type": "boolean"
+          },
+          "require_thesis_states": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisState"
+            },
+            "title": "Require Thesis States",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "require_timing_confirmation": {
+            "title": "Require Timing Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "require_thesis_states",
+          "require_timing_confirmation",
+          "require_portfolio_capacity",
+          "require_risk_pass"
+        ],
+        "title": "EntryPolicySchema",
+        "type": "object"
+      },
+      "EvidenceCitation": {
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "ingested_freshness_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingested Freshness Status"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_tier": {
+            "title": "Source Tier",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "content_hash",
+          "source_name",
+          "source_locator",
+          "source_tier",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "ingested_at",
+          "expires_at",
+          "summary"
+        ],
+        "title": "EvidenceCitation",
+        "type": "object"
+      },
       "EvidenceClaimResponse": {
         "additionalProperties": false,
         "properties": {
@@ -965,6 +2142,573 @@
         "title": "EvidenceClaimResponse",
         "type": "object"
       },
+      "EvidenceLibraryItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "evidence_type": {
+            "title": "Evidence Type",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "freshness_status": {
+            "title": "Freshness Status",
+            "type": "string"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "instrument_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument Id"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_tier": {
+            "title": "Source Tier",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "instrument_id",
+          "source_name",
+          "source_locator",
+          "source_tier",
+          "provider",
+          "evidence_type",
+          "title",
+          "excerpt",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "ingested_at",
+          "expires_at",
+          "freshness_status",
+          "content_hash"
+        ],
+        "title": "EvidenceLibraryItemResponse",
+        "type": "object"
+      },
+      "EvidenceLibraryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceLibraryItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of",
+          "items"
+        ],
+        "title": "EvidenceLibraryResponse",
+        "type": "object"
+      },
+      "ExecutionContextReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "feature_set_version": {
+            "const": "analysis-portfolio-context-v1",
+            "default": "analysis-portfolio-context-v1",
+            "title": "Feature Set Version",
+            "type": "string"
+          },
+          "feature_snapshot_id": {
+            "format": "uuid",
+            "title": "Feature Snapshot Id",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "request_input_hash": {
+            "title": "Request Input Hash",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "runtime_input_hash": {
+            "title": "Runtime Input Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "feature_snapshot_id",
+          "request_input_hash",
+          "runtime_input_hash",
+          "content_hash",
+          "recorded_at"
+        ],
+        "title": "ExecutionContextReceipt",
+        "type": "object"
+      },
+      "ExecutionContextView": {
+        "additionalProperties": false,
+        "properties": {
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionContextReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RECORDED",
+              "NOT_RECORDED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "valuation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisValuation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "run_id",
+          "status"
+        ],
+        "title": "ExecutionContextView",
+        "type": "object"
+      },
+      "ExecutionPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ttl_hours": {
+            "exclusiveMinimum": 0.0,
+            "title": "Approval Ttl Hours",
+            "type": "integer"
+          },
+          "auto_trade": {
+            "const": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "human_approval_required": {
+            "const": true,
+            "title": "Human Approval Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "auto_trade",
+          "human_approval_required",
+          "approval_ttl_hours"
+        ],
+        "title": "ExecutionPolicySchema",
+        "type": "object"
+      },
+      "ExitPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "hard_risk_veto": {
+            "const": "NO_NEW_OR_ADDITIONAL_EXPOSURE",
+            "title": "Hard Risk Veto",
+            "type": "string"
+          },
+          "thesis_broken": {
+            "const": "MANDATORY_REVIEW",
+            "title": "Thesis Broken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thesis_broken",
+          "hard_risk_veto"
+        ],
+        "title": "ExitPolicySchema",
+        "type": "object"
+      },
+      "FrozenAnalysisPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "approved_by_actor": {
+            "anyOf": [
+              {
+                "const": "HUMAN",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By Actor"
+          },
+          "config": {
+            "$ref": "#/components/schemas/InvestmentPolicySchema"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "mode": {
+            "enum": [
+              "ACTIVE",
+              "TEST_DEFAULT"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "policy_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version Id"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode",
+          "version",
+          "content_hash",
+          "config"
+        ],
+        "title": "FrozenAnalysisPolicy",
+        "type": "object"
+      },
+      "FrozenMarketProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_hash": {
+            "title": "Configuration Hash",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "provider_type": {
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "provider_type",
+          "timeout_seconds",
+          "retention_days",
+          "configuration_hash"
+        ],
+        "title": "FrozenMarketProfile",
+        "type": "object"
+      },
+      "FrozenModelProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_hash": {
+            "title": "Configuration Hash",
+            "type": "string"
+          },
+          "input_token_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Token Price"
+          },
+          "max_tokens": {
+            "title": "Max Tokens",
+            "type": "integer"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "output_token_price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Token Price"
+          },
+          "pricing_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Currency"
+          },
+          "pricing_effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Effective At"
+          },
+          "pricing_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing Version"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "provider_type": {
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "provider_type",
+          "model_name",
+          "timeout_seconds",
+          "max_tokens",
+          "pricing_version",
+          "pricing_currency",
+          "input_token_price",
+          "output_token_price",
+          "pricing_effective_at",
+          "configuration_hash"
+        ],
+        "title": "FrozenModelProfile",
+        "type": "object"
+      },
+      "FrozenRoleModel": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/FrozenModelProfile"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          }
+        },
+        "required": [
+          "role",
+          "profile"
+        ],
+        "title": "FrozenRoleModel",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -976,6 +2720,173 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HistoricalMarketFeatures": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "const": "PROVIDER_TIME_ONLY",
+            "default": "PROVIDER_TIME_ONLY",
+            "title": "Availability",
+            "type": "string"
+          },
+          "calculation_version": {
+            "const": "observed-daily-20-v1",
+            "default": "observed-daily-20-v1",
+            "title": "Calculation Version",
+            "type": "string"
+          },
+          "compounded_daily_return": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compounded Daily Return"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "daily_return_sample_stddev": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Return Sample Stddev"
+          },
+          "degraded": {
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "history": {
+            "$ref": "#/components/schemas/MarketHistory"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "mean_turnover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Turnover"
+          },
+          "mean_volume_shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Volume Shares"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Fields",
+            "type": "array"
+          },
+          "required_count": {
+            "const": 20,
+            "default": 20,
+            "title": "Required Count",
+            "type": "integer"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sizing_ready": {
+            "const": false,
+            "default": false,
+            "title": "Sizing Ready",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_rank": {
+            "title": "Source Rank",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_hash",
+          "history",
+          "source",
+          "currency",
+          "source_rank",
+          "degraded",
+          "sample_count",
+          "daily_return_sample_stddev",
+          "compounded_daily_return",
+          "mean_volume_shares",
+          "mean_turnover",
+          "missing_fields"
+        ],
+        "title": "HistoricalMarketFeatures",
+        "type": "object"
+      },
+      "HoldingPeriodSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_days": {
+            "exclusiveMinimum": 0.0,
+            "title": "Maximum Days",
+            "type": "integer"
+          },
+          "minimum_days": {
+            "exclusiveMinimum": 0.0,
+            "title": "Minimum Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minimum_days",
+          "maximum_days"
+        ],
+        "title": "HoldingPeriodSchema",
+        "type": "object"
+      },
+      "HorizonPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "core": {
+            "$ref": "#/components/schemas/HoldingPeriodSchema"
+          },
+          "tactical": {
+            "$ref": "#/components/schemas/HoldingPeriodSchema"
+          }
+        },
+        "required": [
+          "core",
+          "tactical"
+        ],
+        "title": "HorizonPolicySchema",
         "type": "object"
       },
       "InstrumentCatalogResponse": {
@@ -1100,6 +3011,58 @@
           "window"
         ],
         "title": "InvalidationConditionResponse",
+        "type": "object"
+      },
+      "InvestmentPolicySchema": {
+        "additionalProperties": false,
+        "description": "Versioned machine protocol for an Investment Policy configuration.",
+        "properties": {
+          "behavior": {
+            "$ref": "#/components/schemas/BehaviorPolicySchema"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/EntryPolicySchema"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/ExecutionPolicySchema"
+          },
+          "exit": {
+            "$ref": "#/components/schemas/ExitPolicySchema"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/HorizonPolicySchema"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/PolicyMetadataSchema"
+          },
+          "position": {
+            "$ref": "#/components/schemas/PositionPolicySchema"
+          },
+          "review_frequency": {
+            "$ref": "#/components/schemas/ReviewFrequencySchema"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/StrategyPolicySchema"
+          }
+        },
+        "required": [
+          "schema_version",
+          "metadata",
+          "strategy",
+          "horizon",
+          "behavior",
+          "position",
+          "entry",
+          "exit",
+          "execution",
+          "review_frequency"
+        ],
+        "title": "InvestmentPolicySchema",
         "type": "object"
       },
       "LLMBudgetPolicyRequest": {
@@ -1356,6 +3319,47 @@
         "title": "LivenessResponse",
         "type": "object"
       },
+      "LocalSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authenticated": {
+            "title": "Authenticated",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "mode": {
+            "enum": [
+              "bearer",
+              "local_session"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "authenticated",
+          "expires_at"
+        ],
+        "title": "LocalSessionResponse",
+        "type": "object"
+      },
       "ManualPositionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1491,6 +3495,171 @@
           "currency"
         ],
         "title": "ManualPositionRequest",
+        "type": "object"
+      },
+      "MarketAttempt": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observed_times": {
+            "default": [],
+            "items": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Observed Times",
+            "type": "array"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "provider_type": {
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "queries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Queries",
+            "type": "array"
+          },
+          "quotes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RecordedMarketQuote"
+            },
+            "title": "Quotes",
+            "type": "array"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "returned_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Returned Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "STARTED",
+              "SUCCEEDED",
+              "PARTIAL",
+              "NO_DATA",
+              "FAILED",
+              "CONFIGURATION_CHANGED",
+              "CREDENTIAL_MISSING"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "provider_type",
+          "rank",
+          "status",
+          "queries"
+        ],
+        "title": "MarketAttempt",
+        "type": "object"
+      },
+      "MarketAttemptEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "$ref": "#/components/schemas/MarketAttempt"
+          },
+          "attempt_id": {
+            "format": "uuid",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_id",
+          "occurred_at",
+          "attempt"
+        ],
+        "title": "MarketAttemptEvent",
+        "type": "object"
+      },
+      "MarketHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "bars": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DailyMarketBar"
+            },
+            "maxItems": 90,
+            "title": "Bars",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "REQUEST_FAILED",
+                  "INVALID_RESPONSE",
+                  "NO_DATA",
+                  "NOT_PROVIDED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reference_at": {
+            "format": "date-time",
+            "title": "Reference At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RECEIVED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "reference_at",
+          "status"
+        ],
+        "title": "MarketHistory",
         "type": "object"
       },
       "ModelProviderProfileRequest": {
@@ -1792,6 +3961,34 @@
         "title": "OnboardingStateResponse",
         "type": "object"
       },
+      "PillarStatus": {
+        "enum": [
+          "VALID",
+          "AT_RISK",
+          "INVALID"
+        ],
+        "title": "PillarStatus",
+        "type": "string"
+      },
+      "PolicyMetadataSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PolicyStatus"
+          }
+        },
+        "required": [
+          "name",
+          "status"
+        ],
+        "title": "PolicyMetadataSchema",
+        "type": "object"
+      },
       "PolicyReviewResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1817,6 +4014,16 @@
             "title": "Policy Status",
             "type": "string"
           },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenAnalysisPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "warning": {
             "title": "Warning",
             "type": "string"
@@ -1831,6 +4038,16 @@
         ],
         "title": "PolicyReviewResponse",
         "type": "object"
+      },
+      "PolicyStatus": {
+        "enum": [
+          "TEST_DEFAULT",
+          "DRAFT",
+          "ACTIVE",
+          "RETIRED"
+        ],
+        "title": "PolicyStatus",
+        "type": "string"
       },
       "PortfolioCashUpdateRequest": {
         "additionalProperties": false,
@@ -2051,6 +4268,230 @@
           "positions"
         ],
         "title": "PortfolioResponse",
+        "type": "object"
+      },
+      "PositionPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "core_ratio_target": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Core Ratio Target",
+            "type": "string"
+          },
+          "gross_exposure_max_pct": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gross Exposure Max Pct",
+            "type": "string"
+          },
+          "minimum_cash_pct": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Minimum Cash Pct",
+            "type": "string"
+          },
+          "sector_max_pct": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Sector Max Pct",
+            "type": "string"
+          },
+          "single_instrument_max_pct": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Single Instrument Max Pct",
+            "type": "string"
+          },
+          "tactical_ratio_target": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Tactical Ratio Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "single_instrument_max_pct",
+          "sector_max_pct",
+          "gross_exposure_max_pct",
+          "minimum_cash_pct",
+          "core_ratio_target",
+          "tactical_ratio_target"
+        ],
+        "title": "PositionPolicySchema",
+        "type": "object"
+      },
+      "PositionValuation": {
+        "additionalProperties": false,
+        "properties": {
+          "core_quantity": {
+            "title": "Core Quantity",
+            "type": "string"
+          },
+          "core_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Value"
+          },
+          "core_weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Weight"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "degraded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degraded"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "market_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Value"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "string"
+          },
+          "quote_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote As Of"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Rank"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "tactical_quantity": {
+            "title": "Tactical Quantity",
+            "type": "string"
+          },
+          "tactical_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Value"
+          },
+          "tactical_weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Weight"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "symbol",
+          "name",
+          "currency",
+          "sector",
+          "core_quantity",
+          "tactical_quantity",
+          "quantity"
+        ],
+        "title": "PositionValuation",
         "type": "object"
       },
       "ProductCapabilityResponse": {
@@ -2329,6 +4770,162 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "RecordedMarketQuote": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "reference_price": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Reference Price",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "reference_price",
+          "currency",
+          "as_of"
+        ],
+        "title": "RecordedMarketQuote",
+        "type": "object"
+      },
+      "ResearchCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "candidate_id": {
+            "format": "uuid",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "freshness_status": {
+            "title": "Freshness Status",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_tier": {
+            "title": "Source Tier",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "title",
+          "excerpt",
+          "source_name",
+          "source_locator",
+          "source_tier",
+          "provider",
+          "observed_at",
+          "available_at",
+          "expires_at",
+          "freshness_status"
+        ],
+        "title": "ResearchCandidateResponse",
+        "type": "object"
+      },
+      "ResearchCapabilitiesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "provider_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Provider Types",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_types"
+        ],
+        "title": "ResearchCapabilitiesResponse",
+        "type": "object"
+      },
+      "ResearchConfirmationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Candidate Ids",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "candidate_ids"
+        ],
+        "title": "ResearchConfirmationRequest",
+        "type": "object"
+      },
       "ResearchIngestRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2459,6 +5056,285 @@
         "title": "ResearchIngestResponse",
         "type": "object"
       },
+      "ResearchPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "instrument_id",
+          "query"
+        ],
+        "title": "ResearchPreviewRequest",
+        "type": "object"
+      },
+      "ResearchPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CandidateCommitResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "preview_id": {
+            "format": "uuid",
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preview_id",
+          "profile_id",
+          "instrument_id",
+          "query",
+          "created_at",
+          "expires_at",
+          "as_of",
+          "candidates",
+          "confirmation"
+        ],
+        "title": "ResearchPreviewResponse",
+        "type": "object"
+      },
+      "ResearchRecordView": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Agents",
+            "type": "array"
+          },
+          "committee_session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Committee Session Id"
+          },
+          "decision_status": {
+            "const": "NOT_REGISTERED",
+            "default": "NOT_REGISTERED",
+            "title": "Decision Status",
+            "type": "string"
+          },
+          "feature_snapshot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature Snapshot Id"
+          },
+          "input_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Hash"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "risk": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "runtime_input_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Input Hash"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RECORDED",
+              "NOT_RECORDED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status"
+        ],
+        "title": "ResearchRecordView",
+        "type": "object"
+      },
+      "RetryAnalysisJobRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "title": "RetryAnalysisJobRequest",
+        "type": "object"
+      },
+      "ReviewCadence": {
+        "enum": [
+          "DAILY",
+          "WEEKLY",
+          "MONTHLY",
+          "QUARTERLY"
+        ],
+        "title": "ReviewCadence",
+        "type": "string"
+      },
+      "ReviewFrequencySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "holdings": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          },
+          "portfolio": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          },
+          "screening": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          },
+          "watchlist": {
+            "$ref": "#/components/schemas/ReviewCadence"
+          }
+        },
+        "required": [
+          "holdings",
+          "watchlist",
+          "screening",
+          "portfolio",
+          "strategy"
+        ],
+        "title": "ReviewFrequencySchema",
+        "type": "object"
+      },
       "RoleModelAssignmentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2498,6 +5374,362 @@
           "model_provider_profile_id"
         ],
         "title": "RoleModelAssignmentResponse",
+        "type": "object"
+      },
+      "SaveThesisCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ThesisContentInput"
+          },
+          "expected_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version Id"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "review_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamThesisSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_version_id",
+          "content"
+        ],
+        "title": "SaveThesisCommand",
+        "type": "object"
+      },
+      "SavedEvidenceText": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "enum": [
+              "summary",
+              "snippet",
+              "text",
+              "content",
+              "description"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "original_length": {
+            "title": "Original Length",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "field",
+          "text",
+          "original_length",
+          "truncated"
+        ],
+        "title": "SavedEvidenceText",
+        "type": "object"
+      },
+      "SectorValuation": {
+        "additionalProperties": false,
+        "properties": {
+          "classification_source": {
+            "const": "PORTFOLIO_INPUT",
+            "default": "PORTFOLIO_INPUT",
+            "title": "Classification Source",
+            "type": "string"
+          },
+          "market_value": {
+            "title": "Market Value",
+            "type": "string"
+          },
+          "sector": {
+            "title": "Sector",
+            "type": "string"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          }
+        },
+        "required": [
+          "sector",
+          "market_value",
+          "weight"
+        ],
+        "title": "SectorValuation",
+        "type": "object"
+      },
+      "StartAnalysisRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ids"
+          },
+          "include_market_history": {
+            "default": false,
+            "title": "Include Market History",
+            "type": "boolean"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "market_configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Configuration Hash"
+          },
+          "market_profile_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Profile Ids"
+          },
+          "model_configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Configuration Hash"
+          },
+          "model_profile_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Profile Id"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "source": {
+            "default": "PORTFOLIO",
+            "enum": [
+              "PORTFOLIO",
+              "WATCHLIST",
+              "RESEARCH"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "portfolio_id"
+        ],
+        "title": "StartAnalysisRequest",
+        "type": "object"
+      },
+      "StrategyPolicySchema": {
+        "additionalProperties": false,
+        "properties": {
+          "primary_style": {
+            "minLength": 1,
+            "title": "Primary Style",
+            "type": "string"
+          },
+          "tactical_style": {
+            "minLength": 1,
+            "title": "Tactical Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "primary_style",
+          "tactical_style"
+        ],
+        "title": "StrategyPolicySchema",
+        "type": "object"
+      },
+      "SubmitAnalysisJobRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ids"
+          },
+          "include_market_history": {
+            "default": false,
+            "title": "Include Market History",
+            "type": "boolean"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "market_configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Configuration Hash"
+          },
+          "market_profile_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Profile Ids"
+          },
+          "model_configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Configuration Hash"
+          },
+          "model_profile_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Profile Id"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source": {
+            "default": "PORTFOLIO",
+            "enum": [
+              "PORTFOLIO",
+              "WATCHLIST",
+              "RESEARCH"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "portfolio_id",
+          "request_id"
+        ],
+        "title": "SubmitAnalysisJobRequest",
         "type": "object"
       },
       "SystemSettingsResponse": {
@@ -2633,6 +5865,431 @@
         "title": "TaskRunResponse",
         "type": "object"
       },
+      "TeamThesisImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_claim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Claim"
+          },
+          "baseline_pillar_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Pillar Status"
+          },
+          "baseline_status": {
+            "enum": [
+              "MATCHED",
+              "UNMATCHED",
+              "NO_BASELINE"
+            ],
+            "title": "Baseline Status",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "impact": {
+            "enum": [
+              "STRENGTHEN",
+              "WEAKEN",
+              "BREAK",
+              "NONE"
+            ],
+            "title": "Impact",
+            "type": "string"
+          },
+          "opinion_id": {
+            "format": "uuid",
+            "title": "Opinion Id",
+            "type": "string"
+          },
+          "pillar_key": {
+            "minLength": 1,
+            "title": "Pillar Key",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pillar_key",
+          "impact",
+          "reason",
+          "evidence_ids",
+          "id",
+          "opinion_id",
+          "role",
+          "stage",
+          "baseline_status"
+        ],
+        "title": "TeamThesisImpact",
+        "type": "object"
+      },
+      "TeamThesisProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_run_id": {
+            "format": "uuid",
+            "title": "Analysis Run Id",
+            "type": "string"
+          },
+          "impact_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Impact Ids",
+            "type": "array"
+          },
+          "input_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "opinion_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Opinion Ids",
+            "type": "array"
+          },
+          "suggestion_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Suggestion Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "analysis_run_id",
+          "input_hash",
+          "suggestion_ids",
+          "opinion_ids"
+        ],
+        "title": "TeamThesisProvenance",
+        "type": "object"
+      },
+      "TeamThesisReview": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_run_id": {
+            "format": "uuid",
+            "title": "Analysis Run Id",
+            "type": "string"
+          },
+          "as_of": {
+            "title": "As Of",
+            "type": "string"
+          },
+          "base_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version Id"
+          },
+          "impacts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamThesisImpact"
+            },
+            "title": "Impacts",
+            "type": "array"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "risk_gate": {
+            "enum": [
+              "PASS",
+              "VETO",
+              "UNKNOWN"
+            ],
+            "title": "Risk Gate",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/TeamThesisSuggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "analysis_run_id",
+          "instrument_id",
+          "as_of",
+          "input_hash",
+          "base_version_id",
+          "suggestions",
+          "unknowns",
+          "risk_gate",
+          "limitations"
+        ],
+        "title": "TeamThesisReview",
+        "type": "object"
+      },
+      "TeamThesisSource": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_run_id": {
+            "format": "uuid",
+            "title": "Analysis Run Id",
+            "type": "string"
+          },
+          "impact_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Impact Ids",
+            "type": "array"
+          },
+          "suggestion_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Suggestion Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "analysis_run_id"
+        ],
+        "title": "TeamThesisSource",
+        "type": "object"
+      },
+      "TeamThesisSuggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Claim",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opinion_id": {
+            "format": "uuid",
+            "title": "Opinion Id",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "opinion_id",
+          "role",
+          "stage",
+          "claim",
+          "evidence_ids"
+        ],
+        "title": "TeamThesisSuggestion",
+        "type": "object"
+      },
+      "ThesisChangeReason": {
+        "enum": [
+          "NEW_EVIDENCE",
+          "SCHEDULED_REVIEW",
+          "EVENT",
+          "HUMAN_CORRECTION"
+        ],
+        "title": "ThesisChangeReason",
+        "type": "string"
+      },
+      "ThesisClaimInput": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "description",
+          "evidence_ids"
+        ],
+        "title": "ThesisClaimInput",
+        "type": "object"
+      },
+      "ThesisContentInput": {
+        "additionalProperties": false,
+        "properties": {
+          "catalysts": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisClaimInput"
+            },
+            "maxItems": 20,
+            "title": "Catalysts",
+            "type": "array"
+          },
+          "change_reason": {
+            "$ref": "#/components/schemas/ThesisChangeReason"
+          },
+          "invalidation_conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisInvalidationInput"
+            },
+            "maxItems": 20,
+            "title": "Invalidation Conditions",
+            "type": "array"
+          },
+          "long_term_summary": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Long Term Summary",
+            "type": "string"
+          },
+          "monitoring_conditions": {
+            "items": {
+              "maxLength": 3000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Monitoring Conditions",
+            "type": "array"
+          },
+          "pillars": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisPillarInput"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Pillars",
+            "type": "array"
+          },
+          "risks": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisClaimInput"
+            },
+            "maxItems": 20,
+            "title": "Risks",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ThesisState"
+          }
+        },
+        "required": [
+          "state",
+          "long_term_summary",
+          "pillars",
+          "catalysts",
+          "risks",
+          "invalidation_conditions",
+          "monitoring_conditions",
+          "change_reason"
+        ],
+        "title": "ThesisContentInput",
+        "type": "object"
+      },
       "ThesisHistoryResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2662,6 +6319,67 @@
         "title": "ThesisHistoryResponse",
         "type": "object"
       },
+      "ThesisInvalidationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Condition",
+            "type": "string"
+          },
+          "measurement": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Measurement",
+            "type": "string"
+          },
+          "threshold": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Threshold",
+            "type": "string"
+          },
+          "window": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "condition",
+          "measurement",
+          "threshold",
+          "window"
+        ],
+        "title": "ThesisInvalidationInput",
+        "type": "object"
+      },
+      "ThesisPillarInput": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "$ref": "#/components/schemas/ThesisClaimInput"
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PillarStatus"
+          }
+        },
+        "required": [
+          "key",
+          "claim",
+          "status"
+        ],
+        "title": "ThesisPillarInput",
+        "type": "object"
+      },
       "ThesisPillarResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2689,6 +6407,59 @@
         ],
         "title": "ThesisPillarResponse",
         "type": "object"
+      },
+      "ThesisSaved": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "thesis_id": {
+            "format": "uuid",
+            "title": "Thesis Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thesis_id",
+          "version_id",
+          "version",
+          "content_hash",
+          "created"
+        ],
+        "title": "ThesisSaved",
+        "type": "object"
+      },
+      "ThesisState": {
+        "enum": [
+          "UNKNOWN",
+          "VALID",
+          "STRENGTHENING",
+          "WEAKENING",
+          "BROKEN"
+        ],
+        "title": "ThesisState",
+        "type": "string"
       },
       "ThesisVersionResponse": {
         "additionalProperties": false,
@@ -2822,6 +6593,115 @@
           "created_at"
         ],
         "title": "ThesisVersionResponse",
+        "type": "object"
+      },
+      "ThesisWorkspace": {
+        "additionalProperties": false,
+        "properties": {
+          "current_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Id"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ThesisWorkspaceVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "current_version_id",
+          "versions"
+        ],
+        "title": "ThesisWorkspace",
+        "type": "object"
+      },
+      "ThesisWorkspaceVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ThesisContentInput"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "review_sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamThesisProvenance"
+            },
+            "title": "Review Sources",
+            "type": "array"
+          },
+          "semantic_diff": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Diff"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "parent_version_id",
+          "content_hash",
+          "created_at",
+          "content"
+        ],
+        "title": "ThesisWorkspaceVersion",
         "type": "object"
       },
       "ValidationError": {
@@ -2991,6 +6871,712 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/analysis-jobs": {
+      "post": {
+        "operationId": "submit_analysis_job_api_v1_analysis_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitAnalysisJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Analysis Job",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-jobs/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancel_analysis_job_api_v1_analysis_jobs__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Analysis Job",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-jobs/{run_id}/retry": {
+      "post": {
+        "operationId": "retry_analysis_job_api_v1_analysis_jobs__run_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryAnalysisJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Analysis Job",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-market-options": {
+      "get": {
+        "operationId": "analysis_market_options_api_v1_analysis_market_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisMarketOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Analysis Market Options",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-model-options": {
+      "get": {
+        "operationId": "analysis_model_options_api_v1_analysis_model_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisModelOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Analysis Model Options",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs": {
+      "get": {
+        "operationId": "list_analysis_runs_api_v1_analysis_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Portfolio Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AnalysisRunSummaryResponse"
+                  },
+                  "title": "Response List Analysis Runs Api V1 Analysis Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Analysis Runs",
+        "tags": [
+          "analysis"
+        ]
+      },
+      "post": {
+        "operationId": "start_analysis_api_v1_analysis_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Analysis",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}": {
+      "get": {
+        "operationId": "get_analysis_run_api_v1_analysis_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Analysis Run",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/evidence/{evidence_id}": {
+      "get": {
+        "operationId": "analysis_evidence_detail_api_v1_analysis_runs__run_id__evidence__evidence_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evidence_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Evidence Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisEvidenceView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Evidence Detail",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/execution-context": {
+      "get": {
+        "operationId": "analysis_execution_context_api_v1_analysis_runs__run_id__execution_context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionContextView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Execution Context",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/market-attempts": {
+      "get": {
+        "operationId": "analysis_market_attempts_api_v1_analysis_runs__run_id__market_attempts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MarketAttemptEvent"
+                  },
+                  "title": "Response Analysis Market Attempts Api V1 Analysis Runs  Run Id  Market Attempts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Market Attempts",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/progress": {
+      "get": {
+        "operationId": "analysis_progress_api_v1_analysis_runs__run_id__progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AnalysisProgressResponse"
+                  },
+                  "title": "Response Analysis Progress Api V1 Analysis Runs  Run Id  Progress Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Progress",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/research-records": {
+      "get": {
+        "operationId": "analysis_research_records_api_v1_analysis_runs__run_id__research_records_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchRecordView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Research Records",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis-runs/{run_id}/thesis-review": {
+      "get": {
+        "operationId": "analysis_thesis_review_api_v1_analysis_runs__run_id__thesis_review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamThesisReview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analysis Thesis Review",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/auth/check": {
+      "post": {
+        "description": "Verify the existing write bearer without writes or external calls.",
+        "operationId": "check_write_access_api_v1_auth_check_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Check Write Access Api V1 Auth Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Check Write Access",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "revoke_local_browser_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Revoke Local Browser",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/pair": {
+      "post": {
+        "operationId": "pair_local_browser_api_v1_auth_pair_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "description": "\u4e00\u6b21\u6027\u672c\u673a\u914d\u5bf9\u7801",
+                    "type": "string",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pair Local Browser",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "operationId": "local_session_status_api_v1_auth_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Local Session Status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/decisions/{decision_id}": {
       "get": {
         "operationId": "read_decision_journal_api_v1_decisions__decision_id__get",
@@ -3135,6 +7721,104 @@
         ]
       }
     },
+    "/api/v1/instruments/{instrument_id}": {
+      "get": {
+        "operationId": "read_instrument_api_v1_instruments__instrument_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Instrument",
+        "tags": [
+          "instruments"
+        ]
+      }
+    },
+    "/api/v1/instruments/{instrument_id}/evidence": {
+      "get": {
+        "operationId": "evidence_for_instrument_api_v1_instruments__instrument_id__evidence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceLibraryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence For Instrument",
+        "tags": [
+          "research"
+        ]
+      }
+    },
     "/api/v1/onboarding": {
       "get": {
         "operationId": "onboarding_state_api_v1_onboarding_get",
@@ -3181,6 +7865,25 @@
       "get": {
         "description": "Read-only policy surface. Uses stored policy when present; never invents limits.",
         "operationId": "policy_review_api_v1_policy_review_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Portfolio Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -3191,6 +7894,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Policy Review",
@@ -3668,6 +8381,27 @@
         ]
       }
     },
+    "/api/v1/research/capabilities": {
+      "get": {
+        "operationId": "research_capabilities_api_v1_research_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Research Capabilities",
+        "tags": [
+          "research"
+        ]
+      }
+    },
     "/api/v1/research/ingest": {
       "post": {
         "operationId": "ingest_api_v1_research_ingest_post",
@@ -3704,6 +8438,106 @@
           }
         },
         "summary": "Ingest",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/api/v1/research/previews/{preview_id}": {
+      "get": {
+        "operationId": "read_research_preview_api_v1_research_previews__preview_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preview_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Preview Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Research Preview",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/api/v1/research/previews/{preview_id}/confirm": {
+      "post": {
+        "operationId": "confirm_research_preview_api_v1_research_previews__preview_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preview_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Preview Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchConfirmationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CandidateCommitResponse"
+                  },
+                  "title": "Response Confirm Research Preview Api V1 Research Previews  Preview Id  Confirm Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Research Preview",
         "tags": [
           "research"
         ]
@@ -3758,6 +8592,59 @@
           }
         },
         "summary": "Fetch Provider Research",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/api/v1/research/providers/{profile_id}/preview": {
+      "post": {
+        "operationId": "create_research_preview_api_v1_research_providers__profile_id__preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Research Preview",
         "tags": [
           "research"
         ]
@@ -4712,6 +9599,100 @@
           }
         },
         "summary": "Thesis History",
+        "tags": [
+          "theses"
+        ]
+      },
+      "post": {
+        "operationId": "save_thesis_api_v1_theses__instrument_id__versions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveThesisCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisSaved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Thesis",
+        "tags": [
+          "theses"
+        ]
+      }
+    },
+    "/api/v1/theses/{instrument_id}/workspace": {
+      "get": {
+        "operationId": "thesis_workspace_api_v1_theses__instrument_id__workspace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisWorkspace"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Thesis Workspace",
         "tags": [
           "theses"
         ]

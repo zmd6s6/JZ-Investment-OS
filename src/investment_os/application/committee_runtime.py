@@ -8,6 +8,7 @@ from hashlib import sha256
 
 from investment_os.application.agent_runtime import AgentRunResult, AgentRuntime
 from investment_os.application.analysis_context import AnalysisContext
+from investment_os.application.analysis_progress import AnalysisProgress
 from investment_os.application.committee import (
     CommitteeConflict,
     CommitteeRound,
@@ -158,12 +159,24 @@ class CommitteeRuntime:
         )
 
     async def run_session(
-        self, *, context: AnalysisContext, request_factory: RequestFactory
+        self,
+        *,
+        context: AnalysisContext,
+        request_factory: RequestFactory,
+        progress: AnalysisProgress | None = None,
     ) -> CommitteeSessionResult:
         """Run the only two protocol rounds and preserve unresolved conflicts for audit."""
 
+        if progress:
+            await progress("ROUND_ONE", "STARTED")
         round_one = await self.run_round_one(context=context, request_factory=request_factory)
+        if progress:
+            await progress("ROUND_ONE", "COMPLETED")
+            await progress("CONFLICTS", "STARTED")
         conflicts = detect_stance_conflicts(tuple(result.opinion for result in round_one.results))
+        if progress:
+            await progress("CONFLICTS", "COMPLETED")
+            await progress("ROUND_TWO", "STARTED")
         round_two = await self.run_round(
             plan=plan_round_two(conflicts),
             context=context,
@@ -174,6 +187,8 @@ class CommitteeRuntime:
                 conflicts=conflicts,
             ),
         )
+        if progress:
+            await progress("ROUND_TWO", "COMPLETED")
         return CommitteeSessionResult(rounds=(round_one, round_two))
 
     async def run_round(

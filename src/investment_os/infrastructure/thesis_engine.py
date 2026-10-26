@@ -1,6 +1,7 @@
 """Transactional writer for immutable, evidence-backed Thesis versions."""
 
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
@@ -101,7 +102,7 @@ def _claim_from_payload(value: object, *, field: str) -> EvidenceBackedClaim:
     )
 
 
-def _content_from_record(record: ThesisVersionRecord) -> ThesisContent:
+def thesis_content_from_record(record: ThesisVersionRecord) -> ThesisContent:
     pillars = tuple(
         ThesisPillar(
             key=str(pillar["key"]),
@@ -164,6 +165,7 @@ class SqlAlchemyThesisWriter:
         as_of: datetime,
         correlation_id: UUID | None = None,
         expected_current_content_hash: str | None = None,
+        unit_of_work: SqlAlchemyUnitOfWork | None = None,
     ) -> ThesisWriteResult:
         """Append a material version after validating all referenced Evidence at ``as_of``.
 
@@ -176,7 +178,12 @@ class SqlAlchemyThesisWriter:
         created_at = UtcTimestamp(self._now()).value
         correlation = correlation_id or uuid4()
         evidence_ids = content.evidence_ids
-        async with SqlAlchemyUnitOfWork(self._session_factory) as uow:
+        owned = unit_of_work is None
+        context = (
+            SqlAlchemyUnitOfWork(self._session_factory) if owned else nullcontext(unit_of_work)
+        )
+        async with context as uow:
+            assert uow is not None
             available_ids = await uow.evidence.available_ids(
                 evidence_ids,
                 instrument_id=instrument_id,
@@ -232,7 +239,7 @@ class SqlAlchemyThesisWriter:
                         details={"thesis_id": str(thesis.id)},
                     )
                 try:
-                    previous_content = _content_from_record(current)
+                    previous_content = thesis_content_from_record(current)
                 except (DomainError, KeyError, TypeError, ValueError) as exc:
                     raise ApplicationError(
                         ApplicationErrorCode.THESIS_VERSION_CORRUPT,
@@ -275,7 +282,8 @@ class SqlAlchemyThesisWriter:
                 current_version_id=record.id,
                 status=content.state.value,
             )
-            await uow.commit()
+            if owned:
+                await uow.commit()
             return ThesisWriteResult(
                 thesis_id=thesis.id,
                 thesis_version_id=record.id,
