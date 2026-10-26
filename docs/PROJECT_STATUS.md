@@ -6,11 +6,14 @@
 
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
-- 活跃路线图阶段：`PRODUCT-05 / P5 — Portfolio 与 Watchlist 产品`
-- 阶段状态：`IN_PROGRESS`（首个纵切：Instrument 目录 + Portfolio 手工持仓 + Watchlist）
+- 活跃 Release：`MVP-BETA`
+- Integration branch：`release/mvp-beta`（治理变更合并后创建）
+- 当前里程碑：P5 可见验收收口；P6/P8 无真实依赖 Work Item 允许并行推进
+- 阶段状态：`PRODUCT-05 = IN_PROGRESS`（PR #17 已合并，等待所有者可见产品验收）
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
-- 上次状态更新：`2026-09-29`
+- 自治控制面：`docs/agent/RELEASE.md` + `docs/agent/WORK_QUEUE.yaml`
+- 上次状态更新：`2026-10-26`
 
 ## 已建立
 
@@ -25,7 +28,7 @@
 
 ## 尚未实现或尚未验证
 
-- P5 收尾与验收合并（功能可用；已补写鉴权、CSV 冲突决策、迁移链 0009–0011、导入审计）。
+- P5 的实现 PR #17 已合并；仍需通过浏览器执行用户可见验收后才能将 PRODUCT-05 标为 ACCEPTED。
 - P6：产品工作流中的端到端分析编排、持久化 AnalysisRun 以及完整 Evidence → Decision 影子链路。
 - P7：Decision 审阅、批准/拒绝/撤销 UI 与只记录事实的手工执行产品流。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。
@@ -37,7 +40,9 @@
 
 ## 当前授权工作
 
-PRODUCT-05（`IN_PROGRESS`）已覆盖 Instrument 目录、Portfolio 手工/CSV、Watchlist、Policy 只读审阅与产品页。
+所有者于 2026-10-26 授权切换到 `MVP-BETA` Release Train：允许多个开发 Agent 对无真实依赖的 Work Item 并行自治开发；Gatekeeper 在 CI、治理、不变量、文档真实性和可见验收门禁全部满足后可自动合并到 `release/mvp-beta`。所有者不再逐 PR 驱动，只在治理决定和 Checkpoint 上参与。
+
+PRODUCT-05（`IN_PROGRESS`）已覆盖 Instrument 目录、Portfolio 手工/CSV、Watchlist、Policy 只读审阅与产品页。PR #17 已于 2026-10-10 合并到 `main`；当前缺口是所有者可见验收与状态收口，而不是再次开发同一大阶段。
 2026-09-29 收口：隔离库集成 3 项、浏览器 E2E 4 项、单元+集成 310 项、`ruff`/`mypy src`、OpenAPI check 通过；
 迁移 `20260929_0011`。`detect-secrets` 本机未安装标 `NOT VERIFIED`；`docker-compose config` 通过。待所有者验收后
 方可 `READY_FOR_REVIEW`。
@@ -70,7 +75,8 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
 
 - 发布的政策为 `TEST_DEFAULT`；选择真实限额仍需人工明确决定。
 - A 股范围仅授权 SSE/SZSE 日历语义和合成研究/模拟夹具，不授权数据提供方、真实 A 股组合数据、政策限额、券商执行或实盘交易。
-- 业主已授权阶段分支的提交和推送；合并到 `main` 仍是独立的人类动作。
+- 所有者已授权当前 Beta Release Train 的多 Agent 并行开发与独立 Gatekeeper 自动合并到 `release/mvp-beta`；直接更新 `main` 仍通过 Release Checkpoint PR。
+- 业务 Work Item 必须达到 Engineering Done + Integrated Done + User Visible Done，才能在 Checkpoint 后标记 DONE。
 
 ## 路线图
 
@@ -89,10 +95,10 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
 | PRODUCT-02 | ACCEPTED | PR #13 已合并；ADR-0013 已接受 | 设置、密钥存储与提供方档案 |
 | PRODUCT-03 | ACCEPTED | 已由 PR #14 合并；MockTransport、隔离浏览器及已授权 DeepSeek 的合成 Evidence 真实网络验收均通过 | 真实模型运行时 |
 | PRODUCT-04 | ACCEPTED | 已由 PR #15 合并到 `main`（`ba9b4fa`） | 多提供方数据运行时 |
-| PRODUCT-05 | IN_PROGRESS | 实现与复验修复中；未合并 | Portfolio 与 Watchlist 产品 |
-| PRODUCT-06 | PLANNED | 依赖 PRODUCT-05 `ACCEPTED` | 端到端 Analysis Orchestration |
-| PRODUCT-07 | PLANNED | 依赖 PRODUCT-06 `ACCEPTED` | 交互式决策与批准 |
-| PRODUCT-08 | PLANNED | 依赖 PRODUCT-07 `ACCEPTED` | 每日 AI 团队运行时 |
+| PRODUCT-05 | IN_PROGRESS | PR #17 已合并；等待浏览器可见验收 | Portfolio 与 Watchlist 产品 |
+| PRODUCT-06 | PLANNED | 里程碑接受依赖 P5；独立 Work Item 可并行 | 端到端 Analysis Orchestration |
+| PRODUCT-07 | PLANNED | 里程碑接受依赖 P6；独立 UI/契约工作可并行 | 交互式决策与批准 |
+| PRODUCT-08 | PLANNED | 里程碑接受依赖 P7；Calendar 等独立 Work Item 可并行 | 每日 AI 团队运行时 |
 | PRODUCT-09 | PLANNED | 依赖 PRODUCT-08 `ACCEPTED` | Beta 验收 |
 | PR-09 | BLOCKED | 解除条件：PRODUCT-09 经所有者 `ACCEPTED`，且所有者明确要求恢复 | Outcome、Review/Learning、加固与发布 |
 
@@ -103,3 +109,4 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
 - 阻塞项必须记录负责人、精确条件、已尝试替代方案和解除事件。PR-09 的负责人为所有者；精确解除条件为
   PRODUCT-09 `ACCEPTED` 与所有者明确恢复指令；已采取的替代方案是转而推进 P5–P9。
 - 详细清单与证据放在对应阶段文档；本文件保持简明。
+- 阶段 ACCEPTED 顺序保持 P5→P9；实现调度改由 Release Work Queue 驱动，无真实依赖的后续阶段 Work Item 不必等待前一阶段整体 ACCEPTED。

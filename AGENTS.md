@@ -6,16 +6,19 @@
 
 1. `INVESTMENT_OS_MASTER_SPEC.md`。
 2. `docs/PROJECT_STATUS.md`。
-3. `docs/stages/` 下的活动阶段文件。
-4. 与待修改文件相关的已接受 ADR。
-5. 最近的嵌套 `AGENTS.md` 或 `AGENTS.override.md`（如存在）。
+3. `docs/agent/RELEASE.md` 与 `docs/agent/WORK_QUEUE.yaml`。
+4. 与工作项相关的 `docs/stages/` 阶段契约。
+5. 与待修改文件相关的已接受 ADR。
+6. `docs/agent/AUTONOMOUS_DEVELOPMENT.md`。
+7. 最近的嵌套 `AGENTS.md` 或 `AGENTS.override.md`（如存在）。
 
 权威顺序：
 
 ```text
 经人类批准的主规范
 → 已接受的 ADR
-→ 活动阶段契约
+→ 阶段验收契约
+→ 当前 Release / Work Item 契约
 → 根目录/嵌套 AGENTS.md
 → 实现与测试
 ```
@@ -84,7 +87,9 @@ Codex 是高级实现工程师，不是运行时投资 Agent。Codex 无权选�
 
 一个分支等待决定时，继续所有独立且安全的工作。
 
-除非用户明确要求并行 Agent 工作，否则不得创建子 Agent 或委派工作。产品实现的运行时投资 Agent 与 Codex 的开发委派是不同概念。
+所有者已于 2026-10-26 明确授权在当前 Beta Release Train 内进行多 Agent 并行自治开发。只要 Work Item 的显式依赖已满足、没有文件/Schema 冲突且不触及人工治理闸门，Agent 应自行领取并推进，不得因为“前一产品阶段尚未整体 ACCEPTED”而等待与其无真实依赖的工作。
+
+产品实现的运行时投资 Agent 与开发 Agent 是不同概念。开发 Agent 必须遵循 `docs/agent/AUTONOMOUS_DEVELOPMENT.md` 的 Claim、Handoff、Review Gate 和可见验收协议。
 
 ## 7. 变更控制
 
@@ -128,11 +133,14 @@ docker compose config
 ## 9. Git 与 PR 纪律
 
 - 编辑前检查工作树。绝不覆盖无关的人类改动。
-- 除非用户明确重新排序，否则一次只进行一个路线图阶段。
-- 变更应可审查，并对齐一个阶段或明确命名的修复。
-- 除非用户明确要求，禁止破坏性 Git 命令。
-- 除非明确要求，禁止 amend、rebase、force-push、merge、打 tag 或发布。
-- 所有者长期授权：当路线图阶段达到 `READY_FOR_REVIEW` 时，创建或使用 `codex/pr-XX-*` 分支，提交完成阶段并推送至 `origin` 以触发远程 CI。该授权不允许 force-push、合并、删除分支或直接推送 `main`。
+- 同一 Release Train 内允许多个无真实依赖的 Work Item 并行开发；阶段契约仍是里程碑验收边界，不得因并行而削弱。
+- 每个 Work Item 使用独立分支和 PR，优先目标为当前 Release integration branch；禁止多个 Agent 共用一个工作分支。
+- Claim 分支固定为 `agent/<work-item-id>`；创建同名远程分支即获得原子 Claim，创建失败必须重新读取队列，禁止覆盖他人分支。
+- 变更应可审查，并对齐一个 Work Item；不得把无关功能打包进“大阶段 PR”。
+- 禁止破坏性 Git 命令、force-push 和未经 lease 的历史重写。
+- 实现 Agent 不得自行宣称 Review Gate 通过；独立 Gatekeeper 检查 CI、review threads、治理决定、不变量、文档真实性和可见验收契约。
+- Gatekeeper 在全部门禁满足时获长期授权将 Work Item PR 合并到当前 Release integration branch；不得绕过失败 CI 或未解决的人类治理决定。
+- `main` 保持稳定，只通过 Release Checkpoint PR 更新；Checkpoint 是否 ACCEPTED 由人类所有者做产品可见验收后决定。
 - 一个提交或 PR 不得混合真实投资规则变更与常规重构。
 - PR 描述使用 `.github/pull_request_template.md`，并包含真实验证证据。
 
@@ -143,5 +151,20 @@ docker compose config
 - 当前阶段和下一步：`docs/PROJECT_STATUS.md`
 - 阶段验收契约：`docs/stages/PR-XX.md`
 - 架构决策：`docs/adr/`
+- 当前 Release：`docs/agent/RELEASE.md`
+- 自治工作队列：`docs/agent/WORK_QUEUE.yaml`
+- Agent 操作协议：`docs/agent/AUTONOMOUS_DEVELOPMENT.md`
+- 用户可见验收台账：`docs/agent/ACCEPTANCE.md`
+- 人工治理决定：`docs/agent/DECISIONS.md`
 
 状态文件不一致时，不得猜测后续工作已完成。先验证代码和测试，再更正状态记录。
+
+## 11. Product Done 与用户可见性
+
+业务 Work Item 只有同时满足以下三层才可进入 `DONE`：
+
+1. **Engineering Done**：实现、迁移、契约和测试完成；
+2. **Integrated Done**：真实 API/DB/Worker/UI 已接通，不依赖硬编码成功路径；
+3. **User Visible Done**：存在所有者可执行的入口页面、操作步骤、预期结果和失败路径。
+
+PR 必须填写可见验收入口。底层基础能力可以没有独立 UI，但必须通过上层页面、运行状态或 E2E 证明其已接入真实产品链。没有用户可见验收路径的业务功能不得宣称 Product Done。

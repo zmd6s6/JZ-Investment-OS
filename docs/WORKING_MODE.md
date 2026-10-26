@@ -2,164 +2,168 @@
 
 ## 目的
 
-本文件定义人类所有者和 Codex 如何开发 Personal AI Investment OS。它将主规范转化为持久的工作节奏，但不替代或修改主规范。
+本文件定义 Personal AI Investment OS 的持续交付方式。主规范、已接受 ADR 和阶段契约仍具有更高权威；本文件只定义如何更快地把它们变成可见产品。
 
 ## 角色
 
 ### 人类所有者
 
-人类所有者对以下事项拥有最终权力：
+所有者是 Product Owner / Governance Owner，主要负责：
 
-- 投资哲学和真实 Investment Policy 参数；
-- 风险偏好和 Veto 语义；
-- 数据/提供方授权和成本边界；
-- Strategy 激活；
-- 实盘交易能力及每一次实盘交易批准；
-- 路线图阶段和治理变更的验收。
+- 定义当前 Release 的产品目标与优先级；
+- 决定真实 Investment Policy、风险偏好、数据授权/许可、成本预算、实盘能力等治理事项；
+- 在 Release Checkpoint 上直接通过浏览器做产品验收；
+- 接受或拒绝阶段里程碑。
 
-所有者复核结果并纠正方向，无需指定主规范已涵盖的常规实现细节。
+所有者不负责日常任务分解、普通工程选择、逐 PR 催办或重复复审。
 
-### Codex
+### Worker Agent
 
-Codex 是高级实现工程师，负责：
+任何 Codex、Claude Code、Gemini CLI 或其他开发 Agent 都视为 Worker Agent。进入仓库后必须自行读取控制文件、领取 READY 工作项、实现、验证、提交 PR，并根据 CI/Review 反馈继续修复。只要队列中仍存在无阻塞 READY 工作，不应因为一个无关任务等待人类决定而整体停止。
 
-- 仓库分析和缺口识别；
-- 经批准边界内的架构；
-- 代码、迁移、Schema、API、UI、测试、CI、文档和运行手册；
-- 独立验证与诚实报告；
-- 保留从需求到实现和证据的可追溯性；
-- 只上报确实需要人类权力的决定。
+### Gatekeeper Agent
 
-Codex 可进行常规、可逆的工程选择。未经授权，不得改变投资治理、声称未运行测试已经通过，或扩展到实盘交易。
+Gatekeeper 独立于实现任务，负责检查：
 
-### 运行时投资 Agent
+- CI 与必要测试；
+- 主规范、ADR、阶段契约和架构边界；
+- Risk Veto、Approval、deterministic sizing、immutable history、`auto_trade=false`；
+- 文档真实性和 `NOT VERIFIED`；
+- unresolved review threads；
+- 是否存在人工治理决定；
+- 用户可见验收契约。
 
-CIO、Macro、Industry、Fundamental、Market/Quant、Event、Portfolio Manager、Risk Manager、Devil’s Advocate 和 Review/Learning 都是产品组件。它们不是 Codex 开发工作的替代者，也不继承仓库写入或部署权力。
+全部满足时，Gatekeeper 可将 Work Item PR 合并到当前 Release integration branch；否则留下精确 blocker，Worker Agent 继续修复。
 
-## 工作循环
-
-```text
-主规范
-    ↓
-一个活动路线图阶段
-    ↓
-Codex 实现 + 测试
-    ↓
-Codex 自审与验证证据
-    ↓
-人类复核治理/投资决定
-    ↓
-接受、修正或退回实现
-    ↓
-更新项目状态并开始下一阶段
-```
-
-一次只能有一个活动路线图阶段。已完成阶段中发现的小缺陷，可在活动阶段需要时立即修复，但必须在交付报告中标明。
-
-## 阶段状态
-
-每个 `docs/stages/<阶段>.md`（例如 `PR-XX` 或 `PRODUCT-XX`）使用以下一种状态：
-
-- `PLANNED`：需求已记录；未声称实现。
-- `IN_PROGRESS`：实现正在进行。
-- `BLOCKED`：明确的外部条件或人类授权决定阻碍安全推进。
-- `READY_FOR_REVIEW`：实现和必需验证均已完成。
-- `ACCEPTED`：人类所有者已接受该阶段。
-- `SUPERSEDED`：已被批准的新阶段契约替代。
-
-Codex 可将状态从 `PLANNED → IN_PROGRESS → READY_FOR_REVIEW`。需要投资/治理审查时，只有人类所有者可将阶段移为 `ACCEPTED`。
-
-## 开始阶段
-
-实现前，Codex 必须：
-
-1. 清点仓库和未提交改动；
-2. 验证前一阶段，而不是相信状态标签；
-3. 识别范围内的主规范条款和验收场景；
-4. 列出交付物、范围外事项、风险和人类决定；
-5. 将阶段状态设为 `IN_PROGRESS`；
-6. 选择最小完整纵切和验证计划。
-
-若仓库已有该阶段工作，Codex 必须进行缺口分析。文件只有在行为被验证后才能作为证据。
-
-## 完成阶段
-
-只有满足以下条件，阶段才可变为 `READY_FOR_REVIEW`：
-
-- 每项阶段交付物均已实现，或被经批准的变更明确标为范围外；
-- 每条验收标准都有证据；
-- 满足主规范的完成定义；
-- 必需命令已成功运行且记录精确结果；
-- 迁移、OpenAPI、Schema、文档和 ADR 为最新；
-- 没有实质性的 `NOT VERIFIED`，除非已明确外部阻塞原因；
-- `docs/PROJECT_STATUS.md` 和阶段文件均已更新。
-
-阶段报告使用以下结构：
+## Release Train 工作循环
 
 ```text
-已完成范围
-已实现的主规范条款
-变更的文件 / 迁移 / API
-实际运行的验证及结果
-已演示的验收场景
-风险和已知限制
-需要的人类决定
-回滚 / 恢复
-建议的下一阶段
+Master Spec / ADR / Stage Contracts
+            ↓
+      Active RELEASE
+            ↓
+      WORK_QUEUE.yaml
+      ↙      ↓       ↘
+  Worker A Worker B Worker C
+      ↓      ↓       ↓
+     PR     PR      PR
+       \     |      /
+        Review Gate
+             ↓
+     release/mvp-beta
+             ↓
+    User-visible Checkpoint
+             ↓
+       owner acceptance
+             ↓
+            main
 ```
 
-## 人类决策协议
+同一时间只有一个活动 Release，但一个 Release 内可以有多个并行 Work Item。产品阶段仍按 P5→P9 作为验收里程碑；这不禁止在没有真实依赖时提前实现后续阶段的独立纵切。
 
-需要人类决定时，Codex 应呈现：
+## Work Item 状态
 
-1. 精确的决定；
-2. 为什么主规范未能解决；
-3. 两到三个可行选项；
-4. 推荐选项及权衡；
-5. 哪些工作被阻塞、哪些继续进行。
+`docs/agent/WORK_QUEUE.yaml` 使用：
 
-决定和理由记录在 ADR、Policy 批准、Strategy 批准或阶段决定日志中（视情况而定）。聊天历史本身不是权威记录。
+- `READY`：依赖满足，可领取；
+- `CLAIMED`：Agent 已创建 `agent/<id>` 分支；
+- `IN_PROGRESS`：实现中；
+- `REVIEW`：PR 已提交，等待 CI/Gatekeeper；
+- `INTEGRATED`：已合并到 Release branch，但尚未通过所属 Checkpoint 的人类可见验收；
+- `BLOCKED`：仅限真实依赖、外部能力或人工治理决定；
+- `DONE`：已被所属 Checkpoint 验收，或该项明确为无需人工 UI 验收的内部能力且其上层可见链路已通过。
 
-## 阶段发布与远程 CI
+队列是调度真相源；阶段文件是验收契约，二者不得互相伪造完成状态。
 
-所有者长期授权 Codex 发布每个完成的路线图阶段以运行 CI：
+## Claim 与并发
 
-1. 本地完成定义检查通过、阶段达到 `READY_FOR_REVIEW` 后，使用 `codex/pr-XX-short-description` 格式的阶段专用分支；
-2. 仅提交已审查的阶段范围并推送至 `origin`；
-3. 推送必须在每个分支触发仓库远程 CI；
-4. 等待远程 CI 并在阶段证据中记录实际结果；
-5. 在同一分支修复失败并推送后续提交，直至 CI 通过或记录真实阻塞。
+1. Agent 读取 `RELEASE.md` 和 `WORK_QUEUE.yaml`；
+2. 选择最高优先级、依赖均已满足的 `READY` 项；
+3. 从当前 Release integration branch 创建远程分支 `agent/<work-item-id>`；
+4. 分支创建成功即 Claim 成功；同名创建失败代表被其他 Agent 抢占，必须重新选任务；
+5. 不得在其他 Agent 分支上继续开发，除非按 Handoff 协议接管。
 
-这项长期授权不允许直接推送 `main`、force-push、合并、删除远程分支、发布版本或绕过人类阶段验收。只有在被要求或仓库自动化明确要求时，才可另行创建 GitHub Pull Request。
+这样不需要中央人工调度，也避免多个 Agent 同时修改同一任务。
 
-## 缺陷和变更处理
+## 开发与验证
 
-- 违反主规范 MUST 的缺陷，必须在推进依赖阶段前修复。
-- 主规范 PR-00–PR-09 之外的产品执行顺序必须记录在受其约束的产品路线图与阶段契约中，不能静默扩展活动阶段。
-- 改变投资行为需要人类决定，以及带版本的 Policy/Strategy 工件。
-- 主规范歧义应保守解释、记录；仅在实质改变行为时升级。
-- 失败的实验仍须记录；不得删除证据以使项目看似成功。
+每个 Work Item 都必须形成最小完整纵切，并在 PR 内提供：
+
+- 关联 Work Item ID；
+- 实现范围与不变量；
+- 实际运行的测试和 CI；
+- 未验证项；
+- 用户可见验收入口；
+- `入口页面 → 操作 → 预期结果 → 失败路径`；
+- Owner Decision 是否为 `NONE`。
+
+没有真实 UI/API/DB 接线的业务功能不能宣称 Product Done。
+
+## 人工治理升级
+
+只有以下情况允许暂停受影响任务并请求所有者：
+
+- 修改主规范或已接受投资治理；
+- 选择/更改真实 Investment Policy 限额；
+- 削弱 Evidence、Risk Veto、Approval、immutable history、deterministic sizing；
+- 使用授权/许可/隐私未解决的数据源；
+- 引入实际支出但预算未获批准；
+- 启用券商或实盘执行；
+- StrategyProposal 激活；
+- 无可靠恢复路径的不可逆真实数据迁移。
+
+普通 API 命名、数据库表设计、React 组件拆分、测试组织、内部重构等工程问题由 Agent 自主决定。
+
+## Review Gate
+
+Gatekeeper 只有在以下条件全部满足时才合并到 Release branch：
+
+1. PR mergeable；
+2. required CI 全绿；
+3. 无 unresolved review thread；
+4. 无待定 Owner Decision；
+5. 主规范/ADR/阶段契约未被削弱；
+6. Risk/Approval/Deterministic Domain 不变量保持；
+7. 文档与实际验证一致；
+8. 正常/失败/边界测试与必要 E2E 有证据；
+9. 用户可见验收路径已填写；
+10. 没有把尚未实现能力宣称为 DONE。
+
+实现 Agent 不需要等待所有者逐 PR 复核。失败时 Gatekeeper 留评论，Worker 继续修复。
+
+## Release Checkpoint
+
+所有者只需要验收少量 Checkpoint，而不是每个 PR：
+
+- Checkpoint A：Portfolio / Watchlist；
+- Checkpoint B：Analysis / Decision；
+- Checkpoint C：Daily Runtime / Opportunities；
+- Checkpoint D：完整 Beta。
+
+Checkpoint 必须在 `docs/agent/ACCEPTANCE.md` 和产品 Acceptance Center 中列出可点击入口、测试数据要求和预期结果。通过后再更新相应阶段为 `ACCEPTED`。
+
+## Handoff
+
+Agent 无法继续时，不得只在聊天中留下上下文。按 `docs/agent/HANDOFF_TEMPLATE.md` 在工作分支或 PR 中记录：
+
+- 当前 head；
+- 已完成；
+- 剩余工作；
+- 实际测试结果；
+- blocker；
+- 下一条最短执行路径。
+
+新 Agent 读取后可从同一分支继续。
 
 ## 发布模式
 
-项目按明确模式推进：
+运行时发布模式仍保持：`DEVELOPMENT → BACKTEST → SHADOW → PAPER → MANUAL_LIVE_RECORDING`。V1 禁止自动进入 `BROKER_LIVE`，任何开发流程加速均不得改变这一点。
 
-1. `DEVELOPMENT`：合成夹具；没有组合权力。
-2. `BACKTEST`：历史 as-of 执行，强制 `available_at`。
-3. `SHADOW`：当前数据，仅建议，不执行。
-4. `PAPER`：在审批工作流后的模拟执行。
-5. `MANUAL_LIVE_RECORDING`：人类在外部执行；系统在批准后记录结果。
-6. `BROKER_LIVE`：不属于 V1；在单独 ADR、安全审查和人类明确授权前禁止。
+## 通知原则
 
-向更高模式迁移绝不自动发生。
+日常 Worker/Review 循环不要求所有者参与。只在以下情况通知所有者：
 
-## 沟通节奏
-
-活动实现期间，Codex 在出现有意义的里程碑、风险或阻塞时提供简洁更新。最终报告必须自包含，并区分：
-
-- 已完成且已验证；
-- 已完成但未验证；
-- 已计划但未实现；
-- 被人类权力或外部依赖阻塞。
-
-任何状态报告都不得暗示未经证明的投资表现或安全性。
+- Work Item/Checkpoint 被合并或状态发生实质变化；
+- 出现真正的人工治理决定；
+- 产品 Checkpoint 已可进行浏览器验收；
+- Release 目标或风险边界需要变更。
