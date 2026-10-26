@@ -34,10 +34,6 @@ jobs:
           version: "0.12.9"
           enable-cache: true
       - run: uv python install 3.12
-      - name: TEMP refresh audited lock entries
-        run: |
-          uv lock --upgrade-package certifi==2026.10.19 --upgrade-package filelock==4.2.1
-          git diff -- uv.lock
       - run: uv sync --frozen --group dev
       - run: uv run ruff format --check .
       - run: uv run ruff check .
