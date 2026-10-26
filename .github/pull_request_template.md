@@ -1,32 +1,54 @@
+## Work Item / Release
+
+- Work Item ID:
+- Release: `MVP-BETA`
+- Target branch:
+- Depends on:
+
 ## 已完成范围
 
-## 已实现的主规范条款
+## 已实现的主规范 / ADR / 阶段条款
 
-## 阶段验收标准
+## Engineering / Integration
 
-- [ ] 交付物完整
-- [ ] 已演示验收标准
-- [ ] 文档/状态已更新
+- [ ] Engineering Done
+- [ ] Integrated Done
+- [ ] 无硬编码成功路径或未声明 mock
 
-## 已变更的文件、迁移、Schema 和 API
+## 用户可见验收
+
+- 入口页面 / URL:
+- 操作步骤:
+- 预期结果:
+- 失败路径:
+- [ ] User-visible acceptance path 已实际演示或明确标为 NOT VERIFIED
 
 ## 实际执行的验证及结果
 
-列出精确命令和结果。未运行的项目使用 `NOT VERIFIED`。
+列出精确命令、CI run 和结果。未运行的项目必须写 `NOT VERIFIED`。
 
-## 已演示的验收场景
+## Review Gate
 
-## 安全、数据和投资治理审查
-
+- [ ] required CI 全绿
+- [ ] 无 unresolved review thread
+- [ ] 文档与实际验证一致
+- [ ] 正常 / 失败 / 边界测试覆盖
 - [ ] 没有密钥或未经授权的个人/生产数据
 - [ ] 没有 DSA 私有耦合
-- [ ] 证据/不可变性/Risk Veto/仓位规模计算/批准不变量得到保留
-- [ ] 未启用实盘交易路径
-
-## 风险和已知限制
+- [ ] Evidence / immutable history / Risk Veto / deterministic sizing / Approval 不变量保持
+- [ ] `auto_trade=false`，未启用实盘经纪商订单
+- [ ] Owner Decision = NONE；如非 NONE，在下节精确列出
 
 ## 需要的人类决定
 
+`NONE` 或列出精确决定、选项、推荐和被阻塞范围。
+
+## 风险、已知限制与 NOT VERIFIED
+
 ## 回滚 / 恢复
 
-## 建议的下一阶段
+## Handoff / 下一可执行任务
+
+- 当前 head:
+- 下一项:
+- 若本任务合并，哪些 Work Item 会变为 READY:

@@ -1,0 +1,168 @@
+schema_version: 1
+release: MVP-BETA
+integration_branch: release/mvp-beta
+
+status_values:
+  - READY
+  - CLAIMED
+  - IN_PROGRESS
+  - REVIEW
+  - INTEGRATED
+  - BLOCKED
+  - DONE
+
+work_items:
+  - id: MVP-000
+    title: User-visible Acceptance Center
+    priority: 0
+    status: READY
+    stage: CROSS_STAGE
+    checkpoint: ALL
+    depends_on: []
+    scope:
+      - Add a product-visible acceptance/progress page, target route /acceptance.
+      - Show capability status truthfully: engineering, integrated, human acceptance.
+      - Provide direct links to usable product surfaces.
+    acceptance:
+      route: /acceptance
+      expected: Owner can see what is usable, pending, degraded, or not implemented without reading repository docs.
+
+  - id: MVP-101
+    title: P5 visible acceptance closeout
+    priority: 0
+    status: READY
+    stage: PRODUCT-05
+    checkpoint: A
+    depends_on: []
+    scope:
+      - Verify merged PR #17 through supported browser flows.
+      - Align PROJECT_STATUS and PRODUCT-05 evidence with actual behavior.
+      - Fix only blockers found by product-visible acceptance.
+    acceptance:
+      routes:
+        - /portfolio
+        - /watchlist
+      expected: Owner can create/import a portfolio, inspect positions, manage watchlist, and review active policy state.
+
+  - id: MVP-201
+    title: Structured market data and FX boundary
+    priority: 1
+    status: READY
+    stage: PRODUCT-06
+    checkpoint: B
+    depends_on: []
+    scope:
+      - Deliver replaceable structured market-data port/adapter.
+      - Deliver as-of/source FX inputs or explicit single-currency fail-closed boundary.
+      - Do not use LLM for numeric market or FX values.
+    acceptance:
+      route: /settings
+      expected: Supported source/capability and missing-data state are visible; downstream analysis can trace market inputs.
+
+  - id: MVP-202
+    title: Deterministic portfolio valuation and sizing context
+    priority: 1
+    status: BLOCKED
+    stage: PRODUCT-06
+    checkpoint: B
+    depends_on:
+      - MVP-201
+    scope:
+      - Build deterministic NAV, weights, exposure, volatility/liquidity context.
+      - Reconcile P5 positions/cash with reference prices and FX.
+    acceptance:
+      expected: Analysis detail can show traceable numeric context and fail closed on missing inputs.
+
+  - id: MVP-203
+    title: AnalysisRun and InvestmentAnalysisOrchestrator
+    priority: 1
+    status: BLOCKED
+    stage: PRODUCT-06
+    checkpoint: B
+    depends_on:
+      - MVP-202
+    scope:
+      - Evidence to Features to Thesis to committee to Risk to Sizing to Decision.
+      - Persist AnalysisRun lifecycle and failures.
+    acceptance:
+      route: /analysis
+      expected: Owner can start an analysis and observe its real progress/result without CLI.
+
+  - id: MVP-204
+    title: Analysis trace UI
+    priority: 1
+    status: BLOCKED
+    stage: PRODUCT-06
+    checkpoint: B
+    depends_on:
+      - MVP-203
+    scope:
+      - User-visible Evidence, Thesis, Agent opinions, Risk, Sizing, Decision drill-down.
+    acceptance:
+      route: /analysis
+      expected: Owner can understand why the system reached a Decision and which data were missing or stale.
+
+  - id: MVP-301
+    title: Decision Center and human approval
+    priority: 1
+    status: BLOCKED
+    stage: PRODUCT-07
+    checkpoint: B
+    depends_on:
+      - MVP-203
+    scope:
+      - Decision list/detail.
+      - APPROVE, REJECT, REVOKE.
+      - Manual execution recording without broker submission.
+    acceptance:
+      route: /decisions
+      expected: Owner can process a Decision entirely through UI while Risk Veto remains non-overridable.
+
+  - id: MVP-401
+    title: Product calendar source and autonomous worker runtime
+    priority: 1
+    status: READY
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on: []
+    scope:
+      - Productized CalendarProvider or auditable UI/Settings import.
+      - Persist market sessions.
+      - Worker dispatches due jobs without CLI/env-file hand editing.
+    acceptance:
+      route: /settings
+      expected: Owner can configure/import calendar data and see scheduled runtime status.
+
+  - id: MVP-402
+    title: Deterministic opportunity funnel and Opportunities UI
+    priority: 2
+    status: BLOCKED
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on:
+      - MVP-201
+    scope:
+      - universe to deterministic filters to bounded candidates to deep research.
+      - Never strong-model fan-out across full market.
+    acceptance:
+      route: /opportunities
+      expected: Owner can see why candidates entered the funnel, missing evidence, and next conditions.
+
+  - id: MVP-501
+    title: Full Beta E2E and checkpoint D
+    priority: 3
+    status: BLOCKED
+    stage: PRODUCT-09
+    checkpoint: D
+    depends_on:
+      - MVP-101
+      - MVP-204
+      - MVP-301
+      - MVP-401
+      - MVP-402
+    scope:
+      - Fresh install and full browser E2E.
+      - Map BETA_ACCEPTANCE requirements to evidence.
+    acceptance:
+      route: /acceptance
+      expected: Owner can complete the full Beta workflow without SQL, curl, Python, or raw JSON.
