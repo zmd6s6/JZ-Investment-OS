@@ -18,7 +18,7 @@
 | Portfolio / CSV import | `/portfolio` | INTEGRATED — PR #17 merged; browser acceptance still required | PENDING |
 | Watchlist | `/watchlist` | INTEGRATED — PR #17 merged; browser acceptance still required | PENDING |
 | Investment Policy review | product UI | INTEGRATED; real policy parameters remain owner-governed | PENDING |
-| Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000工作分支已验证，尚待Release集成；构建交付清单不是实时健康检测 | PENDING |
+| Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000集成记录随PR合入Release生效；构建交付清单不是实时健康检测 | PENDING |
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
 | Daily Runtime | product UI | ENGINEERING baseline only; product calendar/runtime pending MVP-401 | PENDING |
