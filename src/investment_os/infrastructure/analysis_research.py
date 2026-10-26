@@ -379,6 +379,7 @@ class SqlAnalysisResearchReader:
                         "stance": opinion.stance,
                         "confidence": str(opinion.confidence),
                         "observations": opinion.observations_json,
+                        "thesis_impacts": opinion.thesis_impacts_json,
                         "unknowns": opinion.unknowns_json,
                         "evidence_ids": [str(e) for e in refs],
                     }

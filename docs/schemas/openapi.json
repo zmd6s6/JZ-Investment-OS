@@ -5865,6 +5865,96 @@
         "title": "TaskRunResponse",
         "type": "object"
       },
+      "TeamThesisImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_claim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Claim"
+          },
+          "baseline_pillar_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Pillar Status"
+          },
+          "baseline_status": {
+            "enum": [
+              "MATCHED",
+              "UNMATCHED",
+              "NO_BASELINE"
+            ],
+            "title": "Baseline Status",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "impact": {
+            "enum": [
+              "STRENGTHEN",
+              "WEAKEN",
+              "BREAK",
+              "NONE"
+            ],
+            "title": "Impact",
+            "type": "string"
+          },
+          "opinion_id": {
+            "format": "uuid",
+            "title": "Opinion Id",
+            "type": "string"
+          },
+          "pillar_key": {
+            "minLength": 1,
+            "title": "Pillar Key",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pillar_key",
+          "impact",
+          "reason",
+          "evidence_ids",
+          "opinion_id",
+          "role",
+          "stage",
+          "baseline_status"
+        ],
+        "title": "TeamThesisImpact",
+        "type": "object"
+      },
       "TeamThesisProvenance": {
         "additionalProperties": false,
         "properties": {
@@ -5926,6 +6016,14 @@
               }
             ],
             "title": "Base Version Id"
+          },
+          "impacts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamThesisImpact"
+            },
+            "title": "Impacts",
+            "type": "array"
           },
           "input_hash": {
             "title": "Input Hash",

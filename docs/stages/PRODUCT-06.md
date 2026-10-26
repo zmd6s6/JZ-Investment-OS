@@ -6,7 +6,7 @@
 - 相关 ADR：`ADR-0002`、`ADR-0003`、`ADR-0004`、`ADR-0005`、`ADR-0006`、`ADR-0007`、`ADR-0010`、
   `ADR-0014`、`ADR-0015`、`ADR-0016`、`ADR-0017`、`ADR-0018`、`ADR-0019`、`ADR-0020`、`ADR-0021`、`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0025`、`ADR-0026`、`ADR-0027`、`ADR-0028`、`ADR-0029`、`ADR-0030`、`ADR-0031`、`ADR-0032`
 - 安全基线：`auto_trade=false`；外部研究和模型输出均不可信；结果仅为影子 Decision
-- 后续工程决策：`ADR-0033`（显式目标历史日线）、`ADR-0034`（显式多来源研究预览批次，不修改上述旧ADR）
+- 后续工程决策：`ADR-0033`（显式目标历史日线）、`ADR-0034`（显式多来源研究预览批次）、`ADR-0035`（团队支柱影响只读核对，不修改上述旧ADR）
 
 ## 目标
 
@@ -73,6 +73,17 @@
 所有者已明确授权的 profile 上进行，并记录脱敏结果。完成定义和证据齐备后方可 `READY_FOR_REVIEW`。
 
 ## 实施记录
+
+- 2026-10-26（团队支柱影响判断只读核对，ADR-0035）：
+  - 研究主表原本已保存thesis_impacts但读取未投影，本轮补实际字段；thesis-review增加可选默认空的impacts，保留角色 / 轮次 / 观点ID / 支柱键 / 判断 / 理由 / 证据。按当次冻结版本键匹配，返回原支柱主张与状态；无基准和未匹配不套用当前版本。最多100条、遗漏单独标注，不从自由文字补造。
+  - 最新第二轮取代首轮，失败不复用旧判断；引用须属于原运行集合。工作台只读展示矛盾与历史风险，资料当前不可用不隐藏历史，但不放行新状态或分析。新增字段格式无效明确拒绝；未提供字段的旧响应不伪装成已有完整判断。普通文字 / 长内容换行，不执行HTML，不触发采纳或写入。
+  - 无迁移、生产依赖、Prompt / AgentOpinion运行时输出或投资规则变化；公共读取响应兼容扩展，OpenAPI同步。不替代团队自动语义裁决 / 修订，P6仍IN_PROGRESS，不进入P7。18102本轮未部署，原持仓 / 凭据 / 会话未操作。
+  - 上次ab56ab2远程两轮quality / compose-smoke / secrets六项已全通过，不借它证明新提交。开发中定向测试捕获新字段在Pydantic夹具复制后未进入records（2失败 / 12通过），显式组装实际records后重跑；读取缺字段也已补真实SQL投影，不仅修改测试。新读取最初增加3000字上界，与既有运行协议不一致，已移除并补长理由兼容回归。Ruff发现合成理由全角冒号后修正，不更改扫描规则。
+  - 提交前pip-audit报告filelock4.0.0三个新告警（CVE-2026-112940 / 112913 / 112907），核对[上游4.2.1发布](https://github.com/tox-dev/filelock/releases/tag/4.2.1)及GitHub公告后，仅uv.lock该项4.0.0→4.2.1，未新增依赖、改Pyproject或忽略告警。uv sync --frozen --group dev后pip-audit无已知漏洞（本项目非PyPI跳过）；锁变化后完整验证另行重跑。
+  - 最终锁同步后完整后端770 passed / 88.80%（Windows，235.25秒），domain行98.33% / 分支90.60%；团队整理定向16/16。前端完整144/144（26文件）及构建通过。Chrome八文件串行35/35（1.5分钟，无跳过），覆盖实际主表影响 → 冻结原支柱 / 原状态 → 工作台查看 / 刷新 / 390px，Thesis版本与VALID状态不变、模型仍8次，其他后台 / 资料 / 保存路径回归全部通过。
+  - Ruff格式328文件 / 检查、mypy123文件、OpenAPI / Policy Schema --check、Compose config / diff、430文件标准密钥检查通过；原基线无diff。pip-audit无已知漏洞，filelock4.2.1许可证MIT。本轮OpenAPI只兼容扩展读取对象，无迁移 / 新公共路径 / 真实投资规则变更。
+  - 命令：.venv/Scripts/python.exe .runtime/run_daily_tmpfs_tests_20261023.py -xq（本轮新建15435合成内存盘库，名称沿用固定包装器）；scripts/check_domain_coverage.py；web下npm test -- --pool=threads --maxWorkers=1 --reporter=dot、npm run build。浏览器固定18107 / Chrome / E2E_SYNTHETIC_ANALYSIS=1 / E2E_SYNTHETIC_RESEARCH=1，analysis_jobs / onboarding / settings / portfolio_watchlist / interaction_feedback / product_journey / thesis / research八文件--workers=1；结果保留.runtime/team-impacts-browser-20261026。
+  - 核对完整ID后停止本轮18107原生测试服务并清理15435命名内存盘库，仅本轮合成数据不可恢复，测试输出保留。没有所有者数据 / 凭据 / 会话改动或真实付费调用；新生产镜像、真实提供方、所有者GUI与断电恢复本轮NOT VERIFIED。当前纵切可审阅，不等于P6完整交付；远程CI以本轮新提交为准。
 
 - 2026-10-23（团队辅助草稿的保存前对照，沿用ADR-0025 / 0028）：
   - 工作台保存按钮前新增只读对照，逐字段显示摘要 / 状态、支柱和证据、催化剂 / 风险、失效条件、监控项与原因的载入值及草稿值；未改字段不列出。新建无基准和无修改分别提示。普通文本显示，不执行外部HTML，不改原输入、不发请求、不自动改变任何状态或创建版本。

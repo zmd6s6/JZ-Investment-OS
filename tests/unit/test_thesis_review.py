@@ -122,3 +122,91 @@ async def test_review_limit_is_explicit_not_fake_consensus():
     view = await TeamThesisReviewService(Read(run), Read(records)).read(run.id)
     assert len(view.suggestions) == 100
     assert "ADDITIONAL_OBSERVATIONS_NOT_SHOWN:1" in view.limitations
+
+
+async def test_saved_impacts_keep_provenance_without_mutating_thesis():
+    run, records, agent = fixture()
+    original = str(run.payload)
+    agent["thesis_impacts"] = [
+        {
+            "pillar_key": "demand",
+            "impact": "WEAKEN",
+            "reason": "合成削弱理由",
+            "evidence_ids": agent["observations"][0]["evidence_ids"],
+        }
+    ]
+    records = records.model_copy(update={"agents": (agent,)})
+    view = await TeamThesisReviewService(Read(run), Read(records)).read(run.id)
+    assert len(view.impacts) == 1
+    assert view.impacts[0].impact == "WEAKEN"
+    assert view.impacts[0].baseline_status == "MATCHED"
+    assert view.impacts[0].baseline_claim == "合成需求主张"
+    assert str(view.impacts[0].opinion_id) == agent["opinion_id"]
+    assert str(run.payload) == original
+
+
+async def test_impact_reference_outside_run_is_rejected():
+    run, records, agent = fixture()
+    agent["thesis_impacts"] = [
+        {
+            "pillar_key": "P1",
+            "impact": "BREAK",
+            "reason": "合成判断",
+            "evidence_ids": [str(uuid4())],
+        }
+    ]
+    records = records.model_copy(update={"agents": (agent,)})
+    with pytest.raises(ApplicationError):
+        await TeamThesisReviewService(Read(run), Read(records)).read(run.id)
+
+
+async def test_failed_second_round_does_not_reuse_first_round_impacts():
+    run, records, agent = fixture()
+    agent["thesis_impacts"] = [
+        {
+            "pillar_key": "P1",
+            "impact": "STRENGTHEN",
+            "reason": "合成判断",
+            "evidence_ids": agent["observations"][0]["evidence_ids"],
+        }
+    ]
+    second = {**agent, "stage": "ROUND_2", "status": "INSUFFICIENT_DATA", "thesis_impacts": []}
+    view = await TeamThesisReviewService(
+        Read(run), Read(records.model_copy(update={"agents": (agent, second)}))
+    ).read(run.id)
+    assert view.impacts == ()
+
+
+async def test_impact_limit_preserves_explicit_omission_and_unmatched_key():
+    run, records, agent = fixture()
+    agent["thesis_impacts"] = [
+        {
+            "pillar_key": "unknown",
+            "impact": "BREAK",
+            "reason": "合成判断",
+            "evidence_ids": agent["observations"][0]["evidence_ids"],
+        }
+    ] * 101
+    records = records.model_copy(update={"agents": (agent,)})
+    view = await TeamThesisReviewService(Read(run), Read(records)).read(run.id)
+    assert len(view.impacts) == 100
+    assert all(
+        item.baseline_status == "UNMATCHED" and item.baseline_claim is None for item in view.impacts
+    )
+    assert "ADDITIONAL_IMPACTS_NOT_SHOWN:1" in view.limitations
+
+
+async def test_valid_long_saved_reason_is_not_rejected_by_new_read_projection():
+    run, records, agent = fixture()
+    reason = "合成理由" * 1000
+    agent["thesis_impacts"] = [
+        {
+            "pillar_key": "demand",
+            "impact": "WEAKEN",
+            "reason": reason,
+            "evidence_ids": agent["observations"][0]["evidence_ids"],
+        }
+    ]
+    records = records.model_copy(update={"agents": (agent,)})
+    view = await TeamThesisReviewService(Read(run), Read(records)).read(run.id)
+    assert view.impacts[0].reason == reason

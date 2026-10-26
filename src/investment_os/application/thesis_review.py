@@ -57,6 +57,23 @@ class TeamThesisReview(ReviewDto):
     unknowns: tuple[str, ...]
     risk_gate: Literal["PASS", "VETO", "UNKNOWN"]
     limitations: tuple[str, ...]
+    impacts: tuple["TeamThesisImpact", ...] = ()
+
+
+class SavedImpact(ReviewDto):
+    pillar_key: Annotated[str, StringConstraints(min_length=1)]
+    impact: Literal["STRENGTHEN", "WEAKEN", "BREAK", "NONE"]
+    reason: Annotated[str, StringConstraints(min_length=1)]
+    evidence_ids: tuple[UUID, ...] = Field(min_length=1, max_length=50)
+
+
+class TeamThesisImpact(SavedImpact):
+    opinion_id: UUID
+    role: AgentRole
+    stage: str
+    baseline_status: Literal["MATCHED", "UNMATCHED", "NO_BASELINE"]
+    baseline_claim: str | None = None
+    baseline_pillar_status: str | None = None
 
 
 class SavedObservation(ReviewDto):
@@ -75,6 +92,7 @@ class SavedOpinion(ReviewDto):
     opinion_id: UUID
     unknowns: tuple[str, ...]
     observations: tuple[SavedObservation, ...]
+    thesis_impacts: tuple[SavedImpact, ...] = ()
 
 
 def invalid_review() -> ApplicationError:
@@ -117,11 +135,36 @@ class TeamThesisReviewService:
             suggestions: list[TeamThesisSuggestion] = []
             unknowns: list[str] = []
             omitted = 0
+            impacts: list[TeamThesisImpact] = []
+            omitted_impacts = 0
+            pillars = {p.key: p for p in thesis.version.content.pillars} if thesis.version else {}
             for role, agent in latest.items():
                 unknowns.extend(f"{role}: {item}" for item in agent.unknowns)
                 if agent.status != "SUCCEEDED" or agent.error_code is not None:
                     unknowns.append(f"{role}: INSUFFICIENT_DATA")
                     continue
+                for impact in agent.thesis_impacts:
+                    if not {str(e) for e in impact.evidence_ids}.issubset(visible):
+                        raise ValueError("impact exceeds this run's evidence boundary")
+                    if len(impacts) < 100:
+                        pillar = pillars.get(impact.pillar_key)
+                        impacts.append(
+                            TeamThesisImpact(
+                                **impact.model_dump(),
+                                opinion_id=agent.opinion_id,
+                                role=role,
+                                stage=agent.stage,
+                                baseline_status="MATCHED"
+                                if pillar
+                                else "UNMATCHED"
+                                if thesis.version
+                                else "NO_BASELINE",
+                                baseline_claim=pillar.claim.description if pillar else None,
+                                baseline_pillar_status=pillar.status.value if pillar else None,
+                            )
+                        )
+                    else:
+                        omitted_impacts += 1
                 for index, raw in enumerate(agent.observations):
                     suggestion = TeamThesisSuggestion(
                         id=f"{agent.opinion_id}:{index}",
@@ -144,12 +187,14 @@ class TeamThesisReviewService:
                 input_hash=records.input_hash,
                 base_version_id=thesis.version.id if thesis.version else None,
                 suggestions=tuple(suggestions),
+                impacts=tuple(impacts),
                 unknowns=tuple(dict.fromkeys(unknowns)),
                 risk_gate=records.risk["gate"] if records.risk else "UNKNOWN",
                 limitations=(
                     "HUMAN_REVIEW_REQUIRED_NO_AUTOMATIC_STATE_CHANGE",
                     "OBSERVATIONS_ARE_UNTRUSTED_MODEL_JUDGMENTS",
                     f"ADDITIONAL_OBSERVATIONS_NOT_SHOWN:{omitted}",
+                    f"ADDITIONAL_IMPACTS_NOT_SHOWN:{omitted_impacts}",
                 ),
             )
         except (ValueError, KeyError, TypeError):

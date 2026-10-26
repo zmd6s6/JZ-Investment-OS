@@ -7,7 +7,44 @@ const review={analysis_run_id:"run-a",instrument_id:"asset-a",as_of:"2026-10-22"
 const response=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status});
 const evidence=[{evidence_id:"evidence-a",freshness_status:"FRESH"}];
 const props={runId:"run-a",instrumentId:"asset-a",baseVersionId:"version-a",evidence,disabled:false,adopted:false,onApply:vi.fn()};
+const impact={pillar_key:"demand",impact:"WEAKEN",reason:"合成需求受挑战",evidence_ids:["evidence-a"],opinion_id:"opinion-a",role:"FUNDAMENTAL",stage:"ROUND_2",baseline_status:"MATCHED",baseline_claim:"原合成需求主张",baseline_pillar_status:"VALID"};
 afterEach(()=>{cleanup();vi.restoreAllMocks();props.onApply.mockReset();});
+
+it("displays frozen pillar impacts and conflicting opinions without adoption or writes",async()=>{
+  const fetch=vi.spyOn(globalThis,"fetch").mockResolvedValue(response({...review,impacts:[impact,{...impact,impact:"STRENGTHEN",role:"INDUSTRY",reason:"合成行业乐观判断"}]}));
+  render(<TeamThesisDraft {...props}/>);
+  fireEvent.click(await screen.findByText("团队对逻辑支柱的影响判断（2）"));
+  expect(screen.getByText("合成需求受挑战")).toBeVisible();
+  expect(screen.getByText("合成行业乐观判断")).toBeVisible();
+  expect(screen.getAllByText(/当次基准支柱：原合成需求主张/)).toHaveLength(2);
+  expect(props.onApply).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][1]?.method).toBeUndefined();
+});
+
+it("keeps unmatched and unavailable historical impacts explicit",async()=>{
+  vi.spyOn(globalThis,"fetch").mockResolvedValue(response({...review,impacts:[{...impact,baseline_status:"UNMATCHED",baseline_claim:null,baseline_pillar_status:null}],limitations:["ADDITIONAL_IMPACTS_NOT_SHOWN:1"]}));
+  render(<TeamThesisDraft {...props} evidence={[]}/>);
+  await screen.findByText(/未匹配当次基准支柱/);
+  expect(screen.getByText(/最多展示100条影响判断/)).toBeInTheDocument();
+  expect(screen.getByText(/支持资料当前不可用/)).toBeInTheDocument();
+  expect(props.onApply).not.toHaveBeenCalled();
+});
+
+it("rejects malformed impact values instead of interpreting free text",async()=>{
+  vi.spyOn(globalThis,"fetch").mockResolvedValue(response({...review,impacts:[{...impact,impact:"BUY"}]}));
+  render(<TeamThesisDraft {...props}/>);
+  expect(await screen.findByText(/团队支柱影响记录格式异常/)).toBeVisible();
+  expect(props.onApply).not.toHaveBeenCalled();
+});
+
+it("renders untrusted impact reason as text rather than executable HTML",async()=>{
+  vi.spyOn(globalThis,"fetch").mockResolvedValue(response({...review,impacts:[{...impact,reason:"<img src=x onerror=alert(1)>合成不可信内容"}]}));
+  const view=render(<TeamThesisDraft {...props}/>);
+  await screen.findByText("<img src=x onerror=alert(1)>合成不可信内容");
+  expect(view.container.querySelector("img")).toBeNull();
+  expect(props.onApply).not.toHaveBeenCalled();
+});
 
 it("requires an explicit selection, retains unknowns and historical veto, and only reads saved data",async()=>{
   const fetch=vi.spyOn(globalThis,"fetch").mockResolvedValue(response(review));

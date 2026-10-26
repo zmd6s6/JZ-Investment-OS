@@ -136,3 +136,33 @@ test("saved team observations enter only a human draft and preserve source histo
   await page.getByRole("link",{name:"查看来源分析报告",exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`/analysis\\?run_id=${runId}$`));
 });
+
+test("saved pillar impact shows the frozen claim without changing its state or replaying models",async({page,request})=>{
+  const {id,title}=await setup(request);
+  expect((await request.post(`/api/v1/test-only/analysis/thesis?instrument_id=${id}`,{headers})).status()).toBe(200);
+  const before=await (await request.get(`/api/v1/theses/${id}/workspace`,{headers})).json();
+  const portfolio=await request.post("/api/v1/portfolios",{headers,data:{name:`影响判断合成组合-${Date.now()}`,base_currency:"CNY",cash_balance:"10000"}});
+  expect(portfolio.status()).toBe(201);
+  await request.post("/api/v1/test-only/analysis/hold",{headers});
+  await page.goto(`/research?instrument_id=${id}`);
+  await page.getByRole("checkbox",{name:`用于本次分析 ${title}`,exact:true}).check();
+  await page.getByRole("button",{name:"选择组合并分析"}).click();
+  await page.getByLabel("分析所用组合").selectOption((await portfolio.json()).portfolio_id);
+  await page.getByRole("button",{name:"确认启动分析"}).click();
+  await expect(page).toHaveURL(/\/analysis\?run_id=/);
+  await request.post("/api/v1/test-only/analysis/release",{headers});
+  await expect(page.getByRole("heading",{name:"分析详情 · 成功"})).toBeVisible();
+  await page.getByRole("link",{name:"将团队观点整理为投资逻辑草稿",exact:true}).click();
+  await page.getByText("团队对逻辑支柱的影响判断（1）",{exact:true}).click();
+  await expect(page.getByRole("heading",{name:"基本面 · 削弱判断 · 支柱键 synthetic"})).toBeVisible();
+  await expect(page.getByText(/当次基准支柱：合成历史主张/)).toBeVisible();
+  await expect(page.getByText("合成支柱影响: 需重新核对需求",{exact:true})).toBeVisible();
+  await expect(page.getByLabel("逻辑状态",{exact:true})).toHaveValue("VALID");
+  expect((await (await request.get(`/api/v1/theses/${id}/workspace`,{headers})).json()).versions).toEqual(before.versions);
+  expect((await (await request.get("/api/v1/test-only/analysis/stats",{headers})).json()).calls).toBe(8);
+  await page.reload();
+  await page.getByText("团队对逻辑支柱的影响判断（1）",{exact:true}).click();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+  expect((await (await request.get("/api/v1/test-only/analysis/stats",{headers})).json()).calls).toBe(8);
+});

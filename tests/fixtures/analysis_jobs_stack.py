@@ -129,7 +129,18 @@ class ControlledGateway:
                             "materiality": "LOW",
                         }
                     ],
-                    "thesis_impacts": [],
+                    "thesis_impacts": [
+                        {
+                            "pillar_key": version["content"]["pillars"][0]["key"],
+                            "impact": "WEAKEN",
+                            "reason": "合成支柱影响: 需重新核对需求",
+                            "evidence_ids": value["evidence_ids"][:1],
+                        }
+                    ]
+                    if request.role.value == "FUNDAMENTAL"
+                    and version
+                    and version["content"]["pillars"]
+                    else [],
                     "assumptions": [],
                     "risks": [],
                     "invalidation_conditions": [],

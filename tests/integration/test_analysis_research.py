@@ -2,7 +2,7 @@
 
 import json
 from dataclasses import replace
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -62,6 +62,15 @@ class Gateway:
             "invalidation_conditions": [],
             "requested_followups": [],
         }
+        if self.mode == "IMPACT" and request.role.value == "FUNDAMENTAL":
+            data["thesis_impacts"] = [
+                {
+                    "pillar_key": "demand",
+                    "impact": "WEAKEN",
+                    "reason": "合成团队影响理由",
+                    "evidence_ids": value["evidence_ids"][:1],
+                }
+            ]
         if request.role.value == "RISK" and self.mode == "VETO":
             data["risks"] = [
                 {
@@ -103,6 +112,26 @@ async def counts(sessions):
                 InvestmentDecisionRecord,
             )
         ]
+
+
+async def test_saved_thesis_impacts_reach_review_without_writing_or_model_replay(database_engine):
+    from investment_os.application.thesis_review import TeamThesisReviewService
+
+    sessions, runs, _, _, jobs, inp, gateway = await configured(database_engine, "IMPACT")
+    run = await jobs.submit(uuid4(), inp)
+    assert await jobs.run_once()
+    before = await runs.get(run.id)
+    counts_before = await counts(sessions)
+    reader = SqlAnalysisResearchReader(sessions)
+    raw = await reader.read(run.id)
+    agent = next(a for a in raw.agents if a["role"] == "FUNDAMENTAL")
+    assert agent["thesis_impacts"][0]["reason"] == "合成团队影响理由"
+    view = await TeamThesisReviewService(runs, reader).read(run.id)
+    assert len(view.impacts) == 1
+    assert view.impacts[0].baseline_status == "NO_BASELINE"
+    assert view.impacts[0].opinion_id == UUID(agent["opinion_id"])
+    assert await counts(sessions) == counts_before
+    assert (await runs.get(run.id)).payload == before.payload and gateway.calls == 8
 
 
 @pytest.mark.parametrize("mode", ["PASS", "VETO", "UNKNOWN"])
