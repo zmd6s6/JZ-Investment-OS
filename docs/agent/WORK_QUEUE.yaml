@@ -50,7 +50,9 @@ work_items:
   - id: MVP-201
     title: Structured market data and FX boundary
     priority: 1
-    status: READY
+    status: IN_PROGRESS
+    claim_branch: agent/MVP-201
+    claim_owner: pr-02-review-and-next-stage-monitor
     stage: PRODUCT-06
     checkpoint: B
     depends_on: []
