@@ -15,7 +15,10 @@ work_items:
   - id: MVP-000
     title: User-visible Acceptance Center
     priority: 0
-    status: READY
+    status: INTEGRATED
+    # 此状态随本PR合入Release生效，不代表Checkpoint人工接受。
+    claim_branch: agent/MVP-000
+    claim_owner: pr-02-review-and-next-stage-monitor
     stage: CROSS_STAGE
     checkpoint: ALL
     depends_on: []

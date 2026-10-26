@@ -1,6 +1,137 @@
 {
   "components": {
     "schemas": {
+      "AcceptanceSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityDelivery"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "evidence_basis": {
+            "const": "BUILD_MANIFEST_AND_SERVICE_ASSEMBLY",
+            "default": "BUILD_MANIFEST_AND_SERVICE_ASSEMBLY",
+            "title": "Evidence Basis",
+            "type": "string"
+          },
+          "release": {
+            "const": "MVP-BETA",
+            "default": "MVP-BETA",
+            "title": "Release",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capabilities"
+        ],
+        "title": "AcceptanceSnapshot",
+        "type": "object"
+      },
+      "CapabilityDelivery": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "engineering": {
+            "enum": [
+              "IMPLEMENTED",
+              "PARTIAL",
+              "NOT_IMPLEMENTED"
+            ],
+            "title": "Engineering",
+            "type": "string"
+          },
+          "failure": {
+            "title": "Failure",
+            "type": "string"
+          },
+          "human_acceptance": {
+            "const": "PENDING",
+            "default": "PENDING",
+            "title": "Human Acceptance",
+            "type": "string"
+          },
+          "integration": {
+            "enum": [
+              "INTEGRATED",
+              "BASELINE_ONLY",
+              "NOT_IMPLEMENTED"
+            ],
+            "title": "Integration",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "service": {
+            "enum": [
+              "ASSEMBLED",
+              "UNAVAILABLE",
+              "NOT_APPLICABLE"
+            ],
+            "title": "Service",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "work_item": {
+            "title": "Work Item",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "work_item",
+          "engineering",
+          "integration",
+          "service",
+          "route",
+          "detail",
+          "steps",
+          "failure"
+        ],
+        "title": "CapabilityDelivery",
+        "type": "object"
+      },
       "CsvImportAppliedRowResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3575,6 +3706,27 @@
         "summary": "Record Manual Position",
         "tags": [
           "portfolio"
+        ]
+      }
+    },
+    "/api/v1/product-acceptance": {
+      "get": {
+        "operationId": "product_acceptance_api_v1_product_acceptance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptanceSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Product Acceptance",
+        "tags": [
+          "product"
         ]
       }
     },

@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 from sqlalchemy import select
 
+from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
@@ -518,6 +519,19 @@ def create_app(
                 detail="V1 始终禁止自动交易和券商下单。",
             ),
         ]
+
+    @application.get(
+        "/api/v1/product-acceptance", response_model=AcceptanceSnapshot, tags=["product"]
+    )
+    async def product_acceptance() -> AcceptanceSnapshot:
+        return acceptance_snapshot(
+            portfolio=selected_portfolio_book_service is not None
+            and selected_portfolio_csv_service is not None
+            and selected_instrument_catalog_service is not None,
+            watchlist=selected_watchlist_service is not None,
+            providers=selected_provider_settings_service is not None,
+            policy=True,
+        )
 
     def provider_settings_or_503() -> ProviderSettingsService:
         if selected_provider_settings_service is None:
@@ -1423,6 +1437,10 @@ def create_app(
 
         @application.get("/portfolio", include_in_schema=False)
         async def portfolio_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/acceptance", include_in_schema=False)
+        async def acceptance_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
         @application.get("/watchlist", include_in_schema=False)

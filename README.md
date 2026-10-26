@@ -1,5 +1,10 @@
 # Personal AI Investment OS
 
+## 当前构建的产品进度
+
+启动本构建后，打开 `/acceptance` 或主导航「产品进度与验收」。页面分别说明工程交付、集成证据、服务装配和待人工验收，提供真实产品入口及操作 / 失败指引。
+未实现功能没有误导入口；读取失败可明确重试。这里不是数据库 / 提供方实时健康检测，不会替所有者接受Checkpoint，也不执行模型或交易。
+
 Personal AI Investment OS 是一个以证据为先、可长期运行的个人投资研究与组合决策系统。它独立于 DSA：
 DSA 通过适配器提供研究/数据，而本项目拥有 Thesis、Portfolio、Risk、Decision、Approval、Journal 和
 Review 状态。

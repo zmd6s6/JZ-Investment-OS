@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { SettingsPage } from "./SettingsPage";
+import { AcceptancePage } from "./AcceptancePage";
 import { PortfolioPage } from "./PortfolioPage";
 import { WatchlistPage } from "./WatchlistPage";
 import { PolicyReviewPanel } from "./PolicyReviewPanel";
@@ -228,6 +229,7 @@ function HomePage() {
 
 export function App() {
   const path = window.location.pathname;
+  if (path === "/acceptance") return <AcceptancePage />;
   if (path === "/demo/pr-08") return <LegacyDemo />;
   if (path === "/settings") return <SettingsPage />;
   if (path === "/portfolio") return <PortfolioPage />;

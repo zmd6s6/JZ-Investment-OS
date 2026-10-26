@@ -1022,3 +1022,9 @@ button:disabled {
     position: static;
   }
 }
+/* 只读验收卡片在窄屏保持单列与可操作入口。 */
+.acceptance-grid { margin-top: 24px; }
+.acceptance-grid > article { min-width: 0; overflow-wrap: anywhere; }
+.acceptance-states { display: grid; grid-template-columns: minmax(75px, 1fr) minmax(0, 2fr); gap: 8px; }
+.acceptance-states dd { margin: 0; }
+.acceptance-grid details { margin-top: 16px; line-height: 1.6; }

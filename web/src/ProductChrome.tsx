@@ -7,6 +7,7 @@ const navItems = [
   { href: "/portfolio", label: "资产组合" },
   { href: "/watchlist", label: "观察清单" },
   { href: "/settings", label: "设置与提供方" },
+  { href: "/acceptance", label: "产品进度与验收" },
 ] as const;
 
 export function ProductChrome({
