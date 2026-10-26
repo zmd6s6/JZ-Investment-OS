@@ -18,13 +18,24 @@
 | Portfolio / CSV import | `/portfolio` | INTEGRATED — PR #17 merged; browser acceptance still required | PENDING |
 | Watchlist | `/watchlist` | INTEGRATED — PR #17 merged; browser acceptance still required | PENDING |
 | Investment Policy review | product UI | INTEGRATED; real policy parameters remain owner-governed | PENDING |
-| Acceptance Center | `/acceptance` | NOT_IMPLEMENTED — MVP-000 | PENDING |
+| Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000工作分支已验证，尚待Release集成；构建交付清单不是实时健康检测 | PENDING |
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
 | Daily Runtime | product UI | ENGINEERING baseline only; product calendar/runtime pending MVP-401 | PENDING |
 | Opportunities | `/opportunities` | NOT_IMPLEMENTED — MVP-402 | PENDING |
 
 ## Checkpoint A 验收步骤
+
+### 产品进度入口（MVP-000）
+
+从主导航「产品进度与验收」或直接打开 `/acceptance`，分别查看工程交付、集成证据、人工验收和服务装配。
+展开操作指引，进入组合 / 观察清单 / 设置 / 政策页面；分析、决策、机会等未交付产品不提供误导链接。
+刷新后仍须显示待所有者验收；本页没有写入、验收通过或调用模型按钮。
+读取失败显示中文错误，成功卡片清空，点「刷新产品进度」只读重试；服务未装配保留工程证据但隐藏入口。
+这只描述当前构建的已记录交付及用例装配，不保证数据库 / 供应商健康，不保证已授权或已配置，也不接受Checkpoint。
+工程与集成证据见 `docs/agent/work-items/MVP-000.md`，所有者部署与产品接受仍未执行。
+
+### Portfolio / Watchlist
 
 1. 打开 Portfolio；
 2. 创建/选择 Portfolio；

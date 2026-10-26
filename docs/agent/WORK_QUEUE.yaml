@@ -15,7 +15,9 @@ work_items:
   - id: MVP-000
     title: User-visible Acceptance Center
     priority: 0
-    status: READY
+    status: REVIEW
+    claim_branch: agent/MVP-000
+    claim_owner: pr-02-review-and-next-stage-monitor
     stage: CROSS_STAGE
     checkpoint: ALL
     depends_on: []
