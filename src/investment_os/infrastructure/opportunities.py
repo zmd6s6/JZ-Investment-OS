@@ -252,13 +252,14 @@ class SqlOpportunityStore:
                 return FactSnapshot(status="MISSING")
             try:
                 facts = ManualScreenFacts.model_validate(
-                    {"request_id": UUID(int=0), **record.payload_json["facts"]}
+                    {"request_id": record.correlation_id, **record.payload_json["facts"]}
                 )
                 normalized = normalize_artifact(
                     fact_artifact(facts), ingested_at=record.ingested_at
                 )
                 if (
-                    normalized.content_hash != record.content_hash
+                    record.evidence_type != "FINANCIAL"
+                    or normalized.content_hash != record.content_hash
                     or dict(normalized.payload) != record.payload_json
                     or facts.instrument_id != record.instrument_id
                     or facts.source_name != record.source_name

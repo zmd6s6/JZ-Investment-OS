@@ -381,6 +381,7 @@ export function SettingsPage() {
       </p>
       {error ? <p role="alert" className="banner banner-error">{error}</p> : null}
       {message ? <p role="status" className="banner banner-ok">{message}</p> : null}
+      <p><a className="btn" href="/opportunities">有限范围机会漏斗</a> 手选本地研究范围、补录有来源年报事实后确定性筛选；全市场和深研尚未提供，不产生交易建议。</p>
       <p><a className="btn" href="/market-data">记录人工行情／查看单币种与FX边界</a> 无网络源凭据也可记录自己有权使用的结构化参考价；不是新闻检索、自动行情或完整分析。</p>
 
       <section className="settings-card" aria-labelledby="system-settings-title">

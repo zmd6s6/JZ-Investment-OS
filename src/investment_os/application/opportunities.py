@@ -45,7 +45,7 @@ class ManualScreenFacts(MarketDto):
     revenue_current: Exact | None = None
     revenue_previous: Exact | None = None
     net_income: Exact | None = None
-    annual_diluted_shares: Exact | None = None
+    annual_diluted_eps: Exact | None = None
     fiscal_year: Annotated[int, Field(strict=True, ge=1900, le=2200)] | None = None
     financial_basis: Literal["CALENDAR_YEAR_CONSOLIDATED_CNY"] | None = None
     net_income_basis: Literal["ATTRIBUTABLE_TO_ORDINARY_SHAREHOLDERS"] | None = None
@@ -80,7 +80,6 @@ class ManualScreenFacts(MarketDto):
         for name in (
             "revenue_current",
             "revenue_previous",
-            "annual_diluted_shares",
             "previous_close",
         ):
             value = getattr(self, name)
@@ -297,7 +296,11 @@ def evaluate(
         "BASIC",
         missing=tuple(basic_missing),
         passed=entry.currency == "CNY" and bool(facts and facts.suspended is False),
-        reason="BASIC_REFERENCE_CHECK",
+        reason="SUSPENDED"
+        if facts and facts.suspended
+        else "NON_CNY_INSTRUMENT"
+        if entry.currency != "CNY"
+        else "BASIC_REFERENCE_CHECK",
     )
     if active() and facts:
         missing = tuple(
@@ -314,7 +317,7 @@ def evaluate(
         if not missing:
             with localcontext(Context(prec=38, rounding=ROUND_HALF_EVEN)):
                 margin = number(facts.net_income) / number(facts.revenue_current)
-            features["profit_margin"] = str(margin)
+            features["profit_margin"] = format(margin, "f")
             stage(
                 "FINANCIAL",
                 passed=margin >= Decimal(query.min_profit_margin),
@@ -324,7 +327,7 @@ def evaluate(
             stage("FINANCIAL", missing=missing)
     if active() and facts and quote.quote:
         missing = tuple(
-            n for n in ("revenue_previous", "annual_diluted_shares") if getattr(facts, n) is None
+            n for n in ("revenue_previous", "annual_diluted_eps") if getattr(facts, n) is None
         )
         if facts.same_share_basis is not True:
             missing += ("same_share_basis",)
@@ -334,15 +337,13 @@ def evaluate(
             missing += ("industry",)
         if facts.net_income is not None and number(facts.net_income) <= 0:
             missing += ("positive_earnings_for_pe",)
+        if facts.annual_diluted_eps is not None and number(facts.annual_diluted_eps) <= 0:
+            missing += ("positive_annual_eps",)
         if not missing:
             with localcontext(Context(prec=38, rounding=ROUND_HALF_EVEN)):
                 growth = number(facts.revenue_current) / number(facts.revenue_previous) - 1
-                pe = (
-                    quote.quote.price
-                    * number(facts.annual_diluted_shares)
-                    / number(facts.net_income)
-                )
-            features.update(revenue_growth=str(growth), pe=str(pe))
+                pe = quote.quote.price / number(facts.annual_diluted_eps)
+            features.update(revenue_growth=format(growth, "f"), pe=format(pe, "f"))
             stage(
                 "GROWTH_VALUATION",
                 passed=growth >= Decimal(query.min_revenue_growth)
@@ -364,7 +365,7 @@ def evaluate(
         if not missing:
             with localcontext(Context(prec=38, rounding=ROUND_HALF_EVEN)):
                 change = quote.quote.price / number(facts.previous_close) - 1
-            features["price_change"] = str(change)
+            features["price_change"] = format(change, "f")
             stage(
                 "TIMING",
                 passed=change >= Decimal(query.min_price_change),
@@ -424,7 +425,9 @@ class OpportunityService:
         if query.as_of > self._now():
             raise OpportunityError("FUTURE_AS_OF_NOT_ALLOWED")
         entries = await self._universe.resolve(query.instrument_ids)
-        if {entry.instrument_id for entry in entries} != set(query.instrument_ids):
+        if len(entries) != len(query.instrument_ids) or {
+            entry.instrument_id for entry in entries
+        } != set(query.instrument_ids):
             raise OpportunityError("UNIVERSE_IDENTITY_MISMATCH")
         rows = []
         for entry in sorted(entries, key=lambda e: (e.market, e.symbol, str(e.instrument_id))):

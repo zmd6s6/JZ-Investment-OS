@@ -29,11 +29,11 @@ it('clears annual facts and share-basis confirmation when switching selected ins
  setup();await facts();
  fireEvent.change(screen.getByLabelText('年度归属普通股股东利润'),{target:{value:'20'}});
  fireEvent.change(screen.getByLabelText('完整自然年年度'),{target:{value:'2025'}});
- fireEvent.change(screen.getByLabelText('报价与年度稀释股数口径'),{target:{value:'true'}});
+ fireEvent.change(screen.getByLabelText('报价与年度稀释EPS口径'),{target:{value:'true'}});
  fireEvent.click(screen.getByRole('button',{name:'添加合成B'}));
  expect(screen.getByLabelText('年度归属普通股股东利润')).toHaveValue('');
  expect(screen.getByLabelText('完整自然年年度')).toHaveValue(null);
- expect(screen.getByLabelText('报价与年度稀释股数口径')).toHaveValue('');
+ expect(screen.getByLabelText('报价与年度稀释EPS口径')).toHaveValue('');
  expect(screen.getByLabelText('事实出处')).toHaveValue('');
 });
 

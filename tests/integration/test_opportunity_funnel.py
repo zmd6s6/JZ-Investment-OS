@@ -92,7 +92,7 @@ async def setup(database_engine, count=1):
             revenue_current="100",
             revenue_previous="80",
             net_income="20",
-            annual_diluted_shares="100",
+            annual_diluted_eps="0.2",
             previous_close="8",
             fiscal_year=2025,
             financial_basis="CALENDAR_YEAR_CONSOLIDATED_CNY",
@@ -286,3 +286,34 @@ async def test_real_api_facts_run_receipt_auth_and_historical_read(database_engi
             json=commands[0].model_dump(mode="json") | {"net_income": 20.5},
         )
         assert bad.status_code == 422
+
+
+async def test_fact_and_funnel_snapshot_cannot_be_mutated_and_empty_scope_has_no_candidate(
+    database_engine,
+):
+    from sqlalchemy.exc import DBAPIError
+
+    sessions, store, service, commands, query = await setup(database_engine)
+    receipt = await service.save_facts(commands[0])
+    run = await service.run(query)
+    async with sessions() as session:
+        evidence = await session.get(EvidenceRecord, receipt.evidence_id)
+        evidence.payload_json = {"changed": True}
+        with pytest.raises(DBAPIError):
+            await session.commit()
+        await session.rollback()
+        event = await session.scalar(
+            select(EventLogRecord).where(
+                EventLogRecord.aggregate_type == "opportunity_funnel_run",
+                EventLogRecord.aggregate_id == run.run_id,
+            )
+        )
+        event.payload_json = {"changed": True}
+        with pytest.raises(DBAPIError):
+            await session.commit()
+        await session.rollback()
+    assert await store.get_run(run.run_id) == run
+    empty = await service.run(
+        query.model_copy(update={"request_id": uuid4(), "instrument_ids": ()})
+    )
+    assert empty.status == "EMPTY" and empty.rows == () and empty.candidate_ids == ()

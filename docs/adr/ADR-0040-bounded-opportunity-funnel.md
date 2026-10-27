@@ -30,3 +30,9 @@ as_of不允许未来；数据必须observed/effective/available/ingested均不�
 只支持自然年完整年度（本期fiscal_year、上期fiscal_year-1）合并人民币数据、归属普通股股东年度利润与年度稀释加权平均股数；不是TTM、季度利润或无来源人工盈利预测。
 行业也须来自该时点有来源Facts，不用当前目录行业冒充历史证据。报价与股数须明确同股份 / 股价口径且绑定当前Quote Evidence；不能核对即缺项，不硬算PE。
 公式采用固定38位ROUND_HALF_EVEN上下文，查询包含固定rule_set_version及规则hash；外部Decimal全局配置不能改变结果或排序。此澄清不新增真实阈值或修改投资政策。
+
+## 最终PE原始输入口径
+
+为避免可转债等情况下「净利润÷稀释股数」不等于正式稀释EPS的误差，并减少人工输入，最终API字段采用来源年报披露的完整自然年 `annual_diluted_eps`（元／股），替代实现草案的 `annual_diluted_shares`。
+PE仅计算「同股份 / EPS与股价口径的当前人工报价 ÷ 正年度稀释EPS」；不自行推断稀释调整分子或股数。0 / 负EPS或口径无法核对必须缺项，禁止除零或补造PE。利润率仍为「归属普通股股东年度净利÷年度营收」。
+这是本PR首次公共交付前的事实字段收窄，无历史用户迁移或投资Policy变化；保留自然年、来源、业务时间、Quote Evidence绑定及same_share_basis闸门。

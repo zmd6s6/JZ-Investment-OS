@@ -32,7 +32,13 @@ class AcceptanceSnapshot(BaseModel):
 
 
 def acceptance_snapshot(
-    *, portfolio: bool, watchlist: bool, providers: bool, policy: bool, market_data: bool = False
+    *,
+    portfolio: bool,
+    watchlist: bool,
+    providers: bool,
+    policy: bool,
+    market_data: bool = False,
+    opportunities: bool = False,
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
 
@@ -129,6 +135,27 @@ def acceptance_snapshot(
         )
         for key, label, item, route, detail, steps, failure in shipped
     ]
+    items.append(
+        CapabilityDelivery(
+            key="opportunities",
+            label="有限范围机会漏斗",
+            work_item="MVP-402",
+            engineering="PARTIAL",
+            integration="INTEGRATED",
+            service="ASSEMBLED" if opportunities else "UNAVAILABLE",
+            route="/opportunities" if opportunities else None,
+            detail=(
+                "本地手选范围和有来源人工年报事实的确定性漏斗已接通; "
+                "全市场 / 深研 / 周定时尚未提供, 不是完整P8或交易建议。"
+            ),
+            steps=(
+                "先登记标的并在人工行情保存报价。",
+                "选择有限范围, 补录明确自然年 / 股数口径的事实, 输入本次查询条件后筛选。",
+                "核对各层原因 / 缺项 / 有界候选及Evidence, 刷新读取不可变历史。",
+            ),
+            failure="缺价、缺项、过期、未来或无法核对口径时停止对应层; 深研未提供时不调用模型。",
+        )
+    )
     pending = (
         (
             "analysis",
@@ -150,13 +177,6 @@ def acceptance_snapshot(
             "MVP-401",
             "只有底层调度基础; 产品日历、任务配置与运行页面尚未接通。",
             True,
-        ),
-        (
-            "opportunities",
-            "机会筛选",
-            "MVP-402",
-            "产品机会漏斗尚未交付, 不以合成演示冒充真实选股结果。",
-            False,
         ),
     )
     items.extend(

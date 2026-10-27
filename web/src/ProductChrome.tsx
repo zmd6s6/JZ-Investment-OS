@@ -9,6 +9,7 @@ const navItems = [
   { href: "/settings", label: "设置与提供方" },
   { href: "/acceptance", label: "产品进度与验收" },
   { href: "/market-data", label: "人工行情" },
+  { href: "/opportunities", label: "机会漏斗" },
 ] as const;
 
 export function ProductChrome({

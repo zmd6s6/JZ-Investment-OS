@@ -62,7 +62,7 @@ def inputs(**changes):
         revenue_current="100",
         revenue_previous="80",
         net_income="20",
-        annual_diluted_shares="100",
+        annual_diluted_eps="0.2",
         previous_close="8",
         previous_close_at=NOW - timedelta(days=2),
         suspended=False,
@@ -130,7 +130,7 @@ def test_annual_same_share_basis_computes_exact_research_features_without_trade_
         "fiscal_year",
         "financial_basis",
         "net_income_basis",
-        "annual_diluted_shares",
+        "annual_diluted_eps",
         "revenue_previous",
         "previous_close",
         "previous_close_at",
@@ -150,7 +150,7 @@ def test_missing_or_ambiguous_period_and_basis_cannot_become_candidate(missing):
     [
         {"revenue_current": 10.5},
         {"net_income": True},
-        {"annual_diluted_shares": "0"},
+        {"revenue_previous": "0"},
         {"fiscal_year": 2027},
         {"observed_at": NOW.replace(tzinfo=None)},
         {"available_at": NOW - timedelta(days=3)},
@@ -195,3 +195,63 @@ def test_industry_is_evidence_fact_and_query_filter_is_explicit():
     )
     assert not unknown.candidate
     assert next(s for s in unknown.stages if s.stage == "GROWTH_VALUATION").status == "MISSING"
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_opportunity_manifest_is_partial_until_full_universe_and_research_exist(assembled):
+    from investment_os.application.acceptance import acceptance_snapshot
+
+    snapshot = acceptance_snapshot(
+        portfolio=False, watchlist=False, providers=False, policy=False, opportunities=assembled
+    )
+    item = next(item for item in snapshot.capabilities if item.key == "opportunities")
+    assert item.engineering == "PARTIAL"
+    assert item.route == ("/opportunities" if assembled else None)
+    assert item.human_acceptance == "PENDING"
+    assert "深研" in item.detail and "未提供" in item.detail
+
+
+@pytest.mark.parametrize("eps", ["0", "-0.2"])
+def test_nonpositive_annual_eps_is_visible_missing_pe_not_divided_or_fabricated(eps):
+    entry, quote, facts, query = inputs(annual_diluted_eps=eps)
+    result = evaluate(entry, quote, facts, query)
+    assert not result.candidate and "pe" not in result.features
+    assert (
+        "positive_annual_eps"
+        in next(s for s in result.stages if s.stage == "GROWTH_VALUATION").missing_fields
+    )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"candidate_limit": 21},
+        {"candidate_limit": True},
+        {"candidate_limit": 1.5},
+        {"min_profit_margin": 0.1},
+    ],
+)
+def test_query_rejects_server_bound_bypass_and_float_conditions(change):
+    *_, query = inputs()
+    with pytest.raises(ValidationError):
+        FunnelQuery.model_validate(query.model_dump() | change)
+
+
+async def test_universe_port_cannot_expand_scope_or_duplicate_targets():
+    from unittest.mock import AsyncMock
+
+    from investment_os.application.opportunities import OpportunityError, OpportunityService
+
+    entry, _, _, query = inputs()
+    universe = AsyncMock()
+    facts = AsyncMock()
+    market = AsyncMock()
+    runs = AsyncMock()
+    runs.replay.return_value = None
+    universe.resolve.return_value = (entry, entry)
+    service = OpportunityService(universe, facts, market, runs, now=lambda: NOW)
+    with pytest.raises(OpportunityError, match="UNIVERSE_IDENTITY_MISMATCH"):
+        await service.run(query)
+    market.get_snapshot.assert_not_awaited()
+    facts.get_facts.assert_not_awaited()
+    runs.save_run.assert_not_awaited()
