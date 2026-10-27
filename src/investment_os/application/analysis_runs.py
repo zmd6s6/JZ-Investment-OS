@@ -112,6 +112,9 @@ class AnalysisFrozenInput(AnalysisDto):
     thesis_state: str
     thesis_json: str | None
     input_hash: str
+    blockers: tuple[str, ...] = ()
+    feature_set_version: Literal["evidence-count-v1"] = "evidence-count-v1"
+    prompt_bundle_version: Literal["analysis-runtime-v1"] = "analysis-runtime-v1"
 
 
 class EvidenceReason(AnalysisDto):

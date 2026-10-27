@@ -99,6 +99,38 @@ async def locked(
     return record
 
 
+async def append_step(
+    session: AsyncSession,
+    record: AnalysisRunRecord,
+    *,
+    stage: str,
+    status: str,
+    payload: dict[str, object],
+    reason_code: str | None = None,
+) -> None:
+    run_id = record.id
+    last = await session.scalar(
+        select(func.max(AnalysisStepRecord.sequence)).where(AnalysisStepRecord.run_id == run_id)
+    )
+    row = AnalysisStepRecord(
+        run_id=run_id,
+        sequence=(last or 0) + 1,
+        stage=stage,
+        status=status,
+        reason_code=reason_code,
+        occurred_at=datetime.now(UTC),
+        payload_json=payload,
+        **audit(run_id),
+    )
+    session.add(row)
+    await emit(
+        session,
+        record,
+        "stage",
+        {"stage": stage, "status": status, "sequence": row.sequence},
+    )
+
+
 class SqlAnalysisRuns:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]):
         self._sessions = sessions
@@ -278,27 +310,13 @@ class SqlAnalysisRuns:
             raise ValueError("ANALYSIS_STEP_STATUS_INVALID")
         async with self._sessions() as session, session.begin():
             record = await locked(session, run_id, lease)
-            last = await session.scalar(
-                select(func.max(AnalysisStepRecord.sequence)).where(
-                    AnalysisStepRecord.run_id == run_id
-                )
-            )
-            row = AnalysisStepRecord(
-                run_id=run_id,
-                sequence=(last or 0) + 1,
-                stage=stage,
-                status=status,
-                reason_code=reason_code,
-                occurred_at=datetime.now(UTC),
-                payload_json=payload,
-                **audit(run_id),
-            )
-            session.add(row)
-            await emit(
+            await append_step(
                 session,
                 record,
-                "stage",
-                {"stage": stage, "status": status, "sequence": row.sequence},
+                stage=stage,
+                status=status,
+                payload=payload,
+                reason_code=reason_code,
             )
 
     async def finish(

@@ -18,8 +18,8 @@ from investment_os.application.llm_gateway import (
     LLMGatewayResponse,
 )
 from investment_os.application.provider_settings import (
+    ModelProfileResolver,
     ModelProviderProfile,
-    ProviderSettingsService,
     ProviderTestResult,
 )
 from investment_os.application.secrets import SecretStore
@@ -36,7 +36,7 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
     def __init__(
         self,
         *,
-        provider_settings: ProviderSettingsService,
+        provider_settings: ModelProfileResolver,
         secret_store: SecretStore,
         budget_service: LLMBudgetService,
         client: httpx.AsyncClient | None = None,

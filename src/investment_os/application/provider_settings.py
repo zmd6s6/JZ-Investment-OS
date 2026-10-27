@@ -47,6 +47,10 @@ class ModelProviderProfile:
     pricing_effective_at: datetime | None = None
 
 
+class ModelProfileResolver(Protocol):
+    async def model_for_role(self, role: str) -> ModelProviderProfile: ...
+
+
 @dataclass(frozen=True, slots=True)
 class DataProviderProfile:
     id: UUID
