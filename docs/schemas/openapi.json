@@ -1096,6 +1096,224 @@
         "title": "EvidenceClaimResponse",
         "type": "object"
       },
+      "FrozenHolding": {
+        "additionalProperties": false,
+        "properties": {
+          "core_average_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Core Average Cost",
+            "type": "string"
+          },
+          "core_quantity": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Core Quantity",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "lot_size": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Lot Size",
+            "type": "string"
+          },
+          "market": {
+            "title": "Market",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position_id": {
+            "format": "uuid",
+            "title": "Position Id",
+            "type": "string"
+          },
+          "sector": {
+            "title": "Sector",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "tactical_average_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Tactical Average Cost",
+            "type": "string"
+          },
+          "tactical_quantity": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Tactical Quantity",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position_id",
+          "instrument_id",
+          "version",
+          "market",
+          "symbol",
+          "name",
+          "currency",
+          "sector",
+          "lot_size",
+          "core_quantity",
+          "tactical_quantity",
+          "core_average_cost",
+          "tactical_average_cost"
+        ],
+        "title": "FrozenHolding",
+        "type": "object"
+      },
+      "FrozenPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "config_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Json"
+          },
+          "content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Hash"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "reason_code": {
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Id"
+          }
+        },
+        "required": [
+          "status",
+          "reason_code"
+        ],
+        "title": "FrozenPolicy",
+        "type": "object"
+      },
+      "FrozenPortfolio": {
+        "additionalProperties": false,
+        "properties": {
+          "base_currency": {
+            "title": "Base Currency",
+            "type": "string"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "cash": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cash",
+            "type": "string"
+          },
+          "holdings": {
+            "items": {
+              "$ref": "#/components/schemas/FrozenHolding"
+            },
+            "title": "Holdings",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/FrozenPolicy"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "portfolio_id",
+          "name",
+          "base_currency",
+          "cash",
+          "captured_at",
+          "holdings",
+          "policy"
+        ],
+        "title": "FrozenPortfolio",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1107,6 +1325,99 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HoldingNumbers": {
+        "additionalProperties": false,
+        "properties": {
+          "core_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Value"
+          },
+          "core_weight": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Weight"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "tactical_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Value"
+          },
+          "tactical_weight": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Weight"
+          },
+          "total_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Value"
+          },
+          "total_weight": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Weight"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "core_value",
+          "tactical_value",
+          "total_value",
+          "core_weight",
+          "tactical_weight",
+          "total_weight"
+        ],
+        "title": "HoldingNumbers",
         "type": "object"
       },
       "InstrumentCatalogResponse": {
@@ -3375,6 +3686,187 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "ValuationContext": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "cash_weight": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Weight"
+          },
+          "formula_version": {
+            "default": "cny-reference-valuation-v1",
+            "title": "Formula Version",
+            "type": "string"
+          },
+          "gross_exposure": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Exposure"
+          },
+          "holdings": {
+            "items": {
+              "$ref": "#/components/schemas/HoldingNumbers"
+            },
+            "title": "Holdings",
+            "type": "array"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "input_snapshot": {
+            "$ref": "#/components/schemas/FrozenPortfolio"
+          },
+          "instrument_volatility": {
+            "title": "Instrument Volatility",
+            "type": "null"
+          },
+          "liquidity_capacity": {
+            "title": "Liquidity Capacity",
+            "type": "null"
+          },
+          "market_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Value"
+          },
+          "nav": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nav"
+          },
+          "net_exposure": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Exposure"
+          },
+          "output_hash": {
+            "title": "Output Hash",
+            "type": "string"
+          },
+          "pending_capacity": {
+            "title": "Pending Capacity",
+            "type": "null"
+          },
+          "quotes": {
+            "items": {
+              "$ref": "#/components/schemas/MarketDataSnapshot"
+            },
+            "title": "Quotes",
+            "type": "array"
+          },
+          "risk_budget_capacity": {
+            "title": "Risk Budget Capacity",
+            "type": "null"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sector_weights": {
+            "additionalProperties": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            "title": "Sector Weights",
+            "type": "object"
+          },
+          "sizing_ready": {
+            "const": false,
+            "default": false,
+            "title": "Sizing Ready",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "trading_grade": {
+            "const": false,
+            "default": false,
+            "title": "Trading Grade",
+            "type": "boolean"
+          },
+          "valuation_status": {
+            "title": "Valuation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_hash",
+          "output_hash",
+          "input_snapshot",
+          "source",
+          "source_name",
+          "quotes",
+          "valuation_status",
+          "nav",
+          "market_value",
+          "cash_weight",
+          "gross_exposure",
+          "net_exposure",
+          "sector_weights",
+          "holdings",
+          "blockers"
+        ],
+        "title": "ValuationContext",
+        "type": "object"
+      },
       "WatchlistItemResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5462,6 +5954,71 @@
         "summary": "Thesis History",
         "tags": [
           "theses"
+        ]
+      }
+    },
+    "/api/v1/valuation/portfolios/{portfolio_id}": {
+      "get": {
+        "operationId": "context_api_v1_valuation_portfolios__portfolio_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_name",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Source Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Context",
+        "tags": [
+          "valuation"
         ]
       }
     },
