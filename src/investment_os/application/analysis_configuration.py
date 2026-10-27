@@ -1,6 +1,5 @@
 """Prepare explicit, version-pinned run choices without changing global role assignments."""
 
-from dataclasses import asdict
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
@@ -14,28 +13,28 @@ from investment_os.application.analysis_runs import (
     SelectedModel,
 )
 from investment_os.application.instrument_catalog import InstrumentCatalogService
-from investment_os.application.llm_budget import LLMBudgetService
+from investment_os.application.llm_budget import (
+    LLMBudgetPolicy,
+    LLMBudgetService,
+    budget_policy_hash,
+)
 from investment_os.application.portfolio_valuation import PortfolioValuationService, fingerprint
 from investment_os.application.provider_settings import (
     DataProviderProfile,
     ModelProviderProfile,
     ProviderSettingsService,
+    provider_profile_hash,
 )
 
 
 def profile_hash(profile: ModelProviderProfile | DataProviderProfile) -> str:
-    import json
-
-    return fingerprint(json.loads(json.dumps(asdict(profile), default=str, sort_keys=True)))
+    return provider_profile_hash(profile)
 
 
 def budget_hash(policy: object) -> str:
-    import json
-    from dataclasses import is_dataclass
-
-    if not is_dataclass(policy) or isinstance(policy, type):
+    if not isinstance(policy, LLMBudgetPolicy):
         raise ValueError("ANALYSIS_BUDGET_UNAVAILABLE")
-    return fingerprint(json.loads(json.dumps(asdict(policy), default=str, sort_keys=True)))
+    return budget_policy_hash(policy)
 
 
 def require_safe_profile_url(url: str) -> None:

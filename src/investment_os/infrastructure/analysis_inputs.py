@@ -1,7 +1,7 @@
 """Frozen provider/budget routing and current Evidence/Thesis preparation for one run."""
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from time import monotonic
@@ -20,7 +20,7 @@ from investment_os.application.analysis_runs import (
     AnalysisStorePort,
 )
 from investment_os.application.evidence import derive_display_freshness
-from investment_os.application.llm_budget import LLMBudgetService
+from investment_os.application.llm_budget import LLMBudgetPolicyChanged, LLMBudgetService
 from investment_os.application.llm_gateway import (
     LLMGatewayFailure,
     LLMGatewayPort,
@@ -33,7 +33,10 @@ from investment_os.application.provider_settings import (
     ProviderSettingsService,
 )
 from investment_os.application.research import ResearchRequest
-from investment_os.application.research_runtime import ResearchProviderRuntime
+from investment_os.application.research_runtime import (
+    ResearchProviderProfileChangedError,
+    ResearchProviderRuntime,
+)
 from investment_os.application.secrets import SecretStore
 from investment_os.domain.agent import AgentRole
 from investment_os.domain.values import UtcTimestamp
@@ -108,7 +111,19 @@ class PinnedAnalysisGateway:
             },
         )
         try:
-            response = await self._delegate.complete(request)
+            response = await self._delegate.complete(
+                replace(request, expected_budget_policy_hash=self._queued.budget_hash)
+            )
+        except LLMBudgetPolicyChanged:
+            await self._store.step(
+                self._run_id,
+                self._lease,
+                stage="MODEL_CALL",
+                status="BLOCKED",
+                payload={"role": request.role.value, "egress": False, "cost_unconfirmed": False},
+                reason_code="ANALYSIS_BUDGET_CHANGED",
+            )
+            raise
         except Exception:
             await self._store.step(
                 self._run_id,
@@ -217,6 +232,7 @@ class SqlAnalysisInputPreparer:
             try:
                 artifacts = await self._research.fetch(
                     profile_id=selected.profile_id,
+                    expected_profile_hash=selected.config_hash,
                     request=ResearchRequest(
                         instrument_ids=(queued.command.instrument_id,),
                         as_of=UtcTimestamp(datetime.now(UTC)),
@@ -231,6 +247,16 @@ class SqlAnalysisInputPreparer:
                         raise ValueError("ANALYSIS_DATA_TARGET_MISMATCH")
                     saved = await self._ingestor.ingest(artifact, correlation_id=run_id)
                     identifiers.append(saved.evidence_id)
+            except ResearchProviderProfileChangedError:
+                await self._store.step(
+                    run_id,
+                    lease,
+                    stage="RESEARCH",
+                    status="BLOCKED",
+                    payload={"profile_id": str(selected.profile_id), "egress": False},
+                    reason_code="ANALYSIS_DATA_PROFILE_CHANGED",
+                )
+                raise ValueError("ANALYSIS_DATA_PROFILE_CHANGED") from None
             except Exception:
                 await self._store.step(
                     run_id,

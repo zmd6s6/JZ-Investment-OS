@@ -9,9 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.llm_budget import (
     LLMBudgetPolicy,
+    LLMBudgetPolicyChanged,
     LLMBudgetReservation,
     LLMBudgetUsage,
     ModelPricing,
+    budget_policy_hash,
 )
 from investment_os.infrastructure.persistence.models import (
     LLMBudgetDailyLedgerRecord,
@@ -58,10 +60,23 @@ class SqlAlchemyLLMBudgetStore:
         output_tokens: int,
         cost: Decimal,
         policy: LLMBudgetPolicy,
+        expected_policy_hash: str | None = None,
     ) -> LLMBudgetReservation | None:
         total_tokens = input_tokens + output_tokens
         async with self._session_factory() as session:
             async with session.begin():
+                if expected_policy_hash is not None:
+                    # Share-lock the very policy used for capacity checks until this reservation
+                    # commits. save_policy's FOR UPDATE cannot change it in this window.
+                    current = await session.get(
+                        LLMBudgetPolicyRecord, _POLICY_ID, with_for_update={"read": True}
+                    )
+                    if (
+                        current is None
+                        or budget_policy_hash(self._policy(current)) != expected_policy_hash
+                    ):
+                        raise LLMBudgetPolicyChanged("ANALYSIS_BUDGET_CHANGED")
+                    policy = self._policy(current)
                 # Serialize first-ledger creation as well as later row updates.  The daily
                 # lock is deliberately wider than a task lock: a daily hard cap is shared.
                 await session.execute(

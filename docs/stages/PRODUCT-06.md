@@ -98,4 +98,8 @@ PR #23已由root独立Gate合入Release `3e805bac141239b0ae3c02d6aa73a16adefed8c
 
 ## MVP-203 持久团队影子分析纵切（2026-10-28）
 
-当前工作分支已通过真实API/DB/Worker/UI验证显式选择/出站同意、持久排队/阶段与角色产物、真实两轮、失败/有界取消/新Run重试和刷新；提交独立Review，非实现者自Gate。参考估值沿用202快照、Policy版本明确缺失或固定；Risk仍UNKNOWN、完整Sizing缺项、没有数量与可审批InvestmentDecision。影子记录不可执行，不构成完整P6完成。合成模型测试不是Owner真实供应商/生产验收；证据及限制见 `docs/agent/work-items/MVP-203.md`。仅随本PR合入Release记集成，不提前领取204/301，Owner PENDING。
+PR #26提供显式选择/出站同意、持久排队/阶段与角色产物、真实两轮、失败/有界取消/新Run重试和刷新。参考估值沿用202快照，Policy版本明确缺失或固定；Risk UNKNOWN、Sizing BLOCKED，没有建议数量与可审批InvestmentDecision，不构成完整P6或Owner接受。
+
+本项实现者真实浏览器4/4（23.3秒）及CI547/79属于09974bb及相同产品代码树；root另对09974bb独立复跑32/32（14.55秒）、原样真实浏览器4/4（22.9秒），未放宽断言。前文36e8c76的32/3与2081658后的复验均只归MVP-202，不能当作本项独立通过。随后独立源码审查实际复现三项P1；已统一收紧预算最终SQL预留/可选typed冻结hash、模型eligible正文及研究最终factory完整hash，并通过具名修前失败/修后回归。09974bb的32/4不能替代新实现独立复审；新验证见工作项，最终Gate仍由独立方对新HEAD核对。
+
+Queue203 INTEGRATED、204/301 READY仅随PR #26经实际独立Gate且合入Release生效；READY仅表示显式实现依赖满足，不是204深入追溯、可审批Decision或301批准已交付，不提前在未合入基线上领取。P6阶段接受、Checkpoint B与Owner仍PENDING，主规范与治理不变量不变。详细证据及限制见 `docs/agent/work-items/MVP-203.md`。

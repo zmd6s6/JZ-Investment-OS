@@ -17,7 +17,7 @@
 
 ## 已建立
 
-- MVP-203工作分支已接通 `/analysis` 的显式输入/调用同意→持久排队→真实Worker双轮与角色产物→风险/仓位缺项→不可执行影子结论、取消/新Run重试/刷新历史；当前为REVIEW，仅随本PR合入Release后可记集成。完整Risk/Sizing/Decision与204下钻、301批准、P6整体接受仍未完成；Owner PENDING。真实合成验证、失败修复与边界见 `docs/agent/work-items/MVP-203.md`。
+- MVP-203：PR #26已实现并验证 `/analysis` 的显式输入/调用同意→持久排队→真实Worker双轮与角色产物→风险/仓位缺项→不可执行影子结论、取消/新Run重试/刷新历史。203 INTEGRATED、仅依赖203的204/301 READY台账仅随PR #26经独立Gate且实际合入Release生效；未合入时不得据此领取后继。root对09974bb独立32/32及真实4/4仅归旧代码，随后三项P1边界已复现并统一修复；新实现者验证与待独立复审明确另列，不能借旧独立证据通过新Gate。Risk UNKNOWN、Sizing BLOCKED、无可审批Decision，完整P6与Owner接受仍未完成；证据见 `docs/agent/work-items/MVP-203.md`。
 
 - MVP-402本工作分支已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；本切片真实UI / API / DB合成验证21场景通过，但整体能力PARTIAL：全市场、深研、周定时尚未提供，不代表完整402 / P8或Owner接受。记录随本PR合入Release生效，详见 `docs/agent/work-items/MVP-402.md`。
 
@@ -40,7 +40,7 @@
 ## 尚未实现或尚未验证
 
 - P5的PR #17已合并，MVP-101可见路径复验与修复已由PR #21合入Release；仍须所有者本人Checkpoint验收，才能将PRODUCT-05标为ACCEPTED。
-- P6：MVP-203工作分支已验证持久AnalysisRun与受控降级影子链，尚待独立Review/CI/合入；完整Risk/Sizing、深入追溯204、可审批Decision301及所有者阶段验收仍未完成。
+- P6：MVP-203持久AnalysisRun与受控降级影子链已有实现者及09974bb独立复验；本PR #26实际合入后才记203 INTEGRATED、204/301依赖满足READY。完整Risk/Sizing、深入追溯204、可审批Decision301及所有者阶段验收仍未完成；后续提交须重新核对CI/独立Gate，不能借09974bb旧CI。
 - P7：Decision 审阅、批准/拒绝/撤销 UI 与只记录事实的手工执行产品流。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。
 - P9：按 Beta 验收门槛完成的端到端产品验证和所有者接受。

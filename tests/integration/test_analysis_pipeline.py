@@ -191,3 +191,141 @@ async def test_real_pipeline_failure_has_no_executable_shadow_or_silent_profile_
         assert await runner.dispatch_due() == {"claimed": 0, "interrupted": 0}
     finally:
         await client.aclose()
+
+
+@pytest.mark.parametrize("window", ["after_preflight", "before_reservation_transaction"])
+async def test_frozen_budget_change_at_final_reservation_blocks_egress_and_charges(
+    database_engine, monkeypatch, window
+):
+    import asyncio
+
+    from investment_os.infrastructure.persistence.models import (
+        LLMBudgetReservationRecord,
+        LLMUsageRecord,
+    )
+
+    (
+        sessions,
+        store,
+        providers,
+        profile,
+        budget,
+        service,
+        runner,
+        command,
+        calls,
+        client,
+    ) = await stack(database_engine)
+    await providers._settings_port.save_model_profile(
+        replace(profile, input_token_price=Decimal("0.001"), output_token_price=Decimal("0.001"))
+    )
+    policy = await budget.policy()
+    policy_a = replace(
+        policy,
+        task_cost_limit=Decimal(0) if window == "after_preflight" else Decimal("1000000"),
+        daily_cost_limit=Decimal("1000000"),
+    )
+    # Same policy version is intentional: content, not only its label, must be pinned.
+    policy_b = replace(
+        policy_a, task_cost_limit=Decimal("1000000") if window == "after_preflight" else Decimal(0)
+    )
+    await budget.save_policy(policy_a)
+    queued = await service.start(command)
+    entered, release = asyncio.Event(), asyncio.Event()
+    count = 0
+
+    async def barrier():
+        nonlocal count
+        count += 1
+        if count == 5:
+            entered.set()
+        await release.wait()
+
+    if window == "after_preflight":
+        original = store.step
+
+        async def gate_step(*args, **kwargs):
+            await original(*args, **kwargs)
+            if kwargs["stage"] == "MODEL_CALL" and kwargs["status"] == "RUNNING":
+                await barrier()
+
+        monkeypatch.setattr(store, "step", gate_step)
+    else:
+        original = budget._port.reserve
+
+        async def gate_reserve(**kwargs):
+            await barrier()
+            return await original(**kwargs)
+
+        monkeypatch.setattr(budget._port, "reserve", gate_reserve)
+    task = asyncio.create_task(runner.dispatch_due())
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        await budget.save_policy(policy_b)
+        release.set()
+        await asyncio.wait_for(task, timeout=10)
+        assert calls == []
+        result = await store.get(queued.run_id)
+        assert result.status.value == "FAILED" and result.shadow_decision is None
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(LLMBudgetReservationRecord))
+                == 0
+            )
+            assert await session.scalar(select(func.count()).select_from(LLMUsageRecord)) == 0
+        usage = await budget.usage()
+        assert usage.input_tokens == usage.output_tokens == usage.reserved_tokens == 0
+        assert usage.total_cost == usage.reserved_cost == 0
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await client.aclose()
+
+
+async def test_real_pipeline_keeps_future_and_expired_evidence_for_audit_only(database_engine):
+    from datetime import timedelta
+
+    from investment_os.application.research import ResearchArtifactDTO
+    from investment_os.domain.values import UtcTimestamp
+
+    sessions, store, _, _, _, service, runner, command, calls, client = await stack(database_engine)
+    now = datetime.now(UTC)
+    ids = []
+    for state in ("future", "expired"):
+        when = now + timedelta(hours=1) if state == "future" else now - timedelta(hours=2)
+        expiry = now + timedelta(days=1) if state == "future" else now - timedelta(hours=1)
+        saved = await SqlAlchemyEvidenceIngestor(sessions, now=lambda: now).ingest(
+            ResearchArtifactDTO(
+                provider="SYNTHETIC",
+                provider_ref=state,
+                artifact_type="NEWS",
+                instrument_id=command.instrument_id,
+                source_name="合成无效时点",
+                source_locator=f"synthetic://{state}",
+                source_tier="PRIMARY",
+                observed_at=UtcTimestamp(when),
+                effective_at=UtcTimestamp(when),
+                available_at=UtcTimestamp(when),
+                expires_at=UtcTimestamp(expiry),
+                payload={"body": f"SYNTHETIC_{state.upper()}_BODY_NOT_FOR_MODEL"},
+                source_schema_version="synthetic-v1",
+            )
+        )
+        ids.append(saved.evidence_id)
+    try:
+        run = await service.start(
+            command.model_copy(update={"evidence_ids": (*command.evidence_ids, *ids)})
+        )
+        await runner.dispatch_due()
+        view = await store.get(run.run_id)
+        assert view.status.value == "DEGRADED" and len(calls) == 9
+        assert len(view.frozen_input.evidence) == 3
+        body = json.dumps(calls)
+        for item in view.frozen_input.evidence:
+            if item.evidence_id in ids:
+                assert item.freshness != "FRESH" and "NOT_FOR_MODEL" in item.payload_json
+                assert str(item.evidence_id) not in body
+        assert "NOT_FOR_MODEL" not in body
+    finally:
+        await client.aclose()

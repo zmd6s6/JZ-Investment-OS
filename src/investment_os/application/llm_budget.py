@@ -1,7 +1,9 @@
 """Deterministic, fail-closed LLM token and cost budget governance."""
 
+import hashlib
+import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Protocol
@@ -19,6 +21,17 @@ class LLMBudgetPolicy:
     daily_token_limit: int
     task_cost_limit: Decimal
     daily_cost_limit: Decimal
+
+
+class LLMBudgetPolicyChanged(LLMGatewayFailure):
+    """The final reservation did not match the caller's frozen policy."""
+
+
+def budget_policy_hash(policy: LLMBudgetPolicy) -> str:
+    payload = json.loads(json.dumps(asdict(policy), default=str, sort_keys=True))
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +82,7 @@ class LLMBudgetPort(Protocol):
         output_tokens: int,
         cost: Decimal,
         policy: LLMBudgetPolicy,
+        expected_policy_hash: str | None = None,
     ) -> LLMBudgetReservation | None: ...
 
     async def reconcile(
@@ -104,6 +118,9 @@ class LLMBudgetService:
         if policy is None:
             raise LLMGatewayFailure("LLM budget policy is unavailable")
         _validate_policy(policy)
+        expected = request.expected_budget_policy_hash
+        if expected is not None and budget_policy_hash(policy) != expected:
+            raise LLMBudgetPolicyChanged("ANALYSIS_BUDGET_CHANGED")
         pricing = _pricing_for(profile)
         if pricing.currency != policy.currency:
             raise LLMGatewayFailure("model pricing currency does not match the budget policy")
@@ -112,16 +129,30 @@ class LLMBudgetService:
         cost = (Decimal(input_tokens) * pricing.input_token_price) + (
             Decimal(output_tokens) * pricing.output_token_price
         )
-        reservation = await self._port.reserve(
-            task_id=request.request_id,
-            profile_id=profile.id,
-            window_date=self._now().astimezone(UTC).date(),
-            pricing=pricing,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            cost=cost,
-            policy=policy,
-        )
+        if expected is None:
+            # Preserve old adapters/callers when no frozen-policy contract was supplied.
+            reservation = await self._port.reserve(
+                task_id=request.request_id,
+                profile_id=profile.id,
+                window_date=self._now().astimezone(UTC).date(),
+                pricing=pricing,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost=cost,
+                policy=policy,
+            )
+        else:
+            reservation = await self._port.reserve(
+                task_id=request.request_id,
+                profile_id=profile.id,
+                window_date=self._now().astimezone(UTC).date(),
+                pricing=pricing,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost=cost,
+                policy=policy,
+                expected_policy_hash=expected,
+            )
         if reservation is None:
             raise LLMGatewayFailure("LLM request would exceed a task or daily budget")
         return reservation

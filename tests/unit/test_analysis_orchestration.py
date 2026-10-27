@@ -303,3 +303,38 @@ async def test_untrusted_arbitrary_percentage_is_not_a_portfolio_intent_protocol
                 "reasons": [],
             }
         )
+
+
+@pytest.mark.parametrize("state", ["NOT_YET_AVAILABLE", "EXPIRED", "INVALID"])
+@pytest.mark.parametrize("invalid_role", [None, "MACRO", "CIO"])
+async def test_ineligible_evidence_body_never_reaches_any_model_request(state, invalid_role):
+    run_id, queued, frozen = await inputs()
+    marker = "SYNTHETIC_INELIGIBLE_BODY_MUST_NOT_LEAK"
+    changes = {
+        "evidence_id": uuid4(),
+        "content_hash": "d" * 64,
+        "freshness": state,
+        "payload_json": json.dumps({"body": marker}),
+    }
+    if state == "NOT_YET_AVAILABLE":
+        changes["available_at"] = NOW + timedelta(days=1)
+    if state == "EXPIRED":
+        changes["expires_at"] = NOW - timedelta(seconds=1)
+    if state == "INVALID":
+        changes["quality_score"] = "0"
+    blocked = frozen.evidence[0].model_copy(update=changes)
+    frozen = frozen.model_copy(update={"evidence": (*frozen.evidence, blocked)})
+    gateway = Gateway(frozen, invalid_role=invalid_role)
+    store = Store()
+    orchestrator = InvestmentAnalysisOrchestrator(store, Execution(frozen, gateway))
+    if invalid_role == "CIO":
+        with pytest.raises(ValueError, match="ANALYSIS_REQUIRED_ROLE_INVALID"):
+            await orchestrator.run(run_id, uuid4(), queued)
+    else:
+        await orchestrator.run(run_id, uuid4(), queued)
+    assert len(gateway.requests) == (11 if invalid_role else 9)
+    if invalid_role:
+        assert any(r.repair_attempt > 0 for r in gateway.requests)
+    assert all(marker not in r.input_payload_json for r in gateway.requests)
+    assert all(str(blocked.evidence_id) not in r.input_payload_json for r in gateway.requests)
+    assert marker in store.frozen.evidence[1].payload_json  # Immutable audit retains input.

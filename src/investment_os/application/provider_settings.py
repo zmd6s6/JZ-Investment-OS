@@ -1,6 +1,8 @@
 """Application use cases for non-sensitive provider configuration."""
 
-from dataclasses import dataclass
+import hashlib
+import json
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal, Protocol
@@ -61,6 +63,13 @@ class DataProviderProfile:
     timeout_seconds: int
     enabled: bool
     retention_days: int = 365
+
+
+def provider_profile_hash(profile: ModelProviderProfile | DataProviderProfile) -> str:
+    payload = json.loads(json.dumps(asdict(profile), default=str, sort_keys=True))
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)

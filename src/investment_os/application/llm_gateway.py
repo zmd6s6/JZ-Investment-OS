@@ -36,6 +36,7 @@ class LLMGatewayRequest:
     committee_context_hash: str | None = None
     system_instruction: str | None = None
     input_payload_json: str | None = None
+    expected_budget_policy_hash: str | None = None
 
     def __post_init__(self) -> None:
         _positive(self.timeout_seconds, "timeout_seconds")
@@ -60,6 +61,12 @@ class LLMGatewayRequest:
             raise DomainError(
                 DomainErrorCode.INVARIANT_VIOLATION,
                 "repair LLM gateway requests require a sanitized repair error code",
+            )
+        if self.expected_budget_policy_hash is not None and not _is_sha256(
+            self.expected_budget_policy_hash
+        ):
+            raise DomainError(
+                DomainErrorCode.INVARIANT_VIOLATION, "expected budget policy hash must be SHA-256"
             )
         if self.committee_context_hash is not None and not _is_sha256(self.committee_context_hash):
             raise DomainError(

@@ -31,3 +31,15 @@ Worker全运行和每个模型调用有技术性时限。运行过程中只在�
 ## 迁移 / 恢复 / 验证
 
 0016基于当前Release0015，仅新增分析表/约束/不可变守卫；无Owner数据部署。空库和上一版本升级、幂等/并发/故障回滚/不可变历史/取消/中断/坏输出/预算/日期/缺Policy与Sizing都须具名测试。存在分析历史时拒绝降级删除，回滚应用并保留表，必要时前向修复。合成验证15442/18114/独立命名库，真实付费/Owner迁移重启需实际有效授权，本轮不调用。
+
+## 独立审查后的最终边界收紧（2026-10-28）
+
+本节是本ADR首次交付内的明确补充，记录预算/资料边界的工程修复，不回写或削弱已接受的上层治理。独立审查在09974bb复现了预检后策略/研究档案变化以及无效资料正文前视；原先成功测试不能抵消这些边界问题。
+
+内部LLMGatewayRequest增加可选expected_budget_policy_hash（SHA-256，默认None），不是新增外部模型字段或破坏旧AgentOpinion协议。Analysis所有角色及修复请求强制携带排队时完整预算内容hash；LLMBudgetService会先匹配当前内容，并把期望传入最终SqlBudgetStore预留事务。事务先对Policy行FOR SHARE加锁，核完整hash，再在原有锁/限额机制内创建ledger/reservation；策略保存的FOR UPDATE不得在校验与预留提交间穿插。漂移在任何预留/出站前失败，0模型HTTP、0reservation/usage，不把失败费用伪造为已花费。未指定期望的旧调用保留原接口行为；新保护调用不能悄悄降级为不核期望。
+
+所有模型正文只来自AnalysisContext.visible_evidence_ids；未来/过期/无效资料仍可在不可变输入审计中保留，但不得把正文、ID或节选发给任何轮次/角色。opaque输入hash不等于资料正文，不把事后信息作为当前事实。
+
+ResearchRuntime增加可选expected_profile_hash（默认None，兼容既有显式P4调用）。Analysis传完整冻结档案hash，在Runtime读取后及凭据异步读取后的最终同步factory构造口再次核对，随后只使用同一个不可变档案对象；endpoint/type/retention/启用状态/凭据引用变化都失败，不重读后换到B。该预检不同于预算资金预留：预算比较与预留必须在同一SQL事务中锁住，不能仅加一次预检。
+
+具名Event门回归覆盖预算预检后与最终事务前同版本不同内容策略切换；研究进入Runtime前与credential await期间的endpoint/type/retention/停用漂移；混合有效+未来/过期/无效Evidence的全部九次模型正文。没有固定等待或放宽断言，没有新增真实限额/源/付费授权。

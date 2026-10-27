@@ -294,6 +294,7 @@ class InvestmentAnalysisOrchestrator:
                     "freshness": item.freshness,
                 }
                 for item in frozen.evidence
+                if item.evidence_id in context.visible_evidence_ids
             ],
         }
 
