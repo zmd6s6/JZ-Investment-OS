@@ -136,7 +136,7 @@ export function CalendarPage(){
     <Panel title="3 · Worker实际运行记录" description="最近30次日历状态任务；完成仅表示状态报告写入，不表示团队分析或投资批准。">
       {!overview?.recent_runs.length?<p>尚无日历状态运行记录。请核对是否导入并启用、收盘时刻是否已到，以及Worker服务是否运行。</p>:overview.recent_runs.map(run=><article key={run.task_run_id} className="evidence-card" style={{overflowWrap:"anywhere"}}>
         <h3>{run.task_name} · {run.status==="SUCCEEDED"?"状态报告已完成":run.status==="FAILED"?"状态任务失败":"状态任务运行中"}</h3><p>业务时点 {run.as_of} · 第{run.attempt}次尝试 · 实际开始 {run.started_at} · 完成 {run.finished_at??"未完成"}</p>
-        {run.report?<><p>{run.report.message}</p><p>来源：{run.report.source_name} · 版本 {run.report.source_version} · 市场 {run.report.venue}</p><p>来源摘要：{run.report.calendar_hash}</p></>:<p>{run.status==="FAILED"?"未生成状态报告，请核对日历配置后再明确处理；不从旧结果补造成功。":"尚未保存状态报告。"}</p>}
+        {run.report?<><p>{run.report.message}</p><p>来源：{run.report.source_name} · 版本 {run.report.source_version} · 市场 {run.report.venue}</p><p>来源摘要：{run.report.calendar_hash}</p></>:<p>{run.status==="FAILED"?"未生成状态报告。请核对并导入更正后的来源版本，再明确启用以恢复；旧失败记录保留，已成功业务日期不会重复报告。":"尚未保存状态报告。"}</p>}
         {run.error_code?<p>失败代码：{run.error_code}{run.attempt>=3?"（已达自动重试上限）":"；Worker可在上限内重试，暂停可停止后续调度。"}</p>:null}
       </article>)}
     </Panel>

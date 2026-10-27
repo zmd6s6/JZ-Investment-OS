@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.calendar_product import (
@@ -20,7 +20,7 @@ from investment_os.application.calendar_product import (
     CalendarStatusReport,
     calendar_hash,
 )
-from investment_os.application.errors import ApplicationError
+from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.schedule import MarketVenue
 from investment_os.infrastructure.persistence.calendar_models import (
     CalendarConfigurationRecord,
@@ -426,9 +426,30 @@ class PersistedCalendarStatusRunner:
                     .order_by(MarketSessionRecord.close_at_utc, MarketSessionRecord.id)
                 )
             ).all()
+            # A corrected source gets a distinct attempt without rewriting the failed input.
             keys = [
-                f"calendar-status:{config.venue}:{day.business_date}" for day, _, config in rows
+                f"calendar-status:{config.venue}:{day.business_date}:{record.id}"
+                for day, record, config in rows
             ]
+            business_days = [(config.venue, str(day.business_date)) for day, _, config in rows]
+            successful = (
+                set(
+                    await session.execute(
+                        select(
+                            EventLogRecord.payload_json["venue"].astext,
+                            EventLogRecord.payload_json["business_date"].astext,
+                        ).where(
+                            EventLogRecord.event_type == REPORT_EVENT,
+                            tuple_(
+                                EventLogRecord.payload_json["venue"].astext,
+                                EventLogRecord.payload_json["business_date"].astext,
+                            ).in_(business_days),
+                        )
+                    )
+                )
+                if business_days
+                else set()
+            )
             old = (
                 (
                     await session.scalars(
@@ -445,8 +466,11 @@ class PersistedCalendarStatusRunner:
             pending = [
                 (day, record, config, key)
                 for (day, record, config), key in zip(rows, keys, strict=True)
-                if key not in previous
-                or (previous[key].status != "SUCCEEDED" and previous[key].attempt < 3)
+                if (config.venue, str(day.business_date)) not in successful
+                and (
+                    key not in previous
+                    or (previous[key].status != "SUCCEEDED" and previous[key].attempt < 3)
+                )
             ][: self.maximum]
         completed = []
         for day, record, config, key in pending:
@@ -466,6 +490,27 @@ class PersistedCalendarStatusRunner:
                 config: CalendarConfigurationRecord = config,
                 key: str = key,
             ) -> None:
+                # The day guard uses the SAME transaction/connection as TaskRun. An
+                # expected contention exception rolls back a newly started TaskRun,
+                # never recording SUCCEEDED without its own report.
+                await _lock(
+                    uow.session, "calendar-business-day", f"{config.venue}:{day.business_date}"
+                )
+                reported = await uow.session.scalar(
+                    select(EventLogRecord.id)
+                    .where(
+                        EventLogRecord.event_type == REPORT_EVENT,
+                        EventLogRecord.payload_json["venue"].astext == config.venue,
+                        EventLogRecord.payload_json["business_date"].astext
+                        == str(day.business_date),
+                    )
+                    .limit(1)
+                )
+                if reported is not None:
+                    raise ApplicationError(
+                        ApplicationErrorCode.JOB_ALREADY_RUNNING,
+                        "calendar business date already has a committed report",
+                    )
                 active = await uow.session.scalar(
                     select(CalendarConfigurationRecord)
                     .where(CalendarConfigurationRecord.id == config.id)
