@@ -181,9 +181,14 @@ async def test_core_schema_uses_uuid_keys_numeric_financials_and_timezone_aware_
         schema = await connection.run_sync(inspect_schema)
 
     for table_name, (primary_key, columns) in schema.items():
-        assert primary_key["constrained_columns"] == ["id"], table_name
-        id_column = next(column for column in columns if column["name"] == "id")
-        assert str(id_column["type"]) == "UUID", table_name
+        expected_key = {
+            "analysis_run_evidence": ["run_id", "evidence_id"],
+            "analysis_shadow_evidence": ["decision_id", "evidence_id"],
+        }.get(table_name, ["id"])
+        assert primary_key["constrained_columns"] == expected_key, table_name
+        for key_name in expected_key:
+            key_column = next(column for column in columns if column["name"] == key_name)
+            assert str(key_column["type"]) == "UUID", (table_name, key_name)
         for column in columns:
             column_name = str(column["name"])
             if column_name.endswith("_at") or column_name in {
