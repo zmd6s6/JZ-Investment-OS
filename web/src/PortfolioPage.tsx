@@ -143,6 +143,7 @@ export function PortfolioPage() {
   const selectedIdRef = useRef("");
   const intentIdRef = useRef("");
   const previewSeqRef = useRef(0);
+  const cashDraftRef = useRef({ dirty: false, revision: 0 });
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -150,6 +151,7 @@ export function PortfolioPage() {
 
   const persistSelection = useCallback((id: string) => {
     ++previewSeqRef.current;
+    cashDraftRef.current = { dirty: false, revision: cashDraftRef.current.revision + 1 };
     selectedIdRef.current = id;
     intentIdRef.current = id;
     setSelectedId(id);
@@ -177,7 +179,8 @@ export function PortfolioPage() {
         persistSelection(currentIntent);
       }
       const active = data.find((item) => item.portfolio_id === currentIntent);
-      if (active) setCashEdit(String(active.cash_balance));
+      // A holdings/import refresh must not overwrite an unsaved cash draft.
+      if (active && !cashDraftRef.current.dirty) setCashEdit(String(active.cash_balance));
       return;
     }
     // Only auto-select first item when the user has never chosen one.
@@ -476,9 +479,12 @@ export function PortfolioPage() {
                 setBusy(true);
                 setError(null);
                 setMessage(null);
+                const cashRevision = cashDraftRef.current.revision;
+                const portfolioId = selected.portfolio_id;
+                const currentCashContext = () => selectedIdRef.current === portfolioId && cashDraftRef.current.revision === cashRevision;
                 try {
                   const response = await apiFetch(
-                    `/api/v1/portfolios/${selected.portfolio_id}/cash`,
+                    `/api/v1/portfolios/${portfolioId}/cash`,
                     {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
@@ -486,10 +492,15 @@ export function PortfolioPage() {
                     },
                   );
                   if (!response.ok) throw new Error(await readApiError(response));
-                  setMessage("现金已更新");
-                  await refreshList(selected.portfolio_id);
+                  if (currentCashContext()) {
+                    cashDraftRef.current.dirty = false;
+                    setMessage("现金已更新");
+                  }
+                  await refreshList(portfolioId);
                 } catch (reason) {
-                  setError(portfolioInputError(reason, "现金输入无效，请填写非负数值；输入已保留。"));
+                  if (currentCashContext()) {
+                    setError(portfolioInputError(reason, "现金输入无效，请填写非负数值；输入已保留。"));
+                  }
                 } finally {
                   setBusy(false);
                 }
@@ -500,7 +511,10 @@ export function PortfolioPage() {
                 <input
                   value={cashEdit}
                   inputMode="decimal"
-                  onChange={(e) => setCashEdit(e.target.value)}
+                  onChange={(e) => {
+                    cashDraftRef.current = { dirty: true, revision: cashDraftRef.current.revision + 1 };
+                    setCashEdit(e.target.value);
+                  }}
                 />
               </label>
               <button type="submit" className="btn" disabled={busy}>

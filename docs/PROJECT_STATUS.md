@@ -17,7 +17,7 @@
 
 ## 已建立
 
-- MVP-101工作分支已完成P5可见路径合成复验，修复跨组合迟到CSV预览、旧冲突授权与迟到确认结果展示；组合 / 持仓 / 分仓成本 / 现金 / CSV对账和刷新、目录Watchlist增删、实际政策只读审阅均有浏览器证据。当前REVIEW，待独立Gatekeeper及Release集成；Owner验收仍PENDING、P5仍IN_PROGRESS。详见 `docs/agent/work-items/MVP-101.md`。
+- MVP-101独立Gate复验捕获现金草稿被迟到刷新覆盖，现已补6项修前失败测试和真实API/UI定序浏览器回归，前端34/34、浏览器15/15；审阅项fixed-awaiting-review，等待独立复核。工作分支已完成P5可见路径合成复验，修复跨组合迟到CSV预览、旧冲突授权与迟到确认结果展示；组合 / 持仓 / 分仓成本 / 现金 / CSV对账和刷新、目录Watchlist增删、实际政策只读审阅均有浏览器证据。当前REVIEW，待独立Gatekeeper及Release集成；Owner验收仍PENDING、P5仍IN_PROGRESS。详见 `docs/agent/work-items/MVP-101.md`。
 - MVP-000已实现并验证 `/acceptance` 与只读交付清单API：区分工程、集成证据、服务装配及待人工验收；提供实际产品入口、操作 / 失败指引，未实现功能不链接至假入口。队列INTEGRATED记录随PR合入Release生效，未部署所有者实例，不表示Checkpoint接受；验证与限制见 `docs/agent/work-items/MVP-000.md`。
 - 主工程规范、根工作约定、持续工作模式以及 ADR/阶段文档约定均已建立。
 - Python 3.12 项目元数据、锁文件、健康检查、Compose、CI、OpenAPI、依赖/许可证检查与密钥扫描已具备。

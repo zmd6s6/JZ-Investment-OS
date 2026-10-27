@@ -190,3 +190,32 @@ test("policy review shows actual API version and its acknowledgement never write
   expect(await (await request.get("/api/v1/policy/review")).json()).toEqual(before);
   expect(writes).toEqual([]);
 });
+
+test("late holdings refresh preserves a cash draft through the real cash write",async({page,request})=>{
+ const name=`合成现金草稿-${Date.now()}`;
+ const a=await create(request,name);
+ await page.goto("/portfolio");await choose(page,name);
+ let release!:()=>void;let started!:()=>void;
+ const gate=new Promise<void>(resolve=>{release=resolve;});
+ const fetched=new Promise<void>(resolve=>{started=resolve;});
+ await page.route("**/api/v1/portfolios",async route=>{
+  const result=await route.fetch();expect(result.status()).toBe(200);
+  started();await gate;await route.fulfill({response:result});
+ });
+ await page.getByLabel("代码",{exact:true}).fill(String(randomInt(620000,628999)));
+ await page.getByLabel("名称",{exact:true}).fill("合成现金草稿标的");
+ await page.getByLabel("长期仓数量",{exact:true}).fill("1");
+ await page.getByRole("button",{name:"保存持仓",exact:true}).click();
+ await fetched;
+ await page.getByLabel("更新现金（当前组合）").fill("9000.50");
+ release();
+ await expect(page.getByRole("button",{name:"更新现金",exact:true})).toBeEnabled();
+ await expect(page.getByLabel("更新现金（当前组合）")).toHaveValue("9000.50");
+ const cashRequest=page.waitForRequest(r=>r.url().endsWith(`/portfolios/${a.portfolio_id}/cash`)&&r.method()==="PUT");
+ await page.getByRole("button",{name:"更新现金",exact:true}).click();
+ expect((await cashRequest).postDataJSON()).toEqual({cash_balance:"9000.50"});
+ await expect(page.getByText("现金已更新",{exact:true})).toBeVisible();
+ expect(Number((await (await request.get(`/api/v1/portfolios/${a.portfolio_id}`)).json()).cash_balance)).toBe(9000.5);
+ await page.reload();await choose(page,name);
+ await expect(page.getByLabel("更新现金（当前组合）")).toHaveValue("9000.500000000000000000");
+});
