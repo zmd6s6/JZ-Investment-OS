@@ -9,6 +9,7 @@ from investment_os.application.instrument_catalog import InstrumentCatalogServic
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
+from investment_os.application.opportunities import OpportunityService
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.portfolio_valuation import PortfolioValuationService
 from investment_os.application.provider_settings import ProviderSettingsService
@@ -34,6 +35,7 @@ from investment_os.infrastructure.onboarding import (
     SqlAlchemyOnboardingStore,
 )
 from investment_os.infrastructure.openai_compatible_llm import OpenAICompatibleLLMGateway
+from investment_os.infrastructure.opportunities import LocalExplicitUniverse, SqlOpportunityStore
 from investment_os.infrastructure.portfolio_valuation import SqlValuationInputs
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
@@ -84,7 +86,15 @@ def create_production_app() -> FastAPI:
             {"BOCHA_WEB_SEARCH": data_connection_tester.provider_for}
         ),
     )
+    funnel_store = SqlOpportunityStore(session_factory)
+    opportunities = OpportunityService(
+        LocalExplicitUniverse(InstrumentCatalogService(catalog)),
+        funnel_store,
+        market_data,
+        funnel_store,
+    )
     return create_app(
+        opportunity_service=opportunities,
         calendar_product_service=CalendarProductService(SqlCalendarProduct(session_factory)),
         market_data_service=market_data,
         valuation_service=PortfolioValuationService(

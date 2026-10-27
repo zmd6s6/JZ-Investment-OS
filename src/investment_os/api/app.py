@@ -21,6 +21,7 @@ from investment_os.application.instrument_catalog import InstrumentCatalogServic
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
 from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
+from investment_os.application.opportunities import OpportunityService
 from investment_os.application.portfolio_book import (
     PortfolioBookService,
     PortfolioPositionInput,
@@ -72,6 +73,7 @@ from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
 from .market_routes import market_router
+from .opportunity_routes import opportunity_router
 from .schemas import (
     CsvImportCommitResponse,
     CsvImportPreviewResponse,
@@ -352,6 +354,7 @@ def create_app(
     calendar_product_service: CalendarProductService | None = None,
     market_data_service: MarketDataService | None = None,
     valuation_service: PortfolioValuationService | None = None,
+    opportunity_service: OpportunityService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -446,6 +449,7 @@ def create_app(
 
     application.include_router(market_router(market_data_service))
     application.include_router(valuation_router(valuation_service))
+    application.include_router(opportunity_router(opportunity_service))
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
     async def liveness() -> LivenessResponse:
@@ -548,6 +552,7 @@ def create_app(
             calendar=calendar_product_service is not None,
             market_data=market_data_service is not None,
             valuation=valuation_service is not None,
+            opportunities=opportunity_service is not None,
         )
 
     def provider_settings_or_503() -> ProviderSettingsService:
