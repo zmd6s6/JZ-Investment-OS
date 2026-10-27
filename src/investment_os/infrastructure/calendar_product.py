@@ -39,6 +39,7 @@ from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 
 COMMAND_EVENT = "calendar.command.saved"
 REPORT_EVENT = "calendar.status.report"
+CalendarTaskIds = tuple[UUID, ...]
 
 
 def _hash(payload: object) -> str:
@@ -403,7 +404,7 @@ class PersistedCalendarStatusRunner:
             raise ValueError("calendar batch must be between one and thirty-one sessions")
         self.sessions, self.maximum = sessions, max_replay_sessions
 
-    async def dispatch_due(self, *, now: datetime) -> tuple[UUID, ...]:
+    async def dispatch_due(self, *, now: datetime) -> CalendarTaskIds:
         if now.utcoffset() is None:
             raise ValueError("calendar runtime now must be timezone-aware")
         now = now.astimezone(UTC)
