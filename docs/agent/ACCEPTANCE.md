@@ -25,7 +25,7 @@
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
 | 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | MVP-401=INTEGRATED / ACCEPTANCE_READY，此记录随PR #23通过最终独立Gate合入Release生效。91801d0已获独立28项SQL / 1项恢复浏览器复验；仅STATUS_ONLY，不含团队分析或完整Daily Runtime | PENDING |
-| Opportunities | `/opportunities` | NOT_IMPLEMENTED — MVP-402 | PENDING |
+| Opportunities | `/opportunities` | PARTIAL — 本地范围 / 人工年报 / 确定性漏斗随本PR集成；全市场 / 深研 / 周定时未提供 | PENDING |
 
 ## Checkpoint A 验收步骤
 
@@ -84,3 +84,11 @@ MVP-201已完成隔离合成环境UI / API / DB接线验证，并由PR #22合入
 ## MVP-202 参考估值验收
 
 依次在资产组合录入现金和分仓、人工行情记录同一来源名称有效CNY报价，再到估值对账选择组合/来源并读取。现金100、Core10/Tactical2、价19.25应得到NAV331和分仓192.5/38.5；刷新明确重读可复验。检查Evidence与UTC时间，以及政策/历史波动/流动性/预占容量等缺口；不能生成建议数量或投资动作。缺价/过期不给完整NAV/权重，非CNY整组缺FX阻断。Owner未接受Checkpoint，完整分析仍属203/204。证据见docs/agent/work-items/MVP-202.md。
+
+
+## 有限范围机会漏斗（MVP-402，PARTIAL）
+
+本PR只接通本地明确手选范围、人工自然年年报事实、确定性四指标 / 分层查询、有界研究候选和不可变历史；工程清单明确PARTIAL。全市场 / 深研 / 周定时尚未提供，不表示完整402、P8或Checkpoint接受。
+入口 `/opportunities`，也可从导航 / 设置 / 产品进度进入。先登记标的并保存人工报价，选择有限范围；绑定报价Evidence，录入有来源的年度利润 / 营收 / 年报稀释EPS和时间，填本次研究查询条件后筛选。
+应看到候选与排除理由、缺项、来源 / UTC业务时间 / Evidence / hash；刷新保持旧结果。跨币种缺FX、过期 / 未来 / 损坏 / 口径不符必须停止，不借旧价、不心算EPS、不调用模型或产生交易。
+本项21个合成浏览器场景总回归通过，不代替Owner个人数据或产品接受；细节与限制见 `docs/agent/work-items/MVP-402.md`，记录随PR合入Release生效。

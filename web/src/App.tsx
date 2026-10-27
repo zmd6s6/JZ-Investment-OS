@@ -5,6 +5,7 @@ import { AcceptancePage } from "./AcceptancePage";
 import { ValuationPage } from "./ValuationPage";
 import { CalendarPage } from "./CalendarPage";
 import { MarketDataPage } from "./MarketDataPage";
+import { OpportunitiesPage } from "./OpportunitiesPage";
 import { PortfolioPage } from "./PortfolioPage";
 import { WatchlistPage } from "./WatchlistPage";
 import { PolicyReviewPanel } from "./PolicyReviewPanel";
@@ -235,6 +236,7 @@ export function App() {
   if (path === "/calendar") return <CalendarPage />;
   if (path === "/acceptance") return <AcceptancePage />;
   if (path === "/valuation") return <ValuationPage />;
+  if (path === "/opportunities") return <OpportunitiesPage />;
   if (path === "/market-data") return <MarketDataPage />;
   if (path === "/demo/pr-08") return <LegacyDemo />;
   if (path === "/settings") return <SettingsPage />;

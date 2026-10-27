@@ -1564,6 +1564,106 @@
         "title": "EvidenceClaimResponse",
         "type": "object"
       },
+      "FactReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "evidence_id",
+          "content_hash",
+          "ingested_at"
+        ],
+        "title": "FactReceipt",
+        "type": "object"
+      },
+      "FactSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Hash"
+          },
+          "evidence_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Id"
+          },
+          "facts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManualScreenFacts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingested At"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "MISSING",
+              "EXPIRED",
+              "NOT_YET_AVAILABLE",
+              "INVALID"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "FactSnapshot",
+        "type": "object"
+      },
       "FrozenHolding": {
         "additionalProperties": false,
         "properties": {
@@ -1780,6 +1880,330 @@
           "policy"
         ],
         "title": "FrozenPortfolio",
+        "type": "object"
+      },
+      "FunnelQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "candidate_limit": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Candidate Limit",
+            "type": "integer"
+          },
+          "fact_source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Fact Source Name",
+            "type": "string"
+          },
+          "industry_filter": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry Filter"
+          },
+          "instrument_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Instrument Ids",
+            "type": "array"
+          },
+          "max_pe": {
+            "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Max Pe",
+            "type": "string"
+          },
+          "min_price_change": {
+            "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Min Price Change",
+            "type": "string"
+          },
+          "min_profit_margin": {
+            "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Min Profit Margin",
+            "type": "string"
+          },
+          "min_revenue_growth": {
+            "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Min Revenue Growth",
+            "type": "string"
+          },
+          "quote_source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Quote Source Name",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "rule_set_version": {
+            "const": "manual-screen-query-v1",
+            "default": "manual-screen-query-v1",
+            "title": "Rule Set Version",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope_kind": {
+            "const": "LOCAL_EXPLICIT_LIST",
+            "default": "LOCAL_EXPLICIT_LIST",
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "scope_locator": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Scope Locator",
+            "type": "string"
+          },
+          "scope_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Scope Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "instrument_ids",
+          "scope_name",
+          "scope_locator",
+          "quote_source_name",
+          "fact_source_name",
+          "as_of",
+          "candidate_limit",
+          "min_profit_margin",
+          "min_revenue_growth",
+          "max_pe",
+          "min_price_change"
+        ],
+        "title": "FunnelQuery",
+        "type": "object"
+      },
+      "FunnelRow": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "default": false,
+            "title": "Candidate",
+            "type": "boolean"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "facts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FactSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Features",
+            "type": "object"
+          },
+          "input_hashes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Input Hashes",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "lifecycle_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle State"
+          },
+          "market": {
+            "title": "Market",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_condition": {
+            "title": "Next Condition",
+            "type": "string"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MarketDataSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sector": {
+            "title": "Sector",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageResult"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "market",
+          "symbol",
+          "name",
+          "sector",
+          "stages",
+          "features",
+          "evidence_ids",
+          "input_hashes",
+          "next_condition"
+        ],
+        "title": "FunnelRow",
+        "type": "object"
+      },
+      "FunnelRun": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "candidate_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Candidate Ids",
+            "type": "array"
+          },
+          "deep_research": {
+            "const": "NOT_PROVIDED",
+            "default": "NOT_PROVIDED",
+            "title": "Deep Research",
+            "type": "string"
+          },
+          "formula_version": {
+            "const": "manual-screen-v1",
+            "default": "manual-screen-v1",
+            "title": "Formula Version",
+            "type": "string"
+          },
+          "independently_verified": {
+            "const": false,
+            "default": false,
+            "title": "Independently Verified",
+            "type": "boolean"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "market_universe": {
+            "const": "NOT_PROVIDED",
+            "default": "NOT_PROVIDED",
+            "title": "Market Universe",
+            "type": "string"
+          },
+          "query": {
+            "$ref": "#/components/schemas/FunnelQuery"
+          },
+          "query_rule_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Query Rule Hash",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "COMPLETE",
+              "DEGRADED",
+              "EMPTY"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "query",
+          "ingested_at",
+          "query_rule_hash",
+          "status",
+          "rows",
+          "candidate_ids"
+        ],
+        "title": "FunnelRun",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2524,6 +2948,233 @@
         "title": "ManualQuoteSaved",
         "type": "object"
       },
+      "ManualScreenFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "annual_diluted_eps": {
+            "anyOf": [
+              {
+                "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annual Diluted Eps"
+          },
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "currency": {
+            "const": "CNY",
+            "default": "CNY",
+            "title": "Currency",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "financial_basis": {
+            "anyOf": [
+              {
+                "const": "CALENDAR_YEAR_CONSOLIDATED_CNY",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Financial Basis"
+          },
+          "fiscal_year": {
+            "anyOf": [
+              {
+                "maximum": 2200.0,
+                "minimum": 1900.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "net_income": {
+            "anyOf": [
+              {
+                "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Income"
+          },
+          "net_income_basis": {
+            "anyOf": [
+              {
+                "const": "ATTRIBUTABLE_TO_ORDINARY_SHAREHOLDERS",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Income Basis"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "previous_close": {
+            "anyOf": [
+              {
+                "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Close"
+          },
+          "previous_close_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Close At"
+          },
+          "quote_evidence_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Evidence Id"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "revenue_current": {
+            "anyOf": [
+              {
+                "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Current"
+          },
+          "revenue_previous": {
+            "anyOf": [
+              {
+                "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Previous"
+          },
+          "same_share_basis": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Same Share Basis"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_locator": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "suspended": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suspended"
+          }
+        },
+        "required": [
+          "request_id",
+          "instrument_id",
+          "source_name",
+          "source_locator",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "expires_at"
+        ],
+        "title": "ManualScreenFacts",
+        "type": "object"
+      },
       "MarketDataCapabilities": {
         "additionalProperties": false,
         "properties": {
@@ -3000,6 +3651,78 @@
           "started_at"
         ],
         "title": "OnboardingStateResponse",
+        "type": "object"
+      },
+      "OpportunityCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "automatic_research": {
+            "const": false,
+            "default": false,
+            "title": "Automatic Research",
+            "type": "boolean"
+          },
+          "deep_research": {
+            "const": "NOT_PROVIDED",
+            "default": "NOT_PROVIDED",
+            "title": "Deep Research",
+            "type": "string"
+          },
+          "financial_basis": {
+            "const": "CALENDAR_YEAR_CONSOLIDATED_CNY",
+            "default": "CALENDAR_YEAR_CONSOLIDATED_CNY",
+            "title": "Financial Basis",
+            "type": "string"
+          },
+          "hard_candidate_limit": {
+            "const": 20,
+            "default": 20,
+            "title": "Hard Candidate Limit",
+            "type": "integer"
+          },
+          "independently_verified": {
+            "const": false,
+            "default": false,
+            "title": "Independently Verified",
+            "type": "boolean"
+          },
+          "market_universe": {
+            "const": "NOT_PROVIDED",
+            "default": "NOT_PROVIDED",
+            "title": "Market Universe",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "const": "LOCAL_EXPLICIT_LIST",
+            "default": "LOCAL_EXPLICIT_LIST",
+            "title": "Scope",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "OpportunityCapabilities",
         "type": "object"
       },
       "PolicyReviewResponse": {
@@ -3798,6 +4521,51 @@
           "model_provider_profile_id"
         ],
         "title": "RoleModelAssignmentResponse",
+        "type": "object"
+      },
+      "StageResult": {
+        "additionalProperties": false,
+        "properties": {
+          "missing_fields": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Fields",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "BASIC",
+              "FINANCIAL",
+              "GROWTH_VALUATION",
+              "TIMING",
+              "BOUND"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASSED",
+              "REJECTED",
+              "MISSING",
+              "NOT_REACHED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "status",
+          "reason"
+        ],
+        "title": "StageResult",
         "type": "object"
       },
       "SystemSettingsResponse": {
@@ -5025,6 +5793,175 @@
         "summary": "Start Onboarding",
         "tags": [
           "onboarding"
+        ]
+      }
+    },
+    "/api/v1/opportunities/capabilities": {
+      "get": {
+        "operationId": "capabilities_api_v1_opportunities_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Capabilities",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/facts": {
+      "post": {
+        "operationId": "facts_api_v1_opportunities_facts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualScreenFacts"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Facts",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/runs": {
+      "get": {
+        "operationId": "runs_api_v1_opportunities_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FunnelRun"
+                  },
+                  "title": "Response Runs Api V1 Opportunities Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Runs",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "post": {
+        "operationId": "run_api_v1_opportunities_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FunnelQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunnelRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_api_v1_opportunities_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunnelRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "opportunities"
         ]
       }
     },

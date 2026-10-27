@@ -13,9 +13,11 @@
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 自治控制面：`docs/agent/RELEASE.md` + `docs/agent/WORK_QUEUE.yaml`
-- 上次状态更新：`2026-10-27`
+- 上次状态更新：`2026-10-28`
 
 ## 已建立
+
+- MVP-402本工作分支已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；本切片真实UI / API / DB合成验证21场景通过，但整体能力PARTIAL：全市场、深研、周定时尚未提供，不代表完整402 / P8或Owner接受。记录随本PR合入Release生效，详见 `docs/agent/work-items/MVP-402.md`。
 
 - MVP-202已实现并验证只读 `/valuation` 参考估值与对账：冻结P5现金/分仓，追溯人工报价Evidence，缺价/FX阻断完整NAV；Sizing缺项可见且不生成建议数量。实现时Windows后端458/85.42%、集成45、前端53与完整浏览器21项通过；主代理独立复验32项unit/PG与3项真实浏览器通过。已安全同步PR #23后的Release，合并代码重跑486/85.94%、集成58、前端62、真实浏览器22项通过；INTEGRATED及MVP-203 READY仅随PR #24合入Release生效，最终CI/Gate由独立方核对；未完成P6或Owner验收，实际证据见 `docs/agent/work-items/MVP-202.md`。
 

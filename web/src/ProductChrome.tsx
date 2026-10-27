@@ -11,6 +11,7 @@ const navItems = [
   { href: "/acceptance", label: "产品进度与验收" },
   { href: "/market-data", label: "人工行情" },
   { href: "/valuation", label: "估值对账" },
+  { href: "/opportunities", label: "机会漏斗" },
 ] as const;
 
 export function ProductChrome({
