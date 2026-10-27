@@ -10,7 +10,11 @@ from investment_os.application.acceptance import acceptance_snapshot
 @pytest.mark.parametrize("assembled", [False, True])
 def test_acceptance_never_promotes_human_acceptance_or_unshipped_paths(assembled):
     snapshot = acceptance_snapshot(
-        portfolio=assembled, watchlist=assembled, providers=assembled, policy=assembled
+        portfolio=assembled,
+        watchlist=assembled,
+        providers=assembled,
+        policy=assembled,
+        calendar=assembled,
     )
     items = {i.key: i for i in snapshot.capabilities}
     assert snapshot.auto_trade is False and all(
@@ -18,6 +22,8 @@ def test_acceptance_never_promotes_human_acceptance_or_unshipped_paths(assembled
     )
     assert items["portfolio"].route == ("/portfolio" if assembled else None)
     assert items["portfolio"].service == ("ASSEMBLED" if assembled else "UNAVAILABLE")
+    assert items["calendar"].route == ("/calendar" if assembled else None)
+    assert items["calendar"].human_acceptance == "PENDING"
     for key in ("analysis", "decisions"):
         assert items[key].engineering == "NOT_IMPLEMENTED" and items[key].route is None
     assert items["runtime"].integration == "BASELINE_ONLY" and items["runtime"].route is None

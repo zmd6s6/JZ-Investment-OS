@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { SettingsPage } from "./SettingsPage";
 import { AcceptancePage } from "./AcceptancePage";
+import { CalendarPage } from "./CalendarPage";
 import { MarketDataPage } from "./MarketDataPage";
 import { OpportunitiesPage } from "./OpportunitiesPage";
 import { PortfolioPage } from "./PortfolioPage";
@@ -231,6 +232,7 @@ function HomePage() {
 
 export function App() {
   const path = window.location.pathname;
+  if (path === "/calendar") return <CalendarPage />;
   if (path === "/acceptance") return <AcceptancePage />;
   if (path === "/opportunities") return <OpportunitiesPage />;
   if (path === "/market-data") return <MarketDataPage />;

@@ -15,14 +15,15 @@
 
 | Capability | Route | Current truth | Human acceptance |
 |---|---|---|---|
-| Portfolio / CSV import | `/portfolio` | ACCEPTANCE_READY — MVP-101已验证手工 / 分仓 / 现金 / CSV预览及冲突 / 对账 / 刷新；集成记录随PR #21合入Release生效 | PENDING |
-| Watchlist | `/watchlist` | ACCEPTANCE_READY — MVP-101已验证目录搜索 / 幂等添加 / 刷新 / 删除 / 四项缺失状态；集成记录随PR #21合入Release生效 | PENDING |
+| Portfolio / CSV import | `/portfolio` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；手工 / 分仓 / 现金 / CSV预览及冲突 / 对账 / 刷新已有隔离可见验证 | PENDING |
+| Watchlist | `/watchlist` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；目录搜索 / 幂等添加 / 刷新 / 删除 / 四项缺失状态已有验证 | PENDING |
 | Investment Policy review | `/#policy` | ACCEPTANCE_READY — MVP-101已核对实际API版本与无写入审阅；真实参数仍由Owner治理 | PENDING |
-| Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000集成记录随PR合入Release生效；构建交付清单不是实时健康检测 | PENDING |
-| 人工行情与币种边界 | `/market-data` | INTEGRATED — MVP-201记录随PR #22合入Release生效；人工未核实、CNY限定，非完整分析 | PENDING |
+| Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000已由PR #20合入Release；构建交付清单不是实时健康检测 | PENDING |
+| 人工行情与币种边界 | `/market-data` | INTEGRATED — MVP-201已由PR #22合入Release；人工未核实、CNY限定，非完整分析 | PENDING |
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
-| Daily Runtime | product UI | ENGINEERING baseline only; product calendar/runtime pending MVP-401 | PENDING |
+| Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
+| 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | MVP-401=INTEGRATED / ACCEPTANCE_READY，此记录随PR #23通过最终独立Gate合入Release生效。91801d0已获独立28项SQL / 1项恢复浏览器复验；仅STATUS_ONLY，不含团队分析或完整Daily Runtime | PENDING |
 | Opportunities | `/opportunities` | PARTIAL — 本地范围 / 人工年报 / 确定性漏斗随本PR集成；全市场 / 深研 / 周定时未提供 | PENDING |
 
 ## Checkpoint A 验收步骤
@@ -38,7 +39,7 @@
 
 ### Portfolio / Watchlist
 
-MVP-101于2026-10-27在独立合成API / DB完成可见路径复验，修复CSV迟到预览、旧冲突选择以及确认结果的跨组合展示；现金竞态复修后前端34/34、Chrome15/15通过；主代理独立复验现金/预览/反馈16/16、本项真实浏览器7/7。此集成记录随PR #21合入Release生效，最终Gate仍由独立复验方判定。
+MVP-101于2026-10-27在独立合成API / DB完成可见路径复验，修复CSV迟到预览、旧冲突选择以及确认结果的跨组合展示；现金竞态复修后前端34/34、Chrome15/15通过；主代理独立复验现金/预览/反馈16/16、本项真实浏览器7/7。PR #21已通过独立Gate并合入Release。
 这不是所有者本人接受，不改变PRODUCT-05 IN_PROGRESS或Checkpoint A PENDING。证据、输入与明确限制见 `docs/agent/work-items/MVP-101.md`。
 CSV请求处理中切换组合或改动内容后，迟到预览不能恢复确认；内容变化后须重新预览并选择冲突方式。
 已发出的确认仍写入原组合；切换后的页面不会把原组合对账当成本组合结果，回到原组合可查导入历史。
@@ -58,15 +59,26 @@ CSV请求处理中切换组合或改动内容后，迟到预览不能恢复确�
 
 ## 规则
 
+### 日历状态报告验收路径（MVP-401）
+
+设置 → 配置市场日历与查看运行记录 → 选择市场 / 填来源与版本 → 上传或粘贴CSV → 确认来源 → 预览UTC时段 → 明确导入。
+新版本显示暂停；勾选「仅状态报告」后启用，在到期时段观察真实Worker记录与来源摘要，刷新仍保留，再暂停。
+失败路径：重复日期 / 部分错误整批拒绝且保留输入；读取失败禁止保存 / 启停并显示未知，可只读刷新恢复。
+无Worker或无到期会话时没有报告不表示健康；本路径不含团队研究、费用授权、投资建议或交易。
+详细命令、独立栈与迁移恢复证据见 `docs/agent/work-items/MVP-401.md`。尚未操作所有者实例，所有者验收PENDING。
+证据归属：c0ad765旧头独立日历四文件25/25、普通浏览器2/2仅限旧实现；恢复与双交错修复后的91801d0由root独立复跑四文件28/28（8.75秒）及原样真实API / DB / Worker恢复浏览器1/1（15.7秒），源码无新增blocker。
+91801d0的Linux六CI全绿，完整454 / 85.50%、集成51；这是该精确提交的工程证据，不代替后续提交的最终合入门禁。MVP-401集成记录随PR #23合入Release生效，Owner=PENDING、完整PRODUCT-08=PLANNED。
+
 任何业务 Work Item PR 都必须更新本文件或产品 `/acceptance` 页面对应能力的真实状态。不得把 API 存在、单测通过或静态 UI 等同于用户可用。
 
 ## 人工行情与币种边界（MVP-201，Checkpoint B的输入切片）
 
-本工作分支已完成隔离合成环境UI / API / DB接线验证，随本PR合入Release才生效；Owner部署与人工验收PENDING。
+MVP-201已完成隔离合成环境UI / API / DB接线验证，并由PR #22合入Release；Owner部署与人工验收PENDING。
 进入 `/settings` →「记录人工行情／查看单币种与FX边界」或 `/market-data`；先登记标的，再搜索、填来源 / 出处 / 精确价格及四个业务时间，明确保存后读取。
 应看到Evidence、hash、UTC来源时间；刷新后再次读取仍存在。错误应保留输入，过期 / 缺价 / 未来资料不显示价格；切换USD估值应显示缺FX并阻止。
 人工资料始终未经独立核实、非交易级；不自动调用模型 / 网页或产生订单。工程 / 浏览器证据与限制见 `docs/agent/work-items/MVP-201.md`。
 完整分析、FX、全市场行情、波动率 / 流动性及Sizing不在本切片交付中，不能因此接受整个P6或Checkpoint。
+
 
 ## 有限范围机会漏斗（MVP-402，PARTIAL）
 

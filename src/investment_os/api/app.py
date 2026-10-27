@@ -14,6 +14,7 @@ from pydantic import AwareDatetime
 from sqlalchemy import select
 
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
+from investment_os.application.calendar_product import CalendarProductService
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
@@ -348,6 +349,7 @@ def create_app(
     watchlist_service: WatchlistService | None = None,
     portfolio_csv_service: PortfolioCsvImportService | None = None,
     write_api_token: str | None = None,
+    calendar_product_service: CalendarProductService | None = None,
     market_data_service: MarketDataService | None = None,
     opportunity_service: OpportunityService | None = None,
 ) -> FastAPI:
@@ -438,6 +440,9 @@ def create_app(
         write_api_token if write_api_token is not None else settings.api_write_token
     )
     application.add_middleware(WriteApiAuthMiddleware, token=selected_write_token)
+    from investment_os.api.calendar_routes import create_calendar_router
+
+    application.include_router(create_calendar_router(calendar_product_service))
 
     application.include_router(market_router(market_data_service))
     application.include_router(opportunity_router(opportunity_service))
@@ -540,6 +545,7 @@ def create_app(
             watchlist=selected_watchlist_service is not None,
             providers=selected_provider_settings_service is not None,
             policy=True,
+            calendar=calendar_product_service is not None,
             market_data=market_data_service is not None,
             opportunities=opportunity_service is not None,
         )
@@ -1448,6 +1454,10 @@ def create_app(
 
         @application.get("/portfolio", include_in_schema=False)
         async def portfolio_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/calendar", include_in_schema=False)
+        async def calendar_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
         @application.get("/acceptance", include_in_schema=False)

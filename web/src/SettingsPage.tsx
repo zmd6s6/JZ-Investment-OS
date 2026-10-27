@@ -384,6 +384,12 @@ export function SettingsPage() {
       <p><a className="btn" href="/opportunities">有限范围机会漏斗</a> 手选本地研究范围、补录有来源年报事实后确定性筛选；全市场和深研尚未提供，不产生交易建议。</p>
       <p><a className="btn" href="/market-data">记录人工行情／查看单币种与FX边界</a> 无网络源凭据也可记录自己有权使用的结构化参考价；不是新闻检索、自动行情或完整分析。</p>
 
+      <section className="settings-card" aria-labelledby="calendar-settings-title">
+        <h2 id="calendar-settings-title">市场日历与无付费运行</h2>
+        <p>通过页面导入有来源的明确交易时段，默认暂停；单独确认后只生成日历状态报告，不运行团队研究、模型或交易。</p>
+        <a className="btn" href="/calendar">配置市场日历与查看运行记录</a>
+      </section>
+
       <section className="settings-card" aria-labelledby="system-settings-title">
         <h2 id="system-settings-title">系统范围</h2>
         <form className="settings-form compact-form" onSubmit={(event) => void saveSystem(event)}>

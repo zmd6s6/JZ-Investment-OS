@@ -1,0 +1,8 @@
+.calendar-fields { display: grid; gap: 14px; }
+.calendar-fields label { display: grid; gap: 7px; }
+.calendar-fields input, .calendar-fields select, .calendar-fields textarea { min-width: 0; max-width: 100%; }
+.calendar-check { display: flex !important; align-items: flex-start; gap: 10px; margin-block: 14px; line-height: 1.6; }
+.calendar-check > input { flex: 0 0 auto; margin-top: 5px; }
+.calendar-check > span { min-width: 0; overflow-wrap: anywhere; }
+.calendar-config { margin-block: 14px; overflow-wrap: anywhere; }
+.calendar-preview { margin-top: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; }
