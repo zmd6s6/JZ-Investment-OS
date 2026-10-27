@@ -127,7 +127,8 @@ work_items:
   - id: MVP-401
     title: Product calendar source and autonomous worker runtime
     priority: 1
-    status: REVIEW
+    status: INTEGRATED
+    # 此状态仅随PR #23通过最终独立Gate并合入Release生效，不代表完整P8或Checkpoint人工接受。
     claim_branch: agent/MVP-401
     claim_owner: mvp401_calendar_runtime
     stage: PRODUCT-08
