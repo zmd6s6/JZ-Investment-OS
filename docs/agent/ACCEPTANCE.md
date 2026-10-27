@@ -19,6 +19,7 @@
 | Watchlist | `/watchlist` | ACCEPTANCE_READY — MVP-101已验证目录搜索 / 幂等添加 / 刷新 / 删除 / 四项缺失状态；集成记录随PR #21合入Release生效 | PENDING |
 | Investment Policy review | `/#policy` | ACCEPTANCE_READY — MVP-101已核对实际API版本与无写入审阅；真实参数仍由Owner治理 | PENDING |
 | Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000集成记录随PR合入Release生效；构建交付清单不是实时健康检测 | PENDING |
+| 人工行情与币种边界 | `/market-data` | INTEGRATED — MVP-201记录随PR #22合入Release生效；人工未核实、CNY限定，非完整分析 | PENDING |
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
 | Daily Runtime | product UI | ENGINEERING baseline only; product calendar/runtime pending MVP-401 | PENDING |

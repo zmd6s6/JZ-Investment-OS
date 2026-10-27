@@ -53,7 +53,8 @@ work_items:
   - id: MVP-201
     title: Structured market data and FX boundary
     priority: 1
-    status: REVIEW
+    status: INTEGRATED
+    # 仅随MVP-201 PR #22合入Release生效，不代表P6或Checkpoint人工接受。
     claim_branch: agent/MVP-201
     claim_owner: pr-02-review-and-next-stage-monitor
     stage: PRODUCT-06
@@ -70,7 +71,8 @@ work_items:
   - id: MVP-202
     title: Deterministic portfolio valuation and sizing context
     priority: 1
-    status: BLOCKED
+    status: READY
+    # 仅随MVP-201 PR #22合入Release生效，不代表P6或Checkpoint人工接受。
     stage: PRODUCT-06
     checkpoint: B
     depends_on:
@@ -144,7 +146,8 @@ work_items:
   - id: MVP-402
     title: Deterministic opportunity funnel and Opportunities UI
     priority: 2
-    status: BLOCKED
+    status: READY
+    # 仅随MVP-201 PR #22合入Release生效，不代表P6或Checkpoint人工接受。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:
