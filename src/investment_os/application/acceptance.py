@@ -39,6 +39,7 @@ def acceptance_snapshot(
     policy: bool,
     calendar: bool = False,
     market_data: bool = False,
+    valuation: bool = False,
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
 
@@ -53,8 +54,22 @@ def acceptance_snapshot(
         "acceptance": True,
         "calendar": calendar,
         "market_data": market_data,
+        "valuation": valuation,
     }
     shipped = (
+        (
+            "valuation",
+            "参考估值与持仓对账",
+            "MVP-202",
+            "/valuation",
+            "只读冻结现金和分仓并计算参考NAV/权重/暴露; 人工行情非交易级, 不是完整Sizing或分析。",
+            (
+                "先登记持仓和现金, 在人工行情记录同一明确来源的有效人民币报价。",
+                "选择组合并输入准确来源名称, 读取估值, 核对分仓和来源Evidence。",
+                "检查政策/历史波动率/流动性等缺口; 参考NAV不能授权投资行为。",
+            ),
+            "缺一笔有效价不给完整NAV或任何组合权重; 缺FX整组失败关闭; 无效输入保留并提示重试。",
+        ),
         (
             "market_data",
             "人工行情与币种边界",

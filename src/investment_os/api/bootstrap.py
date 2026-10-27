@@ -10,6 +10,7 @@ from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.portfolio_book import PortfolioBookService
+from investment_os.application.portfolio_valuation import PortfolioValuationService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.application.research_runtime import (
     DataProviderRuntimeRegistry,
@@ -33,6 +34,7 @@ from investment_os.infrastructure.onboarding import (
     SqlAlchemyOnboardingStore,
 )
 from investment_os.infrastructure.openai_compatible_llm import OpenAICompatibleLLMGateway
+from investment_os.infrastructure.portfolio_valuation import SqlValuationInputs
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
 from investment_os.infrastructure.settings import get_settings
@@ -85,6 +87,9 @@ def create_production_app() -> FastAPI:
     return create_app(
         calendar_product_service=CalendarProductService(SqlCalendarProduct(session_factory)),
         market_data_service=market_data,
+        valuation_service=PortfolioValuationService(
+            SqlValuationInputs(session_factory), market_data
+        ),
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
         model_connection_tester=model_gateway,
