@@ -164,3 +164,12 @@
 修复以现金草稿dirty/revision保护未提交输入；显式切换组合载入对应现金；现金响应只在目标组合与输入版本都相同时显示成功/失败和清除dirty，迟到成功仍刷新实际列表。新增6项具名测试：旧持仓刷新后的现金成功/失败修前2 FAIL；新草稿/切组合×现金成功/失败的提示归属修前4 FAIL。修后全量前端34/34，build通过；新增真实API/DB/UI可控迟到刷新用例，确认PUT请求体9000.50、数据库9000.5及刷新后持久化；完整Chrome套件15/15（18.1秒，无跳过）。原9000.5断言未改变，没有固定延时或放宽断言。输出 `.runtime/mvp101-cash-final-browser-20261027`。
 
 独立Gate反馈 https://github.com/zmd6s6/JZ-Investment-OS/pull/21#issuecomment-6431848403 状态为 `fixed-awaiting-review`，不是resolved或独立Gate通过。Owner Decision=NONE；Owner验收PENDING，PRODUCT-05仍IN_PROGRESS。此轮仅页面/前端测试与证据变更，后端394/集成31为前提交实测，本轮不冒称重新运行；以新HEAD远程CI补充核验。
+
+
+## 集成前台账（2026-10-27）
+
+代码提交 `308d99c867a30614d29c2bd1a1f7f1feedf04fc8` 已由主代理独立重跑现金/预览/反馈16/16、本项真实API/DB/UI浏览器7/7（18.7秒），包括原9000.5断言和可控迟到刷新；源码复核未报告新增阻塞。此为复验结果转录，不由实现者宣布独立Gate通过。该代码PR CI https://github.com/zmd6s6/JZ-Investment-OS/actions/runs/40456865749 已SUCCESS。
+
+本次提交仅同步MVP-101集成台账；队列INTEGRATED及ACCEPTANCE_READY集成描述均随PR #21合入Release生效，不能代表已合并或Owner接受。Owner PENDING / PRODUCT-05 IN_PROGRESS保留；评论6431848403在独立方核对最终HEAD并确认前仍为fixed-awaiting-review。最终CI、Gate与合并由PR记录核对，未修改真实政策、未部署Owner实例。
+
+恢复入口：PR https://github.com/zmd6s6/JZ-Investment-OS/pull/21 ，独占分支agent/MVP-101；先核对 `git status` / `gh pr view 21` / 当前HEAD CI。18109与15437合成栈保留，未重置或停止Owner服务。下一步仅处理当前HEAD CI或可执行Review；独立Gatekeeper决定是否合入release/mvp-beta，实现者不自行合并。
