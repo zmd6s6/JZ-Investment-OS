@@ -67,6 +67,15 @@
 
 ## 实施记录
 
+- 2026-10-27（MVP-101可见验收收口，工作分支REVIEW）：
+  - 基于已合入PR #17的当前Release，复验手工持仓、Core / Tactical独立均价与理由、现金、CSV无效行 / 显式冲突策略 / 写前不变 / 确认对账 / 刷新历史，目录搜索 / Watchlist幂等与删除、四项缺失研究状态和实际Policy只读审阅。
+  - 真实浏览器发现A组合迟到预览会在B恢复确认；修前4项前端安全回归失败，真实API / DB用例也失败。按目标组合与请求代际校验，切组合 / 改CSV / 填示例撤销旧预览，新预览须重新选冲突策略；迟到成功或错误不再污染当前编辑。
+  - 聚焦复核确认：确认请求始终写原组合A，但迟到结果曾在B展示A对账或错误。新增两项修前失败测试后仅隔离过期展示；原组合实际写入与审计不变，回到A可读历史，确认期间新填写的CSV不被旧结果清空。不是修复“写错B”。
+  - 组合 / 持仓 / 现金的已知输入错误提供中文修正提示并保留输入；未改API / Schema / 数据库 / 鉴权 / 并发锁 / CAS / 领域规则。
+  - 本轮实际：完整后端394 passed / 85.15%（67.32秒），独立集成31 passed，domain行98.06% / 分支88.04%；前端最终28/28、生产构建通过；空的独立浏览器库Chrome五文件14/14（21.1秒），只用15437 / 18109命名合成栈，无真实来源 / 模型调用。
+  - Ruff格式237文件 / 检查、mypy84源文件、OpenAPI / Policy Schema、Compose config、diff、pip-audit无已知漏洞、npm audit0通过；292文件标准密钥检查无新增，仓库原基线不变。详细命令 / 失败修复 / 可见入口见 `docs/agent/work-items/MVP-101.md`。
+  - 所有者部署 / 数据 / 凭据 / 会话未操作，Owner GUI与Checkpoint接受NOT VERIFIED；状态保持IN_PROGRESS，未代替Owner宣称ACCEPTED。
+
 - 2026-09-29：首个纵切已实现 **Instrument 目录 + Portfolio 手工持仓 + Watchlist 写路径**（应用/领域/SQL/API）。
   - 领域：`InstrumentIdentity` 规范化 market/symbol/currency/name/asset_type/sector。
   - 应用：`InstrumentCatalogService`、`PortfolioBookService`（base currency/现金/Core+Tactical/平均成本）、

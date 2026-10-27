@@ -33,7 +33,9 @@ work_items:
   - id: MVP-101
     title: P5 visible acceptance closeout
     priority: 0
-    status: READY
+    status: REVIEW
+    claim_branch: agent/MVP-101
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp101_visible_acceptance
     stage: PRODUCT-05
     checkpoint: A
     depends_on: []

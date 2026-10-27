@@ -72,6 +72,11 @@ function guessMarket(symbol: string) {
   return "";
 }
 
+function portfolioInputError(reason: unknown, hint: string) {
+  if (reason instanceof Error && reason.message !== "PORTFOLIO_WRITE_INVALID") return reason.message;
+  return hint;
+}
+
 const emptyManual = {
   market: "",
   symbol: "",
@@ -137,12 +142,14 @@ export function PortfolioPage() {
   const listSeqRef = useRef(0);
   const selectedIdRef = useRef("");
   const intentIdRef = useRef("");
+  const previewSeqRef = useRef(0);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
   const persistSelection = useCallback((id: string) => {
+    ++previewSeqRef.current;
     selectedIdRef.current = id;
     intentIdRef.current = id;
     setSelectedId(id);
@@ -248,7 +255,7 @@ export function PortfolioPage() {
       setCashEdit(String(created.cash_balance));
       await refreshList(created.portfolio_id);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "创建组合失败");
+      setError(portfolioInputError(reason, "组合输入无效，请检查名称、记账币种与现金；现金不能为负数。输入已保留。"));
     } finally {
       setBusy(false);
     }
@@ -291,7 +298,7 @@ export function PortfolioPage() {
       }));
       await refreshList(selected.portfolio_id);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "持仓写入失败");
+      setError(portfolioInputError(reason, "持仓输入无效，请检查市场、代码、名称、数量与均价；数量和均价不能为负数。输入已保留。"));
     } finally {
       setBusy(false);
     }
@@ -299,18 +306,26 @@ export function PortfolioPage() {
 
   async function previewCsv() {
     if (!selected) return;
+    const request = ++previewSeqRef.current;
+    const portfolioId = selected.portfolio_id;
     setBusy(true);
     setError(null);
+    setMessage(null);
+    setPreview(null);
+    setConflictPolicy("");
     try {
-      const response = await apiFetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/preview`, {
+      const response = await apiFetch(`/api/v1/portfolios/${portfolioId}/csv/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ csv_text: csvText }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
-      setPreview((await response.json()) as CsvPreview);
+      const result = (await response.json()) as CsvPreview;
+      if (request !== previewSeqRef.current || selectedIdRef.current !== portfolioId) return;
+      setPreview(result);
       setMessage("预览完成。与现有持仓冲突时，必须显式选择处理方式后才能导入。");
     } catch (reason) {
+      if (request !== previewSeqRef.current || selectedIdRef.current !== portfolioId) return;
       setError(reason instanceof Error ? reason.message : "CSV 预览失败");
       setPreview(null);
     } finally {
@@ -320,10 +335,13 @@ export function PortfolioPage() {
 
   async function confirmCsv() {
     if (!selected) return;
+    const portfolioId = selected.portfolio_id;
+    const inputRevision = previewSeqRef.current;
     setBusy(true);
     setError(null);
+    setMessage(null);
     try {
-      const response = await apiFetch(`/api/v1/portfolios/${selected.portfolio_id}/csv/confirm`, {
+      const response = await apiFetch(`/api/v1/portfolios/${portfolioId}/csv/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -335,14 +353,20 @@ export function PortfolioPage() {
       });
       if (!response.ok) throw new Error(await readApiError(response));
       const result = (await response.json()) as NonNullable<typeof importReport>;
+      // The write still belongs to its original portfolio; only its UI result is stale.
+      if (selectedIdRef.current !== portfolioId || inputRevision !== previewSeqRef.current) {
+        await refreshList();
+        return;
+      }
       setImportReport(result);
       setMessage(
         `已导入 ${result.imported_count} 笔，跳过 ${result.skipped_count} 笔。下方可查看逐行对账。`,
       );
       setPreview(null);
       setCsvText("");
-      await refreshList(selected.portfolio_id);
+      await refreshList(portfolioId);
     } catch (reason) {
+      if (selectedIdRef.current !== portfolioId || inputRevision !== previewSeqRef.current) return;
       setError(reason instanceof Error ? reason.message : "导入失败");
     } finally {
       setBusy(false);
@@ -398,6 +422,8 @@ export function PortfolioPage() {
                     className={item.portfolio_id === selected?.portfolio_id ? "selected" : ""}
                     onClick={() => {
                       persistSelection(item.portfolio_id);
+                      setMessage(null);
+                      setError(null);
                       setPreview(null);
                       setImportReport(null);
                       setConflictPolicy("");
@@ -463,7 +489,7 @@ export function PortfolioPage() {
                   setMessage("现金已更新");
                   await refreshList(selected.portfolio_id);
                 } catch (reason) {
-                  setError(reason instanceof Error ? reason.message : "现金更新失败");
+                  setError(portfolioInputError(reason, "现金输入无效，请填写非负数值；输入已保留。"));
                 } finally {
                   setBusy(false);
                 }
@@ -651,11 +677,20 @@ export function PortfolioPage() {
         title="批量导入 CSV"
         description="先预览、再确认。有错行会拦住，不会导一半。"
         actions={
-          <button type="button" className="btn ghost" onClick={() => setCsvText(csvSample)}>
+          <button type="button" className="btn ghost" onClick={() => {
+            ++previewSeqRef.current;
+            setCsvText(csvSample);
+            setPreview(null);
+            setConflictPolicy("");
+            setMessage(null);
+          }}>
             填入示例
           </button>
         }
       >
+        <p className="hint-text">
+          切换组合或修改 CSV 后需要重新预览。已发出的确认仍作用于原组合；若等待期间切换或编辑，请回原组合刷新导入历史核对结果。
+        </p>
         <p className="hint-text">
           第一行须为表头：市场、代码、名称、类型、币种、行业、核心仓、短线仓、均价（英文字段名见示例）。
         </p>
@@ -663,8 +698,10 @@ export function PortfolioPage() {
           className="csv-input"
           value={csvText}
           onChange={(e) => {
+            ++previewSeqRef.current;
             setCsvText(e.target.value);
             setPreview(null);
+            setConflictPolicy("");
             setMessage(null);
           }}
           rows={6}
