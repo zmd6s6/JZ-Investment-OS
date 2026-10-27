@@ -331,7 +331,7 @@ async def test_different_calendar_versions_concurrent_have_at_most_one_success(
     sessions, service = setup(database_engine)
     active = await enable(service, await service.import_calendar(command()))
     original = ReliableJobExecutor.execute
-    planned, proceed = asyncio.Event(), asyncio.Event()
+    planned, proceed, old_finished = asyncio.Event(), asyncio.Event(), asyncio.Event()
     first_call = True
 
     async def block_first_plan(executor, **kwargs):
@@ -340,6 +340,11 @@ async def test_different_calendar_versions_concurrent_have_at_most_one_success(
             first_call = False
             planned.set()
             await proceed.wait()
+            try:
+                return await original(executor, **kwargs)
+            finally:
+                old_finished.set()
+        await old_finished.wait()
         return await original(executor, **kwargs)
 
     monkeypatch.setattr(ReliableJobExecutor, "execute", block_first_plan)
@@ -357,6 +362,49 @@ async def test_different_calendar_versions_concurrent_have_at_most_one_success(
     assert len([r for r in runs if r.status == "FAILED"]) == 1
     completed = [r for r in runs if r.status == "SUCCEEDED"]
     assert len(completed) == 1 and completed[0].report.source_version == "parallel-B"
+
+
+async def test_corrected_b_success_before_late_a_rolls_back_a_without_an_empty_success(
+    database_engine, monkeypatch
+):
+    sessions, service = setup(database_engine)
+    active = await enable(service, await service.import_calendar(command()))
+    original = ReliableJobExecutor.execute
+    planned, release_old = asyncio.Event(), asyncio.Event()
+    first_call = True
+
+    async def hold_old_until_b_completed(executor, **kwargs):
+        nonlocal first_call
+        if first_call:
+            first_call = False
+            planned.set()
+            await release_old.wait()
+        return await original(executor, **kwargs)
+
+    monkeypatch.setattr(ReliableJobExecutor, "execute", hold_old_until_b_completed)
+    runner = PersistedCalendarStatusRunner(sessions)
+    now = datetime(2026, 10, 24, tzinfo=UTC)
+    old_worker = asyncio.create_task(runner.dispatch_due(now=now))
+    await asyncio.wait_for(planned.wait(), timeout=5)
+    revised = await service.import_calendar(command(version=active.version, source="first-B"))
+    await enable(service, revised)
+    completed = await runner.dispatch_due(now=now)
+    assert len(completed) == 1
+    release_old.set()
+    assert await old_worker == ()
+    runs = (await service.overview()).recent_runs
+    assert len(runs) == 1 and runs[0].status == "SUCCEEDED"
+    assert runs[0].report.source_version == "first-B"
+    async with sessions() as session:
+        assert await session.scalar(select(func.count()).select_from(TaskRunRecord)) == 1
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(EventLogRecord)
+                .where(EventLogRecord.event_type == REPORT_EVENT)
+            )
+            == 1
+        )
 
 
 async def test_same_calendar_noop_does_not_disable_existing_config_or_create_history(

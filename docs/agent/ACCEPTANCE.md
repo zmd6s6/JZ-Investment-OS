@@ -23,7 +23,7 @@
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
-| 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | ACCEPTANCE_READY — 工程、真实API / DB / Worker / UI隔离闭环与独立具名复验通过；集成记录仅随PR #23通过最终Gate合入Release生效；不含团队分析，不代表完整Daily Runtime | PENDING |
+| 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | 工程与隔离闭环已验证；c0ad765旧头独立25项SQL / 2项浏览器通过仅限该旧头。恢复修复后新HEAD待Linux CI与独立复验，尚未最终Gate；ACCEPTANCE_READY / 集成记录仅随PR #23通过最终Gate合入Release生效；不含团队分析或完整Daily Runtime | PENDING |
 | Opportunities | `/opportunities` | NOT_IMPLEMENTED — MVP-402 | PENDING |
 
 ## Checkpoint A 验收步骤
