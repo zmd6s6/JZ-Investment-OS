@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
+from investment_os.application.analysis_choices import AnalysisChoicesService
+from investment_os.application.analysis_configuration import AnalysisStartService
 from investment_os.application.calendar_product import CalendarProductService
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetService
@@ -18,6 +20,8 @@ from investment_os.application.research_runtime import (
     ResearchProviderRuntime,
 )
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
+from investment_os.infrastructure.analysis_choices import SqlAnalysisChoices
+from investment_os.infrastructure.analysis_runs import SqlAnalysisRuns
 from investment_os.infrastructure.bocha.adapter import (
     BochaWebSearchConnectionTester,
 )
@@ -93,13 +97,24 @@ def create_production_app() -> FastAPI:
         market_data,
         funnel_store,
     )
+    valuation = PortfolioValuationService(SqlValuationInputs(session_factory), market_data)
+    analysis_store = SqlAnalysisRuns(session_factory)
     return create_app(
+        analysis_start=AnalysisStartService(
+            analysis_store,
+            valuation,
+            provider_settings_service,
+            budget_service,
+            InstrumentCatalogService(catalog),
+        ),
+        analysis_store=analysis_store,
+        analysis_choices=AnalysisChoicesService(
+            SqlAnalysisChoices(session_factory), provider_settings_service, budget_service
+        ),
         opportunity_service=opportunities,
         calendar_product_service=CalendarProductService(SqlCalendarProduct(session_factory)),
         market_data_service=market_data,
-        valuation_service=PortfolioValuationService(
-            SqlValuationInputs(session_factory), market_data
-        ),
+        valuation_service=valuation,
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
         model_connection_tester=model_gateway,

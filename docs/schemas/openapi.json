@@ -42,6 +42,820 @@
         "title": "AcceptanceSnapshot",
         "type": "object"
       },
+      "Action": {
+        "enum": [
+          "WATCH",
+          "BUY",
+          "ADD",
+          "HOLD",
+          "REDUCE",
+          "EXIT",
+          "AVOID"
+        ],
+        "title": "Action",
+        "type": "string"
+      },
+      "AgentRole": {
+        "enum": [
+          "MACRO",
+          "INDUSTRY",
+          "FUNDAMENTAL",
+          "MARKET_QUANT",
+          "EVENT",
+          "PORTFOLIO",
+          "PORTFOLIO",
+          "RISK",
+          "RISK",
+          "DEVILS_ADVOCATE",
+          "CIO",
+          "REVIEW",
+          "REVIEW"
+        ],
+        "title": "AgentRole",
+        "type": "string"
+      },
+      "AnalysisChoices": {
+        "additionalProperties": false,
+        "properties": {
+          "budget_configured": {
+            "title": "Budget Configured",
+            "type": "boolean"
+          },
+          "budget_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Version"
+          },
+          "data_profiles": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisProfileChoice"
+            },
+            "title": "Data Profiles",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisEvidenceChoice"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "max_model_calls": {
+            "default": 42,
+            "title": "Max Model Calls",
+            "type": "integer"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisProfileChoice"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "remaining_cost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Cost"
+          },
+          "remaining_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Tokens"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "models",
+          "data_profiles",
+          "evidence",
+          "budget_configured",
+          "budget_version",
+          "remaining_tokens",
+          "remaining_cost"
+        ],
+        "title": "AnalysisChoices",
+        "type": "object"
+      },
+      "AnalysisEvidenceChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "freshness": {
+            "title": "Freshness",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "source_name",
+          "source_locator",
+          "observed_at",
+          "expires_at",
+          "freshness",
+          "excerpt"
+        ],
+        "title": "AnalysisEvidenceChoice",
+        "type": "object"
+      },
+      "AnalysisEvidenceInput": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "freshness": {
+            "title": "Freshness",
+            "type": "string"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "instrument_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument Id"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "payload_json": {
+            "title": "Payload Json",
+            "type": "string"
+          },
+          "quality_score": {
+            "title": "Quality Score",
+            "type": "string"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_tier": {
+            "title": "Source Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "instrument_id",
+          "content_hash",
+          "source_name",
+          "source_locator",
+          "source_tier",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "ingested_at",
+          "expires_at",
+          "quality_score",
+          "freshness",
+          "payload_json"
+        ],
+        "title": "AnalysisEvidenceInput",
+        "type": "object"
+      },
+      "AnalysisFrozenInput": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "blockers": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisEvidenceInput"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "feature_set_version": {
+            "const": "evidence-count-v1",
+            "default": "evidence-count-v1",
+            "title": "Feature Set Version",
+            "type": "string"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "prompt_bundle_version": {
+            "const": "analysis-runtime-v1",
+            "default": "analysis-runtime-v1",
+            "title": "Prompt Bundle Version",
+            "type": "string"
+          },
+          "queued": {
+            "$ref": "#/components/schemas/AnalysisQueuedInput"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "thesis_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Json"
+          },
+          "thesis_state": {
+            "title": "Thesis State",
+            "type": "string"
+          },
+          "thesis_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Version Id"
+          }
+        },
+        "required": [
+          "run_id",
+          "as_of",
+          "instrument_id",
+          "queued",
+          "evidence",
+          "thesis_version_id",
+          "thesis_state",
+          "thesis_json",
+          "input_hash"
+        ],
+        "title": "AnalysisFrozenInput",
+        "type": "object"
+      },
+      "AnalysisProfileChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pricing_configured": {
+            "default": false,
+            "title": "Pricing Configured",
+            "type": "boolean"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "kind"
+        ],
+        "title": "AnalysisProfileChoice",
+        "type": "object"
+      },
+      "AnalysisQueuedInput": {
+        "additionalProperties": false,
+        "properties": {
+          "budget_hash": {
+            "title": "Budget Hash",
+            "type": "string"
+          },
+          "command": {
+            "$ref": "#/components/schemas/AnalysisStart"
+          },
+          "data_profiles": {
+            "items": {
+              "$ref": "#/components/schemas/SelectedData"
+            },
+            "title": "Data Profiles",
+            "type": "array"
+          },
+          "models": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SelectedModel"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/AgentRole"
+            },
+            "title": "Models",
+            "type": "object"
+          },
+          "queued_at": {
+            "format": "date-time",
+            "title": "Queued At",
+            "type": "string"
+          },
+          "valuation": {
+            "$ref": "#/components/schemas/ValuationContext"
+          }
+        },
+        "required": [
+          "command",
+          "queued_at",
+          "valuation",
+          "models",
+          "data_profiles",
+          "budget_hash"
+        ],
+        "title": "AnalysisQueuedInput",
+        "type": "object"
+      },
+      "AnalysisRunView": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel_requested": {
+            "title": "Cancel Requested",
+            "type": "boolean"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "frozen_input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisFrozenInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Hash"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "policy_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version Id"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "queued_at": {
+            "format": "date-time",
+            "title": "Queued At",
+            "type": "string"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisStart"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_hash": {
+            "title": "Request Hash",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "retry_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "shadow_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShadowDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AnalysisStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "request_id",
+          "portfolio_id",
+          "instrument_id",
+          "status",
+          "queued_at",
+          "started_at",
+          "finished_at",
+          "cancel_requested",
+          "retry_of",
+          "error_code",
+          "request_hash",
+          "input_hash",
+          "policy_version_id"
+        ],
+        "title": "AnalysisRunView",
+        "type": "object"
+      },
+      "AnalysisStart": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_data_calls": {
+            "default": false,
+            "title": "Allow Data Calls",
+            "type": "boolean"
+          },
+          "allow_model_calls": {
+            "const": true,
+            "title": "Allow Model Calls",
+            "type": "boolean"
+          },
+          "data_profile_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Data Profile Ids",
+            "type": "array"
+          },
+          "evidence_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "market_source": {
+            "const": "MANUAL_MARKET",
+            "default": "MANUAL_MARKET",
+            "title": "Market Source",
+            "type": "string"
+          },
+          "market_source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Market Source Name",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "model_profiles": {
+            "additionalProperties": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/AgentRole"
+            },
+            "title": "Model Profiles",
+            "type": "object"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "retry_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "portfolio_id",
+          "instrument_id",
+          "model_profiles",
+          "market_source_name",
+          "allow_model_calls"
+        ],
+        "title": "AnalysisStart",
+        "type": "object"
+      },
+      "AnalysisStatus": {
+        "enum": [
+          "QUEUED",
+          "RUNNING",
+          "SUCCEEDED",
+          "DEGRADED",
+          "FAILED",
+          "CANCELLED"
+        ],
+        "title": "AnalysisStatus",
+        "type": "string"
+      },
+      "AnalysisStep": {
+        "additionalProperties": false,
+        "properties": {
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RUNNING",
+              "COMPLETED",
+              "BLOCKED",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sequence",
+          "stage",
+          "status",
+          "occurred_at",
+          "payload"
+        ],
+        "title": "AnalysisStep",
+        "type": "object"
+      },
       "CalendarConfigurationView": {
         "additionalProperties": false,
         "properties": {
@@ -1562,6 +2376,33 @@
           "evidence_ids"
         ],
         "title": "EvidenceClaimResponse",
+        "type": "object"
+      },
+      "EvidenceReason": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "text": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "evidence_ids"
+        ],
+        "title": "EvidenceReason",
         "type": "object"
       },
       "FactReceipt": {
@@ -4482,6 +5323,18 @@
         "title": "ResearchIngestResponse",
         "type": "object"
       },
+      "RiskIntent": {
+        "enum": [
+          "NONE",
+          "TINY",
+          "SMALL",
+          "NORMAL",
+          "HIGH",
+          "EXIT"
+        ],
+        "title": "RiskIntent",
+        "type": "string"
+      },
       "RoleModelAssignmentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4521,6 +5374,194 @@
           "model_provider_profile_id"
         ],
         "title": "RoleModelAssignmentResponse",
+        "type": "object"
+      },
+      "SelectedData": {
+        "additionalProperties": false,
+        "properties": {
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "provider_type": {
+            "title": "Provider Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "provider_type",
+          "config_hash"
+        ],
+        "title": "SelectedData",
+        "type": "object"
+      },
+      "SelectedModel": {
+        "additionalProperties": false,
+        "properties": {
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "max_tokens": {
+            "title": "Max Tokens",
+            "type": "integer"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "model_name",
+          "config_hash",
+          "timeout_seconds",
+          "max_tokens"
+        ],
+        "title": "SelectedModel",
+        "type": "object"
+      },
+      "ShadowDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "delta_quantity": {
+            "title": "Delta Quantity",
+            "type": "null"
+          },
+          "execution_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Execution Allowed",
+            "type": "boolean"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "policy_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version Id"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceReason"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "risk_gate": {
+            "enum": [
+              "UNKNOWN",
+              "VETO",
+              "PASS"
+            ],
+            "title": "Risk Gate",
+            "type": "string"
+          },
+          "risk_intent": {
+            "$ref": "#/components/schemas/RiskIntent"
+          },
+          "schema_version": {
+            "const": "analysis-shadow-1.0",
+            "default": "analysis-shadow-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sizing_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sizing Run Id"
+          },
+          "sizing_status": {
+            "const": "BLOCKED",
+            "default": "BLOCKED",
+            "title": "Sizing Status",
+            "type": "string"
+          },
+          "target_quantity": {
+            "title": "Target Quantity",
+            "type": "null"
+          },
+          "thesis_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Version Id"
+          }
+        },
+        "required": [
+          "action",
+          "risk_intent",
+          "risk_gate",
+          "policy_version_id",
+          "thesis_version_id",
+          "reasons",
+          "blockers",
+          "input_hash"
+        ],
+        "title": "ShadowDecision",
         "type": "object"
       },
       "StageResult": {
@@ -5240,6 +6281,228 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/analysis/choices": {
+      "get": {
+        "operationId": "get_choices_api_v1_analysis_choices_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisChoices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Choices",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis/runs": {
+      "get": {
+        "operationId": "list_runs_api_v1_analysis_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Portfolio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AnalysisRunView"
+                  },
+                  "title": "Response List Runs Api V1 Analysis Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "analysis"
+        ]
+      },
+      "post": {
+        "operationId": "create_api_v1_analysis_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis/runs/{run_id}": {
+      "get": {
+        "operationId": "get_api_v1_analysis_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis/runs/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancel_api_v1_analysis_runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
     "/api/v1/calendar": {
       "get": {
         "operationId": "overview_api_v1_calendar_get",

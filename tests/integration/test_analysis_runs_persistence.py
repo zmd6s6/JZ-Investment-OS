@@ -1,6 +1,7 @@
 """Actual PostgreSQL analysis claims, atomic history and cancellation/recovery."""
 
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -136,7 +137,7 @@ async def frozen_input(sessions, run_id, queued):
         expires_at=row.expires_at,
         quality_score="1",
         freshness="FRESH",
-        payload_json='{"body":"synthetic research"}',
+        payload_json=json.dumps(row.payload_json),
     )
     value = AnalysisFrozenInput(
         run_id=run_id,

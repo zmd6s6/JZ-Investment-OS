@@ -1,5 +1,6 @@
 """Transactional lifecycle and append-only evidence-linked shadow-analysis persistence."""
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -16,6 +17,7 @@ from investment_os.application.analysis_runs import (
     AnalysisStep,
     ShadowDecision,
 )
+from investment_os.application.evidence import derive_display_freshness
 from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.domain.analysis_run import (
     TERMINAL_ANALYSIS,
@@ -269,6 +271,12 @@ class SqlAnalysisRuns:
                 if record.input_hash != value.input_hash:
                     raise ValueError("ANALYSIS_INPUT_ALREADY_FROZEN")
                 return
+            if (
+                value.run_id != run_id
+                or value.instrument_id != record.instrument_id
+                or value.queued != AnalysisQueuedInput.model_validate(record.queued_input_json)
+            ):
+                raise ValueError("ANALYSIS_INPUT_REQUEST_MISMATCH")
             if value.queued.command.request_id != record.request_id:
                 raise ValueError("ANALYSIS_INPUT_REQUEST_MISMATCH")
             record.input_hash = value.input_hash
@@ -286,6 +294,44 @@ class SqlAnalysisRuns:
                 source = await session.get(EvidenceRecord, item.evidence_id)
                 if source is None or source.content_hash != item.content_hash:
                     raise ValueError("ANALYSIS_EVIDENCE_HASH_MISMATCH")
+                expected = derive_display_freshness(
+                    as_of=value.as_of,
+                    available_at=source.available_at,
+                    expires_at=source.expires_at,
+                    ingested_status=source.freshness_status,
+                ).value
+                if (
+                    max(
+                        source.observed_at,
+                        source.effective_at,
+                        source.available_at,
+                        source.ingested_at,
+                    )
+                    > value.as_of
+                ):
+                    expected = "NOT_YET_AVAILABLE"
+                if source.quality_score <= 0:
+                    expected = "INVALID"
+                if (
+                    source.instrument_id not in {None, record.instrument_id}
+                    or source.instrument_id != item.instrument_id
+                    or json.loads(item.payload_json) != source.payload_json
+                    or item.freshness != expected
+                    or any(
+                        getattr(item, name) != getattr(source, name)
+                        for name in (
+                            "source_name",
+                            "source_locator",
+                            "source_tier",
+                            "observed_at",
+                            "effective_at",
+                            "available_at",
+                            "ingested_at",
+                            "expires_at",
+                        )
+                    )
+                ):
+                    raise ValueError("ANALYSIS_EVIDENCE_STATE_MISMATCH")
                 session.add(
                     AnalysisEvidenceRecord(
                         run_id=run_id,
@@ -469,6 +515,9 @@ class SqlAnalysisRuns:
             request_hash=record.request_hash,
             input_hash=record.input_hash,
             policy_version_id=record.policy_version_id,
+            request=AnalysisQueuedInput.model_validate(record.queued_input_json).command
+            if details
+            else None,
             steps=steps,
             frozen_input=frozen,
             shadow_decision=result,

@@ -439,6 +439,23 @@ class InvestmentAnalysisOrchestrator:
         ):
             action = Action.WATCH
             blockers.append("NO_HOLDING_FOR_PROPOSED_ACTION")
+        await self._store.step(
+            run_id,
+            lease,
+            stage="FINAL_GATES",
+            status="BLOCKED",
+            payload={
+                "proposed_action": proposed.proposed_action.value,
+                "final_action": action.value,
+                "risk_gate": "UNKNOWN",
+                "sizing_status": "BLOCKED",
+                "reasons": [
+                    {"gate": g.gate.value, "outcome": g.outcome.value, "reason_code": g.reason_code}
+                    for g in recommendation.gates
+                ],
+            },
+            reason_code="ANALYSIS_MISSING_RISK_AND_SIZING",
+        )
         shadow = ShadowDecision(
             action=action,
             risk_intent=intent.risk_intent,

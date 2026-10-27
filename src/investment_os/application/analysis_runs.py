@@ -4,7 +4,15 @@ from datetime import datetime
 from typing import Literal, Protocol, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    field_validator,
+    model_validator,
+)
 
 from investment_os.application.portfolio_valuation import ValuationContext
 from investment_os.domain.agent import AgentRole
@@ -39,8 +47,15 @@ class AnalysisStart(AnalysisDto):
     market_source: Literal["MANUAL_MARKET"] = "MANUAL_MARKET"
     market_source_name: str = Field(min_length=1, max_length=255)
     allow_model_calls: Literal[True]
-    allow_data_calls: bool = False
+    allow_data_calls: StrictBool = False
     retry_of: UUID | None = None
+
+    @field_validator("allow_model_calls", mode="before")
+    @classmethod
+    def explicit_model_consent(cls, value: object) -> object:
+        if value is not True:
+            raise ValueError("explicit boolean model consent is required")
+        return value
 
     @model_validator(mode="after")
     def explicit_inputs(self) -> Self:
@@ -184,6 +199,7 @@ class AnalysisRunView(AnalysisDto):
     request_hash: str
     input_hash: str | None
     policy_version_id: UUID | None
+    request: AnalysisStart | None = None
     steps: tuple[AnalysisStep, ...] = ()
     frozen_input: AnalysisFrozenInput | None = None
     shadow_decision: ShadowDecision | None = None
