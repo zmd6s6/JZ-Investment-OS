@@ -4,10 +4,12 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from investment_os.application.health import ReadinessProbe
+from investment_os.infrastructure.calendar_product import PersistedCalendarStatusRunner
 from investment_os.infrastructure.database import (
     DatabaseReadinessProbe,
     create_database_engine,
@@ -20,6 +22,10 @@ from investment_os.infrastructure.runtime_scheduler import (
 from investment_os.infrastructure.settings import Settings, get_settings
 
 LOGGER = logging.getLogger(__name__)
+
+
+class CalendarScheduler(Protocol):
+    async def dispatch_due(self, *, now: datetime) -> object: ...
 
 
 def _set_ready_marker(ready_file: Path, *, ready: bool) -> None:
@@ -46,7 +52,7 @@ class WorkerRuntime:
         *,
         probe: DatabaseReadinessProbe,
         ready_file: Path,
-        scheduler: RuntimeScheduleRunner | None,
+        scheduler: CalendarScheduler | None,
         scheduler_engine: AsyncEngine | None,
     ) -> None:
         self._probe = probe
@@ -56,7 +62,7 @@ class WorkerRuntime:
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "WorkerRuntime":
-        scheduler: RuntimeScheduleRunner | None = None
+        scheduler: CalendarScheduler | None = None
         scheduler_engine: AsyncEngine | None = None
         if settings.worker_schedule_calendar_path is not None:
             calendar = load_synthetic_calendar(settings.worker_schedule_calendar_path)
@@ -65,6 +71,14 @@ class WorkerRuntime:
             scheduler = RuntimeScheduleRunner(
                 session_factory=create_session_factory(engine),
                 calendar=calendar,
+                max_replay_sessions=settings.worker_scheduler_max_replay_sessions,
+            )
+        else:
+            # No imported/explicitly enabled calendar means no due work; never invent sessions.
+            engine = create_database_engine(settings.database_url)
+            scheduler_engine = engine
+            scheduler = PersistedCalendarStatusRunner(
+                create_session_factory(engine),
                 max_replay_sessions=settings.worker_scheduler_max_replay_sessions,
             )
         return cls(

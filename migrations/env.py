@@ -9,6 +9,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from investment_os.infrastructure.persistence import calendar_models  # noqa: F401
 from investment_os.infrastructure.persistence import models as persistence_models  # noqa: F401
 from investment_os.infrastructure.persistence.base import Base
 
