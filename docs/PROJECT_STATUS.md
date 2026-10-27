@@ -17,8 +17,12 @@
 
 ## 已建立
 
+<<<<<<< HEAD
 - MVP-401分支接通 `/calendar`：有来源与市场时区的CSV预览 / 持久化导入、新版本默认暂停、独立启停，以及真实Worker的到期日历状态报告。隔离15438 / 18110验证真实API / DB / Worker / UI，不调用付费模型或真实来源，不含团队分析。工程与隔离可见验收证据见 `docs/agent/work-items/MVP-401.md`；待独立Gate / Release集成 / 所有者部署与验收，不表示完整P8或Checkpoint接受。
 
+=======
+- MVP-101独立Gate复验捕获现金草稿被迟到刷新覆盖，现已补6项修前失败测试和真实API/UI定序浏览器回归，前端34/34、浏览器15/15；主代理已独立复验现金/预览/反馈16/16、本项浏览器7/7。工作分支已完成P5可见路径合成复验，修复跨组合迟到CSV预览、旧冲突授权与迟到确认结果展示；组合 / 持仓 / 分仓成本 / 现金 / CSV对账和刷新、目录Watchlist增删、实际政策只读审阅均有浏览器证据。队列INTEGRATED记录随PR #21合入Release生效，最终Gate待独立方核对当前HEAD及CI；Owner验收仍PENDING、P5仍IN_PROGRESS。详见 `docs/agent/work-items/MVP-101.md`。
+>>>>>>> origin/release/mvp-beta
 - MVP-000已实现并验证 `/acceptance` 与只读交付清单API：区分工程、集成证据、服务装配及待人工验收；提供实际产品入口、操作 / 失败指引，未实现功能不链接至假入口。队列INTEGRATED记录随PR合入Release生效，未部署所有者实例，不表示Checkpoint接受；验证与限制见 `docs/agent/work-items/MVP-000.md`。
 - 主工程规范、根工作约定、持续工作模式以及 ADR/阶段文档约定均已建立。
 - Python 3.12 项目元数据、锁文件、健康检查、Compose、CI、OpenAPI、依赖/许可证检查与密钥扫描已具备。
@@ -31,7 +35,7 @@
 
 ## 尚未实现或尚未验证
 
-- P5 的实现 PR #17 已合并；仍需通过浏览器执行用户可见验收后才能将 PRODUCT-05 标为 ACCEPTED。
+- P5 的实现 PR #17 已合并；MVP-101工作分支已完成合成浏览器可见路径复验，仍需Release集成与所有者本人Checkpoint验收，才能将 PRODUCT-05 标为 ACCEPTED。
 - P6：产品工作流中的端到端分析编排、持久化 AnalysisRun 以及完整 Evidence → Decision 影子链路。
 - P7：Decision 审阅、批准/拒绝/撤销 UI 与只记录事实的手工执行产品流。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。
