@@ -91,7 +91,7 @@ class ManualScreenFacts(MarketDto):
 class FactReceipt(MarketDto):
     request_id: UUID
     evidence_id: UUID
-    content_hash: str
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     ingested_at: AwareDatetime
 
 
@@ -99,7 +99,7 @@ class FactSnapshot(MarketDto):
     status: Literal["AVAILABLE", "MISSING", "EXPIRED", "NOT_YET_AVAILABLE", "INVALID"]
     facts: ManualScreenFacts | None = None
     evidence_id: UUID | None = None
-    content_hash: str | None = None
+    content_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     ingested_at: AwareDatetime | None = None
 
 
@@ -193,6 +193,8 @@ class FunnelRun(MarketDto):
 
     @model_validator(mode="after")
     def invariant(self) -> Self:
+        if self.query.as_of > self.ingested_at:
+            raise ValueError("run cannot record a future business time")
         if self.run_id != self.query.request_id or self.query_rule_hash != query_rule_hash(
             self.query
         ):

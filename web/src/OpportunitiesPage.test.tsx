@@ -64,3 +64,7 @@ it('malformed query result never renders a success or raw private fragments',asy
 it('bounded query timeout restores the button without clearing user inputs',async()=>{
  setup(()=>new Promise(()=>{}));await query();vi.useFakeTimers();fireEvent.click(screen.getByRole('button',{name:'运行本次确定性筛选'}));await act(async()=>{await vi.advanceTimersByTimeAsync(15001);});vi.useRealTimers();await screen.findByText(/请求超时/);expect(screen.getByRole('button',{name:'运行本次确定性筛选'})).toBeEnabled();expect(screen.getByLabelText('范围名称')).toHaveValue('合成有限范围');
 });
+
+it('distinguishes a missing local write setup from a market-provider credential',async()=>{
+ setup(()=>json({detail:'write_api_token_not_configured'},503));await facts();fireEvent.click(screen.getByRole('button',{name:'保存基础事实'}));await screen.findByText('当前本机服务未配置写入访问方式，请检查服务配置；不是缺少行情供应商密钥。');expect(screen.getByLabelText('事实出处')).toHaveValue('synthetic://facts');
+});

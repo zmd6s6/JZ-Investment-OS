@@ -16,7 +16,7 @@ async function facts(page:Page,profit='20'){
  await page.getByLabel('事实出处').fill('synthetic://annual-report');await page.getByLabel('有来源行业').fill('Synthetic');await page.getByLabel('完整自然年年度').fill(String(new Date().getUTCFullYear()-1));
  await page.getByLabel('本年度营收',{exact:true}).fill('100');await page.getByLabel('上年度营收',{exact:true}).fill('80');await page.getByLabel('年度归属普通股股东利润').fill(profit);await page.getByLabel('完整自然年年报稀释EPS（元／股）').fill(profit==='20'?'0.2':'0.01');await page.getByLabel('前收盘',{exact:true}).fill('8');await page.getByLabel('是否停牌').selectOption('false');await page.getByLabel('报价与年度稀释EPS口径').selectOption('true');
  for(const label of ['事实观察时点','事实生效时点','事实可获取时点'])await page.getByLabel(label).fill(local(-7200000));await page.getByLabel('事实到期时点').fill(local(86400000));await page.getByLabel('前收盘时点').fill(local(-86400000));
- await page.getByRole('button',{name:'保存基础事实'}).click();await expect(page.getByText(/事实已保存，未经独立核实/)).toBeVisible();
+ await page.getByRole('button',{name:'保存基础事实'}).click();await expect(page.getByText(/事实已保存，未经独立核实/)).toBeVisible();await expect(page.getByText(/事实已保存，未经独立核实/)).toBeInViewport();
 }
 async function query(page:Page,name:string){
  await page.getByLabel('范围名称').fill(name);await page.getByLabel('范围出处').fill('synthetic://finite-scope');await page.getByLabel('最低年度归属利润率').fill('0.1');await page.getByLabel('最低营收同比增幅').fill('0.1');await page.getByLabel('最高年报稀释PE（非TTM）').fill('60');await page.getByLabel('最低相对前收盘变化').fill('0');await page.getByLabel('最多研究候选（1至20）').fill('1');await page.getByRole('button',{name:'运行本次确定性筛选'}).click();await expect(page.getByRole('heading',{name:'本次筛选：'+name})).toBeVisible();

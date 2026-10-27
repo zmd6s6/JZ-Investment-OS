@@ -17,7 +17,9 @@
 
 ## 已建立
 
-- MVP-201本工作分支已接通人工行情 typed port、同事务持久化与 `/market-data` 中文录入 / 来源追溯 / 刷新路径；CNY单币种、缺FX失败关闭。该记录随PR合入Release生效，独立Gate / Owner部署与Checkpoint人工验收未完成；人工数据不等于已核实市场事实，完整P6仍未完成。真实验证及限制见 `docs/agent/work-items/MVP-201.md`。
+- MVP-402本工作分支已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；本切片真实UI / API / DB合成验证21场景通过，但整体能力PARTIAL：全市场、深研、周定时尚未提供，不代表完整402 / P8或Owner接受。记录随本PR合入Release生效，详见 `docs/agent/work-items/MVP-402.md`。
+
+- MVP-201已由PR #22合入Release（1fa9ed55），经root独立Gate PASS并核对最终六CI；接通人工行情 typed port、同事务持久化与 `/market-data` 来源追溯 / 刷新路径，CNY限定、缺FX失败关闭。Owner部署与Checkpoint人工验收仍未完成；人工数据未经独立核实，完整P6未完成。真实验证及限制见 `docs/agent/work-items/MVP-201.md`。
 
 - MVP-101独立Gate复验捕获现金草稿被迟到刷新覆盖，现已补6项修前失败测试和真实API/UI定序浏览器回归，前端34/34、浏览器15/15；主代理已独立复验现金/预览/反馈16/16、本项浏览器7/7。工作分支已完成P5可见路径合成复验，修复跨组合迟到CSV预览、旧冲突授权与迟到确认结果展示；组合 / 持仓 / 分仓成本 / 现金 / CSV对账和刷新、目录Watchlist增删、实际政策只读审阅均有浏览器证据。队列INTEGRATED记录随PR #21合入Release生效，最终Gate待独立方核对当前HEAD及CI；Owner验收仍PENDING、P5仍IN_PROGRESS。详见 `docs/agent/work-items/MVP-101.md`。
 - MVP-000已实现并验证 `/acceptance` 与只读交付清单API：区分工程、集成证据、服务装配及待人工验收；提供实际产品入口、操作 / 失败指引，未实现功能不链接至假入口。队列INTEGRATED记录随PR合入Release生效，未部署所有者实例，不表示Checkpoint接受；验证与限制见 `docs/agent/work-items/MVP-000.md`。

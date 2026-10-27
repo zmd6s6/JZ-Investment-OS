@@ -146,10 +146,10 @@ work_items:
   - id: MVP-402
     title: Deterministic opportunity funnel and Opportunities UI
     priority: 2
-    status: IN_PROGRESS
+    status: REVIEW
     claim_branch: agent/MVP-402
     claim_owner: pr-02-review-and-next-stage-monitor
-    # 仅随MVP-201 PR #22合入Release生效，不代表P6或Checkpoint人工接受。
+    # 201依赖已由PR22满足；本项审有限范围切片，整体PARTIAL，不代表P8或Checkpoint接受。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:

@@ -317,3 +317,27 @@ async def test_fact_and_funnel_snapshot_cannot_be_mutated_and_empty_scope_has_no
         query.model_copy(update={"request_id": uuid4(), "instrument_ids": ()})
     )
     assert empty.status == "EMPTY" and empty.rows == () and empty.candidate_ids == ()
+
+
+async def test_future_query_and_latest_future_facts_fail_closed_without_old_fact_fallback(
+    database_engine,
+):
+    sessions, _, service, commands, query = await setup(database_engine)
+    with pytest.raises(OpportunityError, match="FUTURE_AS_OF_NOT_ALLOWED"):
+        await service.run(query.model_copy(update={"as_of": NOW + timedelta(seconds=1)}))
+    assert await counts(sessions) == [0, 0, 0, 0, 0]
+    await service.save_facts(commands[0])
+    await service.save_facts(
+        commands[0].model_copy(
+            update={
+                "request_id": uuid4(),
+                "effective_at": NOW + timedelta(hours=1),
+                "available_at": NOW + timedelta(hours=1),
+                "expires_at": NOW + timedelta(hours=2),
+            }
+        )
+    )
+    run = await service.run(query)
+    assert not run.candidate_ids
+    assert "facts:NOT_YET_AVAILABLE" in run.rows[0].stages[0].missing_fields
+    assert await counts(sessions) == [2, 2, 3, 3, 3]
