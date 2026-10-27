@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import httpx
 import pytest
-from scripts.analysis_fixture import model_output
+from analysis_fixture import model_output
 from sqlalchemy import func, select
 from test_analysis_runs_persistence import NoMarket, frozen_input, prepare
 

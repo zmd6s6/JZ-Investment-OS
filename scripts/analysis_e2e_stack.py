@@ -28,8 +28,8 @@ if (
     )
 root = Path(__file__).resolve().parents[1]
 os.chdir(root)
-sys.path.insert(0, str(root))
-from scripts.analysis_fixture import model_output  # noqa: E402 - explicit project path above
+sys.path.insert(0, str(root / "tests" / "integration"))
+from analysis_fixture import model_output  # noqa: E402 - explicit test-fixture path above
 
 for key in list(os.environ):
     if key.startswith("INVESTMENT_OS_"):
