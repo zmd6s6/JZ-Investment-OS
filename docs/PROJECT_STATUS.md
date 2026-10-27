@@ -7,7 +7,7 @@
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
 - 活跃 Release：`MVP-BETA`
-- Integration branch：`release/mvp-beta`（治理变更合并后创建）
+- Integration branch：`release/mvp-beta`
 - 当前里程碑：P5 可见验收收口；P6/P8 无真实依赖 Work Item 允许并行推进
 - 阶段状态：`PRODUCT-05 = IN_PROGRESS`（PR #17 已合并，等待所有者可见产品验收）
 - 实盘交易：`FORBIDDEN`
@@ -17,10 +17,11 @@
 
 ## 已建立
 
-- MVP-201本工作分支已接通人工行情 typed port、同事务持久化与 `/market-data` 中文录入 / 来源追溯 / 刷新路径；CNY单币种、缺FX失败关闭。该记录随PR合入Release生效，独立Gate / Owner部署与Checkpoint人工验收未完成；人工数据不等于已核实市场事实，完整P6仍未完成。真实验证及限制见 `docs/agent/work-items/MVP-201.md`。
+- MVP-401=INTEGRATED，此记录随PR #23通过最终独立Gate合入Release生效。`/calendar`提供有来源与市场时区的CSV预览 / 持久化导入、新版本默认暂停、STATUS_ONLY独立启停与真实Worker日历状态报告。91801d0由root独立复跑日历四文件28/28（8.75秒）、真实恢复浏览器1/1（15.7秒），覆盖失败换源恢复和两种并发交错；旧c0ad765独立25/2只归属旧实现。91801d0六CI绿、Linux454 / 85.50%及集成51是该精确提交的工程证据，最终合入按PR当前HEAD核验。Owner部署 / 验收PENDING；不调用付费模型或真实来源，不含团队分析，完整P8仍PLANNED。详细边界见 `docs/agent/work-items/MVP-401.md`。
+- MVP-201已由PR #22通过独立Gate合入Release：人工行情 typed port、同事务持久化与 `/market-data` 中文录入 / 来源追溯 / 刷新路径；CNY单币种、缺FX失败关闭。Owner部署与Checkpoint人工验收PENDING；人工数据不等于已核实市场事实，完整P6仍未完成。真实验证及限制见 `docs/agent/work-items/MVP-201.md`。
 
-- MVP-101独立Gate复验捕获现金草稿被迟到刷新覆盖，现已补6项修前失败测试和真实API/UI定序浏览器回归，前端34/34、浏览器15/15；主代理已独立复验现金/预览/反馈16/16、本项浏览器7/7。工作分支已完成P5可见路径合成复验，修复跨组合迟到CSV预览、旧冲突授权与迟到确认结果展示；组合 / 持仓 / 分仓成本 / 现金 / CSV对账和刷新、目录Watchlist增删、实际政策只读审阅均有浏览器证据。队列INTEGRATED记录随PR #21合入Release生效，最终Gate待独立方核对当前HEAD及CI；Owner验收仍PENDING、P5仍IN_PROGRESS。详见 `docs/agent/work-items/MVP-101.md`。
-- MVP-000已实现并验证 `/acceptance` 与只读交付清单API：区分工程、集成证据、服务装配及待人工验收；提供实际产品入口、操作 / 失败指引，未实现功能不链接至假入口。队列INTEGRATED记录随PR合入Release生效，未部署所有者实例，不表示Checkpoint接受；验证与限制见 `docs/agent/work-items/MVP-000.md`。
+- MVP-101已由PR #21通过独立Gate合入Release。独立复验捕获的现金草稿迟到覆盖已补6项修前失败测试，前端34/34、浏览器15/15；root独立现金 / 预览 / 反馈16/16、本项浏览器7/7通过。组合 / 分仓成本 / 现金 / CSV对账刷新、跨组合迟到响应、目录Watchlist与实际政策只读审阅均有合成浏览器证据。Owner验收仍PENDING、P5仍IN_PROGRESS。详见 `docs/agent/work-items/MVP-101.md`。
+- MVP-000已由PR #20合入Release：`/acceptance`与只读交付清单API区分工程、集成证据、服务装配及待人工验收；提供实际入口、操作 / 失败指引，未实现功能不链接至假入口。未部署所有者实例，不表示Checkpoint接受；验证与限制见 `docs/agent/work-items/MVP-000.md`。
 - 主工程规范、根工作约定、持续工作模式以及 ADR/阶段文档约定均已建立。
 - Python 3.12 项目元数据、锁文件、健康检查、Compose、CI、OpenAPI、依赖/许可证检查与密钥扫描已具备。
 - ADR-0001 至 ADR-0016 已被接受；其中明确了模块化单体边界、DSA Adapter、多提供方研究运行时、证据与时间语义、双轮委员会、风险否决、确定性仓位、学习治理、调度锁与 Outbox、安全、纯领域内核及显式多市场日历语义。
@@ -32,7 +33,7 @@
 
 ## 尚未实现或尚未验证
 
-- P5 的实现 PR #17 已合并；MVP-101工作分支已完成合成浏览器可见路径复验，仍需Release集成与所有者本人Checkpoint验收，才能将 PRODUCT-05 标为 ACCEPTED。
+- P5的PR #17已合并，MVP-101可见路径复验与修复已由PR #21合入Release；仍须所有者本人Checkpoint验收，才能将PRODUCT-05标为ACCEPTED。
 - P6：产品工作流中的端到端分析编排、持久化 AnalysisRun 以及完整 Evidence → Decision 影子链路。
 - P7：Decision 审阅、批准/拒绝/撤销 UI 与只记录事实的手工执行产品流。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。

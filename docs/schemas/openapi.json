@@ -42,6 +42,474 @@
         "title": "AcceptanceSnapshot",
         "type": "object"
       },
+      "CalendarConfigurationView": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "first_business_date": {
+            "format": "date",
+            "title": "First Business Date",
+            "type": "string"
+          },
+          "import_id": {
+            "format": "uuid",
+            "title": "Import Id",
+            "type": "string"
+          },
+          "imported_at": {
+            "format": "date-time",
+            "title": "Imported At",
+            "type": "string"
+          },
+          "last_business_date": {
+            "format": "date",
+            "title": "Last Business Date",
+            "type": "string"
+          },
+          "market_timezone": {
+            "title": "Market Timezone",
+            "type": "string"
+          },
+          "next_close_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Close At"
+          },
+          "session_count": {
+            "title": "Session Count",
+            "type": "integer"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_version": {
+            "title": "Source Version",
+            "type": "string"
+          },
+          "venue": {
+            "$ref": "#/components/schemas/MarketVenue"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "venue",
+          "market_timezone",
+          "version",
+          "import_id",
+          "enabled",
+          "source_name",
+          "source_version",
+          "content_hash",
+          "imported_at",
+          "session_count",
+          "first_business_date",
+          "last_business_date",
+          "next_close_at"
+        ],
+        "title": "CalendarConfigurationView",
+        "type": "object"
+      },
+      "CalendarImportCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed_source": {
+            "const": true,
+            "title": "Confirmed Source",
+            "type": "boolean"
+          },
+          "csv_text": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Csv Text",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_version": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source Version",
+            "type": "string"
+          },
+          "venue": {
+            "$ref": "#/components/schemas/MarketVenue"
+          }
+        },
+        "required": [
+          "venue",
+          "source_name",
+          "source_version",
+          "csv_text",
+          "confirmed_source",
+          "request_id",
+          "expected_version"
+        ],
+        "title": "CalendarImportCommand",
+        "type": "object"
+      },
+      "CalendarInput": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed_source": {
+            "const": true,
+            "title": "Confirmed Source",
+            "type": "boolean"
+          },
+          "csv_text": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Csv Text",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_version": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source Version",
+            "type": "string"
+          },
+          "venue": {
+            "$ref": "#/components/schemas/MarketVenue"
+          }
+        },
+        "required": [
+          "venue",
+          "source_name",
+          "source_version",
+          "csv_text",
+          "confirmed_source"
+        ],
+        "title": "CalendarInput",
+        "type": "object"
+      },
+      "CalendarModeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status_only_acknowledgement": {
+            "const": true,
+            "title": "Status Only Acknowledgement",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_version",
+          "enabled",
+          "status_only_acknowledgement"
+        ],
+        "title": "CalendarModeCommand",
+        "type": "object"
+      },
+      "CalendarOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "configurations": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarConfigurationView"
+            },
+            "title": "Configurations",
+            "type": "array"
+          },
+          "recent_runs": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarRunView"
+            },
+            "title": "Recent Runs",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "const": "CALENDAR_STATUS_ONLY_NO_PAID_CALLS",
+            "default": "CALENDAR_STATUS_ONLY_NO_PAID_CALLS",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configurations",
+          "recent_runs"
+        ],
+        "title": "CalendarOverview",
+        "type": "object"
+      },
+      "CalendarPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "market_timezone": {
+            "title": "Market Timezone",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarSessionInput"
+            },
+            "title": "Sessions",
+            "type": "array"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_version": {
+            "title": "Source Version",
+            "type": "string"
+          },
+          "venue": {
+            "$ref": "#/components/schemas/MarketVenue"
+          }
+        },
+        "required": [
+          "venue",
+          "market_timezone",
+          "source_name",
+          "source_version",
+          "content_hash",
+          "sessions"
+        ],
+        "title": "CalendarPreview",
+        "type": "object"
+      },
+      "CalendarRunView": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalendarStatusReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_name": {
+            "title": "Task Name",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_run_id",
+          "task_name",
+          "as_of",
+          "status",
+          "attempt",
+          "started_at",
+          "finished_at",
+          "error_code",
+          "report"
+        ],
+        "title": "CalendarRunView",
+        "type": "object"
+      },
+      "CalendarSessionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "close_at_utc": {
+            "format": "date-time",
+            "title": "Close At Utc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_date",
+          "close_at_utc"
+        ],
+        "title": "CalendarSessionInput",
+        "type": "object"
+      },
+      "CalendarStatusReport": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "auto_trade": {
+            "const": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "calendar_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Calendar Hash",
+            "type": "string"
+          },
+          "calendar_import_id": {
+            "format": "uuid",
+            "title": "Calendar Import Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "paid_calls": {
+            "const": 0,
+            "title": "Paid Calls",
+            "type": "integer"
+          },
+          "report_kind": {
+            "const": "CALENDAR_STATUS_ONLY",
+            "title": "Report Kind",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_version": {
+            "title": "Source Version",
+            "type": "string"
+          },
+          "venue": {
+            "$ref": "#/components/schemas/MarketVenue"
+          }
+        },
+        "required": [
+          "report_kind",
+          "venue",
+          "business_date",
+          "as_of",
+          "calendar_import_id",
+          "calendar_hash",
+          "source_name",
+          "source_version",
+          "message",
+          "auto_trade",
+          "paid_calls"
+        ],
+        "title": "CalendarStatusReport",
+        "type": "object"
+      },
       "CapabilityDelivery": {
         "additionalProperties": false,
         "properties": {
@@ -1914,6 +2382,16 @@
         "title": "MarketQuote",
         "type": "object"
       },
+      "MarketVenue": {
+        "description": "Supported synthetic calendar venues; exchange dates are always caller-supplied.",
+        "enum": [
+          "US_EQUITIES",
+          "SSE",
+          "SZSE"
+        ],
+        "title": "MarketVenue",
+        "type": "string"
+      },
       "ModelProviderProfileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3502,6 +3980,160 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/calendar": {
+      "get": {
+        "operationId": "overview_api_v1_calendar_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Overview",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/imports": {
+      "post": {
+        "operationId": "import_calendar_api_v1_calendar_imports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarImportCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarConfigurationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Calendar",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/preview": {
+      "post": {
+        "operationId": "preview_api_v1_calendar_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/{venue}/mode": {
+      "post": {
+        "operationId": "mode_api_v1_calendar__venue__mode_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "venue",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/MarketVenue"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarModeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarConfigurationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mode",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
     "/api/v1/decisions/{decision_id}": {
       "get": {
         "operationId": "read_decision_journal_api_v1_decisions__decision_id__get",
