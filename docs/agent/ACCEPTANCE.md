@@ -15,9 +15,9 @@
 
 | Capability | Route | Current truth | Human acceptance |
 |---|---|---|---|
-| Portfolio / CSV import | `/portfolio` | INTEGRATED — PR #17 merged; browser acceptance still required | PENDING |
-| Watchlist | `/watchlist` | INTEGRATED — PR #17 merged; browser acceptance still required | PENDING |
-| Investment Policy review | product UI | INTEGRATED; real policy parameters remain owner-governed | PENDING |
+| Portfolio / CSV import | `/portfolio` | ACCEPTANCE_READY — MVP-101已验证手工 / 分仓 / 现金 / CSV预览及冲突 / 对账 / 刷新；集成记录随PR #21合入Release生效 | PENDING |
+| Watchlist | `/watchlist` | ACCEPTANCE_READY — MVP-101已验证目录搜索 / 幂等添加 / 刷新 / 删除 / 四项缺失状态；集成记录随PR #21合入Release生效 | PENDING |
+| Investment Policy review | `/#policy` | ACCEPTANCE_READY — MVP-101已核对实际API版本与无写入审阅；真实参数仍由Owner治理 | PENDING |
 | Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000集成记录随PR合入Release生效；构建交付清单不是实时健康检测 | PENDING |
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
@@ -36,6 +36,11 @@
 工程与集成证据见 `docs/agent/work-items/MVP-000.md`，所有者部署与产品接受仍未执行。
 
 ### Portfolio / Watchlist
+
+MVP-101于2026-10-27在独立合成API / DB完成可见路径复验，修复CSV迟到预览、旧冲突选择以及确认结果的跨组合展示；现金竞态复修后前端34/34、Chrome15/15通过；主代理独立复验现金/预览/反馈16/16、本项真实浏览器7/7。此集成记录随PR #21合入Release生效，最终Gate仍由独立复验方判定。
+这不是所有者本人接受，不改变PRODUCT-05 IN_PROGRESS或Checkpoint A PENDING。证据、输入与明确限制见 `docs/agent/work-items/MVP-101.md`。
+CSV请求处理中切换组合或改动内容后，迟到预览不能恢复确认；内容变化后须重新预览并选择冲突方式。
+已发出的确认仍写入原组合；切换后的页面不会把原组合对账当成本组合结果，回到原组合可查导入历史。
 
 1. 打开 Portfolio；
 2. 创建/选择 Portfolio；
