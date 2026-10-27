@@ -1,0 +1,221 @@
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { randomInt } from "node:crypto";
+
+test.skip(process.env.E2E_MVP101_SYNTHETIC!=="1","仅运行在明确隔离的MVP-101合成栈");
+const token=process.env.INVESTMENT_OS_API_WRITE_TOKEN??"synthetic-mvp101-only";
+const headers={Authorization:`Bearer ${token}`};
+const csvHeader="market,symbol,name,asset_type,currency,sector,core_quantity,tactical_quantity,average_cost";
+async function create(request:APIRequestContext,name:string){
+  const result=await request.post("/api/v1/portfolios",{headers,data:{name,base_currency:"CNY",cash_balance:"10000"}});
+  expect(result.status()).toBe(201);
+  return await result.json() as {portfolio_id:string};
+}
+async function choose(page:Page,name:string){await page.getByRole("button",{name:new RegExp(name)}).click();await expect(page.locator(".stat-card strong").first()).toHaveText(name);}
+test.beforeEach(async({context})=>{await context.addInitScript(value=>sessionStorage.setItem("investment_os_write_token",value),token);});
+
+test("a real late CSV preview cannot authorize import into another empty portfolio",async({page,request})=>{
+  const stamp=Date.now();
+  const nameA=`合成延迟A-${stamp}`, nameB=`合成延迟B-${stamp}`;
+  const a=await create(request,nameA);
+  await create(request,nameB);
+  let release!:()=>void;
+  let started!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  const fetched=new Promise<void>(resolve=>{started=resolve;});
+  await page.route(`**/api/v1/portfolios/${a.portfolio_id}/csv/preview`,async route=>{
+    const result=await route.fetch();
+    expect(result.status()).toBe(200);
+    started();await gate;await route.fulfill({response:result});
+  });
+  await page.goto("/portfolio");
+  await choose(page,nameA);
+  await page.getByLabel("CSV 内容").fill([csvHeader,`SSE,${randomInt(629000,629999)},合成延迟标的,EQUITY,CNY,TEST,1,0,10`].join("\n"));
+  await page.getByRole("button",{name:"预览",exact:true}).click();
+  await fetched;
+  await choose(page,nameB);
+  release();
+  await expect(page.getByRole("button",{name:"预览",exact:true})).toBeEnabled();
+  await expect(page.getByRole("button",{name:"确认导入",exact:true})).toBeDisabled();
+  await expect(page.getByText(/预览完成/)).toHaveCount(0);
+  const persisted=await (await request.get("/api/v1/portfolios")).json();
+  expect(persisted.filter((p:{name:string})=>p.name===nameA||p.name===nameB).every((p:{positions:unknown[]})=>p.positions.length===0)).toBe(true);
+});
+
+test("a confirmed write stays in A while its late response never appears as B reconciliation",async({page,request})=>{
+  const stamp=Date.now();
+  const nameA=`合成确认A-${stamp}`,nameB=`合成确认B-${stamp}`;
+  const a=await create(request,nameA),b=await create(request,nameB);
+  let release!:()=>void;
+  let committed!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  const written=new Promise<void>(resolve=>{committed=resolve;});
+  await page.route(`**/api/v1/portfolios/${a.portfolio_id}/csv/confirm`,async route=>{
+    const result=await route.fetch();
+    expect(result.status()).toBe(200);
+    committed();await gate;await route.fulfill({response:result});
+  });
+  await page.goto("/portfolio");await choose(page,nameA);
+  await page.getByLabel("CSV 内容").fill([csvHeader,`SSE,${randomInt(620000,628999)},合成已确认标的,EQUITY,CNY,TEST,1,0,10`].join("\n"));
+  await page.getByRole("button",{name:"预览",exact:true}).click();
+  await expect(page.getByRole("button",{name:"确认导入",exact:true})).toBeEnabled();
+  await page.getByRole("button",{name:"确认导入",exact:true}).click();
+  await written;await choose(page,nameB);release();
+  await expect(page.getByRole("button",{name:"预览",exact:true})).toBeEnabled();
+  await expect(page.getByRole("heading",{name:"导入对账记录",exact:true})).toHaveCount(0);
+  await expect(page.getByText(/已导入 1 笔/)).toHaveCount(0);
+  expect((await (await request.get(`/api/v1/portfolios/${a.portfolio_id}`)).json()).positions).toHaveLength(1);
+  expect((await (await request.get(`/api/v1/portfolios/${b.portfolio_id}`)).json()).positions).toHaveLength(0);
+  await choose(page,nameA);
+  await expect(page.getByRole("heading",{name:"导入历史",exact:true})).toBeVisible();
+});
+
+test("manual holdings, separate bucket costs, cash and CSV reconciliation persist after reload",async({page,request})=>{
+  const name=`合成持仓验收-${Date.now()}`;
+  const symbol=String(randomInt(620000,628999));
+  await page.goto("/portfolio");
+  await page.getByLabel("组合名称").fill(name);
+  await page.getByLabel("现金（可选）").fill("10000.25");
+  await page.getByRole("button",{name:"创建组合",exact:true}).click();
+  await expect(page.getByText("组合已创建",{exact:true})).toBeVisible();
+  await expect(page.locator(".stat-card strong").first()).toHaveText(name);
+  const list=await (await request.get("/api/v1/portfolios")).json();
+  const id=list.find((p:{name:string})=>p.name===name).portfolio_id;
+  await page.getByLabel("代码",{exact:true}).fill(symbol);
+  await page.getByLabel("名称",{exact:true}).fill("合成分仓标的");
+  await page.getByLabel("长期仓数量",{exact:true}).fill("-1");
+  await page.getByLabel("机动仓数量",{exact:true}).fill("2");
+  await page.getByLabel("买入均价",{exact:true}).fill("12");
+  await page.getByRole("button",{name:"保存持仓",exact:true}).click();
+  await expect(page.locator(".banner-error")).toContainText(/输入|数量|均价/);
+  expect((await (await request.get(`/api/v1/portfolios/${id}`)).json()).positions).toHaveLength(0);
+  await page.getByLabel("长期仓数量",{exact:true}).fill("10");
+  await page.getByLabel("长期仓均价",{exact:true}).fill("11");
+  await page.getByLabel("机动仓均价",{exact:true}).fill("13");
+  await page.getByLabel("长期仓理由",{exact:true}).fill("合成长线理由");
+  await page.getByLabel("机动仓理由",{exact:true}).fill("合成机动理由");
+  await page.getByRole("button",{name:"保存持仓",exact:true}).click();
+  await expect(page.getByText("持仓已保存",{exact:true})).toBeVisible();
+  await page.getByLabel("更新现金（当前组合）").fill("9000.50");
+  await page.getByRole("button",{name:"更新现金",exact:true}).click();
+  await expect(page.getByText("现金已更新",{exact:true})).toBeVisible();
+  await page.reload();await choose(page,name);
+  let saved=await (await request.get(`/api/v1/portfolios/${id}`)).json();
+  expect(Number(saved.cash_balance)).toBe(9000.5);
+  expect(saved.positions).toHaveLength(1);
+  expect(Number(saved.positions[0].core_average_cost)).toBe(11);
+  expect(Number(saved.positions[0].tactical_average_cost)).toBe(13);
+  await page.getByRole("row").filter({hasText:symbol}).click();
+  await expect(page.getByLabel("长期仓理由",{exact:true})).toHaveValue("合成长线理由");
+  await expect(page.getByLabel("机动仓理由",{exact:true})).toHaveValue("合成机动理由");
+  const dirty=[csvHeader,`SSE,${symbol},合成分仓标的,EQUITY,CNY,TEST,x,1,20`].join("\n");
+  await page.getByLabel("CSV 内容").fill(dirty);
+  await page.getByRole("button",{name:"预览",exact:true}).click();
+  await expect(page.getByText("存在无效行，禁止写入",{exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"确认导入",exact:true})).toBeDisabled();
+  const clean=[csvHeader,`SSE,${symbol},合成分仓标的,EQUITY,CNY,TEST,3,1,20`].join("\n");
+  await page.getByLabel("CSV 内容").fill(clean);
+  await page.getByRole("button",{name:"预览",exact:true}).click();
+  await expect(page.getByText("请先选择冲突处理方式",{exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"确认导入",exact:true})).toBeDisabled();
+  expect((await (await request.get(`/api/v1/portfolios/${id}`)).json()).positions).toEqual(saved.positions);
+  await page.getByRole("radio",{name:/替换/}).check();
+  await page.getByRole("button",{name:"确认导入",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"导入对账记录",exact:true})).toBeVisible();
+  const report=page.locator("section").filter({has:page.getByRole("heading",{name:"导入对账记录",exact:true})});
+  await expect(report).toContainText("长期 10");
+  await expect(report).toContainText("长期 3");
+  await page.reload();await choose(page,name);
+  await expect(page.getByRole("heading",{name:"导入历史",exact:true})).toBeVisible();
+  saved=await (await request.get(`/api/v1/portfolios/${id}`)).json();
+  expect(Number(saved.positions[0].core_quantity)).toBe(3);
+  expect(Number(saved.positions[0].tactical_quantity)).toBe(1);
+  const audits=await (await request.get(`/api/v1/portfolios/${id}/import-audits?limit=10`)).json();
+  expect(audits).toHaveLength(1);
+  expect(audits[0].applied[0].action).toBe("REPLACED");
+  expect(Number(audits[0].applied[0].before.core_quantity)).toBe(10);
+  expect(Number(audits[0].applied[0].after.core_quantity)).toBe(3);
+});
+
+test("a changed CSV requires a fresh conflict choice before any write",async({page,request})=>{
+  const name=`合成冲突确认-${Date.now()}`;
+  const p=await create(request,name);
+  const symbol=String(randomInt(620000,628999));
+  expect((await request.post(`/api/v1/portfolios/${p.portfolio_id}/positions`,{headers,data:{market:"SSE",symbol,name:"合成冲突标的",asset_type:"EQUITY",currency:"CNY",sector:"TEST",core_quantity:"10",tactical_quantity:"0",average_cost:"10"}})).status()).toBe(200);
+  await page.goto("/portfolio");await choose(page,name);
+  await page.getByLabel("CSV 内容").fill([csvHeader,`SSE,${symbol},合成冲突标的,EQUITY,CNY,TEST,3,0,20`].join("\n"));
+  await page.getByRole("button",{name:"预览",exact:true}).click();
+  await page.getByRole("radio",{name:/替换/}).check();
+  await expect(page.getByRole("button",{name:"确认导入",exact:true})).toBeEnabled();
+  await page.getByLabel("CSV 内容").fill([csvHeader,`SSE,${symbol},合成冲突标的,EQUITY,CNY,TEST,8,0,30`].join("\n"));
+  await page.getByRole("button",{name:"预览",exact:true}).click();
+  await expect(page.getByRole("radio",{name:/替换/})).not.toBeChecked();
+  await expect(page.getByRole("button",{name:"确认导入",exact:true})).toBeDisabled();
+  expect(Number((await (await request.get(`/api/v1/portfolios/${p.portfolio_id}`)).json()).positions[0].core_quantity)).toBe(10);
+});
+
+test("catalog search supports watchlist add, duplicate, reload and remove with explicit missing research",async({page,request})=>{
+  const symbol=String(randomInt(620000,628999));
+  const name=`合成目录标的-${symbol}`;
+  expect((await request.post("/api/v1/instruments",{headers,data:{market:"SSE",symbol,name,asset_type:"EQUITY",currency:"CNY",sector:"TEST"}})).status()).toBe(201);
+  await page.goto("/watchlist");
+  await page.getByRole("textbox",{name:"标的搜索",exact:true}).fill(name);
+  await page.getByRole("button",{name:new RegExp(`SSE ${symbol}`)}).click();
+  await expect(page.getByLabel("代码",{exact:true})).toHaveValue(symbol);
+  await page.getByRole("button",{name:"加入清单",exact:true}).click();
+  await expect(page.getByText("已加入观察清单",{exact:true})).toBeVisible();
+  await page.reload();
+  let row=page.getByRole("row").filter({hasText:symbol});
+  await expect(row.getByRole("cell",{name:"未提供",exact:true})).toHaveCount(4);
+  await page.getByLabel("代码",{exact:true}).fill(symbol);
+  await page.getByLabel("名称",{exact:true}).fill(name);
+  await page.getByRole("button",{name:"加入清单",exact:true}).click();
+  await expect(page.getByText("已加入观察清单",{exact:true})).toBeVisible();
+  expect((await (await request.get("/api/v1/watchlist")).json()).filter((i:{symbol:string})=>i.symbol===symbol)).toHaveLength(1);
+  await row.getByRole("button",{name:"移除",exact:true}).click();
+  await expect(page.getByText(`已移除 ${symbol}`,{exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("row").filter({hasText:symbol})).toHaveCount(0);
+});
+
+test("policy review shows actual API version and its acknowledgement never writes policy",async({page,request})=>{
+  const before=await (await request.get("/api/v1/policy/review")).json();
+  const writes:string[]=[];
+  page.on("request",req=>{if(!["GET","HEAD"].includes(req.method()))writes.push(req.url());});
+  await page.goto("/#policy");
+  const panel=page.locator("section").filter({has:page.getByRole("heading",{name:/Investment Policy/})});
+  await expect(panel.getByText(before.active_policy_version,{exact:true})).toBeVisible();
+  await expect(panel.getByTestId("policy-status")).toHaveText(before.policy_status);
+  await page.getByRole("checkbox",{name:"我已阅读当前政策状态（系统不会在此修改限额）"}).check();
+  await expect(page.getByText("已记录你的审阅确认（本地界面状态，不改政策）。",{exact:true})).toBeVisible();
+  expect(await (await request.get("/api/v1/policy/review")).json()).toEqual(before);
+  expect(writes).toEqual([]);
+});
+
+test("late holdings refresh preserves a cash draft through the real cash write",async({page,request})=>{
+ const name=`合成现金草稿-${Date.now()}`;
+ const a=await create(request,name);
+ await page.goto("/portfolio");await choose(page,name);
+ let release!:()=>void;let started!:()=>void;
+ const gate=new Promise<void>(resolve=>{release=resolve;});
+ const fetched=new Promise<void>(resolve=>{started=resolve;});
+ await page.route("**/api/v1/portfolios",async route=>{
+  const result=await route.fetch();expect(result.status()).toBe(200);
+  started();await gate;await route.fulfill({response:result});
+ });
+ await page.getByLabel("代码",{exact:true}).fill(String(randomInt(620000,628999)));
+ await page.getByLabel("名称",{exact:true}).fill("合成现金草稿标的");
+ await page.getByLabel("长期仓数量",{exact:true}).fill("1");
+ await page.getByRole("button",{name:"保存持仓",exact:true}).click();
+ await fetched;
+ await page.getByLabel("更新现金（当前组合）").fill("9000.50");
+ release();
+ await expect(page.getByRole("button",{name:"更新现金",exact:true})).toBeEnabled();
+ await expect(page.getByLabel("更新现金（当前组合）")).toHaveValue("9000.50");
+ const cashRequest=page.waitForRequest(r=>r.url().endsWith(`/portfolios/${a.portfolio_id}/cash`)&&r.method()==="PUT");
+ await page.getByRole("button",{name:"更新现金",exact:true}).click();
+ expect((await cashRequest).postDataJSON()).toEqual({cash_balance:"9000.50"});
+ await expect(page.getByText("现金已更新",{exact:true})).toBeVisible();
+ expect(Number((await (await request.get(`/api/v1/portfolios/${a.portfolio_id}`)).json()).cash_balance)).toBe(9000.5);
+ await page.reload();await choose(page,name);
+ await expect(page.getByLabel("更新现金（当前组合）")).toHaveValue("9000.500000000000000000");
+});

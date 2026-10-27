@@ -67,6 +67,15 @@
 
 ## 实施记录
 
+- 2026-10-27（MVP-101可见验收收口，工作分支REVIEW）：
+  - 基于已合入PR #17的当前Release，复验手工持仓、Core / Tactical独立均价与理由、现金、CSV无效行 / 显式冲突策略 / 写前不变 / 确认对账 / 刷新历史，目录搜索 / Watchlist幂等与删除、四项缺失研究状态和实际Policy只读审阅。
+  - 真实浏览器发现A组合迟到预览会在B恢复确认；修前4项前端安全回归失败，真实API / DB用例也失败。按目标组合与请求代际校验，切组合 / 改CSV / 填示例撤销旧预览，新预览须重新选冲突策略；迟到成功或错误不再污染当前编辑。
+  - 聚焦复核确认：确认请求始终写原组合A，但迟到结果曾在B展示A对账或错误。新增两项修前失败测试后仅隔离过期展示；原组合实际写入与审计不变，回到A可读历史，确认期间新填写的CSV不被旧结果清空。不是修复“写错B”。
+  - 组合 / 持仓 / 现金的已知输入错误提供中文修正提示并保留输入；未改API / Schema / 数据库 / 鉴权 / 并发锁 / CAS / 领域规则。
+  - 本轮实际：完整后端394 passed / 85.15%（67.32秒），独立集成31 passed，domain行98.06% / 分支88.04%；前端最终28/28、生产构建通过；空的独立浏览器库Chrome五文件14/14（21.1秒），只用15437 / 18109命名合成栈，无真实来源 / 模型调用。
+  - Ruff格式237文件 / 检查、mypy84源文件、OpenAPI / Policy Schema、Compose config、diff、pip-audit无已知漏洞、npm audit0通过；292文件标准密钥检查无新增，仓库原基线不变。详细命令 / 失败修复 / 可见入口见 `docs/agent/work-items/MVP-101.md`。
+  - 所有者部署 / 数据 / 凭据 / 会话未操作，Owner GUI与Checkpoint接受NOT VERIFIED；状态保持IN_PROGRESS，未代替Owner宣称ACCEPTED。
+
 - 2026-09-29：首个纵切已实现 **Instrument 目录 + Portfolio 手工持仓 + Watchlist 写路径**（应用/领域/SQL/API）。
   - 领域：`InstrumentIdentity` 规范化 market/symbol/currency/name/asset_type/sector。
   - 应用：`InstrumentCatalogService`、`PortfolioBookService`（base currency/现金/Core+Tactical/平均成本）、
@@ -146,3 +155,21 @@
   - 根因：`refreshList` 在**请求开始**捕获 `preferred`，响应时若用户已切走，仍把旧 preferred 写回选择。
   - 方案：完成时改读 `intentIdRef.current` 最新用户意图；序号仅丢弃更新的过期响应。
   - 回归：真实 pending GET（更新现金触发刷新 → 用户点 B → 暂停的 GET 返回）**PASS**；前端 7/7；E2E 6/6 串行。
+
+
+## 2026-10-27 独立 Gate 现金竞态复修
+
+独立复验在 `e65ecf8` 得到浏览器5/6：原完整持仓用例期待现金9000.5，实际10000.25。trace证明PUT发往正确组合、200成功，但请求体已是旧值 `10000.250000000000000000`；根因是持仓保存显示成功后，迟到的列表刷新无条件覆盖正在编辑的现金，不是后端丢写或写错组合。此前14/14只代表当时一次运行，不能证明该竞态已关闭。
+
+修复以现金草稿dirty/revision保护未提交输入；显式切换组合载入对应现金；现金响应只在目标组合与输入版本都相同时显示成功/失败和清除dirty，迟到成功仍刷新实际列表。新增6项具名测试：旧持仓刷新后的现金成功/失败修前2 FAIL；新草稿/切组合×现金成功/失败的提示归属修前4 FAIL。修后全量前端34/34，build通过；新增真实API/DB/UI可控迟到刷新用例，确认PUT请求体9000.50、数据库9000.5及刷新后持久化；完整Chrome套件15/15（18.1秒，无跳过）。原9000.5断言未改变，没有固定延时或放宽断言。输出 `.runtime/mvp101-cash-final-browser-20261027`。
+
+独立Gate反馈 https://github.com/zmd6s6/JZ-Investment-OS/pull/21#issuecomment-6431848403 状态为 `fixed-awaiting-review`，不是resolved或独立Gate通过。Owner Decision=NONE；Owner验收PENDING，PRODUCT-05仍IN_PROGRESS。此轮仅页面/前端测试与证据变更，后端394/集成31为前提交实测，本轮不冒称重新运行；以新HEAD远程CI补充核验。
+
+
+## 集成前台账（2026-10-27）
+
+代码提交 `308d99c867a30614d29c2bd1a1f7f1feedf04fc8` 已由主代理独立重跑现金/预览/反馈16/16、本项真实API/DB/UI浏览器7/7（18.7秒），包括原9000.5断言和可控迟到刷新；源码复核未报告新增阻塞。此为复验结果转录，不由实现者宣布独立Gate通过。该代码PR CI https://github.com/zmd6s6/JZ-Investment-OS/actions/runs/40456865749 已SUCCESS。
+
+本次提交仅同步MVP-101集成台账；队列INTEGRATED及ACCEPTANCE_READY集成描述均随PR #21合入Release生效，不能代表已合并或Owner接受。Owner PENDING / PRODUCT-05 IN_PROGRESS保留；评论6431848403在独立方核对最终HEAD并确认前仍为fixed-awaiting-review。最终CI、Gate与合并由PR记录核对，未修改真实政策、未部署Owner实例。
+
+恢复入口：PR https://github.com/zmd6s6/JZ-Investment-OS/pull/21 ，独占分支agent/MVP-101；先核对 `git status` / `gh pr view 21` / 当前HEAD CI。18109与15437合成栈保留，未重置或停止Owner服务。下一步仅处理当前HEAD CI或可执行Review；独立Gatekeeper决定是否合入release/mvp-beta，实现者不自行合并。
