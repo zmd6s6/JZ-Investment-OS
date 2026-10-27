@@ -74,3 +74,12 @@
 ## MVP-202 参考估值纵切（2026-10-27）
 
 工作分支已接通 `/valuation` 的当前账本冻结输入→显式来源参考价→Decimal分仓/NAV/权重/行业与总净暴露→来源与缺Sizing输入展示。人工数据仍非交易级；缺历史波动/流动性/Policy等保持失败关闭，不生成建议数量或完整分析。P6状态与Owner接受未改变。当前实测与未验证项见 `docs/agent/work-items/MVP-202.md`，不将此切片冒充完整P6。
+
+
+## 独立复核与合入生效台账（2026-10-27）
+
+主代理已对实现提交36e8c76独立复跑unit+真实PG 32/32（6.33秒）和本项真实浏览器3/3（6.8秒），读取ADR0039、领域/应用/SQL/API/UI未提出新源码阻塞。此为实际独立复核记录，不由实现者宣布Gate通过。
+
+评论 https://github.com/zmd6s6/JZ-Investment-OS/pull/24#issuecomment-6440891519 提出的Release台账项已准备修正，状态fixed-awaiting-review：MVP-202 INTEGRATED与MVP-203 READY仅在本PR #24合入Release后生效；MVP-204/301继续依赖203，Owner PENDING、P6未完成、全部Sizing缺项保持。不能在未合入时将此分支队列当成已接受产品。
+
+root要求等待PR #23合入后安全merge Release，保留日历/行情/估值公共接线，再生成OpenAPI、运行受影响验证及新HEAD CI。此处台账先本地准备，与最终集成一次提交，避免重复元数据CI；不复用36e8c76旧CI作为最终合并依据。

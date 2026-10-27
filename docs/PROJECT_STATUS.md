@@ -17,7 +17,7 @@
 
 ## 已建立
 
-- MVP-202工作分支已接通只读 `/valuation` 参考估值与对账：冻结P5现金/分仓，追溯人工报价Evidence，缺价/FX阻断完整NAV；Sizing缺项可见且不生成建议数量。后端458/85.42%、集成45、前端53与构建已通过，当前REVIEW等待最终CI/独立Gate/Release集成；未完成P6或Owner验收，实际证据见 `docs/agent/work-items/MVP-202.md`。
+- MVP-202已实现并验证只读 `/valuation` 参考估值与对账：冻结P5现金/分仓，追溯人工报价Evidence，缺价/FX阻断完整NAV；Sizing缺项可见且不生成建议数量。实现时Windows后端458/85.42%、集成45、前端53与完整浏览器21项通过；主代理独立复验32项unit/PG与3项真实浏览器通过。INTEGRATED及MVP-203 READY仅随PR #24合入Release生效，最终CI/Gate由独立方核对；未完成P6或Owner验收，实际证据见 `docs/agent/work-items/MVP-202.md`。
 
 - MVP-201本工作分支已接通人工行情 typed port、同事务持久化与 `/market-data` 中文录入 / 来源追溯 / 刷新路径；CNY单币种、缺FX失败关闭。该记录随PR合入Release生效，独立Gate / Owner部署与Checkpoint人工验收未完成；人工数据不等于已核实市场事实，完整P6仍未完成。真实验证及限制见 `docs/agent/work-items/MVP-201.md`。
 
