@@ -1,0 +1,33 @@
+# ADR-0041 — 持久AnalysisRun、冻结输入与非执行影子结论
+
+- 状态：Accepted（主规范及既有ADR完全限定范围内工程选择，不放松投资治理）
+- 日期：2026-10-28
+- 补充：ADR0003/0004/0005/0006/0007/0011/0014/0015/0038/0039；不改旧AgentOpinion1.0或旧风险/仓位公式。
+
+## 背景 / 决策
+
+现有AgentRuntime/CommitteeRuntime、Evidence/Thesis/Feature/Risk/Sizing基础不等于用户可发起、观察、恢复的分析产品。以独立AnalysisRun聚合维护QUEUED→RUNNING→SUCCEEDED/DEGRADED/FAILED/CANCELLED；终态不可变。重试是新request/run关联原run，绝不重写原历史或静默重新执行付费调用。
+
+新增0016正规化AnalysisRun、冻结AnalysisInput、带FK的Evidence引用、追加步骤/角色产物与独立ShadowDecision。关键查询字段与关系正规化，JSON只保留版本化结构快照；不是一个万能JSON表替代Thesis/Opinion/Committee/Risk/Feature/Decision。已有有效产物仍用现有主表及其校验，不制造哨兵Policy/Thesis/Strategy UUID填满未就绪的InvestmentDecision。影子结论与可审批Decision分离，前者当前无Sizing、不可执行且禁止BUY/ADD（DTO和数据库双约束）。
+
+明确输入选择与调用同意：每个运行保存各角色模型档案、已保存Evidence、可选显式研究档案/查询/顺序/数量、报价来源名称、202账本估值/Policy具体版本。不开启或改写全局角色映射，不自动切源。模型/预算/研究档案身份与配置hash冻结；调用前检查未停用/未漂移。所有角色及修复共享run_id的任务预算，仍由既有LLMBudgetService预留/结算。取消无法撤销已发出调用或费用，UI明确说明有界停止边界。
+
+实际外部研究若选择则在Worker中受限执行并摄入Evidence，冻结最终可得Evidence及其observed/effective/available/ingested/expiry与hash；保存原排队时P5快照/Policy参考时间，不能把后到资料说成排队时已知。模型只读冻结context，所有事实/风险/逻辑引用都须在本次有效Evidence集合内，过期/未来/冲突/无效结构均显式阻断或降级。外部正文当不可信数据，Prompt隔离，不给写入/交易工具。
+
+Features由确定性代码计算；已有Thesis版本按as-of读取，缺失保持UNKNOWN，不凭空创建VALID逻辑。现有两轮协议不变：专家独立Round1，定向Round2且始终Devil's Advocate，保留每个角色成功/失败。Portfolio只通过新相邻协议portfolio-intent-1.0输出risk_intent/引用理由，拒绝任意百分比；CIO以cio-proposal-1.0提出结构化Action，再由既有确定性gates裁决。此两个协议不修改既有AgentOpinion1.0含义。
+
+Risk缺确定性输入为UNKNOWN，不因模型乐观编PASS；202缺波动/流动性/预占容量/Policy/交易级行情时Sizing仍BLOCKED、数量未提供。先把真实缺口可见，不设波动/FX/现金容量等默认数值。不把存在NAV或成功委员会当作可交易。完整Risk/数量未来仅能在所有真实、受治理输入齐备时另行接通，不绕过本协议的失败关闭。
+
+## 可靠性 / 架构
+
+应用层通过typed ports编排，基础设施拥有SQL/HTTP；domain保持无框架。请求幂等键只对应规范命令，相同请求重放返回原冻结历史，不重新采样。事务内领取QUEUED行（FOR UPDATE SKIP LOCKED）授予唯一lease；每步骤写入/审计/Event/Outbox同事务，最终影子结果/Evidence链接/终态同事务。
+
+Worker全运行和每个模型调用有技术性时限。运行过程中只在有界步骤边界处理取消，不声称可撤销已发生费用。进程中断的RUNNING在超时后记明确FAILED/INTERRUPTED_RETRY_REQUIRED，不自动重播未知完成的外部调用；所有者可显式新Run重试。已完成角色/步骤和旧失败永久可读，终态/快照/产物数据库防更新删除。
+
+## 替代方案与后果
+
+拒绝请求内同步长调用/仅内存状态、默认自动外部重试、静默换源、原地重试覆盖、把缺Policy/Sizing伪造成有效完整Decision、从旧PR18整包merge未验证Schema链。复用PostgreSQL/Worker，无新服务或生产依赖；公开API新增版本化端点而不破坏旧Decision协议。完整跟踪下钻204与审批301仍受203真实依赖，不借本切片宣布完成。
+
+## 迁移 / 恢复 / 验证
+
+0016基于当前Release0015，仅新增分析表/约束/不可变守卫；无Owner数据部署。空库和上一版本升级、幂等/并发/故障回滚/不可变历史/取消/中断/坏输出/预算/日期/缺Policy与Sizing都须具名测试。存在分析历史时拒绝降级删除，回滚应用并保留表，必要时前向修复。合成验证15442/18114/独立命名库，真实付费/Owner迁移重启需实际有效授权，本轮不调用。
