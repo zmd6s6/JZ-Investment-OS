@@ -536,6 +536,7 @@ def create_app(
             watchlist=selected_watchlist_service is not None,
             providers=selected_provider_settings_service is not None,
             policy=True,
+            market_data=market_data_service is not None,
         )
 
     def provider_settings_or_503() -> ProviderSettingsService:

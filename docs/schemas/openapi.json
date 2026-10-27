@@ -3667,6 +3667,49 @@
         ]
       }
     },
+    "/api/v1/market-data/instruments/{instrument_id}": {
+      "get": {
+        "operationId": "instrument_api_v1_market_data_instruments__instrument_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Instrument",
+        "tags": [
+          "market-data"
+        ]
+      }
+    },
     "/api/v1/market-data/manual-quotes": {
       "post": {
         "operationId": "save_quote_api_v1_market_data_manual_quotes_post",

@@ -224,3 +224,17 @@ async def test_typed_port_cannot_claim_future_or_expired_quote_available():
         )
         with pytest.raises(MarketDataError, match="MARKET_RESPONSE_TIME_INVALID"):
             await app.get_snapshot(req)
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_manual_market_manifest_never_accepts_owner_checkpoint(assembled):
+    from investment_os.application.acceptance import acceptance_snapshot
+
+    snapshot = acceptance_snapshot(
+        portfolio=False, watchlist=False, providers=False, policy=False, market_data=assembled
+    )
+    item = next(item for item in snapshot.capabilities if item.key == "market_data")
+    assert item.route == ("/market-data" if assembled else None)
+    assert item.service == ("ASSEMBLED" if assembled else "UNAVAILABLE")
+    assert item.human_acceptance == "PENDING"
+    assert "未经独立核实" in item.detail

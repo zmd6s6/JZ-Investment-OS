@@ -17,6 +17,8 @@
 
 ## 已建立
 
+- MVP-201本工作分支已接通人工行情 typed port、同事务持久化与 `/market-data` 中文录入 / 来源追溯 / 刷新路径；CNY单币种、缺FX失败关闭。该记录随PR合入Release生效，独立Gate / Owner部署与Checkpoint人工验收未完成；人工数据不等于已核实市场事实，完整P6仍未完成。真实验证及限制见 `docs/agent/work-items/MVP-201.md`。
+
 - MVP-000已实现并验证 `/acceptance` 与只读交付清单API：区分工程、集成证据、服务装配及待人工验收；提供实际产品入口、操作 / 失败指引，未实现功能不链接至假入口。队列INTEGRATED记录随PR合入Release生效，未部署所有者实例，不表示Checkpoint接受；验证与限制见 `docs/agent/work-items/MVP-000.md`。
 - 主工程规范、根工作约定、持续工作模式以及 ADR/阶段文档约定均已建立。
 - Python 3.12 项目元数据、锁文件、健康检查、Compose、CI、OpenAPI、依赖/许可证检查与密钥扫描已具备。

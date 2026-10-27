@@ -23,6 +23,9 @@ test.beforeEach(async({page})=>{await page.addInitScript(t=>sessionStorage.setIt
 
 test('settings to persisted manual quote, trace, refresh and explicit missing/FX states',async({page,request})=>{
   const instrument=await register(request);
+  await page.goto('/acceptance');
+  await page.getByRole('link',{name:'进入人工行情与币种边界'}).click();
+  await expect(page.getByRole('heading',{name:'人工行情与汇率边界'})).toBeVisible();
   await page.goto('/settings');
   await page.getByRole('link',{name:'记录人工行情／查看单币种与FX边界'}).click();
   await expect(page.getByRole('heading',{name:'人工行情与汇率边界'})).toBeVisible();
@@ -67,4 +70,5 @@ test('non CNY target and mobile guidance remain explicit',async({page,request})=
   await expect(page.getByText('该标的不是人民币报价，缺少FX，不能在首版保存或据此估值。')).toBeVisible();
   await expect(page.getByRole('button',{name:'明确保存人工报价'})).toBeDisabled();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:'../.runtime/mvp201-mobile.png',fullPage:true});
 });
