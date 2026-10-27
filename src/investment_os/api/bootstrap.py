@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
+from investment_os.application.calendar_product import CalendarProductService
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.provider_settings import ProviderSettingsService
@@ -15,6 +16,7 @@ from investment_os.application.secrets import SecretStore, UnavailableSecretStor
 from investment_os.infrastructure.bocha.adapter import (
     BochaWebSearchConnectionTester,
 )
+from investment_os.infrastructure.calendar_product import SqlCalendarProduct
 from investment_os.infrastructure.database import create_database_engine, create_session_factory
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
@@ -65,6 +67,7 @@ def create_production_app() -> FastAPI:
         ),
     )
     return create_app(
+        calendar_product_service=CalendarProductService(SqlCalendarProduct(session_factory)),
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
         model_connection_tester=model_gateway,

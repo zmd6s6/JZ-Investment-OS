@@ -124,7 +124,9 @@ work_items:
   - id: MVP-401
     title: Product calendar source and autonomous worker runtime
     priority: 1
-    status: READY
+    status: IN_PROGRESS
+    claim_branch: agent/MVP-401
+    claim_owner: mvp401_calendar_runtime
     stage: PRODUCT-08
     checkpoint: C
     depends_on: []

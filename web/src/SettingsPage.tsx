@@ -382,6 +382,12 @@ export function SettingsPage() {
       {error ? <p role="alert" className="banner banner-error">{error}</p> : null}
       {message ? <p role="status" className="banner banner-ok">{message}</p> : null}
 
+      <section className="settings-card" aria-labelledby="calendar-settings-title">
+        <h2 id="calendar-settings-title">市场日历与无付费运行</h2>
+        <p>通过页面导入有来源的明确交易时段，默认暂停；单独确认后只生成日历状态报告，不运行团队研究、模型或交易。</p>
+        <a className="btn" href="/calendar">配置市场日历与查看运行记录</a>
+      </section>
+
       <section className="settings-card" aria-labelledby="system-settings-title">
         <h2 id="system-settings-title">系统范围</h2>
         <form className="settings-form compact-form" onSubmit={(event) => void saveSystem(event)}>

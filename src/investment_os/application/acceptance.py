@@ -32,7 +32,7 @@ class AcceptanceSnapshot(BaseModel):
 
 
 def acceptance_snapshot(
-    *, portfolio: bool, watchlist: bool, providers: bool, policy: bool
+    *, portfolio: bool, watchlist: bool, providers: bool, policy: bool, calendar: bool = False
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
 
@@ -45,6 +45,7 @@ def acceptance_snapshot(
         "providers": providers,
         "policy": policy,
         "acceptance": True,
+        "calendar": calendar,
     }
     shipped = (
         (
@@ -98,6 +99,18 @@ def acceptance_snapshot(
             "可配置档案; 配置成功不等于模型 / 数据连接成功或分析已就绪。",
             ("在设置中建立自己的已授权档案。", "只有明确点击测试连接才可能发生网络调用和费用。"),
             "无凭据、停用、连接或预算失败须明确显示, 不能静默换源。",
+        ),
+        (
+            "calendar",
+            "市场日历状态报告",
+            "MVP-401",
+            "/calendar",
+            "已接通手工日历导入与Worker无付费状态报告; 不代表完整团队研究或真实定时费用授权。",
+            (
+                "核对来源后预览并导入明确交易时段, 新版本默认暂停。",
+                "单独确认仅状态报告后启用, 查看实际任务与来源记录。",
+            ),
+            "格式错误整批拒绝; 没有日历或已暂停不调度, 无记录不冒充Worker健康。",
         ),
     )
     items = [
