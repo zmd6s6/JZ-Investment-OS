@@ -19,3 +19,6 @@ test('missing FX and read failure stay explicit and editable',async({page,reques
  const book=await fixture(request,'USD');await calculate(page,book.portfolio_id);await expect(page.getByText('缺少汇率，未计算组合估值。',{exact:true})).toBeVisible();await expect(page.getByText('存在非人民币资产或记账币种，缺少汇率，整组停止估值',{exact:true})).toBeVisible();
  await page.route('**/api/v1/valuation/portfolios/**',r=>r.fulfill({status:503,contentType:'application/json',body:'{}'}));await page.getByRole('button',{name:'读取估值与缺口',exact:true}).click();await expect(page.getByText('当前服务未装配估值能力，请同步版本后重试。',{exact:true})).toBeVisible();await expect(page.getByLabel('报价来源名称（与人工行情一致）')).toHaveValue('合成估值来源');
 });
+test('mobile valuation keeps CNY and missing-data guidance usable without horizontal page overflow',async({page,request})=>{
+ const book=await fixture(request);await page.setViewportSize({width:390,height:844});await calculate(page,book.portfolio_id);await expect(page.getByText('价格未齐全，完整估值已停止。',{exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await page.screenshot({path:'../.runtime/mvp202-valuation-mobile.png',fullPage:true});
+});

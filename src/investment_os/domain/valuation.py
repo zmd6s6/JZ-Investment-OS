@@ -1,7 +1,7 @@
 """Versioned reference valuation; never an investment sizing or execution result."""
 
 from dataclasses import dataclass
-from decimal import Decimal, localcontext
+from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
 from uuid import UUID
 
 from investment_os.domain.values import exact_decimal
@@ -69,8 +69,7 @@ def value_portfolio(
     if len(holdings) > 1000 or len({h.instrument_id for h in holdings}) != len(holdings):
         raise ValueError("VALUATION_HOLDINGS_INVALID")
     holdings = tuple(sorted(holdings, key=lambda h: str(h.instrument_id)))
-    with localcontext() as ctx:
-        ctx.prec = 80
+    with localcontext(Context(prec=80, rounding=ROUND_HALF_EVEN, Emin=-999999, Emax=999999)):
         fx = base_currency != "CNY" or any(
             h.currency != "CNY" and h.core_quantity + h.tactical_quantity > 0 for h in holdings
         )

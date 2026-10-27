@@ -311,3 +311,13 @@ async def test_http_valuation_route_is_typed_read_only_and_never_probes_on_manif
         assert (
             await client.get(path, params={"source": "MANUAL_MARKET", "source_name": "合成来源"})
         ).status_code == 503
+
+
+def test_valuation_ignores_callers_decimal_precision_and_rounding_context():
+    from decimal import ROUND_DOWN
+
+    reference = value_portfolio("CNY", Decimal("17"), (holding(),))
+    with localcontext() as ctx:
+        ctx.prec = 6
+        ctx.rounding = ROUND_DOWN
+        assert value_portfolio("CNY", Decimal("17"), (holding(),)) == reference

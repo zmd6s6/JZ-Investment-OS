@@ -20,6 +20,7 @@
 | Investment Policy review | `/#policy` | ACCEPTANCE_READY — MVP-101已核对实际API版本与无写入审阅；真实参数仍由Owner治理 | PENDING |
 | Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000集成记录随PR合入Release生效；构建交付清单不是实时健康检测 | PENDING |
 | 人工行情与币种边界 | `/market-data` | INTEGRATED — MVP-201记录随PR #22合入Release生效；人工未核实、CNY限定，非完整分析 | PENDING |
+| 参考估值与Sizing缺口 | `/valuation` | ACCEPTANCE_READY — MVP-202工作分支已验证CNY分仓/NAV/权重/暴露与来源追溯；人工报价非交易级，缺完整Sizing输入明确阻断；待Release集成 | PENDING |
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
 | Daily Runtime | product UI | ENGINEERING baseline only; product calendar/runtime pending MVP-401 | PENDING |
@@ -67,3 +68,8 @@ CSV请求处理中切换组合或改动内容后，迟到预览不能恢复确�
 应看到Evidence、hash、UTC来源时间；刷新后再次读取仍存在。错误应保留输入，过期 / 缺价 / 未来资料不显示价格；切换USD估值应显示缺FX并阻止。
 人工资料始终未经独立核实、非交易级；不自动调用模型 / 网页或产生订单。工程 / 浏览器证据与限制见 `docs/agent/work-items/MVP-201.md`。
 完整分析、FX、全市场行情、波动率 / 流动性及Sizing不在本切片交付中，不能因此接受整个P6或Checkpoint。
+
+
+## MVP-202 参考估值验收
+
+依次在资产组合录入现金和分仓、人工行情记录同一来源名称有效CNY报价，再到估值对账选择组合/来源并读取。现金100、Core10/Tactical2、价19.25应得到NAV331和分仓192.5/38.5；刷新明确重读可复验。检查Evidence与UTC时间，以及政策/历史波动/流动性/预占容量等缺口；不能生成建议数量或投资动作。缺价/过期不给完整NAV/权重，非CNY整组缺FX阻断。Owner未接受Checkpoint，完整分析仍属203/204。证据见docs/agent/work-items/MVP-202.md。
