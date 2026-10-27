@@ -13,7 +13,7 @@
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 自治控制面：`docs/agent/RELEASE.md` + `docs/agent/WORK_QUEUE.yaml`
-- 上次状态更新：`2026-10-27`
+- 上次状态更新：`2026-10-28`
 
 ## 已建立
 
