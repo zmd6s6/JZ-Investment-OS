@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.analysis_configuration import budget_hash, profile_hash
 from investment_os.application.analysis_runs import (
+    AnalysisCancelled,
     AnalysisEvidenceInput,
     AnalysisFrozenInput,
     AnalysisQueuedInput,
@@ -21,6 +22,7 @@ from investment_os.application.analysis_runs import (
 from investment_os.application.evidence import derive_display_freshness
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.llm_gateway import (
+    LLMGatewayFailure,
     LLMGatewayPort,
     LLMGatewayRequest,
     LLMGatewayResponse,
@@ -74,12 +76,26 @@ class PinnedAnalysisGateway:
         self._lease = lease
 
     async def complete(self, request: LLMGatewayRequest) -> LLMGatewayResponse:
-        await self._store.check_running(self._run_id, self._lease)
-        await self._resolver.model_for_role(request.role.value)
-        current = await self._budget.policy()
-        if current is None or budget_hash(current) != self._queued.budget_hash:
-            raise ValueError("ANALYSIS_BUDGET_CHANGED")
-        await self._store.check_running(self._run_id, self._lease)
+        try:
+            await self._store.check_running(self._run_id, self._lease)
+            await self._resolver.model_for_role(request.role.value)
+            current = await self._budget.policy()
+            if current is None or budget_hash(current) != self._queued.budget_hash:
+                raise ValueError("ANALYSIS_BUDGET_CHANGED")
+            await self._store.check_running(self._run_id, self._lease)
+        except (AnalysisCancelled, ValueError) as exc:
+            code = "ANALYSIS_CANCEL_REQUESTED" if isinstance(exc, AnalysisCancelled) else str(exc)
+            await self._store.step(
+                self._run_id,
+                self._lease,
+                stage="MODEL_CALL",
+                status="BLOCKED",
+                payload={"role": request.role.value, "repair_attempt": request.repair_attempt},
+                reason_code=code,
+            )
+            raise LLMGatewayFailure(
+                "analysis input or cancellation gate blocked the call"
+            ) from None
         await self._store.step(
             self._run_id,
             self._lease,
