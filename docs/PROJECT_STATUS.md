@@ -17,7 +17,7 @@
 
 ## 已建立
 
-- MVP-202已实现并验证只读 `/valuation` 参考估值与对账：冻结P5现金/分仓，追溯人工报价Evidence，缺价/FX阻断完整NAV；Sizing缺项可见且不生成建议数量。实现时Windows后端458/85.42%、集成45、前端53与完整浏览器21项通过；主代理独立复验32项unit/PG与3项真实浏览器通过。INTEGRATED及MVP-203 READY仅随PR #24合入Release生效，最终CI/Gate由独立方核对；未完成P6或Owner验收，实际证据见 `docs/agent/work-items/MVP-202.md`。
+- MVP-202已实现并验证只读 `/valuation` 参考估值与对账：冻结P5现金/分仓，追溯人工报价Evidence，缺价/FX阻断完整NAV；Sizing缺项可见且不生成建议数量。实现时Windows后端458/85.42%、集成45、前端53与完整浏览器21项通过；主代理独立复验32项unit/PG与3项真实浏览器通过。已安全同步PR #23后的Release，合并代码重跑486/85.94%、集成58、前端62、真实浏览器22项通过；INTEGRATED及MVP-203 READY仅随PR #24合入Release生效，最终CI/Gate由独立方核对；未完成P6或Owner验收，实际证据见 `docs/agent/work-items/MVP-202.md`。
 
 - MVP-401=INTEGRATED，此记录随PR #23通过最终独立Gate合入Release生效。`/calendar`提供有来源与市场时区的CSV预览 / 持久化导入、新版本默认暂停、STATUS_ONLY独立启停与真实Worker日历状态报告。91801d0由root独立复跑日历四文件28/28（8.75秒）、真实恢复浏览器1/1（15.7秒），覆盖失败换源恢复和两种并发交错；旧c0ad765独立25/2只归属旧实现。91801d0六CI绿、Linux454 / 85.50%及集成51是该精确提交的工程证据，最终合入按PR当前HEAD核验。Owner部署 / 验收PENDING；不调用付费模型或真实来源，不含团队分析，完整P8仍PLANNED。详细边界见 `docs/agent/work-items/MVP-401.md`。
 - MVP-201已由PR #22通过独立Gate合入Release：人工行情 typed port、同事务持久化与 `/market-data` 中文录入 / 来源追溯 / 刷新路径；CNY单币种、缺FX失败关闭。Owner部署与Checkpoint人工验收PENDING；人工数据不等于已核实市场事实，完整P6仍未完成。真实验证及限制见 `docs/agent/work-items/MVP-201.md`。

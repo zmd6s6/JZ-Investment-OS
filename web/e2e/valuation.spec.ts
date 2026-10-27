@@ -22,3 +22,13 @@ test('missing FX and read failure stay explicit and editable',async({page,reques
 test('mobile valuation keeps CNY and missing-data guidance usable without horizontal page overflow',async({page,request})=>{
  const book=await fixture(request);await page.setViewportSize({width:390,height:844});await calculate(page,book.portfolio_id);await expect(page.getByText('价格未齐全，完整估值已停止。',{exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await page.screenshot({path:'../.runtime/mvp202-valuation-mobile.png',fullPage:true});
 });
+test('merged calendar market and valuation entries share the real manifest and preserve paused imports',async({page,request})=>{
+ await page.goto('/acceptance');
+ for(const name of ['进入人工行情与币种边界','进入参考估值与持仓对账','进入市场日历状态报告'])await expect(page.getByRole('link',{name,exact:true})).toBeVisible();
+ await page.getByRole('link',{name:'进入参考估值与持仓对账',exact:true}).click();await expect(page.getByRole('heading',{name:'估值与持仓对账',exact:true})).toBeVisible();
+ await page.goto('/settings');await page.getByRole('link',{name:'配置市场日历与查看运行记录',exact:true}).click();await expect(page.getByRole('heading',{name:'市场日历与运行状态',exact:true})).toBeVisible();
+ await page.getByLabel('日历来源名称').fill('MVP202合并接线合成日历');await page.getByLabel('来源版本',{exact:true}).fill(`synthetic-merge-${Date.now()}`);await page.getByLabel('日历CSV内容').fill('business_date,close_at\n2030-01-02,15:00');await page.getByLabel('我已核对来源与时段，确认有权导入这些日历数据。').check();await page.getByRole('button',{name:'预览日历（不保存）'}).click();await expect(page.getByRole('heading',{name:/待确认预览/})).toBeVisible();await page.getByLabel('我确认按此预览导入；新版本默认暂停，相同内容保持原启用状态。').check();await page.getByRole('button',{name:'确认导入日历'}).click();await expect(page.getByRole('article',{name:'上海证券交易所日历配置'}).getByRole('heading')).toContainText('已暂停');
+ const state=await(await request.get('/api/v1/calendar')).json();expect(state.configurations[0].enabled).toBe(false);expect(state.recent_runs).toHaveLength(0);
+ await page.reload();await expect(page.getByRole('article',{name:'上海证券交易所日历配置'}).getByRole('heading')).toContainText('已暂停');
+ await page.goto('/settings');await page.getByRole('link',{name:'记录人工行情／查看单币种与FX边界',exact:true}).click();await expect(page.getByRole('heading',{name:'人工行情与汇率边界',exact:true})).toBeVisible();
+});
