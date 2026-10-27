@@ -17,7 +17,10 @@ from pydantic import (
     model_validator,
 )
 
-from investment_os.application.instrument_catalog import InstrumentCatalogService
+from investment_os.application.instrument_catalog import (
+    InstrumentCatalogEntry,
+    InstrumentCatalogService,
+)
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.domain.values import exact_decimal
 
@@ -202,6 +205,9 @@ class MarketDataService:
         self._portfolios = portfolios
         self._now = now or (lambda: datetime.now(UTC))
 
+    async def get_instrument(self, instrument_id: UUID) -> InstrumentCatalogEntry:
+        return await self._catalog.get(instrument_id)
+
     async def save_quote(self, command: ManualQuoteInput) -> ManualQuoteSaved:
         if command.currency != "CNY":
             raise MarketDataError("FX_REQUIRED")
@@ -247,4 +253,17 @@ class MarketDataService:
             or result.provenance.currency != request.base_currency
         ):
             raise MarketDataError("MARKET_RESPONSE_MISMATCH")
+        if result.status == "AVAILABLE" and result.provenance:
+            provenance = result.provenance
+            if (
+                max(
+                    provenance.observed_at,
+                    provenance.effective_at,
+                    provenance.available_at,
+                    provenance.ingested_at,
+                )
+                > request.as_of
+                or provenance.expires_at <= request.as_of
+            ):
+                raise MarketDataError("MARKET_RESPONSE_TIME_INVALID")
         return result

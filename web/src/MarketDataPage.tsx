@@ -21,6 +21,9 @@ async function requestJson<T>(url:string,init:RequestInit={}):Promise<T>{
   })(),limit]);}catch(reason){if(reason instanceof TypeError)throw new Error("无法连接服务。保存结果尚未确认，请保留输入并使用同一内容重试。");throw reason;}finally{clearTimeout(timer!);}
 }
 const utc=(value:string)=>new Date(value).toISOString();
+function validProvenance(value:Provenance|null,target:Snapshot){
+  return !!value&&value.instrument_id===target.instrument_id&&value.source===target.source&&value.source_name===target.source_name&&value.currency===target.base_currency&&typeof value.source_locator==="string"&&typeof value.evidence_id==="string"&&/^[0-9a-f]{64}$/.test(value.content_hash)&&value.independently_verified===false&&value.trading_grade===false&&[value.observed_at,value.effective_at,value.available_at,value.ingested_at,value.expires_at].every(t=>typeof t==="string"&&Number.isFinite(Date.parse(t)));
+}
 
 export function MarketDataPage(){
   const initial=new URLSearchParams(window.location.search);
@@ -36,7 +39,7 @@ export function MarketDataPage(){
   useEffect(()=>{let live=true;const id=initial.get("instrument_id");
     void requestJson<Capabilities>("/api/v1/market-data/capabilities").then(value=>{if(live)setCapabilities(value);}).catch(reason=>{if(live)setError(reason.message);});
     void requestJson<typeof portfolios>("/api/v1/portfolios").then(value=>{if(live&&Array.isArray(value))setPortfolios(value);}).catch(()=>{/* 组合仅为可选边界核对，无法读取时不默认选择 */});
-    if(id)void requestJson<InstrumentHit>(`/api/v1/instruments/${encodeURIComponent(id)}`).then(value=>{if(live&&value.instrument_id===id)setInstrument(value);}).catch(reason=>{if(live)setError(reason.message);});
+    if(id)void requestJson<InstrumentHit>(`/api/v1/market-data/instruments/${encodeURIComponent(id)}`).then(value=>{if(live&&value.instrument_id===id)setInstrument(value);}).catch(reason=>{if(live)setError(reason.message);});
     return()=>{live=false;generation.current++;};
   },[]);
   const changeSelection=()=>{generation.current++;setSnapshot(null);setSaved(null);setMessage(null);};
@@ -45,10 +48,10 @@ export function MarketDataPage(){
     busy.current=true;setWorking(true);setError(null);setSnapshot(null);
     const current=++generation.current;
     const query=new URLSearchParams({instrument_id:instrument.instrument_id,source:"MANUAL_MARKET",source_name:sourceName.trim(),base_currency:baseCurrency});
-    if(asOf)query.set("as_of",utc(asOf));if(portfolio)query.set("portfolio_id",portfolio);
-    try{const value=await requestJson<Snapshot>(`/api/v1/market-data/reference-quote?${query}`);
+    try{if(asOf)query.set("as_of",utc(asOf));if(portfolio)query.set("portfolio_id",portfolio);
+      const value=await requestJson<Snapshot>(`/api/v1/market-data/reference-quote?${query}`);
       if(current!==generation.current)return;
-      if(value.instrument_id!==instrument.instrument_id||value.source_name!==sourceName.trim()||value.source!=="MANUAL_MARKET"||value.base_currency!==baseCurrency||!Object.hasOwn(labels,value.status)||(value.status==="AVAILABLE"&&(!value.quote||typeof value.quote.price!=="string"||!/^\d+(\.\d+)?$/.test(value.quote.price)))||(value.status!=="AVAILABLE"&&value.quote!==null))throw new Error("报价响应与本次目标不一致或字段异常，未采用。");
+      if(value.instrument_id!==instrument.instrument_id||value.source_name!==sourceName.trim()||value.source!=="MANUAL_MARKET"||value.base_currency!==baseCurrency||!Object.hasOwn(labels,value.status)||(value.status==="AVAILABLE"&&(!value.quote||typeof value.quote.price!=="string"||!/^\d+(\.\d+)?$/.test(value.quote.price)||!/[1-9]/.test(value.quote.price)||!validProvenance(value.provenance,value)||JSON.stringify(value.quote.provenance)!==JSON.stringify(value.provenance)))||(value.status!=="AVAILABLE"&&value.quote!==null))throw new Error("报价响应与本次目标不一致或字段异常，未采用。");
       setSnapshot(value);window.history.replaceState({},"",`/market-data?${new URLSearchParams({instrument_id:instrument.instrument_id,source_name:sourceName.trim()})}`);
     }catch(reason){if(current===generation.current)setError(reason instanceof Error?reason.message:"读取失败，请重试。");}finally{busy.current=false;setWorking(false);}
   }

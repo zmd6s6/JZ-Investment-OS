@@ -4,8 +4,9 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import AwareDatetime
+from pydantic import AwareDatetime, ValidationError
 
+from investment_os.api.schemas import InstrumentCatalogResponse
 from investment_os.application.errors import ApplicationError
 from investment_os.application.market_data import (
     ManualQuoteInput,
@@ -45,6 +46,22 @@ def market_router(service: MarketDataService | None) -> APIRouter:
         except ApplicationError as exc:
             raise HTTPException(status_code=404, detail={"code": exc.code.value}) from None
 
+    @router.get("/instruments/{instrument_id}", response_model=InstrumentCatalogResponse)
+    async def instrument(instrument_id: UUID) -> InstrumentCatalogResponse:
+        try:
+            entry = await ready().get_instrument(instrument_id)
+            return InstrumentCatalogResponse(
+                instrument_id=entry.instrument_id,
+                market=entry.market,
+                symbol=entry.symbol,
+                name=entry.name,
+                asset_type=entry.asset_type,
+                currency=entry.currency,
+                sector=entry.sector,
+            )
+        except ApplicationError as exc:
+            raise HTTPException(status_code=404, detail={"code": exc.code.value}) from None
+
     @router.get("/reference-quote", response_model=MarketDataSnapshot)
     async def quote(
         instrument_id: UUID,
@@ -64,6 +81,8 @@ def market_router(service: MarketDataService | None) -> APIRouter:
                 portfolio_id=portfolio_id,
             )
             return await ready().get_snapshot(request)
+        except ValidationError:
+            raise HTTPException(status_code=422, detail={"code": "MARKET_INPUT_INVALID"}) from None
         except MarketDataError as exc:
             raise HTTPException(status_code=422, detail={"code": exc.code}) from None
         except ApplicationError as exc:
