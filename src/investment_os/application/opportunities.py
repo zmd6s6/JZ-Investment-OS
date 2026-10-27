@@ -50,10 +50,11 @@ class ManualScreenFacts(MarketDto):
     financial_basis: Literal["CALENDAR_YEAR_CONSOLIDATED_CNY"] | None = None
     net_income_basis: Literal["ATTRIBUTABLE_TO_ORDINARY_SHAREHOLDERS"] | None = None
     quote_evidence_id: UUID | None = None
-    same_share_basis: bool | None = None
+    same_share_basis: Annotated[bool, Field(strict=True)] | None = None
     previous_close: Exact | None = None
     currency: Literal["CNY"] = "CNY"
-    suspended: bool | None = None
+    suspended: Annotated[bool, Field(strict=True)] | None = None
+    industry: Text | None = None
 
     @field_validator(
         "observed_at", "effective_at", "available_at", "expires_at", "previous_close_at"
@@ -115,6 +116,7 @@ class FunnelQuery(MarketDto):
     as_of: AwareDatetime
     candidate_limit: Annotated[int, Field(strict=True, ge=1, le=20)]
     rule_set_version: Literal["manual-screen-query-v1"] = "manual-screen-query-v1"
+    industry_filter: Text | None = None
     min_profit_margin: Exact
     min_revenue_growth: Exact
     max_pe: Exact
@@ -137,6 +139,7 @@ class FunnelQuery(MarketDto):
 def query_rule_hash(query: FunnelQuery) -> str:
     fields = (
         "rule_set_version",
+        "industry_filter",
         "min_profit_margin",
         "min_revenue_growth",
         "max_pe",
@@ -206,6 +209,13 @@ class FunnelRun(MarketDto):
             raise ValueError("run universe mismatch")
         if {r.instrument_id for r in self.rows if r.candidate} != set(self.candidate_ids):
             raise ValueError("candidate membership mismatch")
+        for row in self.rows:
+            if row.candidate and (
+                len(set(row.evidence_ids)) < 2
+                or {stage.stage for stage in row.stages if stage.status == "PASSED"}
+                != {"BASIC", "FINANCIAL", "GROWTH_VALUATION", "TIMING", "BOUND"}
+            ):
+                raise ValueError("candidate lacks proven bounded gates")
         return self
 
 
@@ -320,8 +330,8 @@ def evaluate(
             missing += ("same_share_basis",)
         if facts.quote_evidence_id != quote.quote.provenance.evidence_id:
             missing += ("quote_evidence_id_matches",)
-        if not entry.sector:
-            missing += ("sector",)
+        if not facts.industry:
+            missing += ("industry",)
         if facts.net_income is not None and number(facts.net_income) <= 0:
             missing += ("positive_earnings_for_pe",)
         if not missing:
@@ -335,7 +345,9 @@ def evaluate(
             features.update(revenue_growth=str(growth), pe=str(pe))
             stage(
                 "GROWTH_VALUATION",
-                passed=growth >= Decimal(query.min_revenue_growth) and pe <= Decimal(query.max_pe),
+                passed=growth >= Decimal(query.min_revenue_growth)
+                and pe <= Decimal(query.max_pe)
+                and (query.industry_filter is None or facts.industry == query.industry_filter),
                 reason="GROWTH_AND_PE_QUERY",
             )
         else:
@@ -371,7 +383,7 @@ def evaluate(
         market=entry.market,
         symbol=entry.symbol,
         name=entry.name,
-        sector=entry.sector,
+        sector=facts.industry if facts and facts.industry else "",
         stages=tuple(stages),
         features=features,
         evidence_ids=tuple(ids),
@@ -441,6 +453,18 @@ class OpportunityService:
                 "CNY",
             ):
                 raise OpportunityError("MARKET_RESPONSE_MISMATCH")
+            if quote.status == "AVAILABLE" and quote.provenance:
+                p = quote.provenance
+                if (
+                    p.instrument_id != entry.instrument_id
+                    or p.source_name != query.quote_source_name
+                    or p.source != "MANUAL_MARKET"
+                    or p.currency != "CNY"
+                    or max(p.observed_at, p.effective_at, p.available_at, p.ingested_at)
+                    > query.as_of
+                    or p.expires_at <= query.as_of
+                ):
+                    raise OpportunityError("MARKET_RESPONSE_TIME_INVALID")
             if facts.status == "AVAILABLE":
                 f = facts.facts
                 if (

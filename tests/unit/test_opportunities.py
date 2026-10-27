@@ -66,6 +66,7 @@ def inputs(**changes):
         previous_close="8",
         previous_close_at=NOW - timedelta(days=2),
         suspended=False,
+        industry="Synthetic",
         fiscal_year=2025,
         financial_basis="CALENDAR_YEAR_CONSOLIDATED_CNY",
         net_income_basis="ATTRIBUTABLE_TO_ORDINARY_SHAREHOLDERS",
@@ -177,3 +178,20 @@ def test_global_decimal_context_does_not_change_formula_output():
         assert evaluate(*values).features == expected
     finally:
         getcontext().prec = original
+
+
+def test_industry_is_evidence_fact_and_query_filter_is_explicit():
+    entry, quote, facts, query = inputs()
+    blocked = evaluate(
+        entry, quote, facts, query.model_copy(update={"industry_filter": "Different"})
+    )
+    assert not blocked.candidate
+    assert next(s for s in blocked.stages if s.stage == "GROWTH_VALUATION").status == "REJECTED"
+    unknown = evaluate(
+        entry,
+        quote,
+        facts.model_copy(update={"facts": facts.facts.model_copy(update={"industry": None})}),
+        query,
+    )
+    assert not unknown.candidate
+    assert next(s for s in unknown.stages if s.stage == "GROWTH_VALUATION").status == "MISSING"

@@ -296,16 +296,19 @@ class SqlOpportunityStore:
 
     @staticmethod
     def _read_run(record: EventLogRecord) -> FunnelRun:
-        raw = record.payload_json["run"]
-        if digest(raw) != record.payload_json["snapshot_hash"]:
-            raise OpportunityError("RUN_SNAPSHOT_INVALID")
-        run = FunnelRun.model_validate(raw)
-        if (
-            run.run_id != record.aggregate_id
-            or digest(run.query.model_dump(mode="json")) != record.payload_json["request_hash"]
-        ):
-            raise OpportunityError("RUN_SNAPSHOT_INVALID")
-        return run
+        try:
+            raw = record.payload_json["run"]
+            if digest(raw) != record.payload_json["snapshot_hash"]:
+                raise OpportunityError("RUN_SNAPSHOT_INVALID")
+            run = FunnelRun.model_validate(raw)
+            if (
+                run.run_id != record.aggregate_id
+                or digest(run.query.model_dump(mode="json")) != record.payload_json["request_hash"]
+            ):
+                raise OpportunityError("RUN_SNAPSHOT_INVALID")
+            return run
+        except (ValueError, TypeError, KeyError):
+            raise OpportunityError("RUN_SNAPSHOT_INVALID") from None
 
     async def save_run(self, run: FunnelRun) -> FunnelRun:
         fingerprint = digest(run.query.model_dump(mode="json"))
