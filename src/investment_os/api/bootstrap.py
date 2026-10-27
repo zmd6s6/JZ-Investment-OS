@@ -4,8 +4,11 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
+from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetService
+from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
+from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.provider_settings import ProviderSettingsService
 from investment_os.application.research_runtime import (
     DataProviderRuntimeRegistry,
@@ -15,9 +18,14 @@ from investment_os.application.secrets import SecretStore, UnavailableSecretStor
 from investment_os.infrastructure.bocha.adapter import (
     BochaWebSearchConnectionTester,
 )
+from investment_os.infrastructure.catalog_portfolio import (
+    SessionCatalogPort,
+    SessionPortfolioBookPort,
+)
 from investment_os.infrastructure.database import create_database_engine, create_session_factory
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
+from investment_os.infrastructure.manual_market_data import SqlManualMarketData
 from investment_os.infrastructure.onboarding import (
     SqlAlchemyOnboardingRuntime,
     SqlAlchemyOnboardingStore,
@@ -57,6 +65,14 @@ def create_production_app() -> FastAPI:
         budget_service=budget_service,
     )
     data_connection_tester = BochaWebSearchConnectionTester()
+    manual_market = SqlManualMarketData(session_factory)
+    catalog = SessionCatalogPort(session_factory)
+    market_data = MarketDataService(
+        {"MANUAL_MARKET": manual_market},
+        manual_market,
+        InstrumentCatalogService(catalog),
+        PortfolioBookService(SessionPortfolioBookPort(session_factory), catalog),
+    )
     research_provider_runtime = ResearchProviderRuntime(
         provider_settings=provider_settings_service,
         secret_store=secret_store,
@@ -65,6 +81,7 @@ def create_production_app() -> FastAPI:
         ),
     )
     return create_app(
+        market_data_service=market_data,
         onboarding_service=onboarding_runtime.service,
         provider_settings_service=provider_settings_service,
         model_connection_tester=model_gateway,

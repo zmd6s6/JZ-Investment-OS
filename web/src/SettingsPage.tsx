@@ -381,6 +381,7 @@ export function SettingsPage() {
       </p>
       {error ? <p role="alert" className="banner banner-error">{error}</p> : null}
       {message ? <p role="status" className="banner banner-ok">{message}</p> : null}
+      <p><a className="btn" href="/market-data">记录人工行情／查看单币种与FX边界</a> 无网络源凭据也可记录自己有权使用的结构化参考价；不是新闻检索、自动行情或完整分析。</p>
 
       <section className="settings-card" aria-labelledby="system-settings-title">
         <h2 id="system-settings-title">系统范围</h2>

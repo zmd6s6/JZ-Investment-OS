@@ -70,3 +70,9 @@ it("stalled reads release the UI after the deadline and ignore late success",asy
   vi.useRealTimers();
   await waitFor(()=>expect(screen.queryByText("待所有者验收")).toBeNull());
 });
+
+it('accepts the shipped manual market route while owner acceptance remains pending',()=>{
+  const value=parseAcceptance({...snapshot,capabilities:[{...item,key:'market_data',work_item:'MVP-201',route:'/market-data'}]});
+  expect(value.capabilities[0].route).toBe('/market-data');
+  expect(value.capabilities[0].human_acceptance).toBe('PENDING');
+});
