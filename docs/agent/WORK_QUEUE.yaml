@@ -71,7 +71,9 @@ work_items:
   - id: MVP-202
     title: Deterministic portfolio valuation and sizing context
     priority: 1
-    status: READY
+    status: IN_PROGRESS
+    claim_branch: agent/MVP-202
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp101_visible_acceptance
     # 仅随MVP-201 PR #22合入Release生效，不代表P6或Checkpoint人工接受。
     stage: PRODUCT-06
     checkpoint: B
