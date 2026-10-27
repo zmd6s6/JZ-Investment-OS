@@ -22,6 +22,7 @@
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
 | Daily Runtime | product UI | ENGINEERING baseline only; product calendar/runtime pending MVP-401 | PENDING |
+| 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | 分支隔离集成与浏览器路径已验证；待独立Gate / Release集成；不含团队分析，不代表完整Daily Runtime | PENDING |
 | Opportunities | `/opportunities` | NOT_IMPLEMENTED — MVP-402 | PENDING |
 
 ## Checkpoint A 验收步骤
@@ -51,5 +52,13 @@
 通过后才将 PRODUCT-05 标为 ACCEPTED。
 
 ## 规则
+
+### 日历状态报告验收路径（MVP-401）
+
+设置 → 配置市场日历与查看运行记录 → 选择市场 / 填来源与版本 → 上传或粘贴CSV → 确认来源 → 预览UTC时段 → 明确导入。
+新版本显示暂停；勾选「仅状态报告」后启用，在到期时段观察真实Worker记录与来源摘要，刷新仍保留，再暂停。
+失败路径：重复日期 / 部分错误整批拒绝且保留输入；读取失败禁止保存 / 启停并显示未知，可只读刷新恢复。
+无Worker或无到期会话时没有报告不表示健康；本路径不含团队研究、费用授权、投资建议或交易。
+详细命令、独立栈与迁移恢复证据见 `docs/agent/work-items/MVP-401.md`。尚未操作所有者实例，所有者验收PENDING。
 
 任何业务 Work Item PR 都必须更新本文件或产品 `/acceptance` 页面对应能力的真实状态。不得把 API 存在、单测通过或静态 UI 等同于用户可用。

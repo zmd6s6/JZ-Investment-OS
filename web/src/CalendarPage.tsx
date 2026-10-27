@@ -126,7 +126,7 @@ export function CalendarPage(){
       </section>:null}
     </Panel>
     <Panel title="2 · 已保存日历与启停" description="导入不会自动启用；启用只允许无付费的日历状态报告。">
-      {!overview?.configurations.length?<p>{loading?"正在读取已保存日历…":"尚无已保存日历，不会调度任何产品状态任务。"}</p>:overview.configurations.map(config=><article className="evidence-card calendar-config" key={config.venue} aria-label={`${venues[config.venue]}日历配置`}>
+      {!overview?.configurations.length?<p>{loading?"正在读取已保存日历…":!healthy?"当前日历状态未确认，请恢复读取后核对；不能据此断言没有配置。":"尚无已保存日历，不会调度任何产品状态任务。"}</p>:overview.configurations.map(config=><article className="evidence-card calendar-config" key={config.venue} aria-label={`${venues[config.venue]}日历配置`}>
         <h3>{venues[config.venue]} · {config.enabled?"已启用无付费状态报告":"已暂停"}</h3><p>{config.source_name} · 版本 {config.source_version} · 配置版本 {config.version}</p>
         <p>时区 {config.market_timezone} · {config.session_count}条会话 · {config.first_business_date} 至 {config.last_business_date}</p><p>导入时间：{config.imported_at} · {config.next_close_at?`下一未来收盘（UTC）：${config.next_close_at}`:"无未来时段；已到期时段将由Worker有界检查，不代表已完成。"}</p><p style={{overflowWrap:"anywhere"}}>来源摘要：{config.content_hash}</p>
         {!config.enabled?<label className="calendar-check"><input type="checkbox" checked={acknowledged.includes(`${config.venue}:${config.version}`)} disabled={disabled} onChange={e=>setAcknowledged(values=>e.target.checked?[...values,`${config.venue}:${config.version}`]:values.filter(v=>v!==`${config.venue}:${config.version}`))}/><span>我仅启用该市场已导入时段的状态报告；不调用付费模型、研究来源或交易。</span></label>:null}

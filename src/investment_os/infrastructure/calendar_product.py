@@ -187,7 +187,7 @@ class SqlCalendarProduct:
             runs = (
                 await session.scalars(
                     select(TaskRunRecord)
-                    .where(TaskRunRecord.task_name.like("calendar_status_%"))
+                    .where(TaskRunRecord.task_name.startswith("calendar_status_", autoescape=True))
                     .order_by(TaskRunRecord.started_at.desc())
                     .limit(30)
                 )

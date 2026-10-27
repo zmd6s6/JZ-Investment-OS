@@ -13,9 +13,11 @@
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 自治控制面：`docs/agent/RELEASE.md` + `docs/agent/WORK_QUEUE.yaml`
-- 上次状态更新：`2026-10-26`
+- 上次状态更新：`2026-10-27`
 
 ## 已建立
+
+- MVP-401分支接通 `/calendar`：有来源与市场时区的CSV预览 / 持久化导入、新版本默认暂停、独立启停，以及真实Worker的到期日历状态报告。隔离15438 / 18110验证真实API / DB / Worker / UI，不调用付费模型或真实来源，不含团队分析。工程与隔离可见验收证据见 `docs/agent/work-items/MVP-401.md`；待独立Gate / Release集成 / 所有者部署与验收，不表示完整P8或Checkpoint接受。
 
 - MVP-000已实现并验证 `/acceptance` 与只读交付清单API：区分工程、集成证据、服务装配及待人工验收；提供实际产品入口、操作 / 失败指引，未实现功能不链接至假入口。队列INTEGRATED记录随PR合入Release生效，未部署所有者实例，不表示Checkpoint接受；验证与限制见 `docs/agent/work-items/MVP-000.md`。
 - 主工程规范、根工作约定、持续工作模式以及 ADR/阶段文档约定均已建立。
