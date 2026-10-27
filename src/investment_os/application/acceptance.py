@@ -32,7 +32,13 @@ class AcceptanceSnapshot(BaseModel):
 
 
 def acceptance_snapshot(
-    *, portfolio: bool, watchlist: bool, providers: bool, policy: bool, calendar: bool = False
+    *,
+    portfolio: bool,
+    watchlist: bool,
+    providers: bool,
+    policy: bool,
+    calendar: bool = False,
+    market_data: bool = False,
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
 
@@ -46,8 +52,22 @@ def acceptance_snapshot(
         "policy": policy,
         "acceptance": True,
         "calendar": calendar,
+        "market_data": market_data,
     }
     shipped = (
+        (
+            "market_data",
+            "人工行情与币种边界",
+            "MVP-201",
+            "/market-data",
+            "人工有来源报价可保存、追溯与刷新; 未经独立核实, 非自动行情或完整估值。",
+            (
+                "从设置进入人工行情, 选择已登记标的并填写出处、精确价格与业务时间。",
+                "明确保存后读取指定来源, 核对Evidence、内容摘要和UTC时间; 刷新后再读取。",
+                "检查缺失、过期、未来资料与跨币种失败提示; 不会借用旧价或默认汇率。",
+            ),
+            "输入错误保留内容; 结果未知可用同内容核对原请求。缺价或缺FX时不显示参考价格。",
+        ),
         (
             "acceptance",
             "产品进度与验收",

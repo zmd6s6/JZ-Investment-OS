@@ -19,6 +19,7 @@
 | Watchlist | `/watchlist` | ACCEPTANCE_READY — MVP-101已验证目录搜索 / 幂等添加 / 刷新 / 删除 / 四项缺失状态；集成记录随PR #21合入Release生效 | PENDING |
 | Investment Policy review | `/#policy` | ACCEPTANCE_READY — MVP-101已核对实际API版本与无写入审阅；真实参数仍由Owner治理 | PENDING |
 | Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000集成记录随PR合入Release生效；构建交付清单不是实时健康检测 | PENDING |
+| 人工行情与币种边界 | `/market-data` | INTEGRATED — MVP-201记录随PR #22合入Release生效；人工未核实、CNY限定，非完整分析 | PENDING |
 | Analysis | `/analysis` | NOT_IMPLEMENTED — MVP-203/204 | PENDING |
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301 | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
@@ -67,3 +68,11 @@ CSV请求处理中切换组合或改动内容后，迟到预览不能恢复确�
 详细命令、独立栈与迁移恢复证据见 `docs/agent/work-items/MVP-401.md`。尚未操作所有者实例，所有者验收PENDING。
 
 任何业务 Work Item PR 都必须更新本文件或产品 `/acceptance` 页面对应能力的真实状态。不得把 API 存在、单测通过或静态 UI 等同于用户可用。
+
+## 人工行情与币种边界（MVP-201，Checkpoint B的输入切片）
+
+本工作分支已完成隔离合成环境UI / API / DB接线验证，随本PR合入Release才生效；Owner部署与人工验收PENDING。
+进入 `/settings` →「记录人工行情／查看单币种与FX边界」或 `/market-data`；先登记标的，再搜索、填来源 / 出处 / 精确价格及四个业务时间，明确保存后读取。
+应看到Evidence、hash、UTC来源时间；刷新后再次读取仍存在。错误应保留输入，过期 / 缺价 / 未来资料不显示价格；切换USD估值应显示缺FX并阻止。
+人工资料始终未经独立核实、非交易级；不自动调用模型 / 网页或产生订单。工程 / 浏览器证据与限制见 `docs/agent/work-items/MVP-201.md`。
+完整分析、FX、全市场行情、波动率 / 流动性及Sizing不在本切片交付中，不能因此接受整个P6或Checkpoint。
