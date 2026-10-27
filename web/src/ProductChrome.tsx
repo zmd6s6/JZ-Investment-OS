@@ -8,6 +8,7 @@ const navItems = [
   { href: "/watchlist", label: "观察清单" },
   { href: "/settings", label: "设置与提供方" },
   { href: "/acceptance", label: "产品进度与验收" },
+  { href: "/market-data", label: "人工行情" },
 ] as const;
 
 export function ProductChrome({

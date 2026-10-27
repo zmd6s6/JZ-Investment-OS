@@ -17,6 +17,7 @@ from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
+from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.portfolio_book import (
     PortfolioBookService,
@@ -67,6 +68,7 @@ from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
+from .market_routes import market_router
 from .schemas import (
     CsvImportCommitResponse,
     CsvImportPreviewResponse,
@@ -344,6 +346,7 @@ def create_app(
     watchlist_service: WatchlistService | None = None,
     portfolio_csv_service: PortfolioCsvImportService | None = None,
     write_api_token: str | None = None,
+    market_data_service: MarketDataService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -432,6 +435,8 @@ def create_app(
         write_api_token if write_api_token is not None else settings.api_write_token
     )
     application.add_middleware(WriteApiAuthMiddleware, token=selected_write_token)
+
+    application.include_router(market_router(market_data_service))
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
     async def liveness() -> LivenessResponse:
@@ -1441,6 +1446,10 @@ def create_app(
 
         @application.get("/acceptance", include_in_schema=False)
         async def acceptance_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/market-data", include_in_schema=False)
+        async def market_data_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
         @application.get("/watchlist", include_in_schema=False)

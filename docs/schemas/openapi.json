@@ -1624,6 +1624,296 @@
         "title": "ManualPositionRequest",
         "type": "object"
       },
+      "ManualQuoteInput": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "price": {
+            "pattern": "^(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Price",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "const": "MANUAL_MARKET",
+            "default": "MANUAL_MARKET",
+            "title": "Source",
+            "type": "string"
+          },
+          "source_locator": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "instrument_id",
+          "source_name",
+          "source_locator",
+          "currency",
+          "price",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "expires_at"
+        ],
+        "title": "ManualQuoteInput",
+        "type": "object"
+      },
+      "ManualQuoteSaved": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "evidence_id",
+          "content_hash",
+          "ingested_at"
+        ],
+        "title": "ManualQuoteSaved",
+        "type": "object"
+      },
+      "MarketDataCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "automatic_network_calls": {
+            "const": false,
+            "default": false,
+            "title": "Automatic Network Calls",
+            "type": "boolean"
+          },
+          "currency_boundary": {
+            "const": "CNY_ONLY",
+            "default": "CNY_ONLY",
+            "title": "Currency Boundary",
+            "type": "string"
+          },
+          "fx_supported": {
+            "const": false,
+            "default": false,
+            "title": "Fx Supported",
+            "type": "boolean"
+          },
+          "historical_bars_supported": {
+            "const": false,
+            "default": false,
+            "title": "Historical Bars Supported",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "supported_sources": {
+            "items": {
+              "const": "MANUAL_MARKET",
+              "type": "string"
+            },
+            "title": "Supported Sources",
+            "type": "array"
+          },
+          "trading_grade": {
+            "const": false,
+            "default": false,
+            "title": "Trading Grade",
+            "type": "boolean"
+          },
+          "universe_supported": {
+            "const": false,
+            "default": false,
+            "title": "Universe Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "supported_sources"
+        ],
+        "title": "MarketDataCapabilities",
+        "type": "object"
+      },
+      "MarketDataSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "base_currency": {
+            "title": "Base Currency",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MarketQuote"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason_code": {
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "MISSING",
+              "EXPIRED",
+              "NOT_YET_AVAILABLE",
+              "INVALID",
+              "FX_REQUIRED",
+              "UNSUPPORTED_SOURCE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "source",
+          "source_name",
+          "as_of",
+          "base_currency",
+          "status",
+          "reason_code"
+        ],
+        "title": "MarketDataSnapshot",
+        "type": "object"
+      },
+      "MarketQuote": {
+        "additionalProperties": false,
+        "properties": {
+          "price": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Price",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/QuoteProvenance"
+          }
+        },
+        "required": [
+          "price",
+          "provenance"
+        ],
+        "title": "MarketQuote",
+        "type": "object"
+      },
       "ModelProviderProfileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2408,6 +2698,96 @@
           "detail"
         ],
         "title": "ProviderTestResponse",
+        "type": "object"
+      },
+      "QuoteProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "independently_verified": {
+            "const": false,
+            "default": false,
+            "title": "Independently Verified",
+            "type": "boolean"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "source": {
+            "const": "MANUAL_MARKET",
+            "default": "MANUAL_MARKET",
+            "title": "Source",
+            "type": "string"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "trading_grade": {
+            "const": false,
+            "default": false,
+            "title": "Trading Grade",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "evidence_id",
+          "content_hash",
+          "source_name",
+          "source_locator",
+          "currency",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "ingested_at",
+          "expires_at"
+        ],
+        "title": "QuoteProvenance",
         "type": "object"
       },
       "ReadinessResponse": {
@@ -3263,6 +3643,179 @@
         "summary": "Search Instruments",
         "tags": [
           "instruments"
+        ]
+      }
+    },
+    "/api/v1/market-data/capabilities": {
+      "get": {
+        "operationId": "capabilities_api_v1_market_data_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketDataCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Capabilities",
+        "tags": [
+          "market-data"
+        ]
+      }
+    },
+    "/api/v1/market-data/manual-quotes": {
+      "post": {
+        "operationId": "save_quote_api_v1_market_data_manual_quotes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualQuoteInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualQuoteSaved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Quote",
+        "tags": [
+          "market-data"
+        ]
+      }
+    },
+    "/api/v1/market-data/reference-quote": {
+      "get": {
+        "operationId": "quote_api_v1_market_data_reference_quote_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_name",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Source Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "default": "MANUAL_MARKET",
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          },
+          {
+            "in": "query",
+            "name": "base_currency",
+            "required": false,
+            "schema": {
+              "default": "CNY",
+              "pattern": "^[A-Z]{3}$",
+              "title": "Base Currency",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Portfolio Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketDataSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quote",
+        "tags": [
+          "market-data"
         ]
       }
     },
