@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import httpx
 import pytest
+from scripts.analysis_fixture import model_output
 from sqlalchemy import func, select
 from test_analysis_runs_persistence import NoMarket, frozen_input, prepare
 
@@ -58,43 +59,6 @@ class SyntheticSecrets:
         self.values.pop(key, None)
 
 
-def model_output(wrapper):
-    role, value = wrapper["role"], wrapper["input"]
-    frozen = value
-    ids = [item["evidence_id"] for item in frozen["evidence"] if item["freshness"] == "FRESH"]
-    reason = [{"text": "明确合成模型事实", "evidence_ids": ids}]
-    if role == "PORTFOLIO":
-        return {
-            "schema_version": "portfolio-intent-1.0",
-            "risk_intent": "NORMAL",
-            "reasons": reason,
-            "unknowns": [],
-        }
-    if role == "CIO":
-        return {
-            "schema_version": "cio-proposal-1.0",
-            "proposed_action": "BUY",
-            "reasons": reason,
-            "unknowns": [],
-        }
-    return {
-        "schema_version": "1.0",
-        "agent_role": role,
-        "instrument_id": frozen["instrument_id"],
-        "as_of": frozen["as_of"],
-        "stance": "POSITIVE",
-        "confidence": "0.5",
-        "time_horizon": "MONTHS",
-        "observations": [{"claim": "合成事实", "evidence_ids": ids, "materiality": "MEDIUM"}],
-        "thesis_impacts": [],
-        "assumptions": [],
-        "risks": [],
-        "invalidation_conditions": [],
-        "unknowns": [],
-        "requested_followups": [],
-    }
-
-
 async def stack(database_engine, *, invalid_role=None, evidence=True):
     sessions, store, queued = await prepare(database_engine)
     # Reuse the actual ingestion path, not a fabricated Evidence FK.
@@ -130,6 +94,7 @@ async def stack(database_engine, *, invalid_role=None, evidence=True):
     calls = []
 
     async def respond(request):
+        assert request.headers["Authorization"] == "Bearer synthetic-not-a-real-key"
         wrapper = json.loads(json.loads(request.content)["messages"][1]["content"])
         calls.append(wrapper)
         output = {"invalid": True} if wrapper["role"] == invalid_role else model_output(wrapper)

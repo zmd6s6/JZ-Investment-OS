@@ -8,6 +8,13 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 EXPECTED_CORE_TABLES = {
+    "analysis_run",
+    "analysis_input",
+    "analysis_run_evidence",
+    "analysis_step",
+    "analysis_role_output",
+    "analysis_shadow_decision",
+    "analysis_shadow_evidence",
     "investment_policy",
     "investment_policy_version",
     "strategy_version",

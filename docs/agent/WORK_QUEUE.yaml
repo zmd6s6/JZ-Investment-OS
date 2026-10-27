@@ -88,7 +88,7 @@ work_items:
   - id: MVP-203
     title: AnalysisRun and InvestmentAnalysisOrchestrator
     priority: 1
-    status: IN_PROGRESS
+    status: REVIEW
     claim_branch: agent/MVP-203
     claim_owner: pr-02-review-and-next-stage-monitor / mvp101_visible_acceptance
     # 仅随MVP-202 PR #24合入Release生效，显式依赖满足；不是P6完成或Owner接受。

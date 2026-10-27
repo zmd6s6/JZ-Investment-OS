@@ -306,3 +306,48 @@ async def test_step_event_outbox_and_audit_roll_back_together(database_engine, m
             )
             == 0
         )
+
+
+async def test_analysis_migration_refuses_to_delete_history_and_preserves_previous_schema(
+    database_engine,
+):
+    from alembic import command
+    from alembic.config import Config
+
+    # Start at the actual previous revision, then preserve a real P5 catalog/book on upgrade.
+    await database_engine.dispose()
+    config = Config("alembic.ini")
+    await asyncio.to_thread(command.downgrade, config, "20261026_0015")
+    _, store, queued = await prepare(database_engine)
+    await database_engine.dispose()
+    await asyncio.to_thread(command.upgrade, config, "head")
+    run = await store.enqueue(queued)
+    await database_engine.dispose()
+    with pytest.raises(DBAPIError, match="analysis history exists"):
+        await asyncio.to_thread(command.downgrade, config, "20261026_0015")
+    saved = await store.get(run.run_id)
+    assert saved.status.value == "QUEUED" and saved.request == queued.command
+    async with database_engine.connect() as connection:
+        assert (
+            await connection.scalar(text("SELECT version_num FROM alembic_version"))
+            == "20261028_0016"
+        )
+
+
+async def test_frozen_evidence_cannot_claim_false_freshness_or_rewrite_source_body(database_engine):
+    _, store, queued = await prepare(database_engine)
+    await store.enqueue(queued)
+    run_id, lease, _ = await store.claim_next()
+    value = await frozen_input(store._sessions, run_id, queued)
+    for changes in [{"freshness": "EXPIRED"}, {"payload_json": '{"body":"rewritten"}'}]:
+        altered = value.model_copy(
+            update={"evidence": (value.evidence[0].model_copy(update=changes),)}
+        )
+        altered = altered.model_copy(
+            update={
+                "input_hash": fingerprint(altered.model_dump(mode="json", exclude={"input_hash"}))
+            }
+        )
+        with pytest.raises(ValueError, match="EVIDENCE_STATE_MISMATCH"):
+            await store.freeze(run_id, lease, altered)
+        assert (await store.get(run_id)).input_hash is None

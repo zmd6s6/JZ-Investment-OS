@@ -35,6 +35,9 @@ class AnalysisChoices(AnalysisDto):
     evidence: tuple[AnalysisEvidenceChoice, ...]
     budget_configured: bool
     budget_version: str | None
+    budget_currency: str | None = None
+    task_token_limit: int | None = None
+    task_cost_limit: str | None = None
     remaining_tokens: int | None
     remaining_cost: str | None
     max_model_calls: int = 42
@@ -91,6 +94,9 @@ class AnalysisChoicesService:
             evidence=await self._evidence.list_evidence(instrument_id),
             budget_configured=policy is not None,
             budget_version=policy.version if policy else None,
+            budget_currency=policy.currency if policy else None,
+            task_token_limit=policy.task_token_limit if policy else None,
+            task_cost_limit=str(policy.task_cost_limit) if policy else None,
             remaining_tokens=usage.remaining_tokens if usage else None,
             remaining_cost=str(usage.remaining_cost) if usage else None,
         )

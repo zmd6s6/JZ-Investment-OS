@@ -13,9 +13,10 @@ test("real delivery manifest survives refresh, links to working UI and never acc
   await expect(portfolio.getByText("待所有者验收")).toBeVisible();
   await portfolio.getByText("操作指引与失败提示").click();
   await expect(portfolio.getByText(/无效行必须提示错误/)).toBeVisible();
-  const analysis=page.getByRole("article",{name:"团队分析与追溯能力状态"});
-  await expect(analysis.getByText("尚未实现",{exact:true})).toBeVisible();
-  await expect(analysis.getByRole("link")).toHaveCount(0);
+  const analysis=page.getByRole("article",{name:"团队影子分析能力状态"});
+  await expect(analysis.getByText("部分实现",{exact:true})).toBeVisible();
+  await expect(analysis.getByText("待所有者验收")).toBeVisible();
+  await expect(analysis.getByRole("link",{name:"进入团队影子分析"})).toHaveAttribute("href","/analysis");
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
   await page.screenshot({path:testInfo.outputPath("acceptance-390.png"),fullPage:true});

@@ -81,6 +81,17 @@
             "title": "Budget Configured",
             "type": "boolean"
           },
+          "budget_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Currency"
+          },
           "budget_version": {
             "anyOf": [
               {
@@ -146,6 +157,28 @@
             },
             "title": "Roles",
             "type": "array"
+          },
+          "task_cost_limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Cost Limit"
+          },
+          "task_token_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Token Limit"
           }
         },
         "required": [
