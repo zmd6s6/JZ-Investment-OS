@@ -10,6 +10,7 @@ const navItems = [
   { href: "/calendar", label: "市场日历与运行" },
   { href: "/acceptance", label: "产品进度与验收" },
   { href: "/market-data", label: "人工行情" },
+  { href: "/valuation", label: "估值对账" },
   { href: "/opportunities", label: "机会漏斗" },
 ] as const;
 

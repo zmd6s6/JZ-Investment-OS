@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 from sqlalchemy import select
 
+from investment_os.api.valuation_routes import valuation_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
 from investment_os.application.calendar_product import CalendarProductService
 from investment_os.application.health import AsyncClosable, ReadinessProbe
@@ -31,6 +32,7 @@ from investment_os.application.portfolio_csv import (
     CsvRowResult,
     PortfolioCsvImportService,
 )
+from investment_os.application.portfolio_valuation import PortfolioValuationService
 from investment_os.application.provider_settings import (
     DataProviderConnectionTester,
     DataProviderProfile,
@@ -351,6 +353,7 @@ def create_app(
     write_api_token: str | None = None,
     calendar_product_service: CalendarProductService | None = None,
     market_data_service: MarketDataService | None = None,
+    valuation_service: PortfolioValuationService | None = None,
     opportunity_service: OpportunityService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
@@ -445,6 +448,7 @@ def create_app(
     application.include_router(create_calendar_router(calendar_product_service))
 
     application.include_router(market_router(market_data_service))
+    application.include_router(valuation_router(valuation_service))
     application.include_router(opportunity_router(opportunity_service))
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
@@ -547,6 +551,7 @@ def create_app(
             policy=True,
             calendar=calendar_product_service is not None,
             market_data=market_data_service is not None,
+            valuation=valuation_service is not None,
             opportunities=opportunity_service is not None,
         )
 
@@ -1462,6 +1467,10 @@ def create_app(
 
         @application.get("/acceptance", include_in_schema=False)
         async def acceptance_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/valuation", include_in_schema=False)
+        async def valuation_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
         @application.get("/market-data", include_in_schema=False)

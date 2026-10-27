@@ -70,3 +70,27 @@
 
 运行受影响的格式、lint、类型、单元/属性/契约/集成/迁移、API/OpenAPI、前端构建和浏览器 E2E；真实网络验证仅在
 所有者已明确授权的 profile 上进行，并记录脱敏结果。完成定义和证据齐备后方可 `READY_FOR_REVIEW`。
+
+## MVP-202 参考估值纵切（2026-10-27）
+
+工作分支已接通 `/valuation` 的当前账本冻结输入→显式来源参考价→Decimal分仓/NAV/权重/行业与总净暴露→来源与缺Sizing输入展示。人工数据仍非交易级；缺历史波动/流动性/Policy等保持失败关闭，不生成建议数量或完整分析。P6状态与Owner接受未改变。当前实测与未验证项见 `docs/agent/work-items/MVP-202.md`，不将此切片冒充完整P6。
+
+
+## 独立复核与合入生效台账（2026-10-27）
+
+主代理已对实现提交36e8c76独立复跑unit+真实PG 32/32（6.33秒）和本项真实浏览器3/3（6.8秒），读取ADR0039、领域/应用/SQL/API/UI未提出新源码阻塞。此为实际独立复核记录，不由实现者宣布Gate通过。
+
+评论 https://github.com/zmd6s6/JZ-Investment-OS/pull/24#issuecomment-6440891519 提出的Release台账项已准备修正，状态fixed-awaiting-review：MVP-202 INTEGRATED与MVP-203 READY仅在本PR #24合入Release后生效；MVP-204/301继续依赖203，Owner PENDING、P6未完成、全部Sizing缺项保持。不能在未合入时将此分支队列当成已接受产品。
+
+当时按root要求等待PR #23合入后安全merge Release，保留日历/行情/估值公共接线，再生成OpenAPI、运行受影响验证及新HEAD CI。此处台账先本地准备，与最终集成一次提交，避免重复元数据CI；不复用36e8c76旧CI作为最终合并依据。
+
+
+## 最终Release同步与验证（2026-10-27）
+
+PR #23已由root独立Gate合入Release `3e805bac141239b0ae3c02d6aa73a16adefed8c0`。本分支先本地提交条件式台账342b379，再非破坏merge Release形成31e4afa；保留市场/日历/估值三方app/bootstrap/App/nav/Settings/交付清单和精确路由allowlist，重生成OpenAPI。root只读复核合并接线未提出新问题；没有rebase/force或引用未合入能力。
+
+合并代码重新实际验证：Windows全量486 passed / 85.94%（48.99秒），集成58 passed /428 deselected（20.73秒），domain行98.05% /分支87.89%；前端62/62（27.22秒）及build通过。ruff format267/check、mypy95、OpenAPI/PolicySchema检查、Compose config通过。仅重启本项18112并在本项15440 browser合成库升级已合入0015迁移，未操作Owner或其他Agent实例。
+
+合并后真实API/DB/UI串行22/22（29.3秒，无跳过），输出 `.runtime/mvp202-release-merge-browser-20261027`；新增三方交付清单→估值入口 / 设置→日历预览确认 / 实际DB默认暂停并刷新 / 设置→人工行情入口接线用例。该用例不启用日历、不启动Worker或外部调用；401的独立Worker/恢复证据仍归PR #23，不能冒充本轮重新跑过18110限定恢复脚本。源码及输入快照/人工非交易级/Sizing缺口未放松。
+
+评论6440891519的台账修复为fixed-awaiting-review，待root核对最终新HEAD CI后决定Gate；实现者不自宣Gate。MVP-202 INTEGRATED及203 READY仅随PR #24合入Release生效，204/301仍等待203，Owner PENDING/P6未完成。
