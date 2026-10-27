@@ -8,10 +8,11 @@
 
 ## MVP-401 独立纵切进展（2026-10-27）
 
-`agent/MVP-401` 实现可审计UI日历导入、固定市场时区 / UTC、只追加来源与会话、版本冲突保护、默认暂停、独立STATUS_ONLY启停和Worker运行记录。
+MVP-401=INTEGRATED，此记录随PR #23通过最终独立Gate合入Release生效。交付可审计UI日历导入、固定市场时区 / UTC、只追加来源与会话、版本冲突保护、默认暂停、独立STATUS_ONLY启停和Worker运行记录。
 已在独立合成API / DB / Worker / 浏览器中验证：无效行整批拒绝 → 导入暂停 → 明确启用 → 实际日历状态报告 → 刷新持久化 → 暂停保留历史。
 该报告明确不含团队分析 / 投资建议，付费调用为0；正常日/周/月团队研究、机会筛选与Portfolio复核尚未由此实现。
-ADR-0037与 `docs/agent/work-items/MVP-401.md` 记录边界和证据。独立Gate、Release集成及所有者部署 / 可见验收待完成；本阶段仍为PLANNED，未绕过P7人工接受条件。
+恢复修复后的91801d0已由root独立复跑日历四文件28/28（8.75秒）、原样真实API / DB / Worker恢复浏览器1/1（15.7秒）；旧c0ad765独立25/2仅属于旧实现。91801d0六CI绿与Linux454 / 85.50%、集成51为该精确提交的工程证据，最终合入门禁仍核对PR当前HEAD。
+ADR-0037与 `docs/agent/work-items/MVP-401.md` 记录边界和证据。MVP-401集成记录随PR #23合入Release生效，所有者部署 / 可见验收PENDING；完整本阶段仍为PLANNED，未绕过P7人工接受条件，不代表Checkpoint接受。
 
 ## 目标
 
