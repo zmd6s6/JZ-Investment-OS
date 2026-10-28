@@ -198,7 +198,7 @@ def acceptance_snapshot(
             detail=(
                 "显式选择输入与授权后排队, Worker保存真实阶段和两轮观点; "
                 "当前风险与完整Sizing缺项, 只有不可执行的降级影子结论。"
-                "204深入追溯和301批准未完成。"
+                "可展开本次冻结资料与角色依据; 301批准及完整Risk/Sizing仍未完成。"
             ),
             steps=(
                 "先配置模型凭据、单价与预算, 登记组合和研究标的。",
@@ -208,6 +208,31 @@ def acceptance_snapshot(
             failure=(
                 "无有效证据不调用模型; 配置漂移、预算、无效输出或中断显式失败。"
                 "缺政策 / 风险 / Sizing不伪造BUY、PASS或数量。"
+            ),
+        )
+    )
+    items.append(
+        CapabilityDelivery(
+            key="analysis_trace",
+            label="分析依据与资料追溯",
+            work_item="MVP-204",
+            engineering="IMPLEMENTED",
+            integration="INTEGRATED",
+            service="ASSEMBLED" if analysis else "UNAVAILABLE",
+            route="/analysis" if analysis else None,
+            detail=(
+                "只读展开同一运行的冻结Evidence、论点版本、两轮观点、来源时间与闸门原因; "
+                "不重取资料、不调用模型, 不把未知风险或缺失仓位输入当作通过。"
+            ),
+            steps=(
+                "进入分析页, 从组合的运行历史选择一次运行。",
+                "在完整依据中核对模型提案与确定性裁决, 点击观点中的证据定位到保存的来源。",
+                "查看四业务时间、到期/hash、冻结论点、分仓/政策版本及风险与Sizing缺项。",
+                "刷新重读仍须保留当次历史; 尚未运行的阶段和不可核对引用明确显示未知。",
+            ),
+            failure=(
+                "详情读取失败清空旧运行依据并显示错误; 尚无冻结输入或部分角色失败不补造结论。"
+                "资料正文仅纯文本显示, 不自动打开来源或执行外部文字。"
             ),
         )
     )
