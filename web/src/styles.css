@@ -1028,3 +1028,13 @@ button:disabled {
 .acceptance-states { display: grid; grid-template-columns: minmax(75px, 1fr) minmax(0, 2fr); gap: 8px; }
 .acceptance-states dd { margin: 0; }
 .acceptance-grid details { margin-top: 16px; line-height: 1.6; }
+
+.analysis-evidence { display:block; padding:12px; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+.analysis-evidence small,.analysis-steps small { display:block; }
+.analysis-steps li { margin:14px 0; overflow-wrap:anywhere; }
+.analysis-steps pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:400px; overflow:auto; }
+.analysis-content fieldset { min-width:0; border:0; padding:0; }
+
+.analysis-content { min-width:0; display:grid; gap:18px; overflow-wrap:anywhere; }
+.analysis-content > * { min-width:0; }
+.analysis-content select { min-width:0; max-width:100%; }

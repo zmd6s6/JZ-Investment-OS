@@ -198,3 +198,10 @@ tests/
 3. 执行 `uv sync --frozen --group dev` 并重启 Compose。
 
 绝不使用破坏性 Git 命令作为恢复机制。保留无关的人类改动。
+
+
+## 团队影子分析（MVP-203，限当前工作分支/合入后的构建）
+
+从主导航「团队分析」进入 `/analysis`，按页面引导选择组合/标的、已有证据/可选研究源、逐角色模型及参考行情来源。只有勾选本次证据/持仓出站与可能费用同意后才会排队；真实Worker持久保存阶段、两轮观点、失败/取消/新运行重试。Worker必须读取与API同一加密SecretStore及密钥；Compose已为Worker提供只读共享卷。无Worker时只显示排队，不冒充已分析。
+
+当前缺完整确定性风险/Sizing输入，结果保持DEGRADED、Risk UNKNOWN、建议数量未提供，影子结论不能批准或执行，auto_trade=false。Owner真实供应商/部署与Checkpoint验收未执行。工程复现命令和已验证范围见 [MVP-203证据](docs/agent/work-items/MVP-203.md)。

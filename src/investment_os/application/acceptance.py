@@ -41,6 +41,7 @@ def acceptance_snapshot(
     market_data: bool = False,
     valuation: bool = False,
     opportunities: bool = False,
+    analysis: bool = False,
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
 
@@ -185,14 +186,32 @@ def acceptance_snapshot(
             failure="缺价、缺项、过期、未来或无法核对口径时停止对应层; 深研未提供时不调用模型。",
         )
     )
+    items.append(
+        CapabilityDelivery(
+            key="analysis",
+            label="团队影子分析",
+            work_item="MVP-203",
+            engineering="PARTIAL",
+            integration="INTEGRATED",
+            service="ASSEMBLED" if analysis else "UNAVAILABLE",
+            route="/analysis" if analysis else None,
+            detail=(
+                "显式选择输入与授权后排队, Worker保存真实阶段和两轮观点; "
+                "当前风险与完整Sizing缺项, 只有不可执行的降级影子结论。"
+                "204深入追溯和301批准未完成。"
+            ),
+            steps=(
+                "先配置模型凭据、单价与预算, 登记组合和研究标的。",
+                "在分析页选择证据 / 可选研究源及每角色模型, 核对信息出站与可能费用后明确发起。",
+                "观察阶段与失败, 刷新读历史; 取消只停止后续步骤, 重试新建运行且保留原历史。",
+            ),
+            failure=(
+                "无有效证据不调用模型; 配置漂移、预算、无效输出或中断显式失败。"
+                "缺政策 / 风险 / Sizing不伪造BUY、PASS或数量。"
+            ),
+        )
+    )
     pending = (
-        (
-            "analysis",
-            "团队分析与追溯",
-            "MVP-203 / MVP-204",
-            "尚未在当前Release接通完整分析产品路径; 其他未合并分支不代表本构建能力。",
-            False,
-        ),
         (
             "decisions",
             "决策与人工批准",

@@ -8,7 +8,7 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from investment_os.application.health import ReadinessProbe
+from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.infrastructure.calendar_product import PersistedCalendarStatusRunner
 from investment_os.infrastructure.database import (
     DatabaseReadinessProbe,
@@ -20,6 +20,7 @@ from investment_os.infrastructure.runtime_scheduler import (
     load_synthetic_calendar,
 )
 from investment_os.infrastructure.settings import Settings, get_settings
+from investment_os.worker.analysis_bootstrap import analysis_worker
 
 LOGGER = logging.getLogger(__name__)
 
@@ -54,11 +55,16 @@ class WorkerRuntime:
         ready_file: Path,
         scheduler: CalendarScheduler | None,
         scheduler_engine: AsyncEngine | None,
+        analysis: CalendarScheduler | None = None,
+        analysis_resources: AsyncClosable | None = None,
     ) -> None:
         self._probe = probe
         self._ready_file = ready_file
         self._scheduler = scheduler
         self._scheduler_engine = scheduler_engine
+        self._analysis = analysis
+        self._analysis_resources = analysis_resources
+        self._analysis_task: asyncio.Task[object] | None = None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "WorkerRuntime":
@@ -81,7 +87,10 @@ class WorkerRuntime:
                 create_session_factory(engine),
                 max_replay_sessions=settings.worker_scheduler_max_replay_sessions,
             )
+        analysis, resources = analysis_worker(create_session_factory(engine), settings)
         return cls(
+            analysis=analysis,
+            analysis_resources=resources,
             probe=DatabaseReadinessProbe(settings.database_url),
             ready_file=settings.worker_ready_file,
             scheduler=scheduler,
@@ -93,9 +102,32 @@ class WorkerRuntime:
         if ready and self._scheduler is not None:
             scheduled_now = now or datetime.now(UTC)
             await self._scheduler.dispatch_due(now=scheduled_now)
+        if (
+            ready
+            and self._analysis is not None
+            and (self._analysis_task is None or self._analysis_task.done())
+        ):
+            if self._analysis_task is not None:
+                try:
+                    self._analysis_task.result()
+                except Exception:
+                    LOGGER.error("analysis_dispatch_failed")
+            self._analysis_task = asyncio.create_task(
+                self._analysis.dispatch_due(now=now or datetime.now(UTC))
+            )
         return ready
 
     async def close(self) -> None:
+        if self._analysis_task is not None:
+            self._analysis_task.cancel()
+            try:
+                await self._analysis_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                LOGGER.error("analysis_shutdown_failed")
+        if self._analysis_resources is not None:
+            await self._analysis_resources.close()
         if self._scheduler_engine is not None:
             await self._scheduler_engine.dispose()
         await self._probe.close()

@@ -5,7 +5,7 @@ type Capability = {key:string;label:string;work_item:string;engineering:"IMPLEME
 type Snapshot = {schema_version:"1.0";release:"MVP-BETA";evidence_basis:"BUILD_MANIFEST_AND_SERVICE_ASSEMBLY";auto_trade:false;capabilities:Capability[]};
 const engineering={IMPLEMENTED:"已实现",PARTIAL:"部分实现",NOT_IMPLEMENTED:"尚未实现"};
 const integration={INTEGRATED:"已有接通证据",BASELINE_ONLY:"仅底层基础",NOT_IMPLEMENTED:"未接通产品"};
-const routes=new Set(["/acceptance","/portfolio","/watchlist","/settings","/#policy","/calendar","/market-data","/valuation","/opportunities"]);
+const routes=new Set(["/acceptance","/portfolio","/watchlist","/settings","/#policy","/calendar","/market-data","/valuation","/opportunities","/analysis"]);
 
 export function parseAcceptance(raw:unknown):Snapshot {
   const value=raw as Snapshot;

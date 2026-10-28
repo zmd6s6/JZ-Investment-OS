@@ -12,6 +12,7 @@ const navItems = [
   { href: "/market-data", label: "人工行情" },
   { href: "/valuation", label: "估值对账" },
   { href: "/opportunities", label: "机会漏斗" },
+  { href: "/analysis", label: "团队分析" },
 ] as const;
 
 export function ProductChrome({

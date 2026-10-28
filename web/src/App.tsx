@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { AnalysisPage } from "./AnalysisPage";
 import { SettingsPage } from "./SettingsPage";
 import { AcceptancePage } from "./AcceptancePage";
 import { ValuationPage } from "./ValuationPage";
@@ -233,6 +234,7 @@ function HomePage() {
 
 export function App() {
   const path = window.location.pathname;
+  if (path === "/analysis") return <AnalysisPage />;
   if (path === "/calendar") return <CalendarPage />;
   if (path === "/acceptance") return <AcceptancePage />;
   if (path === "/valuation") return <ValuationPage />;
