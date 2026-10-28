@@ -199,7 +199,8 @@ def acceptance_snapshot(
             detail=(
                 "显式选择输入与授权后排队, Worker保存真实阶段和两轮观点; "
                 "当前风险与完整Sizing缺项, 只有不可执行的降级影子结论。"
-                "可展开本次冻结资料与角色依据; 当前分析未产生完整Risk/Sizing或可审批InvestmentDecision。"
+                "可展开本次冻结资料与角色依据; "
+                "当前分析未产生完整Risk/Sizing或可审批InvestmentDecision。"
             ),
             steps=(
                 "先配置模型凭据、单价与预算, 登记组合和研究标的。",
