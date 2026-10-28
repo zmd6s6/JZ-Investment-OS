@@ -123,4 +123,3 @@ PR25历史切片只接通本地明确手选范围、人工自然年年报事实�
 MVP-301的条件式INTEGRATED只指有效完整PR07 Decision输入下的决策中心组件，并且只在PR #28经独立Gate实际合入Release后生效。当前Analysis仍只生成Shadow、Risk UNKNOWN / Sizing BLOCKED，不能生成可批准或可执行的完整Decision；不存在默认Policy/数量/许可填空。隔离合成环境618后端/102集成、89前端、中心3与分析追溯6真实浏览器仅是工程与接线证据，不是Owner部署或接受。完整P7、Checkpoint B及Owner接受仍PENDING；MVP-501继续BLOCKED，不能据组件状态解锁完整Beta E2E。
 
 MVP-301修后候选另已实际合并Release39f5738：完整667/87.63%、集成140、前端95与新源码真实中心3/3通过；时间竞态、完整引用链及跨Decision幂等三项独立Review反馈为fixed-awaiting-review，新HEAD CI/root独立Gate另核。旧源码绿色证据不替代修后验收；这不改变上述P7/Checkpoint B/Owner PENDING及MVP-501 BLOCKED边界。
-
