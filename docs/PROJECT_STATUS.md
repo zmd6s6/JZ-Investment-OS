@@ -23,7 +23,7 @@
 
 - MVP-203=INTEGRATED：`/analysis`持久排队、真实双轮、角色/缺项、取消/新Run重试及历史已随PR26合入。Risk UNKNOWN、Sizing BLOCKED、无可审批InvestmentDecision，完整P6与Owner接受仍未完成；不得借099旧32/4替代后续源码证据。
 
-- MVP-301本工作分支接通 `/decisions` 真实列表/固定链审阅、具名确认批准/拒绝/撤销与完整手工事实（数量、价、费用、实际时间、引用、备注），同事务保存不可变动作、审计及Outbox，初步真实浏览器3/3/前端80通过。工程完整链/默认Policy/空风险/并发/到期/迁移正常失败边界已验证，完整后端609/87.60%通过；新HEAD CI和独立Gate待执行。当前分析仍只产Shadow，不能批准；旧不完整Decision失败关闭，因此当前Beta分析→可审批主链仍PARTIAL，不代表P7或Owner接受。细节见MVP-301工作项。
+- MVP-301条件式组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效：`/decisions`真实列表/完整合法Decision链审阅、具名确认批准/拒绝/撤销与完整手工事实已接通，同事务追加审计及Outbox。最终产品源码8cf4bd1实测618后端/102集成、89前端与中心3+分析追溯6真实合成浏览器；文档新HEAD CI与独立Gate另核。现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批，不补真实Policy或默认数量；完整P7/Checkpoint B、Owner部署与接受仍PENDING，MVP-501继续BLOCKED。细节见MVP-301工作项。
 
 - MVP-402本工作分支已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；本切片真实UI / API / DB合成验证21场景通过，但整体能力PARTIAL：全市场、深研、周定时尚未提供，不代表完整402 / P8或Owner接受。记录随本PR合入Release生效，详见 `docs/agent/work-items/MVP-402.md`。
 
@@ -47,7 +47,7 @@
 
 - P5的PR #17已合并，MVP-101可见路径复验与修复已由PR #21合入Release；仍须所有者本人Checkpoint验收，才能将PRODUCT-05标为ACCEPTED。
 - P6：203受限影子链已集成；完整Risk/Sizing、深入追溯204与可审批Decision生产链仍未完成。新提交须独立核CI/Gate，不借旧源码证据。
-- P7：301受完整有效链约束的Decision UI/人工记录在本分支验证；分析端尚不产生这种完整链，Owner部署/Checkpoint未完成。
+- P7：301仅交付受完整合法Decision输入约束的组件切片，INTEGRATED只随PR #28通过独立Gate实际合入生效；现Analysis仍Shadow、Risk UNKNOWN/Sizing BLOCKED且不可审批。完整P7/Checkpoint B及Owner接受PENDING，MVP-501保持BLOCKED。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。
 - P9：按 Beta 验收门槛完成的端到端产品验证和所有者接受。
 - PR-09 的 Outcome、Review/Learning、发布加固与发布验证必须在 P9 接受后才可恢复；在此之前不得继续推进或视为发布依据。

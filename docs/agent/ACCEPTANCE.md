@@ -23,7 +23,7 @@
 | 参考估值与Sizing缺口 | `/valuation` | ACCEPTANCE_READY — MVP-202已验证CNY分仓/NAV/权重/暴露与来源追溯；人工报价非交易级，缺完整Sizing输入明确阻断；集成记录仅随PR #24合入Release生效 | PENDING |
 | 团队影子分析 | `/analysis` | INTEGRATED — PR26已合入9c8b8cb，root对最终463独立64/4合入后审查通过。Risk UNKNOWN、Sizing BLOCKED，仅只读降级 | PENDING |
 | 分析依据与资料追溯 | `/analysis` | INTEGRATED — MVP-204已随PR27合入36aed8d，当次冻结来源/论点/角色/分仓/政策/闸门只读下钻，不补完整Risk/Sizing | PENDING |
-| Decision Center | `/decisions` | PARTIAL — 本分支真实列表/完整链审阅/具名批准拒绝撤销/手工facts已接线并合成验证；当前Analysis只产Shadow，不能审批，不代表完整P7 | PENDING |
+| Decision Center（MVP-301条件式组件切片） | `/decisions` | 组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效；真实列表/完整合法Decision链审阅/具名批准拒绝撤销/手工facts已合成验证。整体PARTIAL：现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批；完整P7/Checkpoint B仍PENDING，MVP-501继续BLOCKED | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
 | 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | MVP-401=INTEGRATED / ACCEPTANCE_READY，此记录随PR #23通过最终独立Gate合入Release生效。91801d0已获独立28项SQL / 1项恢复浏览器复验；仅STATUS_ONLY，不含团队分析或完整Daily Runtime | PENDING |
 | Opportunities | `/opportunities` | PARTIAL — 本地范围 / 人工年报 / 确定性漏斗随本PR集成；全市场 / 深研 / 周定时未提供 | PENDING |
@@ -112,3 +112,8 @@ MVP-201已完成隔离合成环境UI / API / DB接线验证，并由PR #22合入
 使用章节链接检查当次现金与Core/Tactical成本/数量、参考行情及Evidence、政策版本、Thesis支柱/催化/风险/证伪/监控、确定性特征和两轮各角色。缺少论点/阶段/模型产物时明确未提供；Risk UNKNOWN和Sizing BLOCKED必须保持，不能显示0股建议或可审批Decision。刷新后选择原Run，后来新增的Thesis版本不能替换旧Run。没有资料/坏CIO/取消/详情读取失败须显示明确失败或部分历史；选择其他运行遇到详情读取失败时，旧运行依据先清空，避免跨运行误读。
 
 本项仅展示实际保存的只读产物，既有摘要未记录的观点字段不编造，不重新调用来源或模型。工程/集成/可见测试与独立Gate分开，INTEGRATED仅随本项PR合入生效；Owner部署、本人Checkpoint验收及完整P6仍PENDING。证据见 `docs/agent/work-items/MVP-204.md`。
+
+
+## MVP-301 组件切片与完整主链边界
+
+MVP-301的条件式INTEGRATED只指有效完整PR07 Decision输入下的决策中心组件，并且只在PR #28经独立Gate实际合入Release后生效。当前Analysis仍只生成Shadow、Risk UNKNOWN / Sizing BLOCKED，不能生成可批准或可执行的完整Decision；不存在默认Policy/数量/许可填空。隔离合成环境618后端/102集成、89前端、中心3与分析追溯6真实浏览器仅是工程与接线证据，不是Owner部署或接受。完整P7、Checkpoint B及Owner接受仍PENDING；MVP-501继续BLOCKED，不能据组件状态解锁完整Beta E2E。

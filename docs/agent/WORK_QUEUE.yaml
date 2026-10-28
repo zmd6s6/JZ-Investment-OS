@@ -123,7 +123,8 @@ work_items:
   - id: MVP-301
     title: Decision Center and human approval
     priority: 1
-    status: REVIEW
+    status: INTEGRATED
+    # 仅随PR #28通过最终独立Gate并实际合入Release生效；不是实现者自签Gate。
     claim_branch: agent/MVP-301
     claim_owner: pr-02-review-and-next-stage-monitor / mvp301_decision_center
     # 审完整链约束的独立UI/人工事实切片；分析仍仅Shadow，整体P7/Owner未接受，不提前解锁501。
