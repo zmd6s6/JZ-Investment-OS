@@ -160,12 +160,13 @@ work_items:
     priority: 2
     status: REVIEW
     claim_branch: agent/MVP-402
-    claim_owner: pr-02-review-and-next-stage-monitor
-    # 201依赖已由PR22满足；本项审有限范围切片，整体PARTIAL，不代表P8或Checkpoint接受。
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp402_resume
+    # 有限范围切片已入PR25；续接单候选显式研究，整体仍PARTIAL，非完整P8或Checkpoint接受。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:
       - MVP-201
+      - MVP-203
     scope:
       - universe to deterministic filters to bounded candidates to deep research.
       - Never strong-model fan-out across full market.
