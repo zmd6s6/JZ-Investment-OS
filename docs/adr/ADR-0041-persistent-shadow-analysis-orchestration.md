@@ -43,3 +43,9 @@ Worker全运行和每个模型调用有技术性时限。运行过程中只在�
 ResearchRuntime增加可选expected_profile_hash（默认None，兼容既有显式P4调用）。Analysis传完整冻结档案hash，在Runtime读取后及凭据异步读取后的最终同步factory构造口再次核对，随后只使用同一个不可变档案对象；endpoint/type/retention/启用状态/凭据引用变化都失败，不重读后换到B。该预检不同于预算资金预留：预算比较与预留必须在同一SQL事务中锁住，不能仅加一次预检。
 
 具名Event门回归覆盖预算预检后与最终事务前同版本不同内容策略切换；研究进入Runtime前与credential await期间的endpoint/type/retention/停用漂移；混合有效+未来/过期/无效Evidence的全部九次模型正文。没有固定等待或放宽断言，没有新增真实限额/源/付费授权。
+
+### 模型最后出站边界补充（本ADR首次交付内，2026-10-28）
+
+LLMGatewayRequest另有可选expected_model_profile_hash，默认None保持旧通用调用兼容。Analysis强制附加完整冻结模型档案hash；网关在credential await后及预算reserve await后最后核对同一档案完整内容/启用状态，只使用原不可变档案和已取凭据，不切换B。最后核验返回后到HTTP调用之间无其他应用异步操作；不是只在模型解析时预检。
+
+明确尚未进入HTTP的档案漂移才允许release_before_egress：SQL事务锁预留与日/任务账本，原子释放全部预占，保留预留历史为RELEASED_BEFORE_EGRESS；重复释放幂等，已结算预留拒绝释放，不创建伪造provider用量。Analysis步骤记录BLOCKED、egress=false、cost_unconfirmed=false。此已知未出站路径不同于ADR0014的未知调用失败：一旦进入HTTP，超时/坏响应/取消等仍保留保守预占，不伪造零费用。没有新表、迁移、依赖、真实预算或授权变化。

@@ -1,12 +1,55 @@
 import asyncio
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from investment_os.application.llm_budget import LLMBudgetPolicy, ModelPricing
 from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
+
+
+async def test_never_sent_reservation_release_is_idempotent_and_cannot_release_charged_usage(
+    database_engine,
+):
+    factory = async_sessionmaker(database_engine, expire_on_commit=False, class_=AsyncSession)
+    store = SqlAlchemyLLMBudgetStore(factory)
+    policy = _policy()
+    await store.save_policy(policy)
+    window = date(2026, 10, 28)
+    reservation = await store.reserve(
+        task_id=uuid4(),
+        profile_id=uuid4(),
+        window_date=window,
+        pricing=_pricing(),
+        input_tokens=5,
+        output_tokens=5,
+        cost=Decimal("0.15"),
+        policy=policy,
+    )
+    await store.release_before_egress(reservation)
+    await store.release_before_egress(reservation)
+    usage = await store.usage(window_date=window, policy=policy)
+    assert usage.reserved_tokens == 0 and usage.reserved_cost == 0
+    assert usage.remaining_tokens == 100 and usage.total_cost == 0
+    charged = await store.reserve(
+        task_id=uuid4(),
+        profile_id=uuid4(),
+        window_date=window,
+        pricing=_pricing(),
+        input_tokens=5,
+        output_tokens=5,
+        cost=Decimal("0.15"),
+        policy=policy,
+    )
+    await store.reconcile(charged, input_tokens=1, output_tokens=1, cost=Decimal("0.03"))
+    with pytest.raises(RuntimeError, match="cannot be released"):
+        await store.release_before_egress(charged)
+    with pytest.raises(RuntimeError, match="unavailable"):
+        await store.release_before_egress(replace(charged, id=uuid4()))
+    assert (await store.usage(window_date=window, policy=policy)).total_cost == Decimal("0.03")
 
 
 def _policy(*, task_tokens: int = 100, daily_tokens: int = 100) -> LLMBudgetPolicy:

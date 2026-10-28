@@ -329,3 +329,81 @@ async def test_real_pipeline_keeps_future_and_expired_evidence_for_audit_only(da
         assert "NOT_FOR_MODEL" not in body
     finally:
         await client.aclose()
+
+
+@pytest.mark.parametrize("window", ["credential", "reservation"])
+async def test_frozen_model_disabled_across_await_has_zero_egress_and_no_budget_leak(
+    database_engine, monkeypatch, window
+):
+    import asyncio
+
+    from investment_os.infrastructure.persistence.models import (
+        LLMBudgetReservationRecord,
+        LLMUsageRecord,
+    )
+
+    (
+        sessions,
+        store,
+        providers,
+        profile,
+        budget,
+        service,
+        runner,
+        command,
+        calls,
+        client,
+    ) = await stack(database_engine)
+    queued = await service.start(command)
+    entered, release = asyncio.Event(), asyncio.Event()
+    count = 0
+
+    async def barrier():
+        nonlocal count
+        count += 1
+        if count == 5:
+            entered.set()
+        await release.wait()
+
+    if window == "credential":
+        original = providers._secret_store.get
+
+        async def gated_get(identifier):
+            result = await original(identifier)
+            await barrier()
+            return result
+
+        monkeypatch.setattr(providers._secret_store, "get", gated_get)
+    else:
+        original = budget._port.reserve
+
+        async def gated_reserve(**kwargs):
+            result = await original(**kwargs)
+            await barrier()
+            return result
+
+        monkeypatch.setattr(budget._port, "reserve", gated_reserve)
+
+    task = asyncio.create_task(runner.dispatch_due())
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        await providers._settings_port.save_model_profile(replace(profile, enabled=False))
+        release.set()
+        await asyncio.wait_for(task, 10)
+        assert calls == []
+        result = await store.get(queued.run_id)
+        assert result.status.value == "FAILED" and result.shadow_decision is None
+        usage = await budget.usage()
+        assert usage.input_tokens == usage.output_tokens == usage.reserved_tokens == 0
+        assert usage.total_cost == usage.reserved_cost == 0
+        async with sessions() as session:
+            reservations = (await session.scalars(select(LLMBudgetReservationRecord))).all()
+            assert len(reservations) == (5 if window == "reservation" else 0)
+            assert all(item.status == "RELEASED_BEFORE_EGRESS" for item in reservations)
+            assert await session.scalar(select(func.count()).select_from(LLMUsageRecord)) == 0
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        await client.aclose()

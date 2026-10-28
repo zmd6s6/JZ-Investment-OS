@@ -96,6 +96,8 @@ class LLMBudgetPort(Protocol):
 
     async def usage(self, *, window_date: date, policy: LLMBudgetPolicy) -> LLMBudgetUsage: ...
 
+    async def release_before_egress(self, reservation: LLMBudgetReservation) -> None: ...
+
 
 class LLMBudgetService:
     """Reserve worst-case capacity before egress and reconcile only verified provider usage."""
@@ -191,6 +193,10 @@ class LLMBudgetService:
             window_date=self._now().astimezone(UTC).date(),
             policy=policy,
         )
+
+    async def release_before_egress(self, reservation: LLMBudgetReservation) -> None:
+        """Release only a reservation whose HTTP call provably never began."""
+        await self._port.release_before_egress(reservation)
 
 
 def _pricing_for(profile: ModelProviderProfile) -> ModelPricing:

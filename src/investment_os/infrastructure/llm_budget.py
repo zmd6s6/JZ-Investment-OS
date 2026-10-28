@@ -183,6 +183,33 @@ class SqlAlchemyLLMBudgetStore:
                 )
             )
 
+    async def release_before_egress(self, reservation: LLMBudgetReservation) -> None:
+        async with self._session_factory() as session, session.begin():
+            record = await session.get(
+                LLMBudgetReservationRecord, reservation.id, with_for_update=True
+            )
+            if record is None:
+                raise RuntimeError("LLM budget reservation is unavailable")
+            if record.status == "RELEASED_BEFORE_EGRESS":
+                return
+            if record.status != "RESERVED":
+                raise RuntimeError("LLM budget reservation cannot be released")
+            daily = await session.get(
+                LLMBudgetDailyLedgerRecord, record.window_date, with_for_update=True
+            )
+            task = await session.get(
+                LLMBudgetTaskLedgerRecord, record.task_id, with_for_update=True
+            )
+            if daily is None or task is None:
+                raise RuntimeError("LLM budget ledger is unavailable")
+            tokens = record.reserved_input_tokens + record.reserved_output_tokens
+            daily.reserved_tokens -= tokens
+            daily.reserved_cost -= record.reserved_cost
+            task.reserved_tokens -= tokens
+            task.reserved_cost -= record.reserved_cost
+            record.status = "RELEASED_BEFORE_EGRESS"
+            # No provider usage was observed: retain the reservation history, not fake usage.
+
     async def usage(self, *, window_date: date, policy: LLMBudgetPolicy) -> LLMBudgetUsage:
         async with self._session_factory() as session:
             record = await session.get(LLMBudgetDailyLedgerRecord, window_date)

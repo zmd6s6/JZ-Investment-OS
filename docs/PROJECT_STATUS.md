@@ -17,6 +17,8 @@
 
 ## 已建立
 
+- PR #26模型出站边界反馈6457329770已补最终冻结档案核验及已知未出站预算释放，当前fixed-awaiting-review：credential / reservation两个异步窗口的停用、端点、模型、凭据引用、定价变化零HTTP；未知已出站失败仍保守计费。新源码完整582项/87.34%、真实合成API/DB/Worker/UI 4/4通过，仍需新HEAD CI及root独立Gate，未合入/未部署Owner。详情见MVP-203工作项与Handoff。
+
 - MVP-203：PR #26已实现并验证 `/analysis` 的显式输入/调用同意→持久排队→真实Worker双轮与角色产物→风险/仓位缺项→不可执行影子结论、取消/新Run重试/刷新历史。203 INTEGRATED、仅依赖203的204/301 READY台账仅随PR #26经独立Gate且实际合入Release生效；未合入时不得据此领取后继。root对09974bb独立32/32及真实4/4仅归旧代码，随后三项P1边界已复现并统一修复；新实现者验证与待独立复审明确另列，不能借旧独立证据通过新Gate。Risk UNKNOWN、Sizing BLOCKED、无可审批Decision，完整P6与Owner接受仍未完成；证据见 `docs/agent/work-items/MVP-203.md`。
 
 - MVP-402本工作分支已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；本切片真实UI / API / DB合成验证21场景通过，但整体能力PARTIAL：全市场、深研、周定时尚未提供，不代表完整402 / P8或Owner接受。记录随本PR合入Release生效，详见 `docs/agent/work-items/MVP-402.md`。

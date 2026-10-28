@@ -41,7 +41,10 @@ from investment_os.application.secrets import SecretStore
 from investment_os.domain.agent import AgentRole
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
-from investment_os.infrastructure.openai_compatible_llm import OpenAICompatibleLLMGateway
+from investment_os.infrastructure.openai_compatible_llm import (
+    ModelProfileChanged,
+    OpenAICompatibleLLMGateway,
+)
 from investment_os.infrastructure.persistence.models import EvidenceRecord
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader
 
@@ -112,16 +115,24 @@ class PinnedAnalysisGateway:
         )
         try:
             response = await self._delegate.complete(
-                replace(request, expected_budget_policy_hash=self._queued.budget_hash)
+                replace(
+                    request,
+                    expected_budget_policy_hash=self._queued.budget_hash,
+                    expected_model_profile_hash=self._queued.models[request.role].config_hash,
+                )
             )
-        except LLMBudgetPolicyChanged:
+        except (LLMBudgetPolicyChanged, ModelProfileChanged) as exc:
             await self._store.step(
                 self._run_id,
                 self._lease,
                 stage="MODEL_CALL",
                 status="BLOCKED",
                 payload={"role": request.role.value, "egress": False, "cost_unconfirmed": False},
-                reason_code="ANALYSIS_BUDGET_CHANGED",
+                reason_code=(
+                    "ANALYSIS_MODEL_PROFILE_CHANGED"
+                    if isinstance(exc, ModelProfileChanged)
+                    else "ANALYSIS_BUDGET_CHANGED"
+                ),
             )
             raise
         except Exception:
