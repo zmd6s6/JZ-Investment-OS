@@ -22,6 +22,7 @@
 | 人工行情与币种边界 | `/market-data` | INTEGRATED — MVP-201已由PR #22合入Release；人工未核实、CNY限定，非完整分析 | PENDING |
 | 参考估值与Sizing缺口 | `/valuation` | ACCEPTANCE_READY — MVP-202已验证CNY分仓/NAV/权重/暴露与来源追溯；人工报价非交易级，缺完整Sizing输入明确阻断；集成记录仅随PR #24合入Release生效 | PENDING |
 | 团队影子分析 | `/analysis` | INTEGRATED — PR26已合入9c8b8cb，root对最终463独立64/4合入后审查通过。Risk UNKNOWN、Sizing BLOCKED，仅只读降级 | PENDING |
+| 分析依据与资料追溯 | `/analysis` | INTEGRATED — MVP-204已随PR27合入36aed8d，当次冻结来源/论点/角色/分仓/政策/闸门只读下钻，不补完整Risk/Sizing | PENDING |
 | Decision Center | `/decisions` | PARTIAL — 本分支真实列表/完整链审阅/具名批准拒绝撤销/手工facts已接线并合成验证；当前Analysis只产Shadow，不能审批，不代表完整P7 | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
 | 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | MVP-401=INTEGRATED / ACCEPTANCE_READY，此记录随PR #23通过最终独立Gate合入Release生效。91801d0已获独立28项SQL / 1项恢复浏览器复验；仅STATUS_ONLY，不含团队分析或完整Daily Runtime | PENDING |
@@ -96,8 +97,18 @@ MVP-201已完成隔离合成环境UI / API / DB接线验证，并由PR #22合入
 
 ## MVP-203 团队影子分析验收（Owner PENDING）
 
+当前事实补充：PR #26已实际合入9c8b8cb，root于最终463源码独立64项/4真实浏览器通过，审查评论6466069735为合入后审查，非root执行合并；下文旧反馈/旧提交验证仅保留历史，不能理解为当前仍未修复。
+
 模型档案在分析期间停用或配置漂移时，本次调用失败关闭；凭据读取和预算预留后的变化均在实际HTTP前核验。若尚未出站，明确记录无出站并释放预占；已经发出的调用仍可能计费。剩余模型边界反馈6457329770的修复为fixed-awaiting-review，当前实现者新源码582项及原样真实合成浏览器4/4通过；新HEAD CI/独立Gate待核对，不借511旧绿状态。
 
 从主导航或设置进入 `/analysis`，按中文引导登记组合/标的并配置模型价格、预算；显式为全部角色选模型，勾选已有有效证据或明确研究源、查询和数据调用同意。核对证据/持仓/现金将发给模型与可能费用后，单独同意并发起。观察排队、冻结输入、两轮和风险/仓位阶段；展开可读角色观点/事实引用，影子结论须显示实际缺口，不能出现BUY/PASS/建议数量。刷新后从历史重读；失败显示具体理由，不补造WATCH。取消只能停止后续步骤，已发出调用可能计费；重试新建Run、重新同意，原历史不变。
 
 本项实现者在专用PG15442/API18114/真实Worker/loopback合成模型验证4/4；root又对09974bb独立运行unit/PG/API/pipeline 32/32（14.55秒）、原样analysis.spec.ts真实4/4（22.9秒），覆盖两轮/刷新、无效CIO/新Run重试、held调用取消、无证据零模型/移动端，未放宽断言。此前MVP-202独立32/3/4仅归其旧提交，不算本项。本PR #26实际合入后203 INTEGRATED、204/301依赖满足READY才生效；新HEAD CI及独立Gate仍须最终核对。这些32/4仅对应09974bb旧代码，随后三项P1（预算最终预留、无效正文前视、研究档案最终解析）已复现并修复；修后实现者新验证见工作项，新HEAD尚须独立复审。全部是合成证据，不是实际付费模型、Owner数据或本人接受。完整Risk/Sizing与可审批Decision未提供，Risk UNKNOWN、Sizing BLOCKED，P6与Checkpoint B未ACCEPTED。详细命令及失败记录见 `docs/agent/work-items/MVP-203.md`。
+
+## MVP-204 分析依据追溯（Owner PENDING）
+
+从 `/analysis` 选择组合的运行历史，在「阅读本次分析的完整依据」核对模型提案→确定性闸门裁决。点击任何事实/理由旁的证据按钮，页面应展开并定位到该次冻结资料：来源、出处、观察/生效/可得/摄入UTC时间、到期、hash、纯文本正文与当次有效性。资料出处只展示、不自动访问；未来/过期或不在快照内的引用不能当作有效事实。
+
+使用章节链接检查当次现金与Core/Tactical成本/数量、参考行情及Evidence、政策版本、Thesis支柱/催化/风险/证伪/监控、确定性特征和两轮各角色。缺少论点/阶段/模型产物时明确未提供；Risk UNKNOWN和Sizing BLOCKED必须保持，不能显示0股建议或可审批Decision。刷新后选择原Run，后来新增的Thesis版本不能替换旧Run。没有资料/坏CIO/取消/详情读取失败须显示明确失败或部分历史；选择其他运行遇到详情读取失败时，旧运行依据先清空，避免跨运行误读。
+
+本项仅展示实际保存的只读产物，既有摘要未记录的观点字段不编造，不重新调用来源或模型。工程/集成/可见测试与独立Gate分开，INTEGRATED仅随本项PR合入生效；Owner部署、本人Checkpoint验收及完整P6仍PENDING。证据见 `docs/agent/work-items/MVP-204.md`。

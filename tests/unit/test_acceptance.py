@@ -51,3 +51,15 @@ async def test_acceptance_http_is_read_only_and_does_not_query_database_or_provi
             )
         ).status_code == 405
         assert all(i["human_acceptance"] == "PENDING" for i in result.json()["capabilities"])
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_trace_manifest_has_real_read_route_only_when_analysis_is_assembled(assembled):
+    snapshot = acceptance_snapshot(
+        portfolio=False, watchlist=False, providers=False, policy=False, analysis=assembled
+    )
+    item = next(value for value in snapshot.capabilities if value.key == "analysis_trace")
+    assert item.work_item == "MVP-204" and item.engineering == "IMPLEMENTED"
+    assert item.route == ("/analysis" if assembled else None)
+    assert item.service == ("ASSEMBLED" if assembled else "UNAVAILABLE")
+    assert item.human_acceptance == "PENDING"

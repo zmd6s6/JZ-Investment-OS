@@ -19,6 +19,8 @@
 
 - PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
+- MVP-204已由PR27实际合入Release 36aed8d：`/analysis`只读历史追溯定位当次冻结Evidence，来源、四业务时间、expiry/hash、Thesis、分仓/政策/特征、两轮角色与闸门缺项可读。读取不重取资料或调用模型，失败清空旧运行展示；完整Risk/Sizing/可审批Decision与Owner接受未完成。实际验证保留其源码归属，见 `docs/agent/work-items/MVP-204.md`。
+
 - MVP-203=INTEGRATED：`/analysis`持久排队、真实双轮、角色/缺项、取消/新Run重试及历史已随PR26合入。Risk UNKNOWN、Sizing BLOCKED、无可审批InvestmentDecision，完整P6与Owner接受仍未完成；不得借099旧32/4替代后续源码证据。
 
 - MVP-301本工作分支接通 `/decisions` 真实列表/固定链审阅、具名确认批准/拒绝/撤销与完整手工事实（数量、价、费用、实际时间、引用、备注），同事务保存不可变动作、审计及Outbox，初步真实浏览器3/3/前端80通过。工程完整链/默认Policy/空风险/并发/到期/迁移正常失败边界已验证，完整后端609/87.60%通过；新HEAD CI和独立Gate待执行。当前分析仍只产Shadow，不能批准；旧不完整Decision失败关闭，因此当前Beta分析→可审批主链仍PARTIAL，不代表P7或Owner接受。细节见MVP-301工作项。
