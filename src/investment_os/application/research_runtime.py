@@ -8,7 +8,11 @@ routes one explicitly selected request without fallback.
 from typing import Protocol
 from uuid import UUID
 
-from investment_os.application.provider_settings import DataProviderProfile, ProviderSettingsService
+from investment_os.application.provider_settings import (
+    DataProviderProfile,
+    ProviderSettingsService,
+    provider_profile_hash,
+)
 from investment_os.application.research import (
     ResearchArtifactDTO,
     ResearchProviderPort,
@@ -19,6 +23,10 @@ from investment_os.application.secrets import SecretStore
 
 class ResearchRuntimeError(RuntimeError):
     """A configured research runtime cannot safely satisfy one explicit request."""
+
+
+class ResearchProviderProfileChangedError(ResearchRuntimeError):
+    """The final adapter input differs from the caller's frozen profile."""
 
 
 class ResearchProviderUnsupportedError(ResearchRuntimeError):
@@ -73,11 +81,20 @@ class ResearchProviderRuntime:
         self._registry = registry
 
     async def fetch(
-        self, *, profile_id: UUID, request: ResearchRequest
+        self,
+        *,
+        profile_id: UUID,
+        request: ResearchRequest,
+        expected_profile_hash: str | None = None,
     ) -> list[ResearchArtifactDTO]:
         profile = await self._provider_settings.get_data_profile(profile_id)
         if profile is None:
             raise ResearchRuntimeError("configured research provider was not found")
+        if (
+            expected_profile_hash is not None
+            and provider_profile_hash(profile) != expected_profile_hash
+        ):
+            raise ResearchProviderProfileChangedError("ANALYSIS_DATA_PROFILE_CHANGED")
         if not profile.enabled:
             raise ResearchProviderDisabledError("configured research provider is disabled")
         if profile.credential_ref is None:
@@ -94,5 +111,11 @@ class ResearchProviderRuntime:
             raise ResearchProviderCredentialError(
                 "configured research provider credential is unavailable"
             )
+        if expected_profile_hash is not None:
+            # Credential reads may suspend; recheck at the final synchronous factory boundary.
+            current = await self._provider_settings.get_data_profile(profile_id)
+            if current is None or provider_profile_hash(current) != expected_profile_hash:
+                raise ResearchProviderProfileChangedError("ANALYSIS_DATA_PROFILE_CHANGED")
+            profile = current
         provider = self._registry.create(profile, credential)
         return await provider.fetch_artifacts(request)

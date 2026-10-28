@@ -94,3 +94,12 @@ PR #23已由root独立Gate合入Release `3e805bac141239b0ae3c02d6aa73a16adefed8c
 合并后真实API/DB/UI串行22/22（29.3秒，无跳过），输出 `.runtime/mvp202-release-merge-browser-20261027`；新增三方交付清单→估值入口 / 设置→日历预览确认 / 实际DB默认暂停并刷新 / 设置→人工行情入口接线用例。该用例不启用日历、不启动Worker或外部调用；401的独立Worker/恢复证据仍归PR #23，不能冒充本轮重新跑过18110限定恢复脚本。源码及输入快照/人工非交易级/Sizing缺口未放松。
 
 评论6440891519的台账修复为fixed-awaiting-review，待root核对最终新HEAD CI后决定Gate；实现者不自宣Gate。MVP-202 INTEGRATED及203 READY仅随PR #24合入Release生效，204/301仍等待203，Owner PENDING/P6未完成。
+
+
+## MVP-203 持久团队影子分析纵切（2026-10-28）
+
+PR #26提供显式选择/出站同意、持久排队/阶段与角色产物、真实两轮、失败/有界取消/新Run重试和刷新。参考估值沿用202快照，Policy版本明确缺失或固定；Risk UNKNOWN、Sizing BLOCKED，没有建议数量与可审批InvestmentDecision，不构成完整P6或Owner接受。
+
+本项实现者真实浏览器4/4（23.3秒）及CI547/79属于09974bb及相同产品代码树；root另对09974bb独立复跑32/32（14.55秒）、原样真实浏览器4/4（22.9秒），未放宽断言。前文36e8c76的32/3与2081658后的复验均只归MVP-202，不能当作本项独立通过。随后独立源码审查实际复现三项P1；已统一收紧预算最终SQL预留/可选typed冻结hash、模型eligible正文及研究最终factory完整hash，并通过具名修前失败/修后回归。09974bb的32/4不能替代新实现独立复审；新验证见工作项，最终Gate仍由独立方对新HEAD核对。
+
+Queue203 INTEGRATED、204/301 READY仅随PR #26经实际独立Gate且合入Release生效；READY仅表示显式实现依赖满足，不是204深入追溯、可审批Decision或301批准已交付，不提前在未合入基线上领取。P6阶段接受、Checkpoint B与Owner仍PENDING，主规范与治理不变量不变。详细证据及限制见 `docs/agent/work-items/MVP-203.md`。

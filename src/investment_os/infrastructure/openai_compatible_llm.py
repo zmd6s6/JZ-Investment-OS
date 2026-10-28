@@ -18,9 +18,10 @@ from investment_os.application.llm_gateway import (
     LLMGatewayResponse,
 )
 from investment_os.application.provider_settings import (
+    ModelProfileResolver,
     ModelProviderProfile,
-    ProviderSettingsService,
     ProviderTestResult,
+    provider_profile_hash,
 )
 from investment_os.application.secrets import SecretStore
 
@@ -30,13 +31,17 @@ _OPENAI_COMPATIBLE = "OPENAI_COMPATIBLE"
 _TEST_MAX_OUTPUT_TOKENS = 256
 
 
+class ModelProfileChanged(LLMGatewayFailure):
+    """A frozen model was changed before egress; no HTTP call began."""
+
+
 class OpenAICompatibleLLMGateway(LLMGatewayPort):
     """Call an owner-configured compatible endpoint without exposing credentials to callers."""
 
     def __init__(
         self,
         *,
-        provider_settings: ProviderSettingsService,
+        provider_settings: ModelProfileResolver,
         secret_store: SecretStore,
         budget_service: LLMBudgetService,
         client: httpx.AsyncClient | None = None,
@@ -59,6 +64,7 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
         except (LookupError, ValueError) as exc:
             raise LLMGatewayFailure("configured model provider is unavailable") from exc
         credential = await self._credential_for(profile)
+        await self._check_frozen_profile(request, profile)
         if request.system_instruction is None or request.input_payload_json is None:
             raise LLMGatewayFailure(
                 "configured model runtime requires a rendered system instruction and JSON input"
@@ -72,6 +78,11 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
         if not isinstance(input_payload, dict):
             raise LLMGatewayFailure("configured model runtime requires a JSON object input")
         reservation = await self._budget_service.reserve(profile=profile, request=request)
+        try:
+            await self._check_frozen_profile(request, profile)
+        except ModelProfileChanged:
+            await self._budget_service.release_before_egress(reservation)
+            raise
         response = await self._complete(
             profile=profile,
             credential=credential,
@@ -162,6 +173,23 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
             detail="模型连接、认证和 JSON 对象输出检查通过",
             latency_ms=response.latency_ms,
         )
+
+    async def _check_frozen_profile(
+        self, request: LLMGatewayRequest, original: ModelProviderProfile
+    ) -> None:
+        expected = request.expected_model_profile_hash
+        if expected is None:
+            return
+        try:
+            current = await self._provider_settings.model_for_role(request.role.value)
+        except (LookupError, ValueError) as exc:
+            raise ModelProfileChanged("ANALYSIS_MODEL_PROFILE_CHANGED") from exc
+        if (
+            not current.enabled
+            or provider_profile_hash(current) != expected
+            or provider_profile_hash(original) != expected
+        ):
+            raise ModelProfileChanged("ANALYSIS_MODEL_PROFILE_CHANGED")
 
     async def _credential_for(self, profile: ModelProviderProfile) -> str:
         if profile.provider_type != _OPENAI_COMPATIBLE:

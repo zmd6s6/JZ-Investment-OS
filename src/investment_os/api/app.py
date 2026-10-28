@@ -13,8 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 from sqlalchemy import select
 
+from investment_os.api.analysis_routes import analysis_router
 from investment_os.api.valuation_routes import valuation_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
+from investment_os.application.analysis_choices import AnalysisChoicesService
+from investment_os.application.analysis_configuration import AnalysisStartService
+from investment_os.application.analysis_runs import AnalysisStorePort
 from investment_os.application.calendar_product import CalendarProductService
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
@@ -355,6 +359,9 @@ def create_app(
     market_data_service: MarketDataService | None = None,
     valuation_service: PortfolioValuationService | None = None,
     opportunity_service: OpportunityService | None = None,
+    analysis_start: AnalysisStartService | None = None,
+    analysis_store: AnalysisStorePort | None = None,
+    analysis_choices: AnalysisChoicesService | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -450,6 +457,7 @@ def create_app(
     application.include_router(market_router(market_data_service))
     application.include_router(valuation_router(valuation_service))
     application.include_router(opportunity_router(opportunity_service))
+    application.include_router(analysis_router(analysis_start, analysis_store, analysis_choices))
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
     async def liveness() -> LivenessResponse:
@@ -553,6 +561,9 @@ def create_app(
             market_data=market_data_service is not None,
             valuation=valuation_service is not None,
             opportunities=opportunity_service is not None,
+            analysis=analysis_start is not None
+            and analysis_store is not None
+            and analysis_choices is not None,
         )
 
     def provider_settings_or_503() -> ProviderSettingsService:
@@ -1467,6 +1478,10 @@ def create_app(
 
         @application.get("/acceptance", include_in_schema=False)
         async def acceptance_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/analysis", include_in_schema=False)
+        async def analysis_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
         @application.get("/valuation", include_in_schema=False)

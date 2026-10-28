@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from alembic import command as alembic_command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import DBAPIError
 from test_calendar_product_persistence import command, setup
@@ -65,5 +66,5 @@ async def test_calendar_migration_preserves_previous_schema_data_and_guards_hist
         assert await connection.scalar(text("SELECT count(*) FROM market_calendar_import")) == 1
         assert (
             await connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "20261026_0015"
+            == ScriptDirectory.from_config(config).get_current_head()
         )

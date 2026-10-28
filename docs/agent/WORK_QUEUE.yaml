@@ -88,8 +88,10 @@ work_items:
   - id: MVP-203
     title: AnalysisRun and InvestmentAnalysisOrchestrator
     priority: 1
-    status: READY
-    # 仅随MVP-202 PR #24合入Release生效，显式依赖满足；不是P6完成或Owner接受。
+    status: INTEGRATED
+    # 仅随PR #26经最终独立Gate且实际合入Release生效；不是完整P6、可审批Decision或Owner接受。
+    claim_branch: agent/MVP-203
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp101_visible_acceptance
     stage: PRODUCT-06
     checkpoint: B
     depends_on:
@@ -104,7 +106,8 @@ work_items:
   - id: MVP-204
     title: Analysis trace UI
     priority: 1
-    status: BLOCKED
+    status: READY
+    # 仅随PR #26实际合入Release生效：203显式依赖满足；READY不是本能力已交付或Owner接受。
     stage: PRODUCT-06
     checkpoint: B
     depends_on:
@@ -118,7 +121,8 @@ work_items:
   - id: MVP-301
     title: Decision Center and human approval
     priority: 1
-    status: BLOCKED
+    status: READY
+    # 仅随PR #26实际合入Release生效：203显式依赖满足；READY不是本能力已交付或Owner接受。
     stage: PRODUCT-07
     checkpoint: B
     depends_on:
