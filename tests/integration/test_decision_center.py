@@ -324,3 +324,259 @@ async def test_actual_router_auth_invalid_shadow_and_empty_list(database_engine)
                 headers={"Authorization": "Bearer synthetic-301-only"},
             )
         ).status_code == 409
+
+
+@pytest.mark.parametrize("gate", ["risk", "evidence", "review"])
+@pytest.mark.parametrize("offset_us", [-1, 0, 1])
+async def test_action_time_rechecks_expiry_after_suspended_detail_without_partial_facts(
+    database_engine, gate, offset_us
+):
+    lifetime = timedelta(hours=1)
+    ids = await seed_center(database_engine, **{f"{gate}_lifetime": lifetime})
+    clock = [ids["now"] + timedelta(seconds=1)]
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    class PausedCenter(SqlDecisionCenter):
+        async def _detail(self, session, decision):
+            result = await super()._detail(session, decision)
+            if not entered.is_set():
+                assert "APPROVE" in result.allowed_actions, result.decision.blockers
+                entered.set()
+                await release.wait()
+            return result
+
+    center = PausedCenter(
+        async_sessionmaker(database_engine, expire_on_commit=False), now=lambda: clock[0]
+    )
+    command = human()
+    task = asyncio.create_task(center.act(ids["decision"], "APPROVE", command))
+    await asyncio.wait_for(entered.wait(), timeout=10)
+    clock[0] = ids["now"] + lifetime + timedelta(microseconds=offset_us)
+    release.set()
+    if offset_us < 0:
+        view = await task
+        assert view.decision.state == "APPROVED"
+        assert view.history[-1]["occurred_at"] == clock[0].isoformat()
+    else:
+        with pytest.raises(ValueError, match="DECISION_ACTION_BLOCKED"):
+            await task
+        async with database_engine.connect() as connection:
+            for table in (
+                "decision_approval",
+                "decision_center_action",
+                "audit_log",
+                "outbox_event",
+            ):
+                column = "id" if table == "decision_center_action" else "correlation_id"
+                count = await connection.scalar(
+                    text(f"SELECT count(*) FROM {table} WHERE {column}=:id"),
+                    {"id": command.request_id},
+                )
+                assert count == 0, table
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "empty_thesis",
+        "missing_thesis_relation",
+        "missing_risk_relation",
+        "thesis_expired_reference",
+        "risk_expired_reference",
+        "sizing_shell",
+        "sizing_forged_output",
+        "sizing_tampered_nav",
+        "agent_risk_unlinked",
+        "agent_thesis_impact_unlinked",
+        "agent_expired_reference",
+        "agent_future_reference",
+    ],
+)
+async def test_complete_chain_rejects_unbacked_thesis_risk_or_sizing_without_writes(
+    database_engine, defect
+):
+    ids = await seed_center(database_engine, chain_defect=defect)
+    center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
+    view = await center.get(ids["decision"])
+    assert view.decision.blockers and "APPROVE" not in view.allowed_actions
+    command = human()
+    with pytest.raises(ValueError, match="DECISION_ACTION_BLOCKED"):
+        await center.act(ids["decision"], "APPROVE", command)
+    async with database_engine.connect() as connection:
+        for table in (
+            "decision_approval",
+            "decision_center_action",
+            "audit_log",
+            "outbox_event",
+            "event_log",
+        ):
+            column = "id" if table == "decision_center_action" else "correlation_id"
+            assert (
+                await connection.scalar(
+                    text(f"SELECT count(*) FROM {table} WHERE {column}=:id"),
+                    {"id": command.request_id},
+                )
+                == 0
+            )
+
+
+async def test_concurrent_same_request_across_decisions_returns_one_success_one_conflict(
+    database_engine,
+):
+    ids = await seed_center(database_engine, decision_count=2)
+    center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
+    app = FastAPI()
+    app.add_middleware(WriteApiAuthMiddleware, token="synthetic-301-only")
+    app.include_router(decision_center_router(center))
+    payload = human().model_dump(mode="json")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        responses = await asyncio.gather(
+            *(
+                client.post(
+                    f"/api/v1/decision-center/{identifier}/approve",
+                    json=payload,
+                    headers={"Authorization": "Bearer synthetic-301-only"},
+                )
+                for identifier in ids["decisions"]
+            )
+        )
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    async with database_engine.connect() as connection:
+        for table in (
+            "decision_approval",
+            "decision_center_action",
+            "audit_log",
+            "outbox_event",
+            "event_log",
+        ):
+            column = "id" if table == "decision_center_action" else "correlation_id"
+            assert (
+                await connection.scalar(
+                    text(f"SELECT count(*) FROM {table} WHERE {column}=:id"),
+                    {"id": payload["request_id"]},
+                )
+                == 1
+            )
+
+
+@pytest.mark.parametrize("action", ["RECORD_EXECUTION", "REVOKE"])
+@pytest.mark.parametrize("offset_us", [-1, 0, 1])
+async def test_action_time_rechecks_approval_expiry_after_suspended_detail(
+    database_engine, action, offset_us
+):
+    ids = await seed_center(
+        database_engine,
+        risk_lifetime=timedelta(days=7),
+        evidence_lifetime=timedelta(days=7),
+        review_lifetime=timedelta(days=7),
+    )
+    sessions = async_sessionmaker(database_engine, expire_on_commit=False)
+    clock = [ids["now"] + timedelta(seconds=1)]
+    approved = await SqlDecisionCenter(sessions, now=lambda: clock[0]).act(
+        ids["decision"], "APPROVE", human()
+    )
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    class PausedCenter(SqlDecisionCenter):
+        async def _detail(self, session, decision):
+            result = await super()._detail(session, decision)
+            if not entered.is_set():
+                assert action in result.allowed_actions
+                entered.set()
+                await release.wait()
+            return result
+
+    center = PausedCenter(sessions, now=lambda: clock[0])
+    command = (
+        human(2)
+        if action == "REVOKE"
+        else ManualExecutionCommand(
+            request_id=uuid4(),
+            expected_revision=2,
+            actor_id="synthetic-human",
+            comment="合成成交事实",
+            confirmed=True,
+            approval_id=approved.approval_id,
+            quantity="1",
+            price="10",
+            fees="0",
+            executed_at=clock[0],
+            external_reference="synthetic-approval-time",
+            note="合成时点测试",
+        )
+    )
+    task = asyncio.create_task(center.act(ids["decision"], action, command))
+    await asyncio.wait_for(entered.wait(), timeout=10)
+    clock[0] = approved.approval_expires_at + timedelta(microseconds=offset_us)
+    release.set()
+    if offset_us < 0:
+        result = await task
+        assert result.history[-1]["occurred_at"] == clock[0].isoformat()
+    else:
+        with pytest.raises(ValueError, match="DECISION_ACTION_BLOCKED"):
+            await task
+        async with database_engine.connect() as connection:
+            for table in (
+                "decision_approval",
+                "decision_execution",
+                "decision_center_action",
+                "audit_log",
+                "outbox_event",
+            ):
+                column = "id" if table == "decision_center_action" else "correlation_id"
+                assert (
+                    await connection.scalar(
+                        text(f"SELECT count(*) FROM {table} WHERE {column}=:id"),
+                        {"id": command.request_id},
+                    )
+                    == 0
+                )
+
+
+@pytest.mark.parametrize("gate", ["approved", "effective"])
+@pytest.mark.parametrize("offset_us", [-1, 0, 1])
+async def test_action_time_rechecks_policy_start_after_clock_change(
+    database_engine, gate, offset_us
+):
+    ids = await seed_center(database_engine, **{f"policy_{gate}_delta": timedelta(hours=1)})
+    clock = [ids["now"] + timedelta(hours=2)]
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    class PausedCenter(SqlDecisionCenter):
+        async def _detail(self, session, decision):
+            result = await super()._detail(session, decision)
+            if not entered.is_set():
+                assert "APPROVE" in result.allowed_actions
+                entered.set()
+                await release.wait()
+            return result
+
+    center = PausedCenter(
+        async_sessionmaker(database_engine, expire_on_commit=False), now=lambda: clock[0]
+    )
+    command = human()
+    task = asyncio.create_task(center.act(ids["decision"], "APPROVE", command))
+    await asyncio.wait_for(entered.wait(), timeout=10)
+    clock[0] = ids["now"] + timedelta(hours=1, microseconds=offset_us)
+    release.set()
+    if offset_us >= 0:
+        result = await task
+        assert result.history[-1]["occurred_at"] == clock[0].isoformat()
+    else:
+        with pytest.raises(ValueError, match="DECISION_ACTION_BLOCKED"):
+            await task
+        async with database_engine.connect() as connection:
+            for table in (
+                "decision_approval",
+                "decision_center_action",
+                "audit_log",
+                "outbox_event",
+            ):
+                column = "id" if table == "decision_center_action" else "correlation_id"
+                assert (
+                    await connection.scalar(
+                        text(f"SELECT count(*) FROM {table} WHERE {column}=:id"),
+                        {"id": command.request_id},
+                    )
+                    == 0
+                )

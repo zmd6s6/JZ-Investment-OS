@@ -6,10 +6,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -32,12 +32,19 @@ from investment_os.domain.enums import (
     ExecutionMode,
     ExecutionStatus,
 )
+from investment_os.domain.errors import DomainError
 from investment_os.domain.execution import DecisionExecution
+from investment_os.domain.risk import RiskFlag
 from investment_os.domain.state_machines import transition_decision
 from investment_os.domain.values import Quantity, UtcTimestamp
 from investment_os.infrastructure.decision_center_models import (
     DecisionCenterActionRecord,
     ManualExecutionDetailRecord,
+)
+from investment_os.infrastructure.decision_center_validation import (
+    agent_opinion,
+    sizing_request,
+    thesis_content,
 )
 from investment_os.infrastructure.persistence.models import (
     AgentOpinionRecord,
@@ -59,7 +66,9 @@ from investment_os.infrastructure.persistence.models import (
     PortfolioRecord,
     PositionRecord,
     PositionSizingRunRecord,
+    RiskAssessmentEvidenceRecord,
     RiskAssessmentRecord,
+    ThesisVersionEvidenceRecord,
     ThesisVersionRecord,
 )
 
@@ -384,16 +393,80 @@ class SqlDecisionCenter:
                 )
             )
         ).all()
+        thesis_ids = set(
+            (
+                await session.scalars(
+                    select(ThesisVersionEvidenceRecord.evidence_id).where(
+                        ThesisVersionEvidenceRecord.thesis_version_id == d.thesis_version_id
+                    )
+                )
+            ).all()
+        )
+        risk_ids = set(
+            (
+                await session.scalars(
+                    select(RiskAssessmentEvidenceRecord.evidence_id).where(
+                        RiskAssessmentEvidenceRecord.risk_assessment_id == d.risk_assessment_id
+                    )
+                )
+            ).all()
+        )
+        if thesis is not None:
+            try:
+                content = thesis_content(thesis)
+                if set(content.evidence_ids) != thesis_ids:
+                    raise ValueError("THESIS_EVIDENCE_RELATION_MISMATCH")
+            except (ValidationError, DomainError, ValueError, KeyError, TypeError):
+                blockers.append("THESIS_CONTENT_OR_EVIDENCE_INVALID")
+        if risk is not None:
+            try:
+                flags = TypeAdapter(tuple[RiskFlag, ...]).validate_python(
+                    [*risk.hard_flags_json, *risk.soft_flags_json]
+                )
+                if (
+                    set(identifier for flag in flags for identifier in flag.evidence_ids)
+                    != risk_ids
+                ):
+                    raise ValueError("RISK_EVIDENCE_RELATION_MISMATCH")
+                if any(flag.kind.value != "HARD" for flag in flags[: len(risk.hard_flags_json)]):
+                    raise ValueError("RISK_FLAG_KIND_MISMATCH")
+                if any(flag.kind.value != "SOFT" for flag in flags[len(risk.hard_flags_json) :]):
+                    raise ValueError("RISK_FLAG_KIND_MISMATCH")
+            except (ValidationError, DomainError, ValueError, KeyError, TypeError):
+                blockers.append("RISK_CONTENT_OR_EVIDENCE_INVALID")
+        opinion_links = (
+            await session.execute(
+                text(
+                    "SELECT ae.agent_opinion_id, ae.evidence_id FROM agent_opinion_evidence ae "
+                    "JOIN committee_message cm ON cm.opinion_id=ae.agent_opinion_id "
+                    "WHERE cm.session_id=:id"
+                ),
+                {"id": d.committee_session_id},
+            )
+        ).all()
+        opinion_evidence: dict[UUID, set[UUID]] = {}
+        for opinion_id, evidence_id in opinion_links:
+            opinion_evidence.setdefault(opinion_id, set()).add(evidence_id)
+        required_evidence = (
+            set(evidence_ids)
+            | thesis_ids
+            | risk_ids
+            | {
+                identifier
+                for identifiers in opinion_evidence.values()
+                for identifier in identifiers
+            }
+        )
         evidence = (
             (
                 await session.scalars(
-                    select(EvidenceRecord).where(EvidenceRecord.id.in_(evidence_ids))
+                    select(EvidenceRecord).where(EvidenceRecord.id.in_(required_evidence))
                 )
             ).all()
-            if evidence_ids
+            if required_evidence
             else []
         )
-        if not evidence or len(evidence) != len(evidence_ids):
+        if not evidence or len(evidence) != len(required_evidence):
             blockers.append("EVIDENCE_MISSING")
         for e in evidence:
             if (
@@ -478,6 +551,16 @@ class SqlDecisionCenter:
             blockers.append("SIZING_MISSING_OR_MISMATCH")
         else:
             try:
+                if policy is None or risk is None or thesis is None:
+                    raise ValueError("missing complete sizing lineage")
+                request = sizing_request(sizing, d, policy, risk, thesis)
+                if any(
+                    max(e.observed_at, e.effective_at, e.available_at, e.ingested_at)
+                    > request.risk_assessment.as_of.value
+                    for e in evidence
+                    if e.id in risk_ids
+                ):
+                    raise ValueError("risk evidence was unavailable at its evaluation")
                 delta = Decimal(str(sizing.output_json["delta_quantity"]))
                 quantity = abs(delta)
                 request_input = sizing.input_json.get("request")
@@ -506,7 +589,7 @@ class SqlDecisionCenter:
                     blockers.append("PORTFOLIO_INPUT_CHANGED")
                 if Decimal(str(sizing.input_json["reference_price"])) <= 0:
                     raise ValueError("missing reference price")
-            except (KeyError, ValueError, ArithmeticError):
+            except (KeyError, ValueError, ArithmeticError, ValidationError, DomainError, TypeError):
                 quantity = None
                 blockers.append("SIZING_INPUT_INVALID")
         strategy = (
@@ -535,26 +618,41 @@ class SqlDecisionCenter:
             if opinion is None:
                 continue
             run = await session.get(AgentRunRecord, opinion.agent_run_id)
-            observations: object = opinion.observations_json
-            valid_observations = (
-                isinstance(observations, list)
-                and bool(observations)
-                and all(
-                    isinstance(fact, dict)
-                    and bool(fact.get("evidence_ids"))
-                    and set(fact["evidence_ids"])
-                    <= {str(identifier) for identifier in evidence_ids}
-                    for fact in observations
+            try:
+                if run is None or run.status != "SUCCEEDED" or run.agent_role != message.agent_role:
+                    raise ValueError("OPINION_RUN_INVALID")
+                structured = agent_opinion(opinion, run)
+                references = (
+                    {
+                        identifier
+                        for fact in structured.observations
+                        for identifier in fact.evidence_ids
+                    }
+                    | {identifier for fact in structured.risks for identifier in fact.evidence_ids}
+                    | {
+                        identifier
+                        for fact in structured.thesis_impacts
+                        for identifier in fact.evidence_ids
+                    }
                 )
-            )
-            if (
-                run is not None
-                and run.status == "SUCCEEDED"
-                and run.agent_role == message.agent_role
-                and opinion.instrument_id == d.instrument_id
-                and valid_observations
-            ):
+                if (
+                    opinion.instrument_id != d.instrument_id
+                    or not references
+                    or references != opinion_evidence.get(opinion.id, set())
+                    or run.ended_at is None
+                    or run.started_at > run.ended_at
+                    or run.ended_at > d.created_at
+                    or any(
+                        max(e.observed_at, e.effective_at, e.available_at, e.ingested_at)
+                        > run.started_at
+                        for e in evidence
+                        if e.id in references
+                    )
+                ):
+                    raise ValueError("OPINION_EVIDENCE_INVALID")
                 valid_roles.add(message.agent_role)
+            except (ValidationError, DomainError, ValueError, KeyError, TypeError):
+                blockers.append("COMMITTEE_OPINION_CONTENT_OR_EVIDENCE_INVALID")
             opinions.append(
                 {
                     "role": message.agent_role,
@@ -625,6 +723,61 @@ class SqlDecisionCenter:
         }
         return list(dict.fromkeys(blockers)), lineage, quantity
 
+    async def _action_time(
+        self,
+        session: AsyncSession,
+        decision: InvestmentDecisionRecord,
+        detail: CenterDetail,
+        action: str,
+        approval: DecisionApprovalRecord | None,
+    ) -> datetime:
+        """Linearize time authorization after all potentially suspended input reads."""
+        risk = (
+            await session.get(RiskAssessmentRecord, decision.risk_assessment_id)
+            if decision.risk_assessment_id
+            else None
+        )
+        policy = await session.get(InvestmentPolicyVersionRecord, decision.policy_version_id)
+        evidence = (
+            await session.scalars(
+                select(EvidenceRecord).where(
+                    EvidenceRecord.id.in_(
+                        [
+                            UUID(str(item["evidence_id"]))
+                            for item in cast(
+                                builtins.list[dict[str, object]], detail.lineage["evidence"]
+                            )
+                        ]
+                    )
+                )
+            )
+        ).all()
+        # All awaits are above this instant. Validate and write with this same timestamp.
+        now = self._now()
+        if action in {"APPROVE", "RECORD_EXECUTION"} and (
+            decision.created_at > now
+            or decision.next_review_at <= now
+            or risk is None
+            or risk.expires_at <= now
+            or not evidence
+            or any(e.expires_at is not None and e.expires_at <= now for e in evidence)
+            or policy is None
+            or policy.approved_at is None
+            or policy.approved_at > now
+            or policy.effective_from is None
+            or policy.effective_from > now
+        ):
+            raise ValueError("DECISION_ACTION_BLOCKED")
+        if action in {"REVOKE", "RECORD_EXECUTION"} and (
+            detail.approval_id is None
+            or detail.approval_expires_at is None
+            or detail.approval_expires_at <= now
+            or approval is None
+            or not _approval(approval).is_valid_at(UtcTimestamp(now))
+        ):
+            raise ValueError("DECISION_ACTION_BLOCKED")
+        return now
+
     async def act(
         self,
         decision_id: UUID,
@@ -632,6 +785,10 @@ class SqlDecisionCenter:
         command: HumanCommand,
     ) -> CenterDetail:
         async with self._sessions() as session, session.begin():
+            await session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:request_id, 0))"),
+                {"request_id": str(command.request_id)},
+            )
             # Serialize all commands for this immutable snapshot, including idempotent retries.
             d = await session.get(InvestmentDecisionRecord, decision_id, with_for_update=True)
             if d is None:
@@ -659,14 +816,33 @@ class SqlDecisionCenter:
                 raise ValueError("DECISION_REVISION_CONFLICT")
             if action not in detail.allowed_actions:
                 raise ValueError("DECISION_ACTION_BLOCKED")
-            now = self._now()
+            # Finish every authorization read before choosing the action's timestamp.
+            # The detail is an expensive read model, never the final time authorization.
+            prior = (
+                await session.scalars(
+                    select(DecisionApprovalRecord)
+                    .where(DecisionApprovalRecord.decision_id == d.id)
+                    .order_by(DecisionApprovalRecord.created_at, DecisionApprovalRecord.id)
+                )
+            ).all()
+            sizing = (
+                await session.get(PositionSizingRunRecord, d.position_sizing_run_id)
+                if d.position_sizing_run_id
+                else None
+            )
+            record = (
+                await session.get(DecisionApprovalRecord, detail.approval_id)
+                if detail.approval_id
+                else None
+            )
+            now = await self._action_time(session, d, detail, action, record)
+            # No more database awaits before constructing the immutable fact at `now`.
             actor, comment = clean_text(command.actor_id), clean_text(command.comment)
             approval_id = execution_id = None
             state = detail.decision.state
             if action != "RECORD_EXECUTION":
                 ttl = None
                 if action == "APPROVE":
-                    policy = await session.get(InvestmentPolicyVersionRecord, d.policy_version_id)
                     assert policy is not None
                     config = InvestmentPolicySchema.model_validate_json(
                         json.dumps(policy.config_json)
@@ -681,13 +857,6 @@ class SqlDecisionCenter:
                     comment=comment,
                 )
                 approval_id = approval.id
-                prior = (
-                    await session.scalars(
-                        select(DecisionApprovalRecord)
-                        .where(DecisionApprovalRecord.decision_id == d.id)
-                        .order_by(DecisionApprovalRecord.created_at, DecisionApprovalRecord.id)
-                    )
-                ).all()
                 history = DecisionApprovalHistory(
                     d.id, (*(_history(prior).records if prior else ()), approval)
                 )
@@ -731,13 +900,11 @@ class SqlDecisionCenter:
                     or command.quantity > detail.remaining_quantity
                 ):
                     raise ValueError("APPROVAL_OR_QUANTITY_MISMATCH")
-                record = await session.get(DecisionApprovalRecord, command.approval_id)
                 assert record is not None
                 approval = _approval(record)
                 when = command.executed_at.astimezone(UTC)
                 if when > now or not approval.is_valid_at(UtcTimestamp(when)):
                     raise ValueError("EXECUTION_TIME_INVALID")
-                sizing = await session.get(PositionSizingRunRecord, d.position_sizing_run_id)
                 assert sizing is not None
                 # No approved tolerance exists in V1 policy: only the exact approved reference.
                 if command.price != Decimal(str(sizing.input_json["reference_price"])):

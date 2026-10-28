@@ -11,7 +11,9 @@ from uuid import uuid4
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
+from investment_os.application.agent_runtime import AgentRunAttempt, AgentRunResult
 from investment_os.application.policy_schema import InvestmentPolicySchema
+from investment_os.application.thesis import thesis_content_hash, thesis_content_payload
 from investment_os.domain.agent import (
     AgentOpinion,
     AgentRole,
@@ -30,9 +32,20 @@ from investment_os.domain.enums import (
 from investment_os.domain.portfolio import PortfolioCapacityInputs
 from investment_os.domain.risk import RiskAssessment, RiskFlag, RiskFlagKind, RiskSeverity
 from investment_os.domain.sizing import SizingFormula, SizingRequest, size_position
+from investment_os.domain.thesis import (
+    EvidenceBackedClaim,
+    PillarStatus,
+    ThesisChangeReason,
+    ThesisContent,
+    ThesisPillar,
+)
 from investment_os.domain.values import Quantity, UtcTimestamp, Weight
 from investment_os.infrastructure.decision_center import ledger_fingerprint
 from investment_os.infrastructure.decision_journal import SqlAlchemyDecisionJournalWriter
+from investment_os.infrastructure.persistence.agent_observability import (
+    agent_opinion_record_from_result,
+)
+from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisWriter
 
 
 async def seed_center(
@@ -44,6 +57,12 @@ async def seed_center(
     decision_count: int = 1,
     risk_unknown: bool = False,
     sizing_action_mismatch: bool = False,
+    risk_lifetime: timedelta = timedelta(hours=12),
+    evidence_lifetime: timedelta = timedelta(days=1),
+    review_lifetime: timedelta = timedelta(days=1),
+    chain_defect: str | None = None,
+    policy_approved_delta: timedelta = -timedelta(hours=1),
+    policy_effective_delta: timedelta = -timedelta(hours=1),
 ) -> dict:
     now = now or datetime.now(UTC)
     ids = {
@@ -75,6 +94,54 @@ async def seed_center(
     schema = InvestmentPolicySchema.model_validate_json(json.dumps(config))
     policy = schema.to_domain()
 
+    extra_evidence = uuid4()
+    thesis_evidence = (
+        extra_evidence if chain_defect == "thesis_expired_reference" else ids["evidence"]
+    )
+    risk_evidence = extra_evidence if chain_defect == "risk_expired_reference" else ids["evidence"]
+    thesis_content = ThesisContent(
+        ThesisState.VALID,
+        "合成已审计论点",
+        (
+            ThesisPillar(
+                "synthetic-pillar",
+                EvidenceBackedClaim("合成来源支柱", (thesis_evidence,)),
+                PillarStatus.VALID,
+            ),
+        ),
+        (),
+        (),
+        (),
+        (),
+        ThesisChangeReason.NEW_EVIDENCE,
+    )
+    thesis_payload = thesis_content_payload(thesis_content)
+    flags = (
+        ()
+        if risk_unknown
+        else (
+            RiskFlag(
+                "SYNTHETIC_VETO" if veto else "SYNTHETIC_MONITORING",
+                RiskFlagKind.HARD if veto else RiskFlagKind.SOFT,
+                RiskSeverity.HIGH if veto else RiskSeverity.LOW,
+                (ids["evidence"],),
+                "合成跟踪条件",
+            ),
+        )
+    )
+    risk = RiskAssessment(
+        ids["risk"],
+        1,
+        UtcTimestamp(now - timedelta(minutes=1)),
+        UtcTimestamp(now + risk_lifetime),
+        flags,
+    )
+
+    use_thesis_writer = chain_defect not in {
+        "empty_thesis",
+        "missing_thesis_relation",
+        "thesis_expired_reference",
+    }
     async with engine.begin() as connection:
 
         async def put(table: str, **values):
@@ -115,8 +182,8 @@ async def seed_center(
             version=1,
             config_json=config,
             approved_by="synthetic-human",
-            approved_at=now - timedelta(hours=1),
-            effective_from=now - timedelta(hours=1),
+            approved_at=now + policy_approved_delta,
+            effective_from=now + policy_effective_delta,
             content_hash="a" * 64,
         )
         await connection.execute(
@@ -142,28 +209,29 @@ async def seed_center(
             content_hash="a" * 64,
             approved_by="synthetic-human",
         )
-        await put(
-            "investment_thesis",
-            id=ids["thesis"],
-            instrument_id=ids["instrument"],
-            status="VALID",
-            version=1,
-        )
-        await put(
-            "thesis_version",
-            id=ids["thesis_version"],
-            thesis_id=ids["thesis"],
-            version=1,
-            thesis_state="VALID",
-            summary="合成已审计论点",
-            pillars_json={},
-            catalysts_json=[],
-            risks_json=[],
-            invalidation_conditions_json=[],
-            monitoring_conditions_json=[],
-            change_reason="NEW_EVIDENCE",
-            content_hash="a" * 64,
-        )
+        if not use_thesis_writer:
+            await put(
+                "investment_thesis",
+                id=ids["thesis"],
+                instrument_id=ids["instrument"],
+                status="VALID",
+                version=1,
+            )
+            await put(
+                "thesis_version",
+                id=ids["thesis_version"],
+                thesis_id=ids["thesis"],
+                version=1,
+                thesis_state="VALID",
+                summary="合成已审计论点",
+                pillars_json={} if chain_defect == "empty_thesis" else thesis_payload["pillars"],
+                catalysts_json=[],
+                risks_json=[],
+                invalidation_conditions_json=[],
+                monitoring_conditions_json=[],
+                change_reason="NEW_EVIDENCE",
+                content_hash=thesis_content_hash(thesis_content),
+            )
         await put(
             "committee_session",
             id=ids["committee"],
@@ -187,12 +255,40 @@ async def seed_center(
             effective_at=now - timedelta(minutes=2),
             available_at=now - timedelta(minutes=2),
             ingested_at=now - timedelta(minutes=2),
-            expires_at=now + timedelta(days=1),
+            expires_at=now + evidence_lifetime,
             quality_score=Decimal("0.95"),
             freshness_status="FRESH",
             payload_json={"synthetic": True},
             content_hash="a" * 64,
         )
+        if chain_defect in {
+            "thesis_expired_reference",
+            "risk_expired_reference",
+            "agent_expired_reference",
+            "agent_future_reference",
+        }:
+            await put(
+                "evidence",
+                id=extra_evidence,
+                instrument_id=ids["instrument"],
+                evidence_type="EVENT",
+                source_name="合成旧来源",
+                source_locator="synthetic://301/expired",
+                source_tier="PRIMARY",
+                observed_at=now - timedelta(minutes=3),
+                effective_at=now - timedelta(minutes=3),
+                available_at=now + timedelta(microseconds=1)
+                if chain_defect == "agent_future_reference"
+                else now - timedelta(minutes=3),
+                ingested_at=now - timedelta(minutes=3),
+                expires_at=now + timedelta(days=1)
+                if chain_defect == "agent_future_reference"
+                else now - timedelta(microseconds=1),
+                quality_score=Decimal("0.95"),
+                freshness_status="FRESH",
+                payload_json={"synthetic": True},
+                content_hash="b" * 64,
+            )
         await put(
             "risk_assessment",
             id=ids["risk"],
@@ -200,30 +296,34 @@ async def seed_center(
             veto=veto,
             veto_codes=["SYNTHETIC_VETO"] if veto else [],
             hard_flags_json=[
-                {
-                    "code": "SYNTHETIC_VETO",
-                    "kind": "HARD",
-                    "severity": "HIGH",
-                    "evidence_ids": [str(ids["evidence"])],
-                    "release_condition": "synthetic reviewed clearance",
-                }
-            ]
-            if veto
-            else [],
-            soft_flags_json=[]
-            if veto or risk_unknown
-            else [
-                {
-                    "code": "SYNTHETIC_MONITORING",
-                    "kind": "SOFT",
-                    "severity": "LOW",
-                    "evidence_ids": [str(ids["evidence"])],
-                    "release_condition": "synthetic monitoring clearance",
-                }
+                json.loads(json.dumps(asdict(flag), default=str))
+                for flag in flags
+                if flag.kind is RiskFlagKind.HARD
             ],
-            expires_at=now + timedelta(hours=12),
-            content_hash="a" * 64,
+            soft_flags_json=[
+                json.loads(json.dumps(asdict(flag), default=str))
+                for flag in flags
+                if flag.kind is RiskFlagKind.SOFT
+            ],
+            expires_at=now + risk_lifetime,
+            content_hash=risk.content_hash,
         )
+        if not use_thesis_writer and chain_defect != "missing_thesis_relation":
+            await connection.execute(
+                text(
+                    "INSERT INTO thesis_version_evidence (thesis_version_id,evidence_id) "
+                    "VALUES (:id,:evidence)"
+                ),
+                {"id": ids["thesis_version"], "evidence": thesis_evidence},
+            )
+        if flags and chain_defect != "missing_risk_relation":
+            await connection.execute(
+                text(
+                    "INSERT INTO risk_assessment_evidence (risk_assessment_id,evidence_id) "
+                    "VALUES (:id,:evidence)"
+                ),
+                {"id": ids["risk"], "evidence": risk_evidence},
+            )
         for role in (
             AgentRole.MACRO,
             AgentRole.INDUSTRY,
@@ -258,24 +358,51 @@ async def seed_center(
                 status="SUCCEEDED",
                 token_usage_json={"synthetic": True},
             )
+            normalized = agent_opinion_record_from_result(
+                agent_run_id=run_id,
+                result=AgentRunResult(
+                    opinion,
+                    0,
+                    ("a" * 64,),
+                    (AgentRunAttempt(0, "SYNTHETIC", "synthetic-301-fixture", 0, 0, 0, "a" * 64),),
+                ),
+                created_by="synthetic-301",
+                correlation_id=correlation,
+            )
             await put(
                 "agent_opinion",
                 id=opinion_id,
                 agent_run_id=run_id,
                 instrument_id=ids["instrument"],
+                metadata_json={"agent_opinion_schema_version": "1.0"},
                 stance=opinion.stance.value,
                 confidence=opinion.confidence.value,
                 time_horizon=opinion.time_horizon,
-                observations_json=[
-                    {"claim": o.claim, "evidence_ids": [str(e) for e in o.evidence_ids]}
-                    for o in opinion.observations
-                ],
-                thesis_impacts_json=[],
-                assumptions_json=[],
-                risks_json=[],
-                invalidation_conditions_json=[],
-                unknowns_json=list(opinion.unknowns),
-                content_hash="a" * 64,
+                observations_json=normalized.observations_json,
+                thesis_impacts_json=[
+                    {
+                        "pillar_key": "synthetic-pillar",
+                        "impact": "WEAKEN",
+                        "reason": "合成反例",
+                        "evidence_ids": [str(extra_evidence)],
+                    }
+                ]
+                if chain_defect == "agent_thesis_impact_unlinked"
+                else normalized.thesis_impacts_json,
+                assumptions_json=normalized.assumptions_json,
+                risks_json=[
+                    {
+                        "code": "SYNTHETIC_EXTRA",
+                        "severity": "LOW",
+                        "evidence_ids": [str(extra_evidence)],
+                    }
+                ]
+                if chain_defect
+                in {"agent_risk_unlinked", "agent_expired_reference", "agent_future_reference"}
+                else normalized.risks_json,
+                invalidation_conditions_json=normalized.invalidation_conditions_json,
+                unknowns_json=normalized.unknowns_json,
+                content_hash=normalized.content_hash,
             )
             await connection.execute(
                 text(
@@ -284,6 +411,14 @@ async def seed_center(
                 ),
                 {"id": opinion_id, "evidence": ids["evidence"]},
             )
+            if chain_defect in {"agent_expired_reference", "agent_future_reference"}:
+                await connection.execute(
+                    text(
+                        "INSERT INTO agent_opinion_evidence (agent_opinion_id,evidence_id) "
+                        "VALUES (:id,:evidence)"
+                    ),
+                    {"id": opinion_id, "evidence": extra_evidence},
+                )
             await put(
                 "committee_message",
                 id=uuid4(),
@@ -295,21 +430,17 @@ async def seed_center(
                 payload_json={"synthetic": True},
             )
 
-    risk = RiskAssessment(
-        ids["risk"],
-        1,
-        UtcTimestamp(now - timedelta(minutes=1)),
-        UtcTimestamp(now + timedelta(hours=12)),
-        (
-            RiskFlag(
-                "SYNTHETIC_MONITORING",
-                RiskFlagKind.SOFT,
-                RiskSeverity.LOW,
-                (ids["evidence"],),
-                "合成跟踪条件",
-            ),
-        ),
-    )
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    if use_thesis_writer:
+        written = await SqlAlchemyThesisWriter(sessions, now=lambda: now).write(
+            instrument_id=ids["instrument"],
+            content=thesis_content,
+            as_of=now,
+            correlation_id=correlation,
+        )
+        ids["thesis"] = written.thesis_id
+        ids["thesis_version"] = written.thesis_version_id
+
     formula = SizingFormula(
         "synthetic-301-v1",
         {intent: Weight(0) for intent in RiskIntent} | {RiskIntent.SMALL: Weight("0.05")},
@@ -341,11 +472,28 @@ async def seed_center(
         ledger_hash = await ledger_fingerprint(session, ids["portfolio"])
     inputs = {
         "request": json.loads(json.dumps(asdict(request), default=str)),
-        "formula": {"version": formula.version},
+        "formula": {
+            "version": formula.version,
+            "intent_weights": {
+                key.value: {"value": str(value.value)}
+                for key, value in formula.intent_weights.items()
+            },
+            "target_volatility": str(formula.target_volatility),
+            "volatility_floor": str(formula.volatility_floor),
+            "volatility_scale_min": str(formula.volatility_scale_min),
+            "volatility_scale_max": str(formula.volatility_scale_max),
+            "reduce_fraction": {"value": str(formula.reduce_fraction.value)},
+        },
         "reference_price": "10",
         "ledger_hash": ledger_hash,
     }
     outputs = json.loads(json.dumps(asdict(result), default=str))
+    if chain_defect == "sizing_shell":
+        inputs["request"] = {"action": "BUY", "risk_intent": "SMALL"}
+    if chain_defect == "sizing_forged_output":
+        outputs["delta_quantity"] = "1000"
+    if chain_defect == "sizing_tampered_nav":
+        inputs["request"]["nav"] = "20000"
     if sizing_action_mismatch:
         inputs["request"]["action"] = "REDUCE"
     async with engine.begin() as connection:
@@ -392,7 +540,7 @@ async def seed_center(
         invalidation_conditions=("合成失效条件",),
         unknowns=("合成估值不确定性",),
         dissent=("合成反方观点",),
-        next_review_at=UtcTimestamp(now + timedelta(days=1)),
+        next_review_at=UtcTimestamp(now + review_lifetime),
         input_snapshot_hash="a" * 64,
         prompt_bundle_version="synthetic-301-prompt",
         formula_version=formula.version,
