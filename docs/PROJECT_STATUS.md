@@ -17,6 +17,10 @@
 
 ## 已建立
 
+- MVP-204当前工作分支接通 `/analysis` 的只读历史追溯：观点/结论引用定位到当次冻结Evidence，来源、四业务时间、expiry/hash、Thesis支柱/证伪/监控、参考估值分仓、政策版本、特征、两轮角色与最终闸门缺项可读。读取不重取资料或调用模型，详情失败清空旧运行展示。INTEGRATED台账仅随本项PR经独立Gate且实际合入Release生效；完整Risk/Sizing/可审批Decision与Owner接受未完成。实际验证见 `docs/agent/work-items/MVP-204.md`。
+
+- PR #26已于2026-10-28T09:11:03Z合入Release 9c8b8cb；root对最终46385a4源码独立复跑64项/真实浏览器4项，并记录[合入后审查](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)，未将合入后审查伪称合并前Gate或root合并。203=INTEGRATED，204/301真实依赖满足；Owner部署与接受仍PENDING。以下旧提交反馈和验证保留其历史归属。
+
 - PR #26模型出站边界反馈6457329770已补最终冻结档案核验及已知未出站预算释放，当前fixed-awaiting-review：credential / reservation两个异步窗口的停用、端点、模型、凭据引用、定价变化零HTTP；未知已出站失败仍保守计费。新源码完整582项/87.34%、真实合成API/DB/Worker/UI 4/4通过，仍需新HEAD CI及root独立Gate，未合入/未部署Owner。详情见MVP-203工作项与Handoff。
 
 - MVP-203：PR #26已实现并验证 `/analysis` 的显式输入/调用同意→持久排队→真实Worker双轮与角色产物→风险/仓位缺项→不可执行影子结论、取消/新Run重试/刷新历史。203 INTEGRATED、仅依赖203的204/301 READY台账仅随PR #26经独立Gate且实际合入Release生效；未合入时不得据此领取后继。root对09974bb独立32/32及真实4/4仅归旧代码，随后三项P1边界已复现并统一修复；新实现者验证与待独立复审明确另列，不能借旧独立证据通过新Gate。Risk UNKNOWN、Sizing BLOCKED、无可审批Decision，完整P6与Owner接受仍未完成；证据见 `docs/agent/work-items/MVP-203.md`。

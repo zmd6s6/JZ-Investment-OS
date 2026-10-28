@@ -1038,3 +1038,19 @@ button:disabled {
 .analysis-content { min-width:0; display:grid; gap:18px; overflow-wrap:anywhere; }
 .analysis-content > * { min-width:0; }
 .analysis-content select { min-width:0; max-width:100%; }
+.analysis-trace { min-width:0; overflow-wrap:anywhere; }
+.analysis-trace nav,.trace-references { display:flex; gap:10px; flex-wrap:wrap; }
+.analysis-trace nav { margin:16px 0; }
+.analysis-trace section { margin:24px 0; scroll-margin-top:80px; }
+.analysis-trace > details { padding:14px; margin:14px 0; border:1px solid var(--line); border-radius:var(--radius-sm); scroll-margin-top:80px; }
+.analysis-trace > details > summary { cursor:pointer; font-weight:700; }
+.trace-card { padding:14px; margin:12px 0; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--bg-elevated); min-width:0; }
+.trace-card:focus { outline:3px solid var(--brand); }
+.trace-card summary { cursor:pointer; }
+.trace-fields { display:grid; gap:10px; }
+.trace-fields > div { display:grid; grid-template-columns:minmax(100px,1fr) minmax(0,3fr); gap:12px; }
+.trace-fields dd { margin:0; white-space:pre-wrap; }
+.trace-fields dt { font-weight:700; }
+.trace-body { white-space:pre-wrap; overflow-wrap:anywhere; }
+.trace-claim { padding:6px 0; }
+@media (max-width:600px) { .trace-fields > div { grid-template-columns:1fr; gap:3px; } }
