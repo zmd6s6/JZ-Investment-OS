@@ -25,8 +25,7 @@ def test_acceptance_never_promotes_human_acceptance_or_unshipped_paths(assembled
     assert items["calendar"].route == ("/calendar" if assembled else None)
     assert items["calendar"].human_acceptance == "PENDING"
     assert items["analysis"].engineering == "PARTIAL" and items["analysis"].route is None
-    for key in ("decisions",):
-        assert items[key].engineering == "NOT_IMPLEMENTED" and items[key].route is None
+    assert items["decisions"].engineering == "PARTIAL" and items["decisions"].route is None
     assert items["runtime"].integration == "BASELINE_ONLY" and items["runtime"].route is None
     assert len(items) == len(snapshot.capabilities)
 

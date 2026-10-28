@@ -42,6 +42,7 @@ def acceptance_snapshot(
     valuation: bool = False,
     opportunities: bool = False,
     analysis: bool = False,
+    decisions: bool = False,
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
 
@@ -198,7 +199,7 @@ def acceptance_snapshot(
             detail=(
                 "显式选择输入与授权后排队, Worker保存真实阶段和两轮观点; "
                 "当前风险与完整Sizing缺项, 只有不可执行的降级影子结论。"
-                "204深入追溯和301批准未完成。"
+                "完整Risk/Sizing与可审批InvestmentDecision未由当前分析产生。"
             ),
             steps=(
                 "先配置模型凭据、单价与预算, 登记组合和研究标的。",
@@ -211,14 +212,31 @@ def acceptance_snapshot(
             ),
         )
     )
+    items.append(
+        CapabilityDelivery(
+            key="decisions",
+            label="决策与人工批准",
+            work_item="MVP-301",
+            engineering="PARTIAL",
+            integration="INTEGRATED",
+            service="ASSEMBLED" if decisions else "UNAVAILABLE",
+            route="/decisions" if decisions else None,
+            detail=(
+                "真实决策列表/审阅/具名人工动作/手工事实已接线; "
+                "仅完整有效链可批准, 当前分析Shadow不可审批。"
+            ),
+            steps=(
+                "从导航或设置进入决策中心, 审阅固定来源、风险、分仓与确定性数量。",
+                "填写人工归属与理由, 明确确认后批准/拒绝或撤销未成交批准。",
+                "外部已完成手工动作后填写数量/价格/费用/真实时间/引用/备注; 保存并刷新核对。",
+            ),
+            failure=(
+                "缺Policy/Strategy/Risk/Sizing或输入漂移、到期、Veto等失败关闭; "
+                "影子结论无审批入口, 不提交订单。"
+            ),
+        )
+    )
     pending = (
-        (
-            "decisions",
-            "决策与人工批准",
-            "MVP-301",
-            "决策审阅、批准与手工执行页面尚未交付, 不提供订单入口。",
-            False,
-        ),
         (
             "runtime",
             "日常团队运行",

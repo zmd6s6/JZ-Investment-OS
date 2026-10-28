@@ -21,8 +21,8 @@
 | Acceptance Center | `/acceptance` | ACCEPTANCE_READY — MVP-000已由PR #20合入Release；构建交付清单不是实时健康检测 | PENDING |
 | 人工行情与币种边界 | `/market-data` | INTEGRATED — MVP-201已由PR #22合入Release；人工未核实、CNY限定，非完整分析 | PENDING |
 | 参考估值与Sizing缺口 | `/valuation` | ACCEPTANCE_READY — MVP-202已验证CNY分仓/NAV/权重/暴露与来源追溯；人工报价非交易级，缺完整Sizing输入明确阻断；集成记录仅随PR #24合入Release生效 | PENDING |
-| 团队影子分析 | `/analysis` | INTEGRATED / ACCEPTANCE_READY，仅随PR #26经独立Gate且实际合入Release生效；09974bb旧独立32/4另列，三P1修复后新HEAD须重新独立复审。Risk UNKNOWN、Sizing BLOCKED，仅只读降级；204深入追溯未完成 | PENDING |
-| Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301仅在PR #26合入后因203依赖满足成为READY，不代表已有可审批Decision | PENDING |
+| 团队影子分析 | `/analysis` | INTEGRATED — PR26已合入9c8b8cb，root对最终463独立64/4合入后审查通过。Risk UNKNOWN、Sizing BLOCKED，仅只读降级 | PENDING |
+| Decision Center | `/decisions` | PARTIAL — 本分支真实列表/完整链审阅/具名批准拒绝撤销/手工facts已接线并合成验证；当前Analysis只产Shadow，不能审批，不代表完整P7 | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
 | 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | MVP-401=INTEGRATED / ACCEPTANCE_READY，此记录随PR #23通过最终独立Gate合入Release生效。91801d0已获独立28项SQL / 1项恢复浏览器复验；仅STATUS_ONLY，不含团队分析或完整Daily Runtime | PENDING |
 | Opportunities | `/opportunities` | PARTIAL — 本地范围 / 人工年报 / 确定性漏斗随本PR集成；全市场 / 深研 / 周定时未提供 | PENDING |

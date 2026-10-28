@@ -31,6 +31,7 @@ from investment_os.infrastructure.catalog_portfolio import (
     SessionPortfolioBookPort,
 )
 from investment_os.infrastructure.database import create_database_engine, create_session_factory
+from investment_os.infrastructure.decision_center import SqlDecisionCenter
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
 from investment_os.infrastructure.manual_market_data import SqlManualMarketData
@@ -100,6 +101,7 @@ def create_production_app() -> FastAPI:
     valuation = PortfolioValuationService(SqlValuationInputs(session_factory), market_data)
     analysis_store = SqlAnalysisRuns(session_factory)
     return create_app(
+        decision_center=SqlDecisionCenter(session_factory),
         analysis_start=AnalysisStartService(
             analysis_store,
             valuation,

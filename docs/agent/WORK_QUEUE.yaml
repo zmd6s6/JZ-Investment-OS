@@ -121,8 +121,10 @@ work_items:
   - id: MVP-301
     title: Decision Center and human approval
     priority: 1
-    status: READY
-    # 仅随PR #26实际合入Release生效：203显式依赖满足；READY不是本能力已交付或Owner接受。
+    status: REVIEW
+    claim_branch: agent/MVP-301
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp301_decision_center
+    # 审完整链约束的独立UI/人工事实切片；分析仍仅Shadow，整体P7/Owner未接受，不提前解锁501。
     stage: PRODUCT-07
     checkpoint: B
     depends_on:

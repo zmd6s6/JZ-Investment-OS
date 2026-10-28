@@ -17,9 +17,11 @@
 
 ## 已建立
 
-- PR #26模型出站边界反馈6457329770已补最终冻结档案核验及已知未出站预算释放，当前fixed-awaiting-review：credential / reservation两个异步窗口的停用、端点、模型、凭据引用、定价变化零HTTP；未知已出站失败仍保守计费。新源码完整582项/87.34%、真实合成API/DB/Worker/UI 4/4通过，仍需新HEAD CI及root独立Gate，未合入/未部署Owner。详情见MVP-203工作项与Handoff。
+- PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
-- MVP-203：PR #26已实现并验证 `/analysis` 的显式输入/调用同意→持久排队→真实Worker双轮与角色产物→风险/仓位缺项→不可执行影子结论、取消/新Run重试/刷新历史。203 INTEGRATED、仅依赖203的204/301 READY台账仅随PR #26经独立Gate且实际合入Release生效；未合入时不得据此领取后继。root对09974bb独立32/32及真实4/4仅归旧代码，随后三项P1边界已复现并统一修复；新实现者验证与待独立复审明确另列，不能借旧独立证据通过新Gate。Risk UNKNOWN、Sizing BLOCKED、无可审批Decision，完整P6与Owner接受仍未完成；证据见 `docs/agent/work-items/MVP-203.md`。
+- MVP-203=INTEGRATED：`/analysis`持久排队、真实双轮、角色/缺项、取消/新Run重试及历史已随PR26合入。Risk UNKNOWN、Sizing BLOCKED、无可审批InvestmentDecision，完整P6与Owner接受仍未完成；不得借099旧32/4替代后续源码证据。
+
+- MVP-301本工作分支接通 `/decisions` 真实列表/固定链审阅、具名确认批准/拒绝/撤销与完整手工事实（数量、价、费用、实际时间、引用、备注），同事务保存不可变动作、审计及Outbox，初步真实浏览器3/3/前端80通过。工程完整链/默认Policy/空风险/并发/到期/迁移正常失败边界已验证，完整后端609/87.60%通过；新HEAD CI和独立Gate待执行。当前分析仍只产Shadow，不能批准；旧不完整Decision失败关闭，因此当前Beta分析→可审批主链仍PARTIAL，不代表P7或Owner接受。细节见MVP-301工作项。
 
 - MVP-402本工作分支已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；本切片真实UI / API / DB合成验证21场景通过，但整体能力PARTIAL：全市场、深研、周定时尚未提供，不代表完整402 / P8或Owner接受。记录随本PR合入Release生效，详见 `docs/agent/work-items/MVP-402.md`。
 
@@ -42,8 +44,8 @@
 ## 尚未实现或尚未验证
 
 - P5的PR #17已合并，MVP-101可见路径复验与修复已由PR #21合入Release；仍须所有者本人Checkpoint验收，才能将PRODUCT-05标为ACCEPTED。
-- P6：MVP-203持久AnalysisRun与受控降级影子链已有实现者及09974bb独立复验；本PR #26实际合入后才记203 INTEGRATED、204/301依赖满足READY。完整Risk/Sizing、深入追溯204、可审批Decision301及所有者阶段验收仍未完成；后续提交须重新核对CI/独立Gate，不能借09974bb旧CI。
-- P7：Decision 审阅、批准/拒绝/撤销 UI 与只记录事实的手工执行产品流。
+- P6：203受限影子链已集成；完整Risk/Sizing、深入追溯204与可审批Decision生产链仍未完成。新提交须独立核CI/Gate，不借旧源码证据。
+- P7：301受完整有效链约束的Decision UI/人工记录在本分支验证；分析端尚不产生这种完整链，Owner部署/Checkpoint未完成。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。
 - P9：按 Beta 验收门槛完成的端到端产品验证和所有者接受。
 - PR-09 的 Outcome、Review/Learning、发布加固与发布验证必须在 P9 接受后才可恢复；在此之前不得继续推进或视为发布依据。

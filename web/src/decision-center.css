@@ -1,0 +1,10 @@
+.decision-center { min-width: 0; overflow-wrap: anywhere; }
+.decision-center fieldset { min-width: 0; }
+.decision-center input, .decision-center textarea, .decision-center select { box-sizing: border-box; max-width: 100%; }
+.decision-center label { display: block; margin: .75rem 0; }
+.decision-center button { margin: .3rem; max-width: 100%; white-space: normal; border: 1px solid #285a40; border-radius: .5rem; padding: .55rem .8rem; background: #285a40; color: white; cursor: pointer; font: inherit; }
+.decision-center button:disabled { cursor: not-allowed; background: #e3e9e4; border-color: #b5c4b9; color: #5e6c63; }
+.decision-center input:not([type="checkbox"]), .decision-center textarea { width: 100%; padding: .6rem; border: 1px solid #b5c4b9; border-radius: .4rem; font: inherit; }
+.decision-center fieldset { border: 1px solid #b5c4b9; border-radius: .6rem; padding: 1rem; }
+.decision-center details { margin: .7rem 0; }
+.decision-center summary { cursor: pointer; font-weight: 600; }

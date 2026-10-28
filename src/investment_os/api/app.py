@@ -14,12 +14,14 @@ from pydantic import AwareDatetime
 from sqlalchemy import select
 
 from investment_os.api.analysis_routes import analysis_router
+from investment_os.api.decision_center import decision_center_router
 from investment_os.api.valuation_routes import valuation_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
 from investment_os.application.analysis_choices import AnalysisChoicesService
 from investment_os.application.analysis_configuration import AnalysisStartService
 from investment_os.application.analysis_runs import AnalysisStorePort
 from investment_os.application.calendar_product import CalendarProductService
+from investment_os.application.decision_center import DecisionCenterPort
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
@@ -362,6 +364,7 @@ def create_app(
     analysis_start: AnalysisStartService | None = None,
     analysis_store: AnalysisStorePort | None = None,
     analysis_choices: AnalysisChoicesService | None = None,
+    decision_center: DecisionCenterPort | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -458,6 +461,7 @@ def create_app(
     application.include_router(valuation_router(valuation_service))
     application.include_router(opportunity_router(opportunity_service))
     application.include_router(analysis_router(analysis_start, analysis_store, analysis_choices))
+    application.include_router(decision_center_router(decision_center))
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
     async def liveness() -> LivenessResponse:
@@ -564,6 +568,7 @@ def create_app(
             analysis=analysis_start is not None
             and analysis_store is not None
             and analysis_choices is not None,
+            decisions=decision_center is not None,
         )
 
     def provider_settings_or_503() -> ProviderSettingsService:
@@ -1482,6 +1487,10 @@ def create_app(
 
         @application.get("/analysis", include_in_schema=False)
         async def analysis_ui() -> FileResponse:
+            return FileResponse(frontend_dist / "index.html")
+
+        @application.get("/decisions", include_in_schema=False)
+        async def decisions_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
         @application.get("/valuation", include_in_schema=False)
