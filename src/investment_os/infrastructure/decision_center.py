@@ -10,7 +10,7 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import ValidationError
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.approval_gate import approval_transition_context
@@ -104,14 +104,97 @@ class SqlDecisionCenter:
     async def list(self, *, portfolio_id: UUID | None = None) -> tuple[DecisionCard, ...]:
         async with self._sessions() as session:
             query = (
-                select(InvestmentDecisionRecord)
+                select(InvestmentDecisionRecord, InstrumentRecord.symbol)
+                .outerjoin(
+                    InstrumentRecord, InstrumentRecord.id == InvestmentDecisionRecord.instrument_id
+                )
                 .order_by(InvestmentDecisionRecord.created_at.desc(), InvestmentDecisionRecord.id)
                 .limit(100)
             )
             if portfolio_id is not None:
                 query = query.where(InvestmentDecisionRecord.portfolio_id == portfolio_id)
-            decisions = (await session.scalars(query)).all()
-            return tuple([(await self._detail(session, d)).decision for d in decisions])
+            rows = (await session.execute(query)).all()
+            ids = [row[0].id for row in rows]
+            if not ids:
+                return ()
+            actions = (
+                await session.scalars(
+                    select(DecisionCenterActionRecord)
+                    .where(DecisionCenterActionRecord.decision_id.in_(ids))
+                    .order_by(DecisionCenterActionRecord.revision)
+                )
+            ).all()
+            grouped: dict[UUID, builtins.list[DecisionCenterActionRecord]] = {}
+            humans: dict[UUID, DecisionCenterActionRecord] = {}
+            for action in actions:
+                grouped.setdefault(action.decision_id, []).append(action)
+                if action.action != "RECORD_EXECUTION":
+                    humans[action.decision_id] = action
+            approvals = {
+                row[0]: row[1]
+                for row in (
+                    await session.execute(
+                        select(DecisionApprovalRecord.decision_id, func.count())
+                        .where(DecisionApprovalRecord.decision_id.in_(ids))
+                        .group_by(DecisionApprovalRecord.decision_id)
+                    )
+                ).all()
+            }
+            executions = {
+                row[0]: row[1]
+                for row in (
+                    await session.execute(
+                        select(DecisionExecutionRecord.decision_id, func.count())
+                        .where(DecisionExecutionRecord.decision_id.in_(ids))
+                        .group_by(DecisionExecutionRecord.decision_id)
+                    )
+                ).all()
+            }
+            selected_ids = [a.approval_id for a in humans.values() if a.action == "APPROVE"]
+            expiry = {
+                a.id: a.expires_at
+                for a in (
+                    await session.scalars(
+                        select(DecisionApprovalRecord).where(
+                            DecisionApprovalRecord.id.in_(selected_ids)
+                        )
+                    )
+                ).all()
+            }
+            now = self._now()
+            cards = []
+            for decision, symbol in rows:
+                history = grouped.get(decision.id, [])
+                state = history[-1].resulting_state if history else decision.state
+                revision = history[-1].revision if history else decision.version
+                legacy = len(history) != approvals.get(decision.id, 0) + executions.get(
+                    decision.id, 0
+                )
+                if legacy:
+                    state = "LEGACY_REVIEW_REQUIRED"
+                elif state in {"APPROVED", "PARTIALLY_EXECUTED"}:
+                    human = humans.get(decision.id)
+                    expires = expiry.get(human.approval_id) if human and human.approval_id else None
+                    if expires is None or now >= expires:
+                        state = "EXPIRED"
+                cards.append(
+                    DecisionCard(
+                        decision_id=decision.id,
+                        portfolio_id=decision.portfolio_id,
+                        instrument_id=decision.instrument_id,
+                        symbol=symbol or str(decision.instrument_id),
+                        action=decision.action,
+                        state=state,
+                        revision=revision,
+                        created_at=decision.created_at,
+                        blockers=("LEGACY_ACTION_HISTORY_REQUIRES_REVIEW",)
+                        if legacy
+                        else ("DETAIL_REVIEW_REQUIRED",),
+                    )
+                )
+            # Listing is a bounded summary, not an authorization decision. Full lineage is
+            # loaded only on drill-down and revalidated inside every mutation transaction.
+            return tuple(cards)
 
     async def get(self, decision_id: UUID) -> CenterDetail:
         async with self._sessions() as session:
@@ -145,12 +228,24 @@ class SqlDecisionCenter:
         ).all()
         state = actions[-1].resulting_state if actions else d.state
         revision = actions[-1].revision if actions else d.version
+        approval_revisions = {
+            a.approval_id: a.revision for a in actions if a.action != "RECORD_EXECUTION"
+        }
+        approvals = sorted(
+            approvals,
+            key=lambda record: (
+                approval_revisions.get(record.id, 0),
+                record.created_at,
+                str(record.id),
+            ),
+        )
         active = _history(approvals).active_approval_at(UtcTimestamp(now)) if approvals else None
         if state in {"APPROVED", "PARTIALLY_EXECUTED"} and active is None:
             state = "EXPIRED"
         blockers, lineage, quantity = await self._lineage(session, d, now)
         if len(actions) != len(approvals) + len(executions):
             blockers.append("LEGACY_ACTION_HISTORY_REQUIRES_REVIEW")
+            state = "LEGACY_REVIEW_REQUIRED"
         filled = sum((e.filled_quantity for e in executions), Decimal(0))
         remaining = max(Decimal(0), quantity - filled) if quantity is not None else None
         allowed = []
@@ -177,20 +272,51 @@ class SqlDecisionCenter:
             }
             if a.execution_id:
                 execution = next(e for e in executions if e.id == a.execution_id)
-                extra = await session.get(ManualExecutionDetailRecord, a.execution_id)
-                item["execution"] = {
-                    "execution_id": str(execution.id),
-                    "approval_id": str(execution.approval_id),
-                    "mode": execution.execution_mode,
-                    "quantity": str(execution.filled_quantity),
-                    "price": str(execution.avg_price),
-                    "references": execution.external_refs_json,
-                    "status": execution.status,
-                    "fees": str(extra.fees) if extra else None,
-                    "executed_at": extra.executed_at.isoformat() if extra else None,
-                    "note": extra.note if extra else None,
-                }
+                item["execution"] = await _execution_read(session, execution)
             history.append(item)
+        represented_approvals = {a.approval_id for a in actions if a.action != "RECORD_EXECUTION"}
+        represented_executions = {a.execution_id for a in actions if a.execution_id}
+        for approval in approvals:
+            if approval.id not in represented_approvals:
+                history.append(
+                    {
+                        "request_id": str(approval.id),
+                        "revision": None,
+                        "action": approval.action,
+                        "state": "LEGACY_REVIEW_REQUIRED",
+                        "actor_id": approval.actor_id,
+                        "comment": approval.comment,
+                        "occurred_at": approval.created_at.isoformat(),
+                        "legacy": True,
+                        "approval_id": str(approval.id),
+                        "approval_expires_at": approval.expires_at.isoformat()
+                        if approval.expires_at
+                        else None,
+                    }
+                )
+        for execution in executions:
+            if execution.id not in represented_executions:
+                linked = next((a for a in approvals if a.id == execution.approval_id), None)
+                history.append(
+                    {
+                        "request_id": str(execution.id),
+                        "revision": None,
+                        "action": "LEGACY_EXECUTION",
+                        "state": "LEGACY_REVIEW_REQUIRED",
+                        "actor_id": linked.actor_id if linked else execution.created_by,
+                        "comment": None,
+                        "occurred_at": execution.created_at.isoformat(),
+                        "legacy": True,
+                        "execution": await _execution_read(session, execution),
+                    }
+                )
+        history.sort(
+            key=lambda item: (
+                str(item["occurred_at"]),
+                int(str(item["revision"])) if item["revision"] is not None else 0,
+                str(item["request_id"]),
+            )
+        )
         return CenterDetail(
             decision=DecisionCard(
                 decision_id=d.id,
@@ -761,6 +887,24 @@ def _increases(d: InvestmentDecisionRecord) -> bool:
         )
     except (KeyError, ValueError, ArithmeticError):
         return True
+
+
+async def _execution_read(
+    session: AsyncSession, execution: DecisionExecutionRecord
+) -> dict[str, object]:
+    extra = await session.get(ManualExecutionDetailRecord, execution.id)
+    return {
+        "execution_id": str(execution.id),
+        "approval_id": str(execution.approval_id),
+        "mode": execution.execution_mode,
+        "quantity": str(execution.filled_quantity),
+        "price": str(execution.avg_price) if execution.avg_price is not None else None,
+        "references": execution.external_refs_json,
+        "status": execution.status,
+        "fees": str(extra.fees) if extra else None,
+        "executed_at": extra.executed_at.isoformat() if extra else None,
+        "note": extra.note if extra else None,
+    }
 
 
 def _approval(record: DecisionApprovalRecord) -> DecisionApproval:

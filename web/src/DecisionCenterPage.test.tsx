@@ -66,3 +66,12 @@ it("late first decision details cannot overwrite a second selection", async () =
   await screen.findByText(/Decision decision-b/); await act(async () => release(response(view)));
   expect(screen.queryByText(/Decision decision-a/)).toBeNull();
 });
+
+it("legacy human receipts show missing facts explicitly without reopening approval", async () => {
+  mock({ ...view, decision: { ...card, state: "LEGACY_REVIEW_REQUIRED", blockers: ["LEGACY_ACTION_HISTORY_REQUIRES_REVIEW"] }, allowed_actions: [], history: [{ request_id: "old-execution", revision: null, legacy: true, action: "LEGACY_EXECUTION", state: "LEGACY_REVIEW_REQUIRED", actor_id: "synthetic-old-human", comment: null, occurred_at: "2026-10-27T10:00:00Z", execution: { quantity: "1", price: "10", fees: null, executed_at: null, note: null, references: ["synthetic-old-reference"], status: "FILLED", approval_id: "old-approval" } }] } as unknown as typeof view);
+  await open();
+  expect(screen.getByText(/旧模拟或手工回执/)).toBeVisible();
+  expect(screen.getByText(/费用 未提供/)).toBeVisible();
+  expect(screen.getByText(/实际成交 旧记录未提供/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: "批准" })).toBeNull();
+});

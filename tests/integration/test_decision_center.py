@@ -11,16 +11,38 @@ from alembic.config import Config
 from decision_center_fixture import seed_center
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from investment_os.api.decision_center import decision_center_router
 from investment_os.api.write_auth import WriteApiAuthMiddleware
 from investment_os.application.decision_center import HumanCommand, ManualExecutionCommand
+from investment_os.domain.approval import DecisionApproval
+from investment_os.domain.enums import ApprovalAction, ExecutionMode, ExecutionStatus
+from investment_os.domain.execution import DecisionExecution
+from investment_os.domain.values import Quantity, UtcTimestamp
 from investment_os.infrastructure.decision_center import SqlDecisionCenter
+from investment_os.infrastructure.decision_journal import SqlAlchemyDecisionJournalWriter
 
 pytestmark = pytest.mark.integration
+
+
+async def test_decision_list_batches_queries_instead_of_loading_every_lineage(database_engine):
+    await seed_center(database_engine, decision_count=12)
+    center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
+    queries = []
+
+    def query_seen(_connection, _cursor, statement, _parameters, _context, _executemany):
+        queries.append(statement)
+
+    event.listen(database_engine.sync_engine, "before_cursor_execute", query_seen)
+    try:
+        cards = await center.list()
+    finally:
+        event.remove(database_engine.sync_engine, "before_cursor_execute", query_seen)
+    assert len(cards) == 12 and len(queries) <= 6
+    assert all(card.blockers == ("DETAIL_REVIEW_REQUIRED",) for card in cards)
 
 
 async def test_nonempty_human_history_refuses_downgrade_and_preserves_receipt(database_engine):
@@ -60,6 +82,57 @@ def human(revision=1, **changes):
         confirmed=True,
         **changes,
     )
+
+
+async def test_legacy_human_records_are_visible_read_only_without_fabricated_fees_or_time(
+    database_engine,
+):
+    ids = await seed_center(database_engine)
+    sessions = async_sessionmaker(database_engine, expire_on_commit=False)
+    approval = DecisionApproval(
+        decision_id=ids["decision"],
+        actor_id="synthetic-old-human",
+        action=ApprovalAction.APPROVE,
+        occurred_at=UtcTimestamp(ids["now"]),
+        expires_at=UtcTimestamp(ids["now"] + timedelta(hours=1)),
+        comment="原始人工理由",
+    )
+    writer = SqlAlchemyDecisionJournalWriter(sessions)
+    await writer.append_approval(approval)
+    execution = DecisionExecution(
+        decision_id=ids["decision"],
+        approval=approval,
+        mode=ExecutionMode.MANUAL,
+        status=ExecutionStatus.FILLED,
+        requested_quantity=Quantity(1),
+        filled_quantity=Quantity(1),
+        recorded_at=UtcTimestamp(ids["now"]),
+        average_price="10",
+        external_references=("synthetic-old-reference",),
+    )
+    await writer.append_execution(execution)
+    center = SqlDecisionCenter(sessions)
+    view = await center.get(ids["decision"])
+    assert view.decision.state == "LEGACY_REVIEW_REQUIRED" and view.allowed_actions == ()
+    assert len(view.history) == 2 and all(item["legacy"] for item in view.history)
+    old_fill = next(item["execution"] for item in view.history if "execution" in item)
+    assert old_fill["fees"] is None and old_fill["executed_at"] is None and old_fill["note"] is None
+    assert old_fill["references"] == ["synthetic-old-reference"]
+    with pytest.raises(ValueError):
+        await center.act(ids["decision"], "APPROVE", human())
+
+
+async def test_same_timestamp_revoke_uses_action_revision_not_random_uuid_order(database_engine):
+    ids = await seed_center(database_engine)
+    center = SqlDecisionCenter(
+        async_sessionmaker(database_engine, expire_on_commit=False),
+        now=lambda: ids["now"] + timedelta(seconds=1),
+    )
+    await center.act(ids["decision"], "APPROVE", human())
+    view = await center.act(ids["decision"], "REVOKE", human(2))
+    assert view.decision.state == "CANCELLED" and view.approval_id is None
+    assert view.allowed_actions == ()
+    assert [item["action"] for item in view.history] == ["APPROVE", "REVOKE"]
 
 
 async def test_real_center_approval_partial_fills_complete_fees_and_immutable_history(
