@@ -328,9 +328,11 @@ async def test_analysis_migration_refuses_to_delete_history_and_preserves_previo
     saved = await store.get(run.run_id)
     assert saved.status.value == "QUEUED" and saved.request == queued.command
     async with database_engine.connect() as connection:
+        from alembic.script import ScriptDirectory
+
         assert (
             await connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "20261028_0016"
+            == ScriptDirectory.from_config(config).get_current_head()
         )
 
 
