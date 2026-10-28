@@ -1357,6 +1357,70 @@
         "title": "CalendarStatusReport",
         "type": "object"
       },
+      "CandidateResearchStart": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisStart"
+          },
+          "funnel_run_id": {
+            "format": "uuid",
+            "title": "Funnel Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "funnel_run_id",
+          "analysis"
+        ],
+        "title": "CandidateResearchStart",
+        "type": "object"
+      },
+      "CandidateResearchView": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisRunView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "command": {
+            "$ref": "#/components/schemas/CandidateResearchStart"
+          },
+          "status": {
+            "enum": [
+              "AWAITING_EXPLICIT_RETRY",
+              "ANALYSIS_RECORDED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "analysis_run",
+          "status"
+        ],
+        "title": "CandidateResearchView",
+        "type": "object"
+      },
       "CapabilityDelivery": {
         "additionalProperties": false,
         "properties": {
@@ -4878,8 +4942,11 @@
             "type": "boolean"
           },
           "deep_research": {
-            "const": "NOT_PROVIDED",
             "default": "NOT_PROVIDED",
+            "enum": [
+              "NOT_PROVIDED",
+              "EXPLICIT_SINGLE_CANDIDATE"
+            ],
             "title": "Deep Research",
             "type": "string"
           },
@@ -7798,6 +7865,47 @@
         ]
       }
     },
+    "/api/v1/opportunities/research": {
+      "post": {
+        "operationId": "start_research_api_v1_opportunities_research_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateResearchStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateResearchView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Research",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/v1/opportunities/runs": {
       "get": {
         "operationId": "runs_api_v1_opportunities_runs_get",
@@ -7900,6 +8008,53 @@
           }
         },
         "summary": "Get Run",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/runs/{run_id}/research": {
+      "get": {
+        "operationId": "research_history_api_v1_opportunities_runs__run_id__research_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CandidateResearchView"
+                  },
+                  "title": "Response Research History Api V1 Opportunities Runs  Run Id  Research Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Research History",
         "tags": [
           "opportunities"
         ]

@@ -19,13 +19,15 @@
 
 - PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
+- MVP-402后续切片在已合入203/204之上接通 `/opportunities` 单候选显式研究：先校验原漏斗有界候选/Evidence/来源，持久记录明确请求，再经真实AnalysisRun/Worker排队；页面保留来源、进度、失败与不可执行影子结论。真实API/DB/Worker/loopback模型Chrome三场景3/3（21.5秒），原筛选历史不变；排队失败/未知响应只能只读查询或明确同请求恢复，不自动重播付费调用。已由PR #29通过独立Gate合入Release39f5738，完整402/P8仍PARTIAL，全市场/周定时未提供，Owner PENDING。证据见MVP-402工作项。
+
 - MVP-204已由PR27实际合入Release 36aed8d：`/analysis`只读历史追溯定位当次冻结Evidence，来源、四业务时间、expiry/hash、Thesis、分仓/政策/特征、两轮角色与闸门缺项可读。读取不重取资料或调用模型，失败清空旧运行展示；完整Risk/Sizing/可审批Decision与Owner接受未完成。实际验证保留其源码归属，见 `docs/agent/work-items/MVP-204.md`。
 
 - MVP-203=INTEGRATED：`/analysis`持久排队、真实双轮、角色/缺项、取消/新Run重试及历史已随PR26合入。Risk UNKNOWN、Sizing BLOCKED、无可审批InvestmentDecision，完整P6与Owner接受仍未完成；不得借099旧32/4替代后续源码证据。
 
 - MVP-301条件式组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效：`/decisions`真实列表/完整合法Decision链审阅、具名确认批准/拒绝/撤销与完整手工事实已接通，同事务追加审计及Outbox。最终产品源码8cf4bd1实测618后端/102集成、89前端与中心3+分析追溯6真实合成浏览器；文档新HEAD CI与独立Gate另核。现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批，不补真实Policy或默认数量；完整P7/Checkpoint B、Owner部署与接受仍PENDING，MVP-501继续BLOCKED。细节见MVP-301工作项。
 
-- MVP-402本工作分支已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；本切片真实UI / API / DB合成验证21场景通过，但整体能力PARTIAL：全市场、深研、周定时尚未提供，不代表完整402 / P8或Owner接受。记录随本PR合入Release生效，详见 `docs/agent/work-items/MVP-402.md`。
+- MVP-402的PR25历史切片已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；当时真实UI / API / DB合成验证21场景通过，整体PARTIAL：全市场、深研、周定时当时未提供。候选研究续接见上条，不把历史数字当新实现验证，详见 `docs/agent/work-items/MVP-402.md`。
 
 - MVP-202已实现并验证只读 `/valuation` 参考估值与对账：冻结P5现金/分仓，追溯人工报价Evidence，缺价/FX阻断完整NAV；Sizing缺项可见且不生成建议数量。实现时Windows后端458/85.42%、集成45、前端53与完整浏览器21项通过；主代理独立复验32项unit/PG与3项真实浏览器通过。已安全同步PR #23后的Release，合并代码重跑486/85.94%、集成58、前端62、真实浏览器22项通过；INTEGRATED及MVP-203 READY仅随PR #24合入Release生效，最终CI/Gate由独立方核对；未完成P6或Owner验收，实际证据见 `docs/agent/work-items/MVP-202.md`。
 

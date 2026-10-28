@@ -63,3 +63,20 @@ def test_trace_manifest_has_real_read_route_only_when_analysis_is_assembled(asse
     assert item.route == ("/analysis" if assembled else None)
     assert item.service == ("ASSEMBLED" if assembled else "UNAVAILABLE")
     assert item.human_acceptance == "PENDING"
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_candidate_research_manifest_remains_partial_and_never_accepts_checkpoint(assembled):
+    snapshot = acceptance_snapshot(
+        portfolio=False,
+        watchlist=False,
+        providers=False,
+        policy=False,
+        opportunities=True,
+        opportunity_research=assembled,
+    )
+    item = next(value for value in snapshot.capabilities if value.key == "opportunities")
+    assert item.engineering == "PARTIAL" and item.human_acceptance == "PENDING"
+    assert ("逐个明确授权" in item.detail) is assembled
+    assert ("深研 /" in item.detail) is not assembled
+    assert "周定时尚未提供" in item.detail

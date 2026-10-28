@@ -28,6 +28,7 @@ from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetServi
 from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.opportunities import OpportunityService
+from investment_os.application.opportunity_research import OpportunityResearchService
 from investment_os.application.portfolio_book import (
     PortfolioBookService,
     PortfolioPositionInput,
@@ -361,6 +362,7 @@ def create_app(
     market_data_service: MarketDataService | None = None,
     valuation_service: PortfolioValuationService | None = None,
     opportunity_service: OpportunityService | None = None,
+    opportunity_research_service: OpportunityResearchService | None = None,
     analysis_start: AnalysisStartService | None = None,
     analysis_store: AnalysisStorePort | None = None,
     analysis_choices: AnalysisChoicesService | None = None,
@@ -459,7 +461,9 @@ def create_app(
 
     application.include_router(market_router(market_data_service))
     application.include_router(valuation_router(valuation_service))
-    application.include_router(opportunity_router(opportunity_service))
+    application.include_router(
+        opportunity_router(opportunity_service, opportunity_research_service)
+    )
     application.include_router(analysis_router(analysis_start, analysis_store, analysis_choices))
     application.include_router(decision_center_router(decision_center))
 
@@ -565,6 +569,7 @@ def create_app(
             market_data=market_data_service is not None,
             valuation=valuation_service is not None,
             opportunities=opportunity_service is not None,
+            opportunity_research=opportunity_research_service is not None,
             analysis=analysis_start is not None
             and analysis_store is not None
             and analysis_choices is not None,
