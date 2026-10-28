@@ -106,8 +106,10 @@ work_items:
   - id: MVP-204
     title: Analysis trace UI
     priority: 1
-    status: READY
-    # 仅随PR #26实际合入Release生效：203显式依赖满足；READY不是本能力已交付或Owner接受。
+    status: INTEGRATED
+    claim_branch: agent/MVP-204
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp204_trace
+    # 此状态仅随MVP-204 PR通过独立Gate且实际合入Release生效；不是完整P6或Owner接受。
     stage: PRODUCT-06
     checkpoint: B
     depends_on:
