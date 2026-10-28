@@ -19,7 +19,7 @@ async function seed(request:APIRequestContext,model='synthetic-only'){
  response=await request.put('/api/v1/settings/llm-budget',{headers,data:{version:'synthetic-candidate-v1',currency:'CNY',task_token_limit:2000000,daily_token_limit:20000000,task_cost_limit:'1',daily_cost_limit:'2'}});expect(response.ok()).toBe(true);
  return {book,target,funnel,profile};
 }
-async function open(page:Page,data:Awaited<ReturnType<typeof seed>>){await page.goto(`/opportunities?run_id=${data.funnel.run_id}`);await page.getByRole('button',{name:'准备研究候选 '+data.target.symbol}).click();await expect(page.getByLabel('研究组合')).toBeVisible();await page.getByLabel('研究组合').selectOption(data.book.portfolio_id);await page.getByLabel('候选研究模型').selectOption(data.profile.id);}
+async function open(page:Page,data:Awaited<ReturnType<typeof seed>>){await page.goto(`/opportunities?run_id=${data.funnel.run_id}`);await page.getByRole('button',{name:'准备研究候选 '+data.target.symbol}).click();await expect(page.getByLabel('研究组合')).toBeVisible();await expect(page.getByRole('heading',{name:'明确研究这一候选：'+data.target.symbol+' '+data.target.name})).toBeInViewport();await page.getByLabel('研究组合').selectOption(data.book.portfolio_id);await page.getByLabel('候选研究模型').selectOption(data.profile.id);}
 test.beforeEach(async({context})=>{await context.addInitScript(value=>sessionStorage.setItem('investment_os_write_token',value),token);});
 
 test('candidate UI explicitly queues one real analysis and retains origin/result on reload',async({page,request},info)=>{
@@ -32,7 +32,7 @@ test('candidate UI explicitly queues one real analysis and retains origin/result
 });
 
 test('invalid required CIO output remains a visible failed linked run without automatic retry',async({page,request})=>{
- const data=await seed(request,'synthetic-invalid-cio');await open(page,data);await page.getByLabel(/我确认上述候选Evidence及组合选择/).check();await page.getByRole('button',{name:'明确发起这一候选研究'}).click();await expect(page.getByText(/研究失败；失败原因 ANALYSIS_REQUIRED_ROLE_INVALID/)).toBeVisible({timeout:25000});const history=await(await request.get(`/api/v1/opportunities/runs/${data.funnel.run_id}/research`)).json();expect(history).toHaveLength(1);expect(history[0].analysis_run.shadow_decision).toBeNull();await page.getByRole('button',{name:'只读刷新候选研究'}).click();expect((await(await request.get(`/api/v1/analysis/runs?portfolio_id=${data.book.portfolio_id}`)).json())).toHaveLength(1);await expect(page.getByLabel(/我确认上述候选Evidence及组合选择/)).not.toBeChecked();
+ const data=await seed(request,'synthetic-invalid-cio');await open(page,data);await page.getByLabel(/我确认上述候选Evidence及组合选择/).check();await page.getByRole('button',{name:'明确发起这一候选研究'}).click();await expect(page.getByText(/研究失败；必要负责人或角色输出未通过结构与引用校验/)).toBeVisible({timeout:25000});const history=await(await request.get(`/api/v1/opportunities/runs/${data.funnel.run_id}/research`)).json();expect(history).toHaveLength(1);expect(history[0].analysis_run.shadow_decision).toBeNull();await page.getByRole('button',{name:'只读刷新候选研究'}).click();expect((await(await request.get(`/api/v1/analysis/runs?portfolio_id=${data.book.portfolio_id}`)).json())).toHaveLength(1);await expect(page.getByLabel(/我确认上述候选Evidence及组合选择/)).not.toBeChecked();
 });
 
 test('non-candidate and missing consent are rejected before any candidate request or analysis',async({request})=>{

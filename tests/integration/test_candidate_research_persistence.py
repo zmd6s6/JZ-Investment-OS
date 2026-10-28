@@ -148,3 +148,52 @@ async def test_persisted_unqueued_intent_reads_without_automatic_restart(
         assert len(await service.list_for(funnel.run_id)) == 1 and calls == []
     finally:
         await client.aclose()
+
+
+async def test_production_app_candidate_routes_keep_write_auth_and_explicit_consent(
+    database_engine, monkeypatch
+):
+    import httpx
+
+    from investment_os.api.app import create_app
+
+    sessions, funnels, funnel = await prepare_candidate(database_engine, monkeypatch)
+    _, analyses, _, _, _, start, _, analysis, calls, model_client = await stack(database_engine)
+    bridge = OpportunityResearchService(
+        funnels, SqlCandidateResearchStore(sessions), start, analyses
+    )
+    command = CandidateResearchStart(
+        funnel_run_id=funnel.run_id,
+        analysis=analysis.model_copy(
+            update={
+                "instrument_id": funnel.candidate_ids[0],
+                "evidence_ids": funnel.rows[0].evidence_ids,
+                "market_source_name": funnel.query.quote_source_name,
+            }
+        ),
+    )
+    app = create_app(
+        opportunity_research_service=bridge, write_api_token="synthetic-candidate-only"
+    )
+    data = command.model_dump(mode="json")
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            assert (
+                await client.post("/api/v1/opportunities/research", json=data)
+            ).status_code == 401
+            headers = {"Authorization": "Bearer synthetic-candidate-only"}
+            denied = data | {"analysis": data["analysis"] | {"allow_model_calls": False}}
+            assert (
+                await client.post("/api/v1/opportunities/research", headers=headers, json=denied)
+            ).status_code == 422
+            assert await bridge.list_for(funnel.run_id) == ()
+            first = await client.post("/api/v1/opportunities/research", headers=headers, json=data)
+            assert first.status_code == 202
+            second = await client.post("/api/v1/opportunities/research", headers=headers, json=data)
+            assert second.json()["analysis_run"]["run_id"] == first.json()["analysis_run"]["run_id"]
+            history = await client.get(f"/api/v1/opportunities/runs/{funnel.run_id}/research")
+            assert len(history.json()) == 1 and calls == []
+    finally:
+        await model_client.aclose()

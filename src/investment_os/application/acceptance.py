@@ -41,6 +41,7 @@ def acceptance_snapshot(
     market_data: bool = False,
     valuation: bool = False,
     opportunities: bool = False,
+    opportunity_research: bool = False,
     analysis: bool = False,
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
@@ -176,14 +177,32 @@ def acceptance_snapshot(
             route="/opportunities" if opportunities else None,
             detail=(
                 "本地手选范围和有来源人工年报事实的确定性漏斗已接通; "
-                "全市场 / 深研 / 周定时尚未提供, 不是完整P8或交易建议。"
+                + (
+                    "有界候选可逐个明确授权研究, 真实AnalysisRun保留来源与失败; "
+                    "全市场 / 周定时尚未提供, 不是完整P8或交易建议。"
+                    if opportunity_research
+                    else "全市场 / 深研 / 周定时尚未提供, 不是完整P8或交易建议。"
+                )
             ),
             steps=(
                 "先登记标的并在人工行情保存报价。",
                 "选择有限范围, 补录明确自然年 / EPS口径的事实, 输入本次查询条件后筛选。",
                 "核对各层原因 / 缺项 / 有界候选及Evidence, 刷新读取不可变历史。",
+                *(
+                    (
+                        "选择单个候选研究, 明确组合/模型及可选研究源并逐次同意出站; "
+                        "核对真实进度与影子结论, 不批量发起或批准交易。",
+                    )
+                    if opportunity_research
+                    else ()
+                ),
             ),
-            failure="缺价、缺项、过期、未来或无法核对口径时停止对应层; 深研未提供时不调用模型。",
+            failure=(
+                "缺价、缺项、过期、未来或无法核对口径时停止对应层; "
+                "未确认排队可只读查询或明确原请求重试, 不自动重复付费调用。"
+                if opportunity_research
+                else "缺价、缺项、过期、未来或无法核对口径时停止对应层; 深研未提供时不调用模型。"
+            ),
         )
     )
     items.append(

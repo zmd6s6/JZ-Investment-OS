@@ -26,7 +26,7 @@
 | Decision Center | `/decisions` | NOT_IMPLEMENTED — MVP-301仅在PR #26合入后因203依赖满足成为READY，不代表已有可审批Decision | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
 | 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | MVP-401=INTEGRATED / ACCEPTANCE_READY，此记录随PR #23通过最终独立Gate合入Release生效。91801d0已获独立28项SQL / 1项恢复浏览器复验；仅STATUS_ONLY，不含团队分析或完整Daily Runtime | PENDING |
-| Opportunities | `/opportunities` | PARTIAL — 本地范围 / 人工年报 / 确定性漏斗随本PR集成；全市场 / 深研 / 周定时未提供 | PENDING |
+| Opportunities | `/opportunities` | PARTIAL — PR25有限范围/人工年报/确定性漏斗已集成；后续单候选显式研究已真实接线验证，集成记录仅随后续PR独立Gate并合入生效；全市场/周定时未提供 | PENDING |
 
 ## Checkpoint A 验收步骤
 
@@ -89,7 +89,11 @@ MVP-201已完成隔离合成环境UI / API / DB接线验证，并由PR #22合入
 
 ## 有限范围机会漏斗（MVP-402，PARTIAL）
 
-本PR只接通本地明确手选范围、人工自然年年报事实、确定性四指标 / 分层查询、有界研究候选和不可变历史；工程清单明确PARTIAL。全市场 / 深研 / 周定时尚未提供，不表示完整402、P8或Checkpoint接受。
+后续单候选研究验收：在原筛选结果选择「准备研究候选」，核对候选Evidence/行情来源，明确组合与模型（可选新资料源/查询）。分别勾选本次模型持仓出站和资料调用费用同意后，只发起这一个候选。应看到真实Worker阶段与最终降级影子结论、Risk UNKNOWN / Sizing BLOCKED / 无建议数量；刷新保留原漏斗与研究关联。正常、坏CIO失败、非候选与无同意拒绝的真实Chrome3/3（21.5秒）已实际验证，仅合成API18113/DB15441/真实Worker/loopback模型。原漏斗不重算、不覆盖，没有批量扇出。
+
+排队失败或响应未知时，先只读刷新；存在未入队意图须重新核对原请求并单独重新同意原模型/原研究源，明确原请求重试不重复入队。已经发出的模型请求可能收费，不伪造零费用；缺模型/预算/服务未装配明确失败。完整全市场/周定时与P8仍未提供；后续PR独立CI/Gate、Owner部署与接受仍PENDING，不把下列PR25旧数字当新切片证明。
+
+PR25历史切片只接通本地明确手选范围、人工自然年年报事实、确定性四指标 / 分层查询、有界研究候选和不可变历史；工程清单明确PARTIAL。当时全市场 / 深研 / 周定时尚未提供，后续单候选研究见上段，不表示完整402、P8或Checkpoint接受。
 入口 `/opportunities`，也可从导航 / 设置 / 产品进度进入。先登记标的并保存人工报价，选择有限范围；绑定报价Evidence，录入有来源的年度利润 / 营收 / 年报稀释EPS和时间，填本次研究查询条件后筛选。
 应看到候选与排除理由、缺项、来源 / UTC业务时间 / Evidence / hash；刷新保持旧结果。跨币种缺FX、过期 / 未来 / 损坏 / 口径不符必须停止，不借旧价、不心算EPS、不调用模型或产生交易。
 本项21个合成浏览器场景总回归通过，不代替Owner个人数据或产品接受；细节与限制见 `docs/agent/work-items/MVP-402.md`，记录随PR合入Release生效。

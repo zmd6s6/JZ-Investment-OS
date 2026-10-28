@@ -12,6 +12,7 @@ from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.opportunities import OpportunityService
+from investment_os.application.opportunity_research import OpportunityResearchService
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.portfolio_valuation import PortfolioValuationService
 from investment_os.application.provider_settings import ProviderSettingsService
@@ -40,6 +41,7 @@ from investment_os.infrastructure.onboarding import (
 )
 from investment_os.infrastructure.openai_compatible_llm import OpenAICompatibleLLMGateway
 from investment_os.infrastructure.opportunities import LocalExplicitUniverse, SqlOpportunityStore
+from investment_os.infrastructure.opportunity_research import SqlCandidateResearchStore
 from investment_os.infrastructure.portfolio_valuation import SqlValuationInputs
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
@@ -99,19 +101,26 @@ def create_production_app() -> FastAPI:
     )
     valuation = PortfolioValuationService(SqlValuationInputs(session_factory), market_data)
     analysis_store = SqlAnalysisRuns(session_factory)
+    analysis_start = AnalysisStartService(
+        analysis_store,
+        valuation,
+        provider_settings_service,
+        budget_service,
+        InstrumentCatalogService(catalog),
+    )
     return create_app(
-        analysis_start=AnalysisStartService(
-            analysis_store,
-            valuation,
-            provider_settings_service,
-            budget_service,
-            InstrumentCatalogService(catalog),
-        ),
+        analysis_start=analysis_start,
         analysis_store=analysis_store,
         analysis_choices=AnalysisChoicesService(
             SqlAnalysisChoices(session_factory), provider_settings_service, budget_service
         ),
         opportunity_service=opportunities,
+        opportunity_research_service=OpportunityResearchService(
+            opportunities,
+            SqlCandidateResearchStore(session_factory),
+            analysis_start,
+            analysis_store,
+        ),
         calendar_product_service=CalendarProductService(SqlCalendarProduct(session_factory)),
         market_data_service=market_data,
         valuation_service=valuation,
