@@ -390,6 +390,13 @@ async def test_action_time_rechecks_expiry_after_suspended_detail_without_partia
         "agent_thesis_impact_unlinked",
         "agent_expired_reference",
         "agent_future_reference",
+        "thesis_asof_unavailable",
+        "thesis_asof_missing",
+        "thesis_asof_future",
+        "committee_hash_mismatch",
+        "committee_hash_missing",
+        "agent_hash_mismatch",
+        "agent_hash_missing",
     ],
 )
 async def test_complete_chain_rejects_unbacked_thesis_risk_or_sizing_without_writes(

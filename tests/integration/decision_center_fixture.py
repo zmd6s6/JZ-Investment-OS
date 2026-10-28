@@ -141,6 +141,9 @@ async def seed_center(
         "empty_thesis",
         "missing_thesis_relation",
         "thesis_expired_reference",
+        "thesis_asof_unavailable",
+        "thesis_asof_missing",
+        "thesis_asof_future",
     }
     async with engine.begin() as connection:
 
@@ -222,6 +225,17 @@ async def seed_center(
                 id=ids["thesis_version"],
                 thesis_id=ids["thesis"],
                 version=1,
+                metadata_json={}
+                if chain_defect == "thesis_asof_missing"
+                else {
+                    "as_of": (
+                        now - timedelta(minutes=3)
+                        if chain_defect == "thesis_asof_unavailable"
+                        else now + timedelta(microseconds=1)
+                        if chain_defect == "thesis_asof_future"
+                        else now
+                    ).isoformat()
+                },
                 thesis_state="VALID",
                 summary="合成已审计论点",
                 pillars_json={} if chain_defect == "empty_thesis" else thesis_payload["pillars"],
@@ -239,7 +253,11 @@ async def seed_center(
             session_type="SYNTHETIC",
             round_count=2,
             status="COMPLETED",
-            input_snapshot_hash="a" * 64,
+            input_snapshot_hash="b" * 64
+            if chain_defect == "committee_hash_mismatch"
+            else ""
+            if chain_defect == "committee_hash_missing"
+            else "a" * 64,
             started_at=now - timedelta(minutes=1),
             completed_at=now,
         )
@@ -352,7 +370,11 @@ async def seed_center(
                 model_provider="SYNTHETIC",
                 model_name="synthetic-301-fixture",
                 prompt_version="synthetic-301-prompt",
-                input_snapshot_hash="a" * 64,
+                input_snapshot_hash="c" * 64
+                if chain_defect == "agent_hash_mismatch"
+                else ""
+                if chain_defect == "agent_hash_missing"
+                else "a" * 64,
                 started_at=now,
                 ended_at=now,
                 status="SUCCEEDED",

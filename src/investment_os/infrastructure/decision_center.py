@@ -370,6 +370,12 @@ class SqlDecisionCenter:
         self, session: AsyncSession, d: InvestmentDecisionRecord, now: datetime
     ) -> tuple[builtins.list[str], dict[str, object], Decimal | None]:
         blockers: list[str] = []
+        if (
+            not isinstance(d.input_snapshot_hash, str)
+            or len(d.input_snapshot_hash) != 64
+            or any(character not in "0123456789abcdef" for character in d.input_snapshot_hash)
+        ):
+            blockers.append("DECISION_INPUT_SNAPSHOT_INVALID")
         risk = (
             await session.get(RiskAssessmentRecord, d.risk_assessment_id)
             if d.risk_assessment_id
@@ -468,6 +474,20 @@ class SqlDecisionCenter:
         )
         if not evidence or len(evidence) != len(required_evidence):
             blockers.append("EVIDENCE_MISSING")
+        if thesis is not None:
+            try:
+                thesis_time = UtcTimestamp(
+                    datetime.fromisoformat(str(thesis.metadata_json["as_of"]))
+                ).value
+                if thesis_time > d.created_at or any(
+                    max(e.observed_at, e.effective_at, e.available_at, e.ingested_at) > thesis_time
+                    or (e.expires_at is not None and e.expires_at <= thesis_time)
+                    for e in evidence
+                    if e.id in thesis_ids
+                ):
+                    raise ValueError("THESIS_EVIDENCE_UNAVAILABLE_AT_EVALUATION")
+            except (ValueError, DomainError, KeyError, TypeError):
+                blockers.append("THESIS_EVALUATION_TIME_INVALID")
         for e in evidence:
             if (
                 e.instrument_id not in {None, d.instrument_id}
@@ -496,6 +516,7 @@ class SqlDecisionCenter:
             committee is None
             or committee.instrument_id != d.instrument_id
             or committee.status != "COMPLETED"
+            or committee.input_snapshot_hash != d.input_snapshot_hash
         ):
             blockers.append("COMMITTEE_MISSING_OR_INCOMPLETE")
         if risk is None or risk.session_id != d.committee_session_id or risk.expires_at <= now:
@@ -637,6 +658,7 @@ class SqlDecisionCenter:
                 )
                 if (
                     opinion.instrument_id != d.instrument_id
+                    or run.input_snapshot_hash != d.input_snapshot_hash
                     or not references
                     or references != opinion_evidence.get(opinion.id, set())
                     or run.ended_at is None
