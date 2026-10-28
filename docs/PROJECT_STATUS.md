@@ -25,7 +25,7 @@
 
 - MVP-203=INTEGRATED：`/analysis`持久排队、真实双轮、角色/缺项、取消/新Run重试及历史已随PR26合入。Risk UNKNOWN、Sizing BLOCKED、无可审批InvestmentDecision，完整P6与Owner接受仍未完成；不得借099旧32/4替代后续源码证据。
 
-- MVP-301条件式组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效：`/decisions`真实列表/完整合法Decision链审阅、具名确认批准/拒绝/撤销与完整手工事实已接通，同事务追加审计及Outbox。独立Review发现旧源码有效期竞态、引用链准入与跨Decision幂等问题后已同批修复；实际合并Release39f5738的最终候选实测667后端/87.63%、140集成、95前端和新源码中心3条真实合成浏览器。旧8cf/root旧34/3仅保留历史；新HEAD CI与独立Gate另核。现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批，不补真实Policy或默认数量；完整P7/Checkpoint B、Owner部署与接受仍PENDING，MVP-501继续BLOCKED。细节见MVP-301工作项。
+- MVP-301条件式组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效：`/decisions`真实列表/完整合法Decision链审阅、具名确认批准/拒绝/撤销与完整手工事实已接通，同事务追加审计及Outbox。独立Review发现旧源码有效期竞态、引用链准入与跨Decision幂等问题后已同批修复；实际合并Release39f5738的最终候选实测674后端/87.56%、147集成、95前端和新源码中心3条真实合成浏览器。旧8cf/root旧34/3仅保留历史；新HEAD CI与独立Gate另核。现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批，不补真实Policy或默认数量；完整P7/Checkpoint B、Owner部署与接受仍PENDING，MVP-501继续BLOCKED。细节见MVP-301工作项。
 
 - MVP-402的PR25历史切片已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；当时真实UI / API / DB合成验证21场景通过，整体PARTIAL：全市场、深研、周定时当时未提供。候选研究续接见上条，不把历史数字当新实现验证，详见 `docs/agent/work-items/MVP-402.md`。
 
