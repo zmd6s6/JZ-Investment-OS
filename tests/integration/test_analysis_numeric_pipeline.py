@@ -1,7 +1,8 @@
 """Actual PG, canonical artifacts, gateway/Worker and source qualification boundaries."""
 
+import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -54,7 +55,9 @@ from investment_os.worker.analysis_runner import AnalysisWorkerRunner
 pytestmark = pytest.mark.integration
 
 
-async def pipeline(engine, **seed_options):
+async def pipeline(
+    engine, *, candidate_action="ADD", bucket="CORE", clock=None, on_request=None, **seed_options
+):
     ids, source = await seed_numeric(engine, **seed_options)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     secrets = SyntheticSecrets()
@@ -92,10 +95,15 @@ async def pipeline(engine, **seed_options):
     async def respond(request):
         wrapper = json.loads(json.loads(request.content)["messages"][1]["content"])
         calls.append(wrapper)
+        if on_request is not None:
+            await on_request(wrapper)
+        output = model_output(wrapper)
+        if wrapper["role"] == "CIO":
+            output["proposed_action"] = candidate_action
         return httpx.Response(
             200,
             json={
-                "choices": [{"message": {"content": json.dumps(model_output(wrapper))}}],
+                "choices": [{"message": {"content": json.dumps(output)}}],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 20},
             },
         )
@@ -119,7 +127,9 @@ async def pipeline(engine, **seed_options):
     runner = AnalysisWorkerRunner(
         store,
         InvestmentAnalysisOrchestrator(
-            store, execution, risk_sizing=SqlAnalysisRiskSizing(sessions)
+            store,
+            execution,
+            risk_sizing=SqlAnalysisRiskSizing(sessions, **({"now": clock} if clock else {})),
         ),
     )
     command = AnalysisStart(
@@ -129,7 +139,7 @@ async def pipeline(engine, **seed_options):
         model_profiles={role: profile.id for role in ANALYSIS_ROLES},
         evidence_ids=(ids["evidence"],),
         numeric_snapshot_id=ids["snapshot"],
-        position_bucket="CORE",
+        position_bucket=bucket,
         market_source_name="synthetic-205-reference",
         allow_model_calls=True,
     )
@@ -172,5 +182,147 @@ async def test_complete_numeric_pipeline_persists_real_risk_sizing_and_never_bri
                 await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
                 == 0
             )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"source_kind": "REFERENCE_ONLY"},
+        {"policy_active": False},
+        {"approved": False},
+        {"missing_rules": True},
+        {"source_expired": True},
+        {"missing_metric": "REFERENCE_PRICE"},
+        {"missing_metric": "VOLATILITY"},
+        {"missing_metric": "LIQUIDITY_CAPACITY"},
+        {"missing_metric": "RISK_BUDGET_CAPACITY"},
+        {"missing_metric": "CORRELATION"},
+        {"currency": "USD"},
+        {"missing_relation": True},
+        {"corrupt_source": True},
+    ],
+)
+async def test_ineligible_numeric_chain_never_persists_pass_or_quantity(database_engine, options):
+    sessions, service, store, runner, command, _calls, client, _source = await pipeline(
+        database_engine, **options
+    )
+    try:
+        queued = await service.start(command)
+        await runner.dispatch_due()
+        run = await store.get(queued.run_id)
+        assert run.error_code is None, run.model_dump(mode="json")
+        assert run.risk_sizing.risk_gate == "UNKNOWN"
+        assert run.risk_sizing.sizing_status == "BLOCKED"
+        assert run.risk_sizing.blockers
+        assert run.risk_sizing.target_quantity is None
+        async with sessions() as session:
+            for model in (RiskAssessmentRecord, PositionSizingRunRecord, InvestmentDecisionRecord):
+                assert await session.scalar(select(func.count()).select_from(model)) == 0
+    finally:
+        await client.aclose()
+
+
+async def test_risk_veto_does_not_create_exposure_increase_sizing(database_engine):
+    sessions, service, store, runner, command, _calls, client, _source = await pipeline(
+        database_engine, liquidity="0"
+    )
+    try:
+        queued = await service.start(command)
+        await runner.dispatch_due()
+        run = await store.get(queued.run_id)
+        assert run.error_code is None, run.model_dump(mode="json")
+        assert run.risk_sizing.risk_gate == "VETO"
+        assert run.risk_sizing.sizing_status == "BLOCKED"
+        assert "RISK_VETO_NO_EXPOSURE_INCREASE" in run.risk_sizing.blockers
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(PositionSizingRunRecord)) == 0
+            )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("phase", ["RISK", "CIO"])
+@pytest.mark.parametrize("offset", [-1, 0, 1], ids=["just-before", "exact-expiry", "just-after"])
+async def test_event_paused_stage_rechecks_actual_evaluation_time(database_engine, phase, offset):
+    paused, resume = asyncio.Event(), asyncio.Event()
+    clock_value = [datetime.now(UTC)]
+
+    async def pause(wrapper):
+        if wrapper["role"] == phase:
+            paused.set()
+            await resume.wait()
+
+    sessions, service, store, runner, command, _calls, client, source = await pipeline(
+        database_engine,
+        clock=lambda: clock_value[0],
+        on_request=pause,
+    )
+    try:
+        queued = await service.start(command)
+        task = asyncio.create_task(runner.dispatch_due())
+        await asyncio.wait_for(paused.wait(), timeout=10)
+        clock_value[0] = source.expires_at + timedelta(microseconds=offset)
+        resume.set()
+        await asyncio.wait_for(task, timeout=10)
+        run = await store.get(queued.run_id)
+        assert run.error_code is None, run.model_dump(mode="json")
+        view = run.risk_sizing
+        assert view.sizing_status == ("COMPUTED" if offset < 0 else "BLOCKED")
+        async with sessions() as session:
+            assert await session.scalar(
+                select(func.count()).select_from(PositionSizingRunRecord)
+            ) == (1 if offset < 0 else 0)
+            assert (
+                await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
+                == 0
+            )
+            if offset >= 0 and phase == "RISK":
+                assert view.risk_gate == "UNKNOWN"
+                assert (
+                    await session.scalar(select(func.count()).select_from(RiskAssessmentRecord))
+                    == 0
+                )
+            if offset >= 0 and phase == "CIO":
+                assert "RISK_EXPIRED_BEFORE_SIZING" in view.blockers
+    finally:
+        resume.set()
+        await client.aclose()
+
+
+@pytest.mark.parametrize("action", ["REDUCE", "EXIT"])
+async def test_veto_still_allows_deterministic_reduction_without_order(database_engine, action):
+    _sessions, service, store, runner, command, _calls, client, _source = await pipeline(
+        database_engine, liquidity="0", candidate_action=action
+    )
+    try:
+        queued = await service.start(command)
+        await runner.dispatch_due()
+        run = await store.get(queued.run_id)
+        assert run.error_code is None, run.model_dump(mode="json")
+        assert run.risk_sizing.risk_gate == "VETO"
+        assert run.risk_sizing.sizing_status == "COMPUTED"
+        assert run.risk_sizing.delta_quantity == Decimal(-100)
+        assert run.shadow_decision.execution_allowed is False
+    finally:
+        await client.aclose()
+
+
+async def test_tactical_measurement_does_not_resize_core(database_engine):
+    _sessions, service, store, runner, command, _calls, client, _source = await pipeline(
+        database_engine, bucket="TACTICAL"
+    )
+    try:
+        queued = await service.start(command)
+        await runner.dispatch_due()
+        run = await store.get(queued.run_id)
+        assert run.error_code is None, run.model_dump(mode="json")
+        assert run.risk_sizing.bucket == "TACTICAL"
+        assert run.risk_sizing.target_quantity == Decimal(500)
+        assert run.risk_sizing.delta_quantity == Decimal(300)
+        assert Decimal(run.risk_sizing.numbers["core_weight"]) == Decimal("0.01")
+        assert Decimal(run.risk_sizing.numbers["tactical_weight"]) == Decimal("0.02")
     finally:
         await client.aclose()

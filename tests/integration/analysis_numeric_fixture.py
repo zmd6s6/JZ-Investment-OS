@@ -1,7 +1,7 @@
 """Explicit complete synthetic numeric source; no Owner data, credentials, or policy changes."""
 
-import json
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -76,6 +76,10 @@ async def seed_numeric(
     liquidity="0.1",
     currency="CNY",
     source_expired=False,
+    approved=True,
+    missing_rules=False,
+    missing_relation=False,
+    corrupt_source=False,
 ):
     now = datetime.now(UTC)
     ids = {
@@ -92,7 +96,7 @@ async def seed_numeric(
         "name": "synthetic-205-policy",
         "status": "ACTIVE" if policy_active else "TEST_DEFAULT",
     }
-    config["sizing"] = synthetic_rules()
+    config["sizing"] = None if missing_rules else synthetic_rules()
     InvestmentPolicySchema.model_validate_json(json.dumps(config))
     audit = {"created_by": "synthetic-205-fixture", "correlation_id": uuid4()}
     async with sessions() as session, session.begin():
@@ -126,8 +130,8 @@ async def seed_numeric(
                 version=1,
                 config_json=config,
                 content_hash=fingerprint(config),
-                approved_by="synthetic-human",
-                approved_at=now - timedelta(days=1),
+                approved_by="synthetic-human" if approved else None,
+                approved_at=now - timedelta(days=1) if approved else None,
                 effective_from=now - timedelta(days=1),
                 metadata_json={"approved_by_actor": "HUMAN"},
                 **audit,
@@ -255,6 +259,8 @@ async def seed_numeric(
             "content_hash": fingerprint(source.model_dump(mode="json", exclude={"content_hash"}))
         }
     )
+    if corrupt_source:
+        source = source.model_copy(update={"content_hash": "f" * 64})
     async with sessions() as session, session.begin():
         session.add(
             AnalysisNumericSourceRecord(
@@ -283,6 +289,7 @@ async def seed_numeric(
                     evidence_id=fact.evidence_id,
                 )
                 for fact in source.facts
+                if not (missing_relation and fact.metric == "VOLATILITY")
             ]
         )
     return ids, source
