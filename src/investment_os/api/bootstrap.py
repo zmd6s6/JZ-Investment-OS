@@ -24,6 +24,7 @@ from investment_os.application.research_runtime import (
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
 from investment_os.application.universe_snapshots import UniverseSnapshotService
 from investment_os.infrastructure.analysis_choices import SqlAnalysisChoices
+from investment_os.infrastructure.analysis_risk_sizing import SqlNumericSources
 from investment_os.infrastructure.analysis_runs import SqlAnalysisRuns
 from investment_os.infrastructure.bocha.adapter import (
     BochaWebSearchConnectionTester,
@@ -116,6 +117,7 @@ def create_production_app() -> FastAPI:
         InstrumentCatalogService(catalog),
     )
     return create_app(
+        numeric_sources=SqlNumericSources(session_factory),
         decision_center=SqlDecisionCenter(session_factory),
         analysis_start=analysis_start,
         analysis_store=analysis_store,

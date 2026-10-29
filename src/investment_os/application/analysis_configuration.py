@@ -11,6 +11,7 @@ from investment_os.application.analysis_runs import (
     AnalysisStorePort,
     SelectedData,
     SelectedModel,
+    analysis_command_payload,
 )
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import (
@@ -61,7 +62,7 @@ class AnalysisStartService:
     async def start(self, command: AnalysisStart) -> AnalysisRunView:
         existing = await self._store.find_request(command.request_id)
         if existing:
-            if existing.request_hash != fingerprint(command.model_dump(mode="json")):
+            if existing.request_hash != fingerprint(analysis_command_payload(command)):
                 raise ValueError("ANALYSIS_REQUEST_CONFLICT")
             return existing
         await self._catalog.get(command.instrument_id)

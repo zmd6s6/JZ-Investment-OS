@@ -18,6 +18,7 @@ from investment_os.application.analysis_context import (
     EvidenceSourceTier,
     freeze_analysis_context,
 )
+from investment_os.application.analysis_risk_engine import RiskSizingPort, UnavailableRiskSizing
 from investment_os.application.analysis_runs import (
     AnalysisFrozenInput,
     AnalysisQueuedInput,
@@ -221,9 +222,16 @@ class RoleResponse:
 
 
 class InvestmentAnalysisOrchestrator:
-    def __init__(self, store: AnalysisStorePort, execution: AnalysisExecutionPort):
+    def __init__(
+        self,
+        store: AnalysisStorePort,
+        execution: AnalysisExecutionPort,
+        *,
+        risk_sizing: RiskSizingPort | None = None,
+    ):
         self._store = store
         self._execution = execution
+        self._risk_sizing = risk_sizing if risk_sizing is not None else UnavailableRiskSizing(store)
 
     async def run(self, run_id: UUID, lease: UUID, queued: AnalysisQueuedInput) -> None:
         async def begin(stage: str) -> None:
@@ -367,36 +375,13 @@ class InvestmentAnalysisOrchestrator:
         await self._execution.agent_result(
             run_id, lease, context, risk_request, risk_result, bundles
         )
-        # RISK opinions are judgments, never a fabricated deterministic PASS. The current
-        # reference-only context lacks the governed numeric inputs for a risk assessment.
-        blockers = [*queued.valuation.blockers, *frozen.blockers]
-        blockers.append("DETERMINISTIC_RISK_INPUTS_UNAVAILABLE")
-        if not frozen.thesis_version_id:
-            blockers.append("THESIS_MISSING")
+        # Model risk judgments do not compute or authorize numeric inputs.
+        prepared = await self._risk_sizing.risk(run_id, lease, frozen, session_id)
+        blockers = [*prepared.view.blockers, *frozen.blockers]
+        if prepared.view.risk_gate == "UNKNOWN":
+            blockers.extend(queued.valuation.blockers)
         if any(result.failure for result in results) or risk_result.failure:
             blockers.append("AGENT_ROLE_FAILED")
-        await self._store.step(
-            run_id,
-            lease,
-            stage="RISK",
-            status="BLOCKED",
-            payload={"gate": "UNKNOWN", "agent": opinion_summary(risk_result)},
-            reason_code="DETERMINISTIC_RISK_INPUTS_UNAVAILABLE",
-        )
-        await begin("SIZING")
-        await self._store.step(
-            run_id,
-            lease,
-            stage="SIZING",
-            status="BLOCKED",
-            payload={
-                "target_quantity": None,
-                "delta_quantity": None,
-                "position_sizing_run_id": None,
-                "missing_inputs": sorted(set(blockers)),
-            },
-            reason_code="SIZING_INPUTS_INCOMPLETE",
-        )
         await begin("CIO")
         cio = await self._structured(
             run_id,
@@ -409,11 +394,23 @@ class InvestmentAnalysisOrchestrator:
             {
                 **shared,
                 "portfolio": intent.model_dump(mode="json"),
-                "risk_gate": "UNKNOWN",
-                "sizing": {"status": "BLOCKED", "blockers": sorted(set(blockers))},
+                "risk_gate": prepared.view.risk_gate,
+                "sizing": {"status": "PENDING_CIO_ACTION", "blockers": sorted(set(blockers))},
             },
         )
         proposed = CioProposal.model_validate(cio.value.model_dump())
+        await begin("SIZING")
+        sizing = await self._risk_sizing.sizing(
+            run_id,
+            lease,
+            frozen,
+            prepared,
+            action=proposed.proposed_action,
+            intent=intent.risk_intent,
+        )
+        blockers.extend(sizing.blockers)
+        # MVP-205 never promotes a numeric result to an InvestmentDecision or approval.
+        blockers.append("INVESTMENT_DECISION_BRIDGE_NOT_IMPLEMENTED")
         recommendation = aggregate_cio_recommendation(
             CioAggregationInput(
                 proposed_action=proposed.proposed_action,
@@ -421,12 +418,14 @@ class InvestmentAnalysisOrchestrator:
                 thesis_state=ThesisState(frozen.thesis_state),
                 timing=GateOutcome.UNKNOWN,
                 portfolio_fit=GateOutcome.UNKNOWN,
-                risk_gate=RiskGateState.UNKNOWN,
-                policy_passed=False,
-                data_sufficient=False,
+                risk_gate=RiskGateState(prepared.view.risk_gate),
+                policy_passed=not prepared.view.blockers,
+                data_sufficient=not prepared.view.blockers,
             )
         )
         action = recommendation.action
+        if action in {Action.BUY, Action.ADD}:
+            action = Action.WATCH
         owned = next(
             (
                 h
@@ -448,19 +447,24 @@ class InvestmentAnalysisOrchestrator:
             payload={
                 "proposed_action": proposed.proposed_action.value,
                 "final_action": action.value,
-                "risk_gate": "UNKNOWN",
-                "sizing_status": "BLOCKED",
+                "risk_gate": prepared.view.risk_gate,
+                "sizing_status": sizing.sizing_status,
                 "reasons": [
                     {"gate": g.gate.value, "outcome": g.outcome.value, "reason_code": g.reason_code}
                     for g in recommendation.gates
                 ],
             },
-            reason_code="ANALYSIS_MISSING_RISK_AND_SIZING",
+            reason_code="INVESTMENT_DECISION_BRIDGE_NOT_IMPLEMENTED",
         )
         shadow = ShadowDecision(
             action=action,
             risk_intent=intent.risk_intent,
-            risk_gate="UNKNOWN",
+            risk_gate=prepared.view.risk_gate,
+            risk_assessment_id=prepared.view.risk_assessment_id,
+            sizing_status=sizing.sizing_status,
+            sizing_run_id=sizing.sizing_run_id,
+            target_quantity=sizing.target_quantity,
+            delta_quantity=sizing.delta_quantity,
             policy_version_id=queued.valuation.input_snapshot.policy.version_id,
             thesis_version_id=frozen.thesis_version_id,
             reasons=proposed.reasons,
