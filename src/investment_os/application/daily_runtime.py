@@ -67,6 +67,7 @@ class DailyDraft(DailyDto):
     coverage_start: date
     coverage_end: date
     frequency: Literal["DAILY_AFTER_EXPLICIT_CLOSE"]
+    missed_run_policy: Literal["LOCAL_REPORT_ONLY_NO_RESEARCH"]
     quote_source_name: Text
     evidence_source_names: tuple[Text, ...] = Field(max_length=10)
     retention_days: int = Field(strict=True, ge=1, le=3650)
@@ -285,6 +286,39 @@ class DailyEvidenceDiff(DailyDto):
     excluded: dict[UUID, str]
 
 
+class DailyPosition(DailyDto):
+    instrument_id: UUID
+    core_quantity: ExactCost
+    tactical_quantity: ExactCost
+    core_average_cost: ExactCost
+    tactical_average_cost: ExactCost
+    core_reason: str
+    tactical_reason: str
+    version: int = Field(strict=True, ge=1)
+
+
+class DailyPortfolioSnapshot(DailyDto):
+    portfolio_id: UUID
+    name: str
+    base_currency: Literal["CNY"]
+    cash_balance: ExactCost
+    read_at: AwareDatetime
+    time_semantics: Literal["CURRENT_BOOK_READ_NOT_HISTORICAL_CLOSE_SNAPSHOT"]
+    positions: tuple[DailyPosition, ...]
+
+
+class DailyLocalInputs(DailyDto):
+    read_at: AwareDatetime
+    portfolio_read_at: AwareDatetime
+    # Current bookkeeping is not relabelled as a historical close-time portfolio.
+    portfolio: DailyPortfolioSnapshot
+    members: tuple[DailyMember, ...]
+    evidence: tuple[DailyEvidence, ...]
+    quote_statuses: dict[UUID, str]
+    quote_evidence_ids: dict[UUID, UUID]
+    content_hash: Hash
+
+
 def evidence_diff(
     evidence: tuple[DailyEvidence, ...],
     *,
@@ -325,11 +359,14 @@ class DailyReport(DailyDto):
     revision_id: UUID
     authorization_version: int
     business_date: date
+    business_as_of: AwareDatetime
     as_of: AwareDatetime
     recorded_at: AwareDatetime
     phase: Literal["LOCAL_COMPLETE", "SHADOW_PENDING", "SHADOW_COMPLETE", "DEGRADED"]
     mode: Mode
     scope_hash: Hash
+    authorization: DailyPrepared
+    local_inputs: DailyLocalInputs
     evidence_diff: DailyEvidenceDiff
     action_required: DailySection
     hold_watch: DailySection

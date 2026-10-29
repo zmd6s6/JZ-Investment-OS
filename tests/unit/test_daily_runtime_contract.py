@@ -35,6 +35,7 @@ def draft():
         coverage_start=date(2026, 11, 2),
         coverage_end=date(2026, 11, 6),
         frequency="DAILY_AFTER_EXPLICIT_CLOSE",
+        missed_run_policy="LOCAL_REPORT_ONLY_NO_RESEARCH",
         quote_source_name="合成本地报价",
         evidence_source_names=(),
         retention_days=7,
