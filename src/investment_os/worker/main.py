@@ -21,6 +21,7 @@ from investment_os.infrastructure.runtime_scheduler import (
 )
 from investment_os.infrastructure.settings import Settings, get_settings
 from investment_os.worker.analysis_bootstrap import analysis_worker
+from investment_os.worker.weekly_funnel import weekly_worker
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ class WorkerRuntime:
         scheduler_engine: AsyncEngine | None,
         analysis: CalendarScheduler | None = None,
         analysis_resources: AsyncClosable | None = None,
+        weekly: CalendarScheduler | None = None,
     ) -> None:
         self._probe = probe
         self._ready_file = ready_file
@@ -65,6 +67,7 @@ class WorkerRuntime:
         self._analysis = analysis
         self._analysis_resources = analysis_resources
         self._analysis_task: asyncio.Task[object] | None = None
+        self._weekly = weekly
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "WorkerRuntime":
@@ -91,6 +94,7 @@ class WorkerRuntime:
         return cls(
             analysis=analysis,
             analysis_resources=resources,
+            weekly=weekly_worker(create_session_factory(engine)),
             probe=DatabaseReadinessProbe(settings.database_url),
             ready_file=settings.worker_ready_file,
             scheduler=scheduler,
@@ -102,6 +106,11 @@ class WorkerRuntime:
         if ready and self._scheduler is not None:
             scheduled_now = now or datetime.now(UTC)
             await self._scheduler.dispatch_due(now=scheduled_now)
+        if ready and self._weekly is not None:
+            try:
+                await self._weekly.dispatch_due(now=now or datetime.now(UTC))
+            except Exception:
+                LOGGER.error("weekly_local_dispatch_failed")
         if (
             ready
             and self._analysis is not None

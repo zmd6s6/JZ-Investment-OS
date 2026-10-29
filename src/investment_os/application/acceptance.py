@@ -42,6 +42,7 @@ def acceptance_snapshot(
     valuation: bool = False,
     opportunities: bool = False,
     opportunity_research: bool = False,
+    weekly_funnel: bool = False,
     analysis: bool = False,
     decisions: bool = False,
 ) -> AcceptanceSnapshot:
@@ -180,15 +181,28 @@ def acceptance_snapshot(
                 "本地手选范围和有来源人工年报事实的确定性漏斗已接通; "
                 + (
                     "有界候选可逐个明确授权研究, 真实AnalysisRun保留来源与失败; "
-                    "全市场 / 周定时尚未提供, 不是完整P8或交易建议。"
                     if opportunity_research
-                    else "全市场 / 深研 / 周定时尚未提供, 不是完整P8或交易建议。"
+                    else "深研尚未提供; "
+                )
+                + (
+                    "默认暂停的本地周筛选已接通, 需明确完整周/日历/来源与独立启用; "
+                    "固定零外网/模型/费用, 候选仍须逐次研究同意。全市场和完整P8未提供。"
+                    if weekly_funnel
+                    else "全市场 / 周定时尚未提供, 不是完整P8或交易建议。"
                 )
             ),
             steps=(
                 "先登记标的并在人工行情保存报价。",
                 "选择有限范围, 补录明确自然年 / EPS口径的事实, 输入本次查询条件后筛选。",
                 "核对各层原因 / 缺项 / 有界候选及Evidence, 刷新读取不可变历史。",
+                *(
+                    (
+                        "选择当前漏斗冻结周配置, 确认完整日历覆盖及仅本地读取, 保存后默认暂停; "
+                        "另行启用, 到期后查看任务与候选产物, 随时暂停。",
+                    )
+                    if weekly_funnel
+                    else ()
+                ),
                 *(
                     (
                         "选择单个候选研究, 明确组合/模型及可选研究源并逐次同意出站; "

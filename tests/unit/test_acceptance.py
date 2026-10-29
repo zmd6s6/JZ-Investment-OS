@@ -78,5 +78,22 @@ def test_candidate_research_manifest_remains_partial_and_never_accepts_checkpoin
     item = next(value for value in snapshot.capabilities if value.key == "opportunities")
     assert item.engineering == "PARTIAL" and item.human_acceptance == "PENDING"
     assert ("逐个明确授权" in item.detail) is assembled
-    assert ("深研 /" in item.detail) is not assembled
+    assert ("深研尚未提供" in item.detail) is not assembled
     assert "周定时尚未提供" in item.detail
+
+
+def test_weekly_manifest_is_local_only_partial_and_has_explicit_paused_entry():
+    snapshot = acceptance_snapshot(
+        portfolio=False,
+        watchlist=False,
+        providers=False,
+        policy=False,
+        opportunities=True,
+        opportunity_research=True,
+        weekly_funnel=True,
+    )
+    item = next(value for value in snapshot.capabilities if value.key == "opportunities")
+    assert item.engineering == "PARTIAL" and item.human_acceptance == "PENDING"
+    assert "默认暂停" in item.detail and "零外网/模型/费用" in item.detail
+    assert "全市场和完整P8未提供" in item.detail
+    assert any("周配置" in step for step in item.steps)

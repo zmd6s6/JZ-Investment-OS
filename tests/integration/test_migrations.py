@@ -8,6 +8,10 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 EXPECTED_CORE_TABLES = {
+    "weekly_funnel_configuration",
+    "weekly_funnel_revision",
+    "weekly_funnel_member",
+    "weekly_funnel_result",
     "analysis_run",
     "analysis_input",
     "analysis_run_evidence",
@@ -184,6 +188,7 @@ async def test_core_schema_uses_uuid_keys_numeric_financials_and_timezone_aware_
         expected_key = {
             "analysis_run_evidence": ["run_id", "evidence_id"],
             "analysis_shadow_evidence": ["decision_id", "evidence_id"],
+            "weekly_funnel_member": ["revision_id", "instrument_id"],
         }.get(table_name, ["id"])
         assert primary_key["constrained_columns"] == expected_key, table_name
         for key_name in expected_key:

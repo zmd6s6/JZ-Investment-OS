@@ -6706,6 +6706,400 @@
         ],
         "title": "WatchlistItemResponse",
         "type": "object"
+      },
+      "WeeklyConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker"
+          },
+          "calendar_hash": {
+            "title": "Calendar Hash",
+            "type": "string"
+          },
+          "calendar_import_id": {
+            "format": "uuid",
+            "title": "Calendar Import Id",
+            "type": "string"
+          },
+          "calendar_source": {
+            "title": "Calendar Source",
+            "type": "string"
+          },
+          "calendar_version": {
+            "title": "Calendar Version",
+            "type": "string"
+          },
+          "coverage_end": {
+            "format": "date",
+            "title": "Coverage End",
+            "type": "string"
+          },
+          "coverage_start": {
+            "format": "date",
+            "title": "Coverage Start",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "external_calls": {
+            "const": 0,
+            "default": 0,
+            "title": "External Calls",
+            "type": "integer"
+          },
+          "model_calls": {
+            "const": 0,
+            "default": 0,
+            "title": "Model Calls",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "paid_calls": {
+            "const": 0,
+            "default": 0,
+            "title": "Paid Calls",
+            "type": "integer"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "const": "LOCAL_WEEKLY_DETERMINISTIC_ONLY",
+            "default": "LOCAL_WEEKLY_DETERMINISTIC_ONLY",
+            "title": "Scope",
+            "type": "string"
+          },
+          "template": {
+            "$ref": "#/components/schemas/FunnelQuery"
+          },
+          "template_run_id": {
+            "format": "uuid",
+            "title": "Template Run Id",
+            "type": "string"
+          },
+          "venue": {
+            "title": "Venue",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "revision_id",
+          "version",
+          "name",
+          "venue",
+          "enabled",
+          "calendar_import_id",
+          "calendar_source",
+          "calendar_version",
+          "calendar_hash",
+          "template_run_id",
+          "coverage_start",
+          "coverage_end",
+          "template"
+        ],
+        "title": "WeeklyConfiguration",
+        "type": "object"
+      },
+      "WeeklyMode": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "local_only_acknowledgement": {
+            "const": true,
+            "title": "Local Only Acknowledgement",
+            "type": "boolean"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_version",
+          "enabled",
+          "local_only_acknowledgement"
+        ],
+        "title": "WeeklyMode",
+        "type": "object"
+      },
+      "WeeklyOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "configurations": {
+            "items": {
+              "$ref": "#/components/schemas/WeeklyConfiguration"
+            },
+            "title": "Configurations",
+            "type": "array"
+          },
+          "recent_runs": {
+            "items": {
+              "$ref": "#/components/schemas/WeeklyResult"
+            },
+            "title": "Recent Runs",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configurations",
+          "recent_runs"
+        ],
+        "title": "WeeklyOverview",
+        "type": "object"
+      },
+      "WeeklyResult": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "candidate_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Count"
+          },
+          "funnel_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Funnel Run Id"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "title": "Scheduled For",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          },
+          "week_start": {
+            "format": "date",
+            "title": "Week Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_run_id",
+          "schedule_id",
+          "revision_id",
+          "week_start",
+          "scheduled_for",
+          "as_of",
+          "status",
+          "reason_code",
+          "attempt"
+        ],
+        "title": "WeeklyResult",
+        "type": "object"
+      },
+      "WeeklySave": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar_import_id": {
+            "format": "uuid",
+            "title": "Calendar Import Id",
+            "type": "string"
+          },
+          "complete_calendar_acknowledgement": {
+            "const": true,
+            "title": "Complete Calendar Acknowledgement",
+            "type": "boolean"
+          },
+          "coverage_end": {
+            "format": "date",
+            "title": "Coverage End",
+            "type": "string"
+          },
+          "coverage_start": {
+            "format": "date",
+            "title": "Coverage Start",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "funnel_run_id": {
+            "format": "uuid",
+            "title": "Funnel Run Id",
+            "type": "string"
+          },
+          "local_only_acknowledgement": {
+            "const": true,
+            "title": "Local Only Acknowledgement",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "venue": {
+            "enum": [
+              "SSE",
+              "SZSE"
+            ],
+            "title": "Venue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "schedule_id",
+          "expected_version",
+          "name",
+          "venue",
+          "funnel_run_id",
+          "calendar_import_id",
+          "coverage_start",
+          "coverage_end",
+          "complete_calendar_acknowledgement",
+          "local_only_acknowledgement"
+        ],
+        "title": "WeeklySave",
+        "type": "object"
       }
     }
   },
@@ -8057,6 +8451,119 @@
         "summary": "Research History",
         "tags": [
           "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/weekly": {
+      "get": {
+        "operationId": "overview_api_v1_opportunities_weekly_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Overview",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      },
+      "post": {
+        "operationId": "save_api_v1_opportunities_weekly_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeeklySave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyConfiguration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      }
+    },
+    "/api/v1/opportunities/weekly/{schedule_id}/mode": {
+      "post": {
+        "operationId": "mode_api_v1_opportunities_weekly__schedule_id__mode_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeeklyMode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyConfiguration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mode",
+        "tags": [
+          "opportunities-weekly"
         ]
       }
     },
