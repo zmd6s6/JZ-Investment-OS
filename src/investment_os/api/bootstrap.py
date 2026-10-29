@@ -22,6 +22,7 @@ from investment_os.application.research_runtime import (
     ResearchProviderRuntime,
 )
 from investment_os.application.secrets import SecretStore, UnavailableSecretStore
+from investment_os.application.universe_snapshots import UniverseSnapshotService
 from investment_os.infrastructure.analysis_choices import SqlAnalysisChoices
 from investment_os.infrastructure.analysis_runs import SqlAnalysisRuns
 from investment_os.infrastructure.bocha.adapter import (
@@ -49,6 +50,7 @@ from investment_os.infrastructure.portfolio_valuation import SqlValuationInputs
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
 from investment_os.infrastructure.settings import get_settings
+from investment_os.infrastructure.universe_snapshots import SqlUniverseSnapshots
 
 from .app import create_app
 
@@ -96,11 +98,13 @@ def create_production_app() -> FastAPI:
         ),
     )
     funnel_store = SqlOpportunityStore(session_factory)
+    universe_store = SqlUniverseSnapshots(session_factory)
     opportunities = OpportunityService(
         LocalExplicitUniverse(InstrumentCatalogService(catalog)),
         funnel_store,
         market_data,
         funnel_store,
+        scope_validator=universe_store,
     )
     valuation = PortfolioValuationService(SqlValuationInputs(session_factory), market_data)
     analysis_store = SqlAnalysisRuns(session_factory)
@@ -120,6 +124,7 @@ def create_production_app() -> FastAPI:
         ),
         opportunity_service=opportunities,
         weekly_funnel_service=WeeklyService(SqlWeeklyFunnel(session_factory)),
+        universe_snapshot_service=UniverseSnapshotService(universe_store, opportunities),
         opportunity_research_service=OpportunityResearchService(
             opportunities,
             SqlCandidateResearchStore(session_factory),

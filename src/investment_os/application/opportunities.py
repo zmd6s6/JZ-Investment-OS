@@ -226,6 +226,10 @@ class UniversePort(Protocol):
     ) -> tuple[InstrumentCatalogEntry, ...]: ...
 
 
+class OpportunityScopeValidator(Protocol):
+    async def validate_scope(self, query: FunnelQuery) -> None: ...
+
+
 class ScreenFactsPort(Protocol):
     async def save_facts(self, command: ManualScreenFacts) -> FactReceipt: ...
     async def get_facts(
@@ -409,12 +413,14 @@ class OpportunityService:
         runs: FunnelRunPort,
         *,
         now: Callable[[], datetime] | None = None,
+        scope_validator: OpportunityScopeValidator | None = None,
     ):
         self._universe = universe
         self._facts = facts
         self._market = market
         self._runs = runs
         self._now = now or (lambda: datetime.now(UTC))
+        self._scope_validator = scope_validator
 
     async def save_facts(self, command: ManualScreenFacts) -> FactReceipt:
         await self._universe.resolve((command.instrument_id,))
@@ -431,6 +437,8 @@ class OpportunityService:
         """Read and compute only; a scheduler can commit the result in its own UOW."""
         if query.as_of > self._now():
             raise OpportunityError("FUTURE_AS_OF_NOT_ALLOWED")
+        if self._scope_validator is not None:
+            await self._scope_validator.validate_scope(query)
         entries = await self._universe.resolve(query.instrument_ids)
         if len(entries) != len(query.instrument_ids) or {
             entry.instrument_id for entry in entries

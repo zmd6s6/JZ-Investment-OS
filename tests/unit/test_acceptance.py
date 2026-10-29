@@ -97,3 +97,20 @@ def test_weekly_manifest_is_local_only_partial_and_has_explicit_paused_entry():
     assert "默认暂停" in item.detail and "零外网/模型/费用" in item.detail
     assert "全市场和完整P8未提供" in item.detail
     assert any("周配置" in step for step in item.steps)
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_source_snapshot_manifest_never_promotes_source_declaration_to_full_market(assembled):
+    snapshot = acceptance_snapshot(
+        portfolio=False,
+        watchlist=False,
+        providers=False,
+        policy=False,
+        opportunities=True,
+        universe_snapshots=assembled,
+    )
+    item = next(value for value in snapshot.capabilities if value.key == "opportunities")
+    assert item.engineering == "PARTIAL" and item.human_acceptance == "PENDING"
+    assert ("SOURCE_DECLARED/UNVERIFIED" in item.detail) is assembled
+    assert ("201可查看但拒绝筛选" in item.detail) is assembled
+    assert any("来源CSV全行预览" in step for step in item.steps) is assembled

@@ -58,6 +58,7 @@ from investment_os.application.research import (
     ResearchRequest,
 )
 from investment_os.application.research_runtime import ResearchProviderRuntime, ResearchRuntimeError
+from investment_os.application.universe_snapshots import UniverseSnapshotService
 from investment_os.application.watchlist import WatchlistService
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.catalog_portfolio import (
@@ -124,6 +125,7 @@ from .schemas import (
     ThesisVersionResponse,
     WatchlistItemResponse,
 )
+from .universe_routes import universe_router
 
 
 def _thesis_response(version: ThesisVersionRead) -> ThesisVersionResponse:
@@ -366,6 +368,7 @@ def create_app(
     opportunity_service: OpportunityService | None = None,
     opportunity_research_service: OpportunityResearchService | None = None,
     weekly_funnel_service: WeeklyService | None = None,
+    universe_snapshot_service: UniverseSnapshotService | None = None,
     analysis_start: AnalysisStartService | None = None,
     analysis_store: AnalysisStorePort | None = None,
     analysis_choices: AnalysisChoicesService | None = None,
@@ -469,6 +472,7 @@ def create_app(
     )
     application.include_router(analysis_router(analysis_start, analysis_store, analysis_choices))
     application.include_router(weekly_router(weekly_funnel_service))
+    application.include_router(universe_router(universe_snapshot_service))
     application.include_router(decision_center_router(decision_center))
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
@@ -575,6 +579,7 @@ def create_app(
             opportunities=opportunity_service is not None,
             opportunity_research=opportunity_research_service is not None,
             weekly_funnel=weekly_funnel_service is not None,
+            universe_snapshots=universe_snapshot_service is not None,
             analysis=analysis_start is not None
             and analysis_store is not None
             and analysis_choices is not None,

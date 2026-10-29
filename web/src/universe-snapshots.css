@@ -1,0 +1,6 @@
+.universe-panel { min-width: 0; overflow-wrap: anywhere; }
+.universe-panel .universe-fields { display: grid; gap: 12px; border: 0; padding: 0; min-width: 0; }
+.universe-panel .field { min-width: 0; }
+.universe-panel input, .universe-panel textarea, .universe-panel select { min-width: 0; max-width: 100%; }
+.universe-panel .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.universe-panel .evidence-card, .universe-panel section { margin-top: 18px; }
