@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -530,3 +531,131 @@ async def test_job_rejects_naive_business_time(database_engine: AsyncEngine) -> 
             input_hash=HASH,
             handler=handler,
         )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+@pytest.mark.parametrize("replacement", ["different_hash_failure", "retry_limit_failure"])
+async def test_late_failure_rechecks_hash_and_retry_limit_after_real_rollback(
+    database_engine: AsyncEngine, monkeypatch, replacement: str
+) -> None:
+    factory = _session_factory(database_engine)
+    executor = ReliableJobExecutor(
+        factory,
+        now=lambda: NOW,
+        max_attempts=3 if replacement == "different_hash_failure" else 1,
+    )
+    rolled_back, release_failure = asyncio.Event(), asyncio.Event()
+    original_record_failure = ReliableJobExecutor._record_failure
+    key = "synthetic:late-failure-boundaries"
+    winner_hash = "b" * 64 if replacement == "different_hash_failure" else HASH
+    winner_correlation = uuid4()
+
+    class OriginalHandlerFailed(RuntimeError):
+        pass
+
+    class ReplacementHandlerFailed(RuntimeError):
+        pass
+
+    async def fail_a(_: SqlAlchemyUnitOfWork) -> None:
+        raise OriginalHandlerFailed("synthetic A")
+
+    async def replace_b(_: SqlAlchemyUnitOfWork) -> None:
+        raise ReplacementHandlerFailed("synthetic B")
+
+    async def delay_a(self, **kwargs):
+        if kwargs["error_type"] == "OriginalHandlerFailed":
+            rolled_back.set()
+            await release_failure.wait()
+        await original_record_failure(self, **kwargs)
+
+    monkeypatch.setattr(ReliableJobExecutor, "_record_failure", delay_a)
+    a = asyncio.create_task(
+        executor.execute(
+            task_name="synthetic",
+            scheduled_for=NOW,
+            idempotency_key=key,
+            input_hash=HASH,
+            handler=fail_a,
+        )
+    )
+    try:
+        await asyncio.wait_for(rolled_back.wait(), 10)
+        with pytest.raises(ReplacementHandlerFailed):
+            await executor.execute(
+                task_name="synthetic",
+                scheduled_for=NOW,
+                idempotency_key=key,
+                input_hash=winner_hash,
+                handler=replace_b,
+                correlation_id=winner_correlation,
+            )
+        async with factory() as session:
+            winner = (await session.scalars(select(TaskRunRecord))).one()
+            before = (
+                winner.id,
+                winner.status,
+                winner.attempt,
+                winner.input_hash,
+                winner.correlation_id,
+                winner.error_json,
+            )
+    finally:
+        release_failure.set()
+        with pytest.raises(OriginalHandlerFailed):
+            await asyncio.wait_for(a, 10)
+    async with factory() as session:
+        task = (await session.scalars(select(TaskRunRecord))).one()
+        assert (
+            task.id,
+            task.status,
+            task.attempt,
+            task.input_hash,
+            task.correlation_id,
+            task.error_json,
+        ) == before
+        assert task.attempt == 1 and task.correlation_id == winner_correlation
+
+    async def forbidden(_: SqlAlchemyUnitOfWork) -> None:
+        raise AssertionError("terminal task must not run the handler again")
+
+    if replacement == "different_hash_failure":
+        with pytest.raises(ApplicationError) as conflict:
+            await executor.execute(
+                task_name="synthetic",
+                scheduled_for=NOW,
+                idempotency_key=key,
+                input_hash=HASH,
+                handler=forbidden,
+            )
+        assert conflict.value.code is ApplicationErrorCode.IDEMPOTENCY_KEY_CONFLICT
+
+        async def recovered(_: SqlAlchemyUnitOfWork) -> None:
+            pass
+
+        retried = await executor.execute(
+            task_name="synthetic",
+            scheduled_for=NOW,
+            idempotency_key=key,
+            input_hash=winner_hash,
+            handler=recovered,
+        )
+        assert not retried.reused and retried.attempt == 2
+        reused = await executor.execute(
+            task_name="synthetic",
+            scheduled_for=NOW,
+            idempotency_key=key,
+            input_hash=winner_hash,
+            handler=forbidden,
+        )
+        assert reused.reused and reused.attempt == 2
+    else:
+        with pytest.raises(ApplicationError) as exhausted:
+            await executor.execute(
+                task_name="synthetic",
+                scheduled_for=NOW,
+                idempotency_key=key,
+                input_hash=winner_hash,
+                handler=forbidden,
+            )
+        assert exhausted.value.code is ApplicationErrorCode.JOB_RETRY_LIMIT_EXHAUSTED
