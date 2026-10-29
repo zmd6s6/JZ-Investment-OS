@@ -194,13 +194,14 @@ work_items:
       - MVP-401
     scope:
       - Build durable paused-by-default daily tasks, authorized portfolio/watchlist freshness checks, evidence change summary, shadow analysis trigger and readable daily run report.
-      - No external provider/model requests without explicit per-profile authorization, cost budget and owner-controlled enablement; synthetic tests and local status-only paths remain usable without authorization.
+      - Persist an explicit Owner authorization snapshot before enabling any real scheduled research: market and instrument/portfolio/watchlist scope, run frequency and calendar, allowed data/model provider profiles, cost and budget limits, retention period, and pause/revoke method. Bind each run to the authorized snapshot/version; never infer or silently expand permission.
+      - Fail closed on any absent, stale, revoked, disabled or mismatched authorization field, provider profile, budget or scope; no external provider/model requests or scheduled real research without a complete confirmed snapshot. Synthetic tests and local status-only paths remain usable without authorization.
       - Preserve calendar as-of, idempotency, bounded retries, failure/degraded explanations and append-only history; never submit or record broker orders.
     acceptance:
       routes:
         - /calendar
         - /acceptance
-      expected: Owner can inspect, explicitly enable or pause permitted runs, see daily outcome/action-required/hold-watch/veto/degraded fields, and understand why an unauthorized or missing-data task did not run.
+      expected: Owner can review and persist the complete scope/frequency/providers/budget/retention/pause authorization before explicit enablement, pause or revoke it, inspect daily outcome/action-required/hold-watch/veto/degraded fields, and see a fail-closed reason for every missing/changed authorization field without any external call.
 
   - id: MVP-404
     title: Monthly portfolio review and report E2E
