@@ -26,7 +26,7 @@
 | Decision Center（MVP-301条件式组件切片） | `/decisions` | 组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效；真实列表/完整合法Decision链审阅/具名批准拒绝撤销/手工facts已合成验证。整体PARTIAL：现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批；完整P7/Checkpoint B仍PENDING，MVP-501继续BLOCKED | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
 | 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | MVP-401=INTEGRATED / ACCEPTANCE_READY，此记录随PR #23通过最终独立Gate合入Release生效。91801d0已获独立28项SQL / 1项恢复浏览器复验；仅STATUS_ONLY，不含团队分析或完整Daily Runtime | PENDING |
-| Opportunities | `/opportunities` | PARTIAL — PR25有限范围/人工年报/确定性漏斗已集成；后续单候选显式研究已真实接线验证，集成记录仅随后续PR独立Gate并合入生效；全市场未提供；本地周筛选续接待独立Gate/合入 | PENDING |
+| Opportunities | `/opportunities` | PARTIAL — PR25有限范围/人工年报/确定性漏斗已集成；后续单候选显式研究已真实接线验证，集成记录仅随后续PR独立Gate并合入生效；全市场未提供；本地周筛选受限切片已随 PR #30 合入 Release，完整 MVP-402/P8 仍 PARTIAL | PENDING |
 
 ## Checkpoint A 验收步骤
 
@@ -93,7 +93,7 @@ MVP-201已完成隔离合成环境UI / API / DB接线验证，并由PR #22合入
 
 排队失败或响应未知时，先只读刷新；存在未入队意图须重新核对原请求并单独重新同意原模型/原研究源，明确原请求重试不重复入队。已经发出的模型请求可能收费，不伪造零费用；缺模型/预算/服务未装配明确失败。完整全市场与P8仍未提供；周筛选续接见下段；后续PR独立CI/Gate、Owner部署与接受仍PENDING，不把下列PR25旧数字当新切片证明。
 
-本地周筛选续接验收：同页第6区选择当前历史漏斗模板，明确市场与完整自然周范围、核对有来源日历的完整性，分别确认完整覆盖与仅本地读取后保存；应看到新版本暂停。再确认保存版本后单独启用，完整周结束后应由Worker写入真实TaskRun/产物/Event/Outbox，运行历史可打开对应候选详情；暂停保留历史且确认后无晚到副作用。缺资料应显示降级/缺项，明确闭市周跳过且无产物，换日历后旧配置阻止排入并需新版本。固定零外网/模型/费用，不消费逐候选深研意图；真实Owner激活和产品接受PENDING。独立合成时钟工程证据以MVP-402工作项最新记录为准，本PR独立Gate与Release集成仍待，不代表完整402/P8接受。
+本地周筛选续接验收：同页第6区选择当前历史漏斗模板，明确市场与完整自然周范围、核对有来源日历的完整性，分别确认完整覆盖与仅本地读取后保存；应看到新版本暂停。再确认保存版本后单独启用，完整周结束后应由Worker写入真实TaskRun/产物/Event/Outbox，运行历史可打开对应候选详情；暂停保留历史且确认后无晚到副作用。缺资料应显示降级/缺项，明确闭市周跳过且无产物，换日历后旧配置阻止排入并需新版本。固定零外网/模型/费用，不消费逐候选深研意图；真实Owner激活和产品接受PENDING。独立合成时钟工程证据以MVP-402工作项最新记录为准，PR #30 已通过独立 Review Gate 并合入 Release；不代表完整402/P8或Owner接受。
 
 PR25历史切片只接通本地明确手选范围、人工自然年年报事实、确定性四指标 / 分层查询、有界研究候选和不可变历史；工程清单明确PARTIAL。当时全市场 / 深研 / 周定时尚未提供，后续单候选研究见上段，不表示完整402、P8或Checkpoint接受。
 入口 `/opportunities`，也可从导航 / 设置 / 产品进度进入。先登记标的并保存人工报价，选择有限范围；绑定报价Evidence，录入有来源的年度利润 / 营收 / 年报稀释EPS和时间，填本次研究查询条件后筛选。
