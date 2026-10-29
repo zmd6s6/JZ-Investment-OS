@@ -63,6 +63,8 @@ class SizingRules(NumericDto):
     @model_validator(mode="after")
     def governed_complete_formula(self) -> Self:
         self.to_formula()
+        if any(self.intent_weights[intent] != 0 for intent in (RiskIntent.NONE, RiskIntent.EXIT)):
+            raise ValueError("NONE and EXIT intents cannot request exposure")
         if (
             self.max_instrument_volatility <= 0
             or not -1 <= self.correlation_attention_threshold <= 1

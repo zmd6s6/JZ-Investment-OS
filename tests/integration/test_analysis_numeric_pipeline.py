@@ -8,9 +8,12 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from alembic import command as migration_command
+from alembic.config import Config
 from analysis_fixture import model_output
 from analysis_numeric_fixture import seed_numeric
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from test_analysis_pipeline import SyntheticSecrets
 
@@ -324,5 +327,40 @@ async def test_tactical_measurement_does_not_resize_core(database_engine):
         assert run.risk_sizing.delta_quantity == Decimal(300)
         assert Decimal(run.risk_sizing.numbers["core_weight"]) == Decimal("0.01")
         assert Decimal(run.risk_sizing.numbers["tactical_weight"]) == Decimal("0.02")
+    finally:
+        await client.aclose()
+
+
+async def test_numeric_history_rejects_update_delete_and_migration_downgrade(database_engine):
+    sessions, service, store, runner, command, _calls, client, _source = await pipeline(
+        database_engine
+    )
+    try:
+        queued = await service.start(command)
+        await runner.dispatch_due()
+        run = await store.get(queued.run_id)
+        assert run.risk_sizing.sizing_status == "COMPUTED"
+        for table, column in (
+            ("analysis_numeric_source", "payload_json"),
+            ("analysis_numeric_evidence", "evidence_id"),
+            ("analysis_risk_result", "payload_json"),
+            ("analysis_sizing_result", "payload_json"),
+        ):
+            for statement in (f"UPDATE {table} SET {column}={column}", f"DELETE FROM {table}"):
+                with pytest.raises(DBAPIError, match=r"append-only|immutable"):
+                    async with database_engine.begin() as connection:
+                        await connection.execute(text(statement))
+        with pytest.raises(DBAPIError, match="preserve and forward-fix"):
+            await asyncio.to_thread(
+                migration_command.downgrade, Config("alembic.ini"), "20261029_0020"
+            )
+        async with sessions() as session:
+            assert (
+                await session.scalar(text("SELECT version_num FROM alembic_version"))
+                == "20261029_0021"
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(PositionSizingRunRecord)) == 1
+            )
     finally:
         await client.aclose()

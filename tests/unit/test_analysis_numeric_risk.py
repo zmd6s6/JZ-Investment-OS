@@ -128,3 +128,11 @@ def test_policy_10_preserved_and_no_formula_defaults_or_silent_sizing_upgrade():
     validated = InvestmentPolicySchema.model_validate_json(json.dumps(document))
     assert validated.sizing.to_formula().version == "synthetic-205-v1"
     assert validated.metadata.status.value == "TEST_DEFAULT"  # parsing never activates a Policy.
+
+
+@pytest.mark.parametrize("intent", ["NONE", "EXIT"])
+async def test_policy_formula_cannot_assign_increase_to_none_or_exit(intent):
+    data = rules()
+    data["intent_weights"][intent] = "0.1"
+    with pytest.raises(ValidationError, match="cannot request exposure"):
+        SizingRules.model_validate(data)
