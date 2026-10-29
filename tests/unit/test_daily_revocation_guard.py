@@ -42,9 +42,7 @@ class _RevokedSession:
         (6, "DAILY_VERSION_CONFLICT"),
     ],
 )
-async def test_save_cannot_resurrect_revoked_schedule(
-    expected_version: int, expected_error: str
-):
+async def test_save_cannot_resurrect_revoked_schedule(expected_version: int, expected_error: str):
     session = _RevokedSession(version=7)
     request_id, schedule_id = uuid4(), uuid4()
     command = SimpleNamespace(
