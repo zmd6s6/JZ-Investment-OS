@@ -43,6 +43,7 @@ def acceptance_snapshot(
     opportunities: bool = False,
     opportunity_research: bool = False,
     weekly_funnel: bool = False,
+    universe_snapshots: bool = False,
     analysis: bool = False,
     decisions: bool = False,
 ) -> AcceptanceSnapshot:
@@ -180,6 +181,12 @@ def acceptance_snapshot(
             detail=(
                 "本地手选范围和有来源人工年报事实的确定性漏斗已接通; "
                 + (
+                    "来源声明CSV可冻结完整成员并精确绑定有限筛选, SOURCE_DECLARED/UNVERIFIED; "
+                    "200输入/20候选边界保留, 201可查看但拒绝筛选, 不证明市场全集。"
+                    if universe_snapshots
+                    else ""
+                )
+                + (
                     "有界候选可逐个明确授权研究, 真实AnalysisRun保留来源与失败; "
                     if opportunity_research
                     else "深研尚未提供; "
@@ -195,6 +202,14 @@ def acceptance_snapshot(
                 "先登记标的并在人工行情保存报价。",
                 "选择有限范围, 补录明确自然年 / EPS口径的事实, 输入本次查询条件后筛选。",
                 "核对各层原因 / 缺项 / 有界候选及Evidence, 刷新读取不可变历史。",
+                *(
+                    (
+                        "来源CSV全行预览, 明确来源/四时间/数量/完整性并分别确认合法使用与声明边界; "
+                        "查看冻结成员后完整绑定, 不采用客户端子集或早于入库的业务时点。",
+                    )
+                    if universe_snapshots
+                    else ()
+                ),
                 *(
                     (
                         "选择当前漏斗冻结周配置, 确认完整日历覆盖及仅本地读取, 保存后默认暂停; "

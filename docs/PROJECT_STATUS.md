@@ -19,6 +19,7 @@
 
 - PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
+- MVP-402来源声明快照本轮受限续接已实现，独立Gate/Release合入待核：CSV全行预览与合法使用/声明确认、不可变来源/成员/四时间/hash与Evidence、精确全成员绑定及运行来源可见。固定SOURCE_DECLARED/UNVERIFIED、market_universe=NOT_PROVIDED；201可导入查看但拒绝筛选，200/20原边界不变。生产API和weekly factory共同拒绝早于成员导入的历史业务时点，失败不产周结果。只用合成来源，零外网/模型/费用；不是全市场覆盖证明，402仍REVIEW/PARTIAL、501BLOCKED、OwnerPENDING。本轮实际验证见MVP-402最新来源快照记录，不借用旧切片或外部PR31/33状态。
 - MVP-402本地周筛选续接已实现（本PR独立Gate/合入仍待）：`/opportunities` 第6区提供版本化冻结范围/来源/条件/完整日历覆盖、默认暂停与独立启停；生产Worker只读本地行情/事实，固定零外网/模型/费用，以完整周边界与日历会话生成幂等有界候选及运行历史。此为有限范围工程纵切，非全市场universe或完整P8；402仍REVIEW/PARTIAL，501仍BLOCKED，Owner部署/接受PENDING。当前验证以工作项最新周筛选记录为准，不借用PR29旧证据。
 - MVP-402后续切片在已合入203/204之上接通 `/opportunities` 单候选显式研究：先校验原漏斗有界候选/Evidence/来源，持久记录明确请求，再经真实AnalysisRun/Worker排队；页面保留来源、进度、失败与不可执行影子结论。真实API/DB/Worker/loopback模型Chrome三场景3/3（21.5秒），原筛选历史不变；排队失败/未知响应只能只读查询或明确同请求恢复，不自动重播付费调用。已由PR #29通过独立Gate合入Release39f5738，完整402/P8仍PARTIAL，全市场未提供；本地周筛选续接见上一条，Owner PENDING。证据见MVP-402工作项。
 

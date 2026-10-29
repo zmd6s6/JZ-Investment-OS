@@ -16,6 +16,7 @@ from investment_os.infrastructure.catalog_portfolio import (
 from investment_os.infrastructure.manual_market_data import SqlManualMarketData
 from investment_os.infrastructure.opportunities import LocalExplicitUniverse, SqlOpportunityStore
 from investment_os.infrastructure.opportunity_schedule import WeeklyFunnelRunner
+from investment_os.infrastructure.universe_snapshots import SqlUniverseSnapshots
 
 
 def weekly_worker(
@@ -33,5 +34,12 @@ def weekly_worker(
         now=clock,
     )
     store = SqlOpportunityStore(sessions, now=clock)
-    service = OpportunityService(LocalExplicitUniverse(catalog), store, market, store, now=clock)
+    service = OpportunityService(
+        LocalExplicitUniverse(catalog),
+        store,
+        market,
+        store,
+        now=clock,
+        scope_validator=SqlUniverseSnapshots(sessions),
+    )
     return WeeklyFunnelRunner(sessions, service)

@@ -9,7 +9,7 @@ type Run = {task_run_id:string;schedule_id:string;revision_id:string;week_start:
 type Overview = {schema_version:string;configurations:Configuration[];recent_runs:Run[];auto_trade:false};
 type Calendar = {venue:string;import_id:string;source_name:string;source_version:string;content_hash:string};
 export type WeeklyTemplate = {run_id:string;query:Omit<Template,'instrument_ids'>;rows:{instrument_id:string;symbol:string}[]};
-const reasons:Record<string,string>={WEEKLY_PAUSED:'已暂停；不会排入新筛选',WEEKLY_CALENDAR_CHANGED_OR_MISSING:'日历已变化或缺失；请重新保存版本，默认暂停',MARKET_CLOSED:'完整日历明确本周没有交易会话，已跳过',LOCAL_DATA_MISSING:'本地资料缺失、到期或在业务时点不可用；打开产物查看各层缺项',WeeklyConfigurationChanged:'排入后配置被暂停或替换；本次没有提交筛选产物'};
+const reasons:Record<string,string>={UniverseScopeNotYetAvailable: '来源成员集合在该业务周尚未导入或可用；没有提交筛选产物。',WEEKLY_PAUSED:'已暂停；不会排入新筛选',WEEKLY_CALENDAR_CHANGED_OR_MISSING:'日历已变化或缺失；请重新保存版本，默认暂停',MARKET_CLOSED:'完整日历明确本周没有交易会话，已跳过',LOCAL_DATA_MISSING:'本地资料缺失、到期或在业务时点不可用；打开产物查看各层缺项',WeeklyConfigurationChanged:'排入后配置被暂停或替换；本次没有提交筛选产物'};
 const statuses:Record<string,string>={COMPLETE:'筛选已完成',DEGRADED:'筛选已记录，资料不完整',EMPTY:'范围内没有候选',SKIPPED_CLOSED:'市场关闭，已跳过',FAILED:'任务失败',RUNNING:'任务运行中',PENDING:'任务等待中'};
 const text=(value:unknown)=>typeof value==='string';
 const uuid=(value:unknown)=>text(value)&&/^[0-9a-f-]{36}$/i.test(value as string);
