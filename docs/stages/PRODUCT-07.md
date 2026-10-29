@@ -51,3 +51,7 @@ Veto、确定性仓位规模计算、Core/Tactical 快照和审计时间线，�
 
 运行受影响的格式、lint、类型、单元/属性/契约/集成/迁移、OpenAPI、前端构建、浏览器 E2E、密钥扫描和 Compose
 检查；所有证据、限制和回滚/前向修复说明记录到阶段文档和项目状态后，方可 `READY_FOR_REVIEW`。
+
+## MVP-301 受完整链约束的人工产品面（2026-10-28）
+
+本工作分支提供`/decisions`及真实API/DB人工动作、不可变Journal、完整fees/实际成交时间/引用/备注的分次手工记录，明确无券商提交。正常使用必须已有完整且有效的PR07 InvestmentDecision、批准政策/策略、证据、风险及确定性Sizing；TEST_DEFAULT、缺项、空风险或历史漂移失败关闭，不把当前203 Shadow转换为可审批Decision。当前分析→完整可审批Decision主链仍PARTIAL，阶段PLANNED与Owner验收不改变。独立模块、端口/迁移/浏览器实际证据与恢复见`docs/agent/work-items/MVP-301.md`，实现者不签Gate。

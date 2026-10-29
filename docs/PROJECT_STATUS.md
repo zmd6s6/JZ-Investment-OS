@@ -17,15 +17,15 @@
 
 ## 已建立
 
-- MVP-402后续切片在已合入203/204之上接通 `/opportunities` 单候选显式研究：先校验原漏斗有界候选/Evidence/来源，持久记录明确请求，再经真实AnalysisRun/Worker排队；页面保留来源、进度、失败与不可执行影子结论。真实API/DB/Worker/loopback模型Chrome三场景3/3（21.5秒），原筛选历史不变；排队失败/未知响应只能只读查询或明确同请求恢复，不自动重播付费调用。尚待本后续PR CI与独立Gate/合入，完整402/P8仍PARTIAL，全市场/周定时未提供，Owner PENDING。证据见MVP-402工作项。
+- PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
-- MVP-204当前工作分支接通 `/analysis` 的只读历史追溯：观点/结论引用定位到当次冻结Evidence，来源、四业务时间、expiry/hash、Thesis支柱/证伪/监控、参考估值分仓、政策版本、特征、两轮角色与最终闸门缺项可读。读取不重取资料或调用模型，详情失败清空旧运行展示。INTEGRATED台账仅随本项PR经独立Gate且实际合入Release生效；完整Risk/Sizing/可审批Decision与Owner接受未完成。实际验证见 `docs/agent/work-items/MVP-204.md`。
+- MVP-402后续切片在已合入203/204之上接通 `/opportunities` 单候选显式研究：先校验原漏斗有界候选/Evidence/来源，持久记录明确请求，再经真实AnalysisRun/Worker排队；页面保留来源、进度、失败与不可执行影子结论。真实API/DB/Worker/loopback模型Chrome三场景3/3（21.5秒），原筛选历史不变；排队失败/未知响应只能只读查询或明确同请求恢复，不自动重播付费调用。已由PR #29通过独立Gate合入Release39f5738，完整402/P8仍PARTIAL，全市场/周定时未提供，Owner PENDING。证据见MVP-402工作项。
 
-- PR #26已于2026-10-28T09:11:03Z合入Release 9c8b8cb；root对最终46385a4源码独立复跑64项/真实浏览器4项，并记录[合入后审查](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)，未将合入后审查伪称合并前Gate或root合并。203=INTEGRATED，204/301真实依赖满足；Owner部署与接受仍PENDING。以下旧提交反馈和验证保留其历史归属。
+- MVP-204已由PR27实际合入Release 36aed8d：`/analysis`只读历史追溯定位当次冻结Evidence，来源、四业务时间、expiry/hash、Thesis、分仓/政策/特征、两轮角色与闸门缺项可读。读取不重取资料或调用模型，失败清空旧运行展示；完整Risk/Sizing/可审批Decision与Owner接受未完成。实际验证保留其源码归属，见 `docs/agent/work-items/MVP-204.md`。
 
-- PR #26模型出站边界反馈6457329770已补最终冻结档案核验及已知未出站预算释放，当前fixed-awaiting-review：credential / reservation两个异步窗口的停用、端点、模型、凭据引用、定价变化零HTTP；未知已出站失败仍保守计费。新源码完整582项/87.34%、真实合成API/DB/Worker/UI 4/4通过，仍需新HEAD CI及root独立Gate，未合入/未部署Owner。详情见MVP-203工作项与Handoff。
+- MVP-203=INTEGRATED：`/analysis`持久排队、真实双轮、角色/缺项、取消/新Run重试及历史已随PR26合入。Risk UNKNOWN、Sizing BLOCKED、无可审批InvestmentDecision，完整P6与Owner接受仍未完成；不得借099旧32/4替代后续源码证据。
 
-- MVP-203：PR #26已实现并验证 `/analysis` 的显式输入/调用同意→持久排队→真实Worker双轮与角色产物→风险/仓位缺项→不可执行影子结论、取消/新Run重试/刷新历史。203 INTEGRATED、仅依赖203的204/301 READY台账仅随PR #26经独立Gate且实际合入Release生效；未合入时不得据此领取后继。root对09974bb独立32/32及真实4/4仅归旧代码，随后三项P1边界已复现并统一修复；新实现者验证与待独立复审明确另列，不能借旧独立证据通过新Gate。Risk UNKNOWN、Sizing BLOCKED、无可审批Decision，完整P6与Owner接受仍未完成；证据见 `docs/agent/work-items/MVP-203.md`。
+- MVP-301条件式组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效：`/decisions`真实列表/完整合法Decision链审阅、具名确认批准/拒绝/撤销与完整手工事实已接通，同事务追加审计及Outbox。独立Review发现旧源码有效期竞态、引用链准入与跨Decision幂等问题后已同批修复；实际合并Release39f5738的最终候选实测674后端/87.56%、147集成、95前端和新源码中心3条真实合成浏览器。旧8cf/root旧34/3仅保留历史；新HEAD CI与独立Gate另核。现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批，不补真实Policy或默认数量；完整P7/Checkpoint B、Owner部署与接受仍PENDING，MVP-501继续BLOCKED。细节见MVP-301工作项。
 
 - MVP-402的PR25历史切片已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；当时真实UI / API / DB合成验证21场景通过，整体PARTIAL：全市场、深研、周定时当时未提供。候选研究续接见上条，不把历史数字当新实现验证，详见 `docs/agent/work-items/MVP-402.md`。
 
@@ -48,8 +48,8 @@
 ## 尚未实现或尚未验证
 
 - P5的PR #17已合并，MVP-101可见路径复验与修复已由PR #21合入Release；仍须所有者本人Checkpoint验收，才能将PRODUCT-05标为ACCEPTED。
-- P6：MVP-203持久AnalysisRun与受控降级影子链已有实现者及09974bb独立复验；本PR #26实际合入后才记203 INTEGRATED、204/301依赖满足READY。完整Risk/Sizing、深入追溯204、可审批Decision301及所有者阶段验收仍未完成；后续提交须重新核对CI/独立Gate，不能借09974bb旧CI。
-- P7：Decision 审阅、批准/拒绝/撤销 UI 与只记录事实的手工执行产品流。
+- P6：203受限影子链已集成；204只读追溯已集成；完整Risk/Sizing与可审批Decision生产链仍未完成。新提交须独立核CI/Gate，不借旧源码证据。
+- P7：301仅交付受完整合法Decision输入约束的组件切片，INTEGRATED只随PR #28通过独立Gate实际合入生效；现Analysis仍Shadow、Risk UNKNOWN/Sizing BLOCKED且不可审批。完整P7/Checkpoint B及Owner接受PENDING，MVP-501保持BLOCKED。
 - P8：用户可见的日/周/月 AI 团队定时运行、机会筛选、Portfolio 复核及报告。
 - P9：按 Beta 验收门槛完成的端到端产品验证和所有者接受。
 - PR-09 的 Outcome、Review/Learning、发布加固与发布验证必须在 P9 接受后才可恢复；在此之前不得继续推进或视为发布依据。

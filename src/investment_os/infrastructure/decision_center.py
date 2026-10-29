@@ -1,0 +1,1112 @@
+"""Transactional human review over immutable Decisions and append-only action history."""
+
+import builtins
+import json
+from collections.abc import Callable, Sequence
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from typing import Literal, cast
+from uuid import UUID, uuid4
+
+from pydantic import TypeAdapter, ValidationError
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from investment_os.application.approval_gate import approval_transition_context
+from investment_os.application.decision_center import (
+    CenterDetail,
+    DecisionCard,
+    HumanCommand,
+    ManualExecutionCommand,
+    clean_text,
+    command_hash,
+)
+from investment_os.application.policy_schema import InvestmentPolicySchema
+from investment_os.application.portfolio_valuation import fingerprint
+from investment_os.domain.approval import DecisionApproval, DecisionApprovalHistory
+from investment_os.domain.enums import (
+    Action,
+    ApprovalAction,
+    DecisionState,
+    ExecutionMode,
+    ExecutionStatus,
+)
+from investment_os.domain.errors import DomainError
+from investment_os.domain.execution import DecisionExecution
+from investment_os.domain.risk import RiskFlag
+from investment_os.domain.state_machines import transition_decision
+from investment_os.domain.values import Quantity, UtcTimestamp
+from investment_os.infrastructure.decision_center_models import (
+    DecisionCenterActionRecord,
+    ManualExecutionDetailRecord,
+)
+from investment_os.infrastructure.decision_center_validation import (
+    agent_opinion,
+    sizing_request,
+    thesis_content,
+)
+from investment_os.infrastructure.persistence.models import (
+    AgentOpinionRecord,
+    AgentRunRecord,
+    AuditLogRecord,
+    CommitteeMessageRecord,
+    CommitteeSessionRecord,
+    DecisionApprovalRecord,
+    DecisionExecutionRecord,
+    EventLogRecord,
+    EvidenceRecord,
+    InstrumentRecord,
+    InvestmentDecisionEvidenceRecord,
+    InvestmentDecisionRecord,
+    InvestmentPolicyRecord,
+    InvestmentPolicyVersionRecord,
+    InvestmentThesisRecord,
+    OutboxEventRecord,
+    PortfolioRecord,
+    PositionRecord,
+    PositionSizingRunRecord,
+    RiskAssessmentEvidenceRecord,
+    RiskAssessmentRecord,
+    ThesisVersionEvidenceRecord,
+    ThesisVersionRecord,
+)
+
+
+async def ledger_fingerprint(session: AsyncSession, portfolio_id: UUID) -> str:
+    """Exact current P5 cash/position identity; never infer holdings from a model opinion."""
+    portfolio = await session.get(PortfolioRecord, portfolio_id)
+    positions = (
+        await session.scalars(
+            select(PositionRecord)
+            .where(PositionRecord.portfolio_id == portfolio_id)
+            .order_by(PositionRecord.id)
+        )
+    ).all()
+    return fingerprint(
+        {
+            "portfolio_id": str(portfolio_id),
+            "cash": str(portfolio.cash_balance) if portfolio else None,
+            "positions": [
+                {
+                    "id": str(p.id),
+                    "version": p.version,
+                    "core": str(p.core_quantity),
+                    "tactical": str(p.tactical_quantity),
+                }
+                for p in positions
+            ],
+        }
+    )
+
+
+class SqlDecisionCenter:
+    def __init__(
+        self,
+        sessions: async_sessionmaker[AsyncSession],
+        *,
+        now: Callable[[], datetime] | None = None,
+    ):
+        self._sessions = sessions
+        self._now = now or (lambda: datetime.now(UTC))
+
+    async def list(self, *, portfolio_id: UUID | None = None) -> tuple[DecisionCard, ...]:
+        async with self._sessions() as session:
+            query = (
+                select(InvestmentDecisionRecord, InstrumentRecord.symbol)
+                .outerjoin(
+                    InstrumentRecord, InstrumentRecord.id == InvestmentDecisionRecord.instrument_id
+                )
+                .order_by(InvestmentDecisionRecord.created_at.desc(), InvestmentDecisionRecord.id)
+                .limit(100)
+            )
+            if portfolio_id is not None:
+                query = query.where(InvestmentDecisionRecord.portfolio_id == portfolio_id)
+            rows = (await session.execute(query)).all()
+            ids = [row[0].id for row in rows]
+            if not ids:
+                return ()
+            actions = (
+                await session.scalars(
+                    select(DecisionCenterActionRecord)
+                    .where(DecisionCenterActionRecord.decision_id.in_(ids))
+                    .order_by(DecisionCenterActionRecord.revision)
+                )
+            ).all()
+            grouped: dict[UUID, builtins.list[DecisionCenterActionRecord]] = {}
+            humans: dict[UUID, DecisionCenterActionRecord] = {}
+            for action in actions:
+                grouped.setdefault(action.decision_id, []).append(action)
+                if action.action != "RECORD_EXECUTION":
+                    humans[action.decision_id] = action
+            approvals = {
+                row[0]: row[1]
+                for row in (
+                    await session.execute(
+                        select(DecisionApprovalRecord.decision_id, func.count())
+                        .where(DecisionApprovalRecord.decision_id.in_(ids))
+                        .group_by(DecisionApprovalRecord.decision_id)
+                    )
+                ).all()
+            }
+            executions = {
+                row[0]: row[1]
+                for row in (
+                    await session.execute(
+                        select(DecisionExecutionRecord.decision_id, func.count())
+                        .where(DecisionExecutionRecord.decision_id.in_(ids))
+                        .group_by(DecisionExecutionRecord.decision_id)
+                    )
+                ).all()
+            }
+            selected_ids = [a.approval_id for a in humans.values() if a.action == "APPROVE"]
+            expiry = {
+                a.id: a.expires_at
+                for a in (
+                    await session.scalars(
+                        select(DecisionApprovalRecord).where(
+                            DecisionApprovalRecord.id.in_(selected_ids)
+                        )
+                    )
+                ).all()
+            }
+            now = self._now()
+            cards = []
+            for decision, symbol in rows:
+                history = grouped.get(decision.id, [])
+                state = history[-1].resulting_state if history else decision.state
+                revision = history[-1].revision if history else decision.version
+                legacy = len(history) != approvals.get(decision.id, 0) + executions.get(
+                    decision.id, 0
+                )
+                if legacy:
+                    state = "LEGACY_REVIEW_REQUIRED"
+                elif state in {"APPROVED", "PARTIALLY_EXECUTED"}:
+                    human = humans.get(decision.id)
+                    expires = expiry.get(human.approval_id) if human and human.approval_id else None
+                    if expires is None or now >= expires:
+                        state = "EXPIRED"
+                cards.append(
+                    DecisionCard(
+                        decision_id=decision.id,
+                        portfolio_id=decision.portfolio_id,
+                        instrument_id=decision.instrument_id,
+                        symbol=symbol or str(decision.instrument_id),
+                        action=decision.action,
+                        state=state,
+                        revision=revision,
+                        created_at=decision.created_at,
+                        blockers=("LEGACY_ACTION_HISTORY_REQUIRES_REVIEW",)
+                        if legacy
+                        else ("DETAIL_REVIEW_REQUIRED",),
+                    )
+                )
+            # Listing is a bounded summary, not an authorization decision. Full lineage is
+            # loaded only on drill-down and revalidated inside every mutation transaction.
+            return tuple(cards)
+
+    async def get(self, decision_id: UUID) -> CenterDetail:
+        async with self._sessions() as session:
+            decision = await session.get(InvestmentDecisionRecord, decision_id)
+            if decision is None:
+                raise LookupError("DECISION_NOT_FOUND")
+            return await self._detail(session, decision)
+
+    async def _detail(self, session: AsyncSession, d: InvestmentDecisionRecord) -> CenterDetail:
+        now = self._now()
+        actions = (
+            await session.scalars(
+                select(DecisionCenterActionRecord)
+                .where(DecisionCenterActionRecord.decision_id == d.id)
+                .order_by(DecisionCenterActionRecord.revision)
+            )
+        ).all()
+        approvals = (
+            await session.scalars(
+                select(DecisionApprovalRecord)
+                .where(DecisionApprovalRecord.decision_id == d.id)
+                .order_by(DecisionApprovalRecord.created_at, DecisionApprovalRecord.id)
+            )
+        ).all()
+        executions = (
+            await session.scalars(
+                select(DecisionExecutionRecord)
+                .where(DecisionExecutionRecord.decision_id == d.id)
+                .order_by(DecisionExecutionRecord.created_at, DecisionExecutionRecord.id)
+            )
+        ).all()
+        state = actions[-1].resulting_state if actions else d.state
+        revision = actions[-1].revision if actions else d.version
+        approval_revisions = {
+            a.approval_id: a.revision for a in actions if a.action != "RECORD_EXECUTION"
+        }
+        approvals = sorted(
+            approvals,
+            key=lambda record: (
+                approval_revisions.get(record.id, 0),
+                record.created_at,
+                str(record.id),
+            ),
+        )
+        active = _history(approvals).active_approval_at(UtcTimestamp(now)) if approvals else None
+        if state in {"APPROVED", "PARTIALLY_EXECUTED"} and active is None:
+            state = "EXPIRED"
+        blockers, lineage, quantity = await self._lineage(session, d, now)
+        if len(actions) != len(approvals) + len(executions):
+            blockers.append("LEGACY_ACTION_HISTORY_REQUIRES_REVIEW")
+            state = "LEGACY_REVIEW_REQUIRED"
+        filled = sum((e.filled_quantity for e in executions), Decimal(0))
+        remaining = max(Decimal(0), quantity - filled) if quantity is not None else None
+        allowed = []
+        if state == "PENDING_APPROVAL":
+            allowed.append("REJECT")
+            if not blockers:
+                allowed.append("APPROVE")
+        if state == "APPROVED" and filled == 0:
+            allowed.append("REVOKE")
+        if state in {"APPROVED", "PARTIALLY_EXECUTED"} and active and not blockers and remaining:
+            allowed.append("RECORD_EXECUTION")
+        symbol = await session.get(InstrumentRecord, d.instrument_id)
+        history: list[dict[str, object]] = []
+        for a in actions:
+            item: dict[str, object] = {
+                "request_id": str(a.id),
+                "revision": a.revision,
+                "action": a.action,
+                "state": a.resulting_state,
+                "actor_id": a.actor_id,
+                "comment": a.comment,
+                "occurred_at": a.occurred_at.isoformat(),
+                "approval_id": str(a.approval_id) if a.approval_id else None,
+            }
+            if a.execution_id:
+                execution = next(e for e in executions if e.id == a.execution_id)
+                item["execution"] = await _execution_read(session, execution)
+            history.append(item)
+        represented_approvals = {a.approval_id for a in actions if a.action != "RECORD_EXECUTION"}
+        represented_executions = {a.execution_id for a in actions if a.execution_id}
+        for approval in approvals:
+            if approval.id not in represented_approvals:
+                history.append(
+                    {
+                        "request_id": str(approval.id),
+                        "revision": None,
+                        "action": approval.action,
+                        "state": "LEGACY_REVIEW_REQUIRED",
+                        "actor_id": approval.actor_id,
+                        "comment": approval.comment,
+                        "occurred_at": approval.created_at.isoformat(),
+                        "legacy": True,
+                        "approval_id": str(approval.id),
+                        "approval_expires_at": approval.expires_at.isoformat()
+                        if approval.expires_at
+                        else None,
+                    }
+                )
+        for execution in executions:
+            if execution.id not in represented_executions:
+                linked = next((a for a in approvals if a.id == execution.approval_id), None)
+                history.append(
+                    {
+                        "request_id": str(execution.id),
+                        "revision": None,
+                        "action": "LEGACY_EXECUTION",
+                        "state": "LEGACY_REVIEW_REQUIRED",
+                        "actor_id": linked.actor_id if linked else execution.created_by,
+                        "comment": None,
+                        "occurred_at": execution.created_at.isoformat(),
+                        "legacy": True,
+                        "execution": await _execution_read(session, execution),
+                    }
+                )
+        history.sort(
+            key=lambda item: (
+                str(item["occurred_at"]),
+                int(str(item["revision"])) if item["revision"] is not None else 0,
+                str(item["request_id"]),
+            )
+        )
+        return CenterDetail(
+            decision=DecisionCard(
+                decision_id=d.id,
+                portfolio_id=d.portfolio_id,
+                instrument_id=d.instrument_id,
+                symbol=symbol.symbol if symbol else str(d.instrument_id),
+                action=d.action,
+                state=state,
+                revision=revision,
+                created_at=d.created_at,
+                blockers=tuple(blockers),
+            ),
+            as_of=now,
+            journal={
+                "original_state": d.state,
+                "content_hash": d.content_hash,
+                "input_snapshot_hash": d.input_snapshot_hash,
+                "reasons": d.reasons_json,
+                "risks": d.risks_json,
+                "position_before": d.position_before_json,
+                "position_after_proposed": d.position_after_proposed_json,
+                "core_action": d.core_action,
+                "tactical_action": d.tactical_action,
+                "unknowns": d.unknowns_json,
+                "dissent": d.dissent_json,
+                "watch_conditions": d.watch_conditions_json,
+                "invalidation_conditions": d.invalidation_conditions_json,
+                "prompt_bundle_version": d.prompt_bundle_version,
+                "formula_version": d.formula_version,
+            },
+            lineage=lineage,
+            history=tuple(history),
+            approval_id=active.id if active else None,
+            approval_expires_at=active.expires_at.value if active and active.expires_at else None,
+            approved_quantity=quantity,
+            filled_quantity=filled,
+            remaining_quantity=remaining,
+            allowed_actions=tuple(allowed),
+        )
+
+    async def _lineage(
+        self, session: AsyncSession, d: InvestmentDecisionRecord, now: datetime
+    ) -> tuple[builtins.list[str], dict[str, object], Decimal | None]:
+        blockers: list[str] = []
+        if (
+            not isinstance(d.input_snapshot_hash, str)
+            or len(d.input_snapshot_hash) != 64
+            or any(character not in "0123456789abcdef" for character in d.input_snapshot_hash)
+        ):
+            blockers.append("DECISION_INPUT_SNAPSHOT_INVALID")
+        risk = (
+            await session.get(RiskAssessmentRecord, d.risk_assessment_id)
+            if d.risk_assessment_id
+            else None
+        )
+        sizing = (
+            await session.get(PositionSizingRunRecord, d.position_sizing_run_id)
+            if d.position_sizing_run_id
+            else None
+        )
+        policy = await session.get(InvestmentPolicyVersionRecord, d.policy_version_id)
+        thesis = (
+            await session.get(ThesisVersionRecord, d.thesis_version_id)
+            if d.thesis_version_id
+            else None
+        )
+        evidence_ids = (
+            await session.scalars(
+                select(InvestmentDecisionEvidenceRecord.evidence_id).where(
+                    InvestmentDecisionEvidenceRecord.investment_decision_id == d.id
+                )
+            )
+        ).all()
+        thesis_ids = set(
+            (
+                await session.scalars(
+                    select(ThesisVersionEvidenceRecord.evidence_id).where(
+                        ThesisVersionEvidenceRecord.thesis_version_id == d.thesis_version_id
+                    )
+                )
+            ).all()
+        )
+        risk_ids = set(
+            (
+                await session.scalars(
+                    select(RiskAssessmentEvidenceRecord.evidence_id).where(
+                        RiskAssessmentEvidenceRecord.risk_assessment_id == d.risk_assessment_id
+                    )
+                )
+            ).all()
+        )
+        if thesis is not None:
+            try:
+                content = thesis_content(thesis)
+                if set(content.evidence_ids) != thesis_ids:
+                    raise ValueError("THESIS_EVIDENCE_RELATION_MISMATCH")
+            except (ValidationError, DomainError, ValueError, KeyError, TypeError):
+                blockers.append("THESIS_CONTENT_OR_EVIDENCE_INVALID")
+        if risk is not None:
+            try:
+                flags = TypeAdapter(tuple[RiskFlag, ...]).validate_python(
+                    [*risk.hard_flags_json, *risk.soft_flags_json]
+                )
+                if (
+                    set(identifier for flag in flags for identifier in flag.evidence_ids)
+                    != risk_ids
+                ):
+                    raise ValueError("RISK_EVIDENCE_RELATION_MISMATCH")
+                if any(flag.kind.value != "HARD" for flag in flags[: len(risk.hard_flags_json)]):
+                    raise ValueError("RISK_FLAG_KIND_MISMATCH")
+                if any(flag.kind.value != "SOFT" for flag in flags[len(risk.hard_flags_json) :]):
+                    raise ValueError("RISK_FLAG_KIND_MISMATCH")
+            except (ValidationError, DomainError, ValueError, KeyError, TypeError):
+                blockers.append("RISK_CONTENT_OR_EVIDENCE_INVALID")
+        opinion_links = (
+            await session.execute(
+                text(
+                    "SELECT ae.agent_opinion_id, ae.evidence_id FROM agent_opinion_evidence ae "
+                    "JOIN committee_message cm ON cm.opinion_id=ae.agent_opinion_id "
+                    "WHERE cm.session_id=:id"
+                ),
+                {"id": d.committee_session_id},
+            )
+        ).all()
+        opinion_evidence: dict[UUID, set[UUID]] = {}
+        for opinion_id, evidence_id in opinion_links:
+            opinion_evidence.setdefault(opinion_id, set()).add(evidence_id)
+        required_evidence = (
+            set(evidence_ids)
+            | thesis_ids
+            | risk_ids
+            | {
+                identifier
+                for identifiers in opinion_evidence.values()
+                for identifier in identifiers
+            }
+        )
+        evidence = (
+            (
+                await session.scalars(
+                    select(EvidenceRecord).where(EvidenceRecord.id.in_(required_evidence))
+                )
+            ).all()
+            if required_evidence
+            else []
+        )
+        if not evidence or len(evidence) != len(required_evidence):
+            blockers.append("EVIDENCE_MISSING")
+        if thesis is not None:
+            try:
+                thesis_time = UtcTimestamp(
+                    datetime.fromisoformat(str(thesis.metadata_json["as_of"]))
+                ).value
+                if thesis_time > d.created_at or any(
+                    max(e.observed_at, e.effective_at, e.available_at, e.ingested_at) > thesis_time
+                    or (e.expires_at is not None and e.expires_at <= thesis_time)
+                    for e in evidence
+                    if e.id in thesis_ids
+                ):
+                    raise ValueError("THESIS_EVIDENCE_UNAVAILABLE_AT_EVALUATION")
+            except (ValueError, DomainError, KeyError, TypeError):
+                blockers.append("THESIS_EVALUATION_TIME_INVALID")
+        for e in evidence:
+            if (
+                e.instrument_id not in {None, d.instrument_id}
+                or max(e.observed_at, e.effective_at, e.available_at, e.ingested_at) > d.created_at
+                or (e.expires_at and now >= e.expires_at)
+                or e.freshness_status != "FRESH"
+                or e.quality_score <= 0
+            ):
+                blockers.append("EVIDENCE_STALE_OR_UNAVAILABLE")
+        if thesis is None:
+            blockers.append("THESIS_MISSING")
+        elif d.action in {"BUY", "ADD"} and thesis.thesis_state not in {"VALID", "STRENGTHENING"}:
+            blockers.append("THESIS_NOT_VALID_FOR_INCREASE")
+        if thesis is not None:
+            parent_thesis = await session.get(InvestmentThesisRecord, thesis.thesis_id)
+            if parent_thesis is None or parent_thesis.instrument_id != d.instrument_id:
+                blockers.append("THESIS_REFERENCE_MISMATCH")
+        if d.created_at > now or d.next_review_at <= now:
+            blockers.append("DECISION_REVIEW_DUE")
+        committee = (
+            await session.get(CommitteeSessionRecord, d.committee_session_id)
+            if d.committee_session_id
+            else None
+        )
+        if (
+            committee is None
+            or committee.instrument_id != d.instrument_id
+            or committee.status != "COMPLETED"
+            or committee.input_snapshot_hash != d.input_snapshot_hash
+        ):
+            blockers.append("COMMITTEE_MISSING_OR_INCOMPLETE")
+        if risk is None or risk.session_id != d.committee_session_id or risk.expires_at <= now:
+            blockers.append("RISK_MISSING_OR_EXPIRED")
+        elif not risk.hard_flags_json and not risk.soft_flags_json:
+            blockers.append("RISK_UNKNOWN")
+        elif risk.hard_flags_json and not risk.veto:
+            blockers.append("RISK_VETO_INCONSISTENT")
+        elif risk.veto and (d.action in {"BUY", "ADD"} or _increases(d)):
+            blockers.append("RISK_VETO")
+        elif risk.veto and (
+            sizing is None or sizing.input_json.get("risk_reduction_exception_recorded") is not True
+        ):
+            blockers.append("RISK_REDUCTION_EXCEPTION_MISSING")
+        if policy is None:
+            blockers.append("POLICY_MISSING")
+        else:
+            try:
+                schema = InvestmentPolicySchema.model_validate_json(json.dumps(policy.config_json))
+                if (
+                    schema.metadata.status.value != "ACTIVE"
+                    or not policy.approved_by
+                    or not policy.approved_at
+                    or policy.approved_at > now
+                    or not policy.effective_from
+                    or policy.effective_from > now
+                ):
+                    blockers.append("POLICY_NOT_APPROVED")
+                parent = await session.get(InvestmentPolicyRecord, policy.policy_id)
+                if (
+                    parent is None
+                    or parent.current_version_id != policy.id
+                    or parent.status != "ACTIVE"
+                ):
+                    blockers.append("POLICY_CHANGED")
+                portfolio = await session.get(PortfolioRecord, d.portfolio_id)
+                if (
+                    portfolio is None
+                    or portfolio.status != "ACTIVE"
+                    or portfolio.policy_id != policy.policy_id
+                ):
+                    blockers.append("PORTFOLIO_POLICY_MISMATCH")
+            except (ValidationError, ValueError):
+                blockers.append("POLICY_INVALID")
+        quantity = None
+        if (
+            sizing is None
+            or sizing.instrument_id != d.instrument_id
+            or sizing.portfolio_id != d.portfolio_id
+            or sizing.policy_version_id != d.policy_version_id
+            or sizing.formula_version != d.formula_version
+        ):
+            blockers.append("SIZING_MISSING_OR_MISMATCH")
+        else:
+            try:
+                if policy is None or risk is None or thesis is None:
+                    raise ValueError("missing complete sizing lineage")
+                request = sizing_request(sizing, d, policy, risk, thesis)
+                if any(
+                    max(e.observed_at, e.effective_at, e.available_at, e.ingested_at)
+                    > request.risk_assessment.as_of.value
+                    for e in evidence
+                    if e.id in risk_ids
+                ):
+                    raise ValueError("risk evidence was unavailable at its evaluation")
+                delta = Decimal(str(sizing.output_json["delta_quantity"]))
+                quantity = abs(delta)
+                request_input = sizing.input_json.get("request")
+                if (
+                    not isinstance(request_input, dict)
+                    or request_input.get("action") != d.action
+                    or request_input.get("risk_intent") != d.risk_intent
+                ):
+                    raise ValueError("sizing action or intent mismatch")
+                if (
+                    d.action not in {"BUY", "ADD", "REDUCE", "EXIT"}
+                    or (d.action in {"BUY", "ADD"} and delta <= 0)
+                    or (d.action in {"REDUCE", "EXIT"} and delta >= 0)
+                ):
+                    raise ValueError("sizing direction mismatch")
+                if (
+                    not quantity.is_finite()
+                    or quantity <= 0
+                    or sizing.output_json["input_hash"] != sizing.input_hash
+                    or sizing.output_json["formula_version"] != sizing.formula_version
+                ):
+                    raise ValueError("invalid sizing result")
+                if sizing.input_json.get("ledger_hash") != await ledger_fingerprint(
+                    session, d.portfolio_id
+                ):
+                    blockers.append("PORTFOLIO_INPUT_CHANGED")
+                if Decimal(str(sizing.input_json["reference_price"])) <= 0:
+                    raise ValueError("missing reference price")
+            except (KeyError, ValueError, ArithmeticError, ValidationError, DomainError, TypeError):
+                quantity = None
+                blockers.append("SIZING_INPUT_INVALID")
+        strategy = (
+            await session.execute(
+                text("SELECT id, status, approved_by FROM strategy_version WHERE id=:id"),
+                {"id": d.strategy_version_id},
+            )
+        ).first()
+        if strategy is None or strategy.status != "ACTIVE" or not strategy.approved_by:
+            blockers.append("STRATEGY_NOT_APPROVED")
+        messages = (
+            await session.scalars(
+                select(CommitteeMessageRecord)
+                .where(CommitteeMessageRecord.session_id == d.committee_session_id)
+                .order_by(CommitteeMessageRecord.round_number, CommitteeMessageRecord.id)
+            )
+        ).all()
+        opinions: builtins.list[dict[str, object]] = []
+        valid_roles: set[str] = set()
+        for message in messages:
+            opinion = (
+                await session.get(AgentOpinionRecord, message.opinion_id)
+                if message.opinion_id
+                else None
+            )
+            if opinion is None:
+                continue
+            run = await session.get(AgentRunRecord, opinion.agent_run_id)
+            try:
+                if run is None or run.status != "SUCCEEDED" or run.agent_role != message.agent_role:
+                    raise ValueError("OPINION_RUN_INVALID")
+                structured = agent_opinion(opinion, run)
+                references = (
+                    {
+                        identifier
+                        for fact in structured.observations
+                        for identifier in fact.evidence_ids
+                    }
+                    | {identifier for fact in structured.risks for identifier in fact.evidence_ids}
+                    | {
+                        identifier
+                        for fact in structured.thesis_impacts
+                        for identifier in fact.evidence_ids
+                    }
+                )
+                if (
+                    opinion.instrument_id != d.instrument_id
+                    or run.input_snapshot_hash != d.input_snapshot_hash
+                    or not references
+                    or references != opinion_evidence.get(opinion.id, set())
+                    or run.ended_at is None
+                    or run.started_at > run.ended_at
+                    or run.ended_at > d.created_at
+                    or any(
+                        max(e.observed_at, e.effective_at, e.available_at, e.ingested_at)
+                        > run.started_at
+                        for e in evidence
+                        if e.id in references
+                    )
+                ):
+                    raise ValueError("OPINION_EVIDENCE_INVALID")
+                valid_roles.add(message.agent_role)
+            except (ValidationError, DomainError, ValueError, KeyError, TypeError):
+                blockers.append("COMMITTEE_OPINION_CONTENT_OR_EVIDENCE_INVALID")
+            opinions.append(
+                {
+                    "role": message.agent_role,
+                    "round": message.round_number,
+                    "opinion_id": str(opinion.id),
+                    "stance": opinion.stance,
+                    "confidence": str(opinion.confidence),
+                    "observations": opinion.observations_json,
+                    "assumptions": opinion.assumptions_json,
+                    "unknowns": opinion.unknowns_json,
+                    "model": run.model_name if run else None,
+                    "prompt_version": run.prompt_version if run else None,
+                }
+            )
+        if (
+            not {"MACRO", "INDUSTRY", "FUNDAMENTAL", "MARKET_QUANT", "EVENT", "DEVILS_ADVOCATE"}
+            <= valid_roles
+        ):
+            blockers.append("COMMITTEE_OPINIONS_MISSING_OR_INVALID")
+        lineage: dict[str, object] = {
+            "opinions": opinions,
+            "thesis_version_id": str(d.thesis_version_id) if d.thesis_version_id else None,
+            "thesis": {
+                "state": thesis.thesis_state,
+                "summary": thesis.summary,
+                "pillars": thesis.pillars_json,
+                "monitoring": thesis.monitoring_conditions_json,
+            }
+            if thesis
+            else None,
+            "committee_session_id": str(committee.id) if committee else None,
+            "committee_messages": [
+                {
+                    "round": message.round_number,
+                    "role": message.agent_role,
+                    "type": message.message_type,
+                    "opinion_id": str(message.opinion_id) if message.opinion_id else None,
+                    "payload": message.payload_json,
+                }
+                for message in (
+                    await session.scalars(
+                        select(CommitteeMessageRecord)
+                        .where(CommitteeMessageRecord.session_id == d.committee_session_id)
+                        .order_by(CommitteeMessageRecord.round_number, CommitteeMessageRecord.id)
+                    )
+                ).all()
+            ],
+            "policy_version_id": str(d.policy_version_id),
+            "strategy_version_id": str(d.strategy_version_id),
+            "risk_assessment_id": str(d.risk_assessment_id) if d.risk_assessment_id else None,
+            "risk_veto": risk.veto if risk else None,
+            "risk_codes": risk.veto_codes if risk else [],
+            "risk_expires_at": risk.expires_at.isoformat() if risk else None,
+            "sizing_run_id": str(sizing.id) if sizing else None,
+            "sizing_input": sizing.input_json if sizing else None,
+            "sizing_output": sizing.output_json if sizing else None,
+            "evidence": [
+                {
+                    "evidence_id": str(e.id),
+                    "source": e.source_name,
+                    "locator": e.source_locator,
+                    "available_at": e.available_at.isoformat(),
+                    "expires_at": e.expires_at.isoformat() if e.expires_at else None,
+                    "content_hash": e.content_hash,
+                }
+                for e in evidence
+            ],
+        }
+        return list(dict.fromkeys(blockers)), lineage, quantity
+
+    async def _action_time(
+        self,
+        session: AsyncSession,
+        decision: InvestmentDecisionRecord,
+        detail: CenterDetail,
+        action: str,
+        approval: DecisionApprovalRecord | None,
+    ) -> datetime:
+        """Linearize time authorization after all potentially suspended input reads."""
+        risk = (
+            await session.get(RiskAssessmentRecord, decision.risk_assessment_id)
+            if decision.risk_assessment_id
+            else None
+        )
+        policy = await session.get(InvestmentPolicyVersionRecord, decision.policy_version_id)
+        evidence = (
+            await session.scalars(
+                select(EvidenceRecord).where(
+                    EvidenceRecord.id.in_(
+                        [
+                            UUID(str(item["evidence_id"]))
+                            for item in cast(
+                                builtins.list[dict[str, object]], detail.lineage["evidence"]
+                            )
+                        ]
+                    )
+                )
+            )
+        ).all()
+        # All awaits are above this instant. Validate and write with this same timestamp.
+        now = self._now()
+        if action in {"APPROVE", "RECORD_EXECUTION"} and (
+            decision.created_at > now
+            or decision.next_review_at <= now
+            or risk is None
+            or risk.expires_at <= now
+            or not evidence
+            or any(e.expires_at is not None and e.expires_at <= now for e in evidence)
+            or policy is None
+            or policy.approved_at is None
+            or policy.approved_at > now
+            or policy.effective_from is None
+            or policy.effective_from > now
+        ):
+            raise ValueError("DECISION_ACTION_BLOCKED")
+        if action in {"REVOKE", "RECORD_EXECUTION"} and (
+            detail.approval_id is None
+            or detail.approval_expires_at is None
+            or detail.approval_expires_at <= now
+            or approval is None
+            or not _approval(approval).is_valid_at(UtcTimestamp(now))
+        ):
+            raise ValueError("DECISION_ACTION_BLOCKED")
+        return now
+
+    async def act(
+        self,
+        decision_id: UUID,
+        action: Literal["APPROVE", "REJECT", "REVOKE", "RECORD_EXECUTION"],
+        command: HumanCommand,
+    ) -> CenterDetail:
+        async with self._sessions() as session, session.begin():
+            await session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:request_id, 0))"),
+                {"request_id": str(command.request_id)},
+            )
+            # Serialize all commands for this immutable snapshot, including idempotent retries.
+            d = await session.get(InvestmentDecisionRecord, decision_id, with_for_update=True)
+            if d is None:
+                raise LookupError("DECISION_NOT_FOUND")
+            # Portfolio parent lock also blocks FK insertions of new positions while
+            # existing rows are locked below, closing the final ledger-check window.
+            await session.get(PortfolioRecord, d.portfolio_id, with_for_update=True)
+            await session.scalars(
+                select(PositionRecord)
+                .where(PositionRecord.portfolio_id == d.portfolio_id)
+                .order_by(PositionRecord.id)
+                .with_for_update()
+            )
+            policy = await session.get(InvestmentPolicyVersionRecord, d.policy_version_id)
+            if policy is not None:
+                await session.get(InvestmentPolicyRecord, policy.policy_id, with_for_update=True)
+            receipt = await session.get(DecisionCenterActionRecord, command.request_id)
+            digest = command_hash(action, command)
+            if receipt is not None:
+                if receipt.decision_id != d.id or receipt.command_hash != digest:
+                    raise ValueError("IDEMPOTENCY_CONFLICT")
+                return await self._detail(session, d)
+            detail = await self._detail(session, d)
+            if command.expected_revision != detail.decision.revision:
+                raise ValueError("DECISION_REVISION_CONFLICT")
+            if action not in detail.allowed_actions:
+                raise ValueError("DECISION_ACTION_BLOCKED")
+            # Finish every authorization read before choosing the action's timestamp.
+            # The detail is an expensive read model, never the final time authorization.
+            prior = (
+                await session.scalars(
+                    select(DecisionApprovalRecord)
+                    .where(DecisionApprovalRecord.decision_id == d.id)
+                    .order_by(DecisionApprovalRecord.created_at, DecisionApprovalRecord.id)
+                )
+            ).all()
+            sizing = (
+                await session.get(PositionSizingRunRecord, d.position_sizing_run_id)
+                if d.position_sizing_run_id
+                else None
+            )
+            record = (
+                await session.get(DecisionApprovalRecord, detail.approval_id)
+                if detail.approval_id
+                else None
+            )
+            now = await self._action_time(session, d, detail, action, record)
+            # No more database awaits before constructing the immutable fact at `now`.
+            actor, comment = clean_text(command.actor_id), clean_text(command.comment)
+            approval_id = execution_id = None
+            state = detail.decision.state
+            if action != "RECORD_EXECUTION":
+                ttl = None
+                if action == "APPROVE":
+                    assert policy is not None
+                    config = InvestmentPolicySchema.model_validate_json(
+                        json.dumps(policy.config_json)
+                    )
+                    ttl = UtcTimestamp(now + timedelta(hours=config.execution.approval_ttl_hours))
+                approval = DecisionApproval(
+                    decision_id=d.id,
+                    actor_id=actor,
+                    action=ApprovalAction(action),
+                    occurred_at=UtcTimestamp(now),
+                    expires_at=ttl,
+                    comment=comment,
+                )
+                approval_id = approval.id
+                history = DecisionApprovalHistory(
+                    d.id, (*(_history(prior).records if prior else ()), approval)
+                )
+                target = {
+                    "APPROVE": DecisionState.APPROVED,
+                    "REJECT": DecisionState.REJECTED,
+                    "REVOKE": DecisionState.CANCELLED,
+                }[action]
+                transition_decision(
+                    DecisionState(state),
+                    target,
+                    approval_transition_context(
+                        action=Action(d.action), history=history, as_of=UtcTimestamp(now)
+                    ),
+                    reason_codes=("EXPLICIT_HUMAN_ACTION",),
+                    occurred_at=UtcTimestamp(now),
+                )
+                state = target.value
+                session.add(
+                    DecisionApprovalRecord(
+                        id=approval.id,
+                        decision_id=d.id,
+                        actor_id=actor,
+                        action=action,
+                        comment=comment,
+                        expires_at=ttl.value if ttl else None,
+                        created_at=now,
+                        created_by=actor,
+                        correlation_id=command.request_id,
+                        metadata_json={},
+                    )
+                )
+            else:
+                if not isinstance(command, ManualExecutionCommand):
+                    raise ValueError("MANUAL_COMMAND_REQUIRED")
+                assert (
+                    detail.approved_quantity is not None and detail.remaining_quantity is not None
+                )
+                if (
+                    command.approval_id != detail.approval_id
+                    or command.quantity > detail.remaining_quantity
+                ):
+                    raise ValueError("APPROVAL_OR_QUANTITY_MISMATCH")
+                assert record is not None
+                approval = _approval(record)
+                when = command.executed_at.astimezone(UTC)
+                if when > now or not approval.is_valid_at(UtcTimestamp(when)):
+                    raise ValueError("EXECUTION_TIME_INVALID")
+                assert sizing is not None
+                # No approved tolerance exists in V1 policy: only the exact approved reference.
+                if command.price != Decimal(str(sizing.input_json["reference_price"])):
+                    raise ValueError("PRICE_DRIFT_REQUIRES_NEW_DECISION")
+                execution = DecisionExecution(
+                    decision_id=d.id,
+                    approval=approval,
+                    mode=ExecutionMode.MANUAL,
+                    status=ExecutionStatus.FILLED
+                    if command.quantity == detail.remaining_quantity
+                    else ExecutionStatus.PARTIAL,
+                    requested_quantity=Quantity(detail.remaining_quantity),
+                    filled_quantity=Quantity(command.quantity),
+                    recorded_at=UtcTimestamp(now),
+                    average_price=command.price,
+                    external_references=(clean_text(command.external_reference),),
+                )
+                execution_id, approval_id = execution.id, approval.id
+                state = (
+                    "EXECUTED"
+                    if command.quantity == detail.remaining_quantity
+                    else "PARTIALLY_EXECUTED"
+                )
+                context = approval_transition_context(
+                    action=Action(d.action),
+                    history=DecisionApprovalHistory(d.id, (approval,)),
+                    as_of=UtcTimestamp(now),
+                    input_snapshot_matches=True,  # Recomputed ledger hash matched above.
+                    price_within_tolerance=True,  # Exact approved reference matched above.
+                )
+                current = DecisionState(detail.decision.state)
+                if current is DecisionState.APPROVED:
+                    transition_decision(
+                        current,
+                        DecisionState.EXECUTION_PENDING,
+                        context,
+                        reason_codes=("EXPLICIT_MANUAL_FACT",),
+                        occurred_at=UtcTimestamp(now),
+                    )
+                    current = DecisionState.EXECUTION_PENDING
+                if current.value != state:
+                    transition_decision(
+                        current,
+                        DecisionState(state),
+                        replace(context, execution_recorded=True),
+                        reason_codes=("EXPLICIT_MANUAL_FACT",),
+                        occurred_at=UtcTimestamp(now),
+                    )
+                session.add(
+                    DecisionExecutionRecord(
+                        id=execution.id,
+                        decision_id=d.id,
+                        approval_id=approval.id,
+                        execution_mode="MANUAL",
+                        status=execution.status.value,
+                        requested_quantity=execution.requested_quantity.value,
+                        filled_quantity=execution.filled_quantity.value,
+                        avg_price=execution.average_price,
+                        external_refs_json=list(execution.external_references),
+                        created_at=now,
+                        created_by=actor,
+                        correlation_id=command.request_id,
+                        metadata_json={},
+                    )
+                )
+                await session.flush()
+                session.add(
+                    ManualExecutionDetailRecord(
+                        execution_id=execution.id,
+                        fees=command.fees,
+                        executed_at=when,
+                        note=clean_text(command.note),
+                    )
+                )
+            await session.flush()
+            session.add(
+                DecisionCenterActionRecord(
+                    id=command.request_id,
+                    decision_id=d.id,
+                    revision=detail.decision.revision + 1,
+                    action=action,
+                    resulting_state=state,
+                    actor_id=actor,
+                    comment=comment,
+                    command_hash=digest,
+                    approval_id=approval_id,
+                    execution_id=execution_id,
+                    occurred_at=now,
+                )
+            )
+            event_id = uuid4()
+            payload = {
+                "decision_id": str(d.id),
+                "action": action,
+                "revision": detail.decision.revision + 1,
+                "state": state,
+                "auto_trade": False,
+                "broker_submitted": False,
+            }
+            session.add(
+                EventLogRecord(
+                    id=event_id,
+                    event_type="DECISION_HUMAN_ACTION",
+                    aggregate_type="InvestmentDecision",
+                    aggregate_id=d.id,
+                    payload_json=payload,
+                    occurred_at=now,
+                    correlation_id=command.request_id,
+                    created_by=actor,
+                )
+            )
+            await session.flush()
+            session.add(
+                OutboxEventRecord(
+                    id=uuid4(),
+                    event_id=event_id,
+                    topic="decision.human-action",
+                    payload_json=payload,
+                    created_by=actor,
+                    correlation_id=command.request_id,
+                )
+            )
+            session.add(
+                AuditLogRecord(
+                    id=uuid4(),
+                    actor_type="HUMAN",
+                    actor_id=actor,
+                    operation=action,
+                    entity_type="InvestmentDecision",
+                    entity_id=d.id,
+                    before_hash=d.content_hash,
+                    after_hash=digest,
+                    ip_or_runtime_ref="decision-center",
+                    occurred_at=now,
+                    correlation_id=command.request_id,
+                    created_by=actor,
+                )
+            )
+            await session.flush()
+            return await self._detail(session, d)
+
+
+def _increases(d: InvestmentDecisionRecord) -> bool:
+    try:
+        return Decimal(str(d.position_after_proposed_json["total"])) > Decimal(
+            str(d.position_before_json["total"])
+        )
+    except (KeyError, ValueError, ArithmeticError):
+        return True
+
+
+async def _execution_read(
+    session: AsyncSession, execution: DecisionExecutionRecord
+) -> dict[str, object]:
+    extra = await session.get(ManualExecutionDetailRecord, execution.id)
+    return {
+        "execution_id": str(execution.id),
+        "approval_id": str(execution.approval_id),
+        "mode": execution.execution_mode,
+        "quantity": str(execution.filled_quantity),
+        "price": str(execution.avg_price) if execution.avg_price is not None else None,
+        "references": execution.external_refs_json,
+        "status": execution.status,
+        "fees": str(extra.fees) if extra else None,
+        "executed_at": extra.executed_at.isoformat() if extra else None,
+        "note": extra.note if extra else None,
+    }
+
+
+def _approval(record: DecisionApprovalRecord) -> DecisionApproval:
+    return DecisionApproval(
+        id=record.id,
+        decision_id=record.decision_id,
+        actor_id=record.actor_id,
+        action=ApprovalAction(record.action),
+        occurred_at=UtcTimestamp(record.created_at),
+        expires_at=UtcTimestamp(record.expires_at) if record.expires_at else None,
+        comment=record.comment,
+    )
+
+
+def _history(records: Sequence[DecisionApprovalRecord]) -> DecisionApprovalHistory:
+    return DecisionApprovalHistory(records[0].decision_id, tuple(_approval(r) for r in records))
