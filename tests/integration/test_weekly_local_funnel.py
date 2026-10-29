@@ -346,3 +346,70 @@ async def test_production_weekly_composition_never_uses_http_or_consumes_researc
             )
             == 0
         )
+
+
+async def test_late_failure_after_rollback_preserves_successful_weekly_task_and_unique_result(
+    database_engine, monkeypatch
+):
+    sessions, service, store, _, config, _ = await setup(database_engine, monkeypatch)
+    await enable(store, config)
+    rolled_back, release_failure = asyncio.Event(), asyncio.Event()
+    original_prepare = service.prepare_run
+    original_record_failure = ReliableJobExecutor._record_failure
+    calls = 0
+
+    class FirstWeeklyHandlerFailed(RuntimeError):
+        pass
+
+    async def fail_a_then_prepare_b(query):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise FirstWeeklyHandlerFailed("synthetic handler A failed before any commit")
+        return await original_prepare(query)
+
+    async def delay_only_a_failure(self, **kwargs):
+        if kwargs["error_type"] == "FirstWeeklyHandlerFailed":
+            # execute() exits its UOW before this hook: A's rollback released the advisory lock.
+            rolled_back.set()
+            await release_failure.wait()
+        await original_record_failure(self, **kwargs)
+
+    monkeypatch.setattr(service, "prepare_run", fail_a_then_prepare_b)
+    monkeypatch.setattr(ReliableJobExecutor, "_record_failure", delay_only_a_failure)
+    runner = WeeklyFunnelRunner(sessions, service)
+    a = asyncio.create_task(runner.dispatch_due(now=MONDAY))
+    try:
+        await asyncio.wait_for(rolled_back.wait(), 10)
+        assert len(await runner.dispatch_due(now=MONDAY)) == 1  # B obtains the real DB lock.
+        async with sessions() as session:
+            winner = (await session.scalars(select(TaskRunRecord))).one()
+            before = (winner.id, winner.status, winner.attempt, winner.input_hash)
+            assert before[1:3] == ("SUCCEEDED", 1)
+    finally:
+        release_failure.set()
+        await asyncio.wait_for(a, 10)
+    async with sessions() as session:
+        task = (await session.scalars(select(TaskRunRecord))).one()
+        assert (task.id, task.status, task.attempt, task.input_hash) == before
+        assert task.error_json is None
+        assert await session.scalar(select(func.count()).select_from(WeeklyResultRecord)) == 1
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(EventLogRecord)
+                .where(EventLogRecord.event_type == "weekly.completed")
+            )
+            == 1
+        )
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(OutboxEventRecord)
+                .where(OutboxEventRecord.topic == "weekly.completed")
+            )
+            == 1
+        )
+    assert (await store.overview()).recent_runs[0].status == "COMPLETE"
+    assert await runner.dispatch_due(now=MONDAY) == ()
+    assert calls == 2  # No third prepare or retry against an already committed weekly result.

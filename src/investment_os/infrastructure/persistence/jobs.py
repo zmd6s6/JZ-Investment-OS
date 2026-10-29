@@ -131,6 +131,17 @@ class ReliableJobExecutor:
             )
             if not locked:
                 return
+            # The handler transaction has already rolled back and released its lock. Another
+            # executor may have committed the same key before this failure transaction acquired
+            # it. Re-read under the new lock; late bookkeeping must not regress a winner, change
+            # its input identity, or consume attempts beyond the configured retry boundary.
+            existing = await uow.task_runs.get_by_idempotency_key(idempotency_key)
+            if existing is not None and (
+                existing.input_hash != input_hash
+                or existing.status == "SUCCEEDED"
+                or existing.attempt >= self._max_attempts
+            ):
+                return
             task_run = await uow.task_runs.start_or_retry(
                 task_name=task_name,
                 scheduled_for=scheduled_for,
