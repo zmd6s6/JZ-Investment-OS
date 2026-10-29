@@ -11,7 +11,7 @@
 
 ## 2. 每轮 Developer 具体操作
 
-1. 读取 `INVESTMENT_OS_MASTER_SPEC.md`、`AGENTS.md`、`PROJECT_STATUS.md`、Release/Queue、本手册、相关 Stage/ADR；查询最新 Release HEAD 与开放 PR。
+1. 读取 `INVESTMENT_OS_MASTER_SPEC.md`、`AGENTS.md`、`docs/PROJECT_STATUS.md`、Release/Queue、本手册、相关 Stage/ADR；查询最新 Release HEAD 与开放 PR。
 2. 优先回到自己已有的 Claim / PR 处理可执行的 P0/P1 审查反馈；无反馈且存在未领取 READY 时，按优先级与真实依赖领取，Claim 分支使用 `agent/<WORK_ITEM_ID>`。严禁拿 PR 内尚未合入的条件状态作为 Release READY。
 3. 明确最小完整纵切：入口→操作→数据→结果→失败表现；先识别 `Risk Veto`、确定性规则、`TEST_DEFAULT`、历史、成本授权、`auto_trade=false` 的失败关闭边界。
 4. 实现功能和具名回归，先聚焦检查，再完整 required CI；需要时对真实 API/PG/Worker/UI 做隔离合成 E2E。任何无法执行的验证列为 `NOT VERIFIED`。
