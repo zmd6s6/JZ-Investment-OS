@@ -188,6 +188,10 @@ class SqlDailyRuntimeStore:
             )
             if (record.version if record else 0) != command.expected_version:
                 raise DailyError("DAILY_VERSION_CONFLICT")
+            # REVOKE is terminal for a schedule ID. A new SAVE must not clear it:
+            # a fresh authorization requires a fresh schedule_id and explicit consent.
+            if record is not None and record.revoked:
+                raise DailyError("DAILY_AUTHORIZATION_REVOKED")
             if prepared.input_hash != fingerprint(
                 prepared.model_dump(mode="json", exclude={"input_hash"})
             ):
