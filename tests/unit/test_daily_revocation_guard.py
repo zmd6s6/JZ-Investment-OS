@@ -62,11 +62,13 @@ async def test_save_cannot_resurrect_revoked_schedule(expected_version: int, exp
     store = SqlDailyRuntimeStore(lambda: session, setup)
     store._replay = AsyncMock(return_value=None)
 
-    with patch(
-        "investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock
-    ) as lock:
-        with pytest.raises(DailyError, match=expected_error):
-            await store.save(prepared)
+    with (
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock
+        ) as lock,
+        pytest.raises(DailyError, match=expected_error),
+    ):
+        await store.save(prepared)
 
     assert session.get_count == 1
     assert lock.await_count == 2
