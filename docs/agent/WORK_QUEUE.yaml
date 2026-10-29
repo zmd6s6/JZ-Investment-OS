@@ -140,6 +140,84 @@ work_items:
       route: /decisions
       expected: Owner can process a Decision entirely through UI while Risk Veto remains non-overridable.
 
+
+  # 下列为新的未完成开发工作项，仅在本流程PR真正合入Release后生效。
+  # READY表示可领取做工程，不代表真实策略/市场数据/成本已获Owner授权。
+  - id: MVP-205
+    title: Deterministic Risk and Sizing closeout for AnalysisRun
+    priority: 0
+    status: READY
+    stage: PRODUCT-06
+    checkpoint: B
+    depends_on:
+      - MVP-202
+      - MVP-203
+      - MVP-204
+    scope:
+      - Connect evidence-qualified and as-of valuation context to deterministic RiskAssessment and PositionSizingRun through application ports, retaining immutable linkage.
+      - Cover price, NAV, weights, concentration, volatility, liquidity, FX, available_at, policy version and Core/Tactical boundaries; unknown inputs must fail closed.
+      - Never infer missing numbers with LLM; TEST_DEFAULT or unapproved Policy must not create an approvable investment Decision.
+      - Keep existing shadow-only outcomes until every governance and input gate is valid; no broker or automatic order path.
+    acceptance:
+      route: /analysis
+      expected: Owner can inspect the numeric input, policy version, named Risk/Veto reasons and sizing block or deterministic result; missing inputs and veto must visibly prevent risk-increasing approval.
+
+  - id: MVP-206
+    title: Traceable InvestmentDecision and human approval bridge
+    priority: 0
+    status: BLOCKED
+    stage: PRODUCT-06
+    checkpoint: B
+    depends_on:
+      - MVP-205
+      - MVP-301
+    scope:
+      - Persist a strictly validated and immutable Evidence-to-Decision chain, with deterministic Risk/Sizing and policy versions; connect it to the existing Decision Center.
+      - Produce approvable Decisions only when an explicitly authorized non-TEST_DEFAULT Policy and all evidence, valuation, risk, sizing, TTL and human gates are satisfied.
+      - In owner-unauthorized or incomplete configurations remain shadow or BLOCKED; exercise the complete valid path with synthetic fixtures, not a fake real-policy success.
+      - Reject veto, stale evidence, invalid references, idempotency collisions and approval expiry; no auto approval or order submission.
+    acceptance:
+      routes:
+        - /analysis
+        - /decisions
+      expected: Owner sees an honest trace from analysis to eligible Decision or a concrete block reason; synthetic E2E proves human approve/reject/revoke only for fully valid fixtures, while unapproved real settings remain blocked.
+
+  - id: MVP-403
+    title: Owner-controlled daily shadow runtime and report
+    priority: 1
+    status: READY
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on:
+      - MVP-203
+      - MVP-204
+      - MVP-401
+    scope:
+      - Build durable paused-by-default daily tasks, authorized portfolio/watchlist freshness checks, evidence change summary, shadow analysis trigger and readable daily run report.
+      - No external provider/model requests without explicit per-profile authorization, cost budget and owner-controlled enablement; synthetic tests and local status-only paths remain usable without authorization.
+      - Preserve calendar as-of, idempotency, bounded retries, failure/degraded explanations and append-only history; never submit or record broker orders.
+    acceptance:
+      routes:
+        - /calendar
+        - /acceptance
+      expected: Owner can inspect, explicitly enable or pause permitted runs, see daily outcome/action-required/hold-watch/veto/degraded fields, and understand why an unauthorized or missing-data task did not run.
+
+  - id: MVP-404
+    title: Monthly portfolio review and report E2E
+    priority: 2
+    status: BLOCKED
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on:
+      - MVP-403
+    scope:
+      - Reuse traceable snapshot, evidence-diff, Risk and Decision reads for an append-only monthly portfolio review and scheduling history.
+      - Report unknown and missing states explicitly without issuing new trades or activating policies.
+      - Verify rerun, expiry, version conflict, budget, pause, calendar and failure recovery on real API/DB/Worker with synthetic inputs.
+    acceptance:
+      route: /calendar
+      expected: Owner can open a reproducible monthly report with dated sources, holdings, changes, risks, unknowns and recovery guidance without developer tooling.
+
   - id: MVP-401
     title: Product calendar source and autonomous worker runtime
     priority: 1
@@ -187,9 +265,13 @@ work_items:
     depends_on:
       - MVP-101
       - MVP-204
+      - MVP-205
+      - MVP-206
       - MVP-301
       - MVP-401
       - MVP-402
+      - MVP-403
+      - MVP-404
     scope:
       - Fresh install and full browser E2E.
       - Map BETA_ACCEPTANCE requirements to evidence.
