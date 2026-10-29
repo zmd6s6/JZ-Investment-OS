@@ -312,27 +312,32 @@ class SqlOpportunityStore:
             raise OpportunityError("RUN_SNAPSHOT_INVALID") from None
 
     async def save_run(self, run: FunnelRun) -> FunnelRun:
-        fingerprint = digest(run.query.model_dump(mode="json"))
         async with SqlAlchemyUnitOfWork(self._sessions) as uow:
-            await self._lock(uow, "opportunity-funnel-run", run.run_id)
-            previous = await self._receipt(uow, "opportunity_funnel_run", run.run_id)
-            if previous:
-                if previous.payload_json["request_hash"] != fingerprint:
-                    raise OpportunityError("REQUEST_CONTENT_CONFLICT")
-                return self._read_run(previous)
-            raw = run.model_dump(mode="json")
-            snapshot_hash = digest(raw)
-            await self._audit_event(
-                uow,
-                kind="opportunity_funnel_run",
-                identifier=run.run_id,
-                operation="OPPORTUNITY_FUNNEL_RECORDED",
-                payload={"request_hash": fingerprint, "snapshot_hash": snapshot_hash, "run": raw},
-                content_hash=snapshot_hash,
-                now=self._now(),
-            )
+            result = await self.save_run_in(uow, run)
             await uow.commit()
-            return run
+            return result
+
+    async def save_run_in(self, uow: SqlAlchemyUnitOfWork, run: FunnelRun) -> FunnelRun:
+        """Persist using the caller transaction; never commit a scheduled partial effect."""
+        fingerprint = digest(run.query.model_dump(mode="json"))
+        await self._lock(uow, "opportunity-funnel-run", run.run_id)
+        previous = await self._receipt(uow, "opportunity_funnel_run", run.run_id)
+        if previous:
+            if previous.payload_json["request_hash"] != fingerprint:
+                raise OpportunityError("REQUEST_CONTENT_CONFLICT")
+            return self._read_run(previous)
+        raw = run.model_dump(mode="json")
+        snapshot_hash = digest(raw)
+        await self._audit_event(
+            uow,
+            kind="opportunity_funnel_run",
+            identifier=run.run_id,
+            operation="OPPORTUNITY_FUNNEL_RECORDED",
+            payload={"request_hash": fingerprint, "snapshot_hash": snapshot_hash, "run": raw},
+            content_hash=snapshot_hash,
+            now=self._now(),
+        )
+        return run
 
     async def get_run(self, run_id: UUID) -> FunnelRun | None:
         async with SqlAlchemyUnitOfWork(self._sessions) as uow:

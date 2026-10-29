@@ -1,0 +1,4 @@
+.weekly-funnel { min-width: 0; overflow-wrap: anywhere; }
+.weekly-funnel fieldset, .weekly-funnel .field { min-width: 0; }
+.weekly-funnel input, .weekly-funnel select { min-width: 0; max-width: 100%; }
+.weekly-funnel .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }

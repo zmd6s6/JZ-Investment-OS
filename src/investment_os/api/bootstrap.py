@@ -13,6 +13,7 @@ from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.opportunities import OpportunityService
 from investment_os.application.opportunity_research import OpportunityResearchService
+from investment_os.application.opportunity_schedule import WeeklyService
 from investment_os.application.portfolio_book import PortfolioBookService
 from investment_os.application.portfolio_valuation import PortfolioValuationService
 from investment_os.application.provider_settings import ProviderSettingsService
@@ -43,6 +44,7 @@ from investment_os.infrastructure.onboarding import (
 from investment_os.infrastructure.openai_compatible_llm import OpenAICompatibleLLMGateway
 from investment_os.infrastructure.opportunities import LocalExplicitUniverse, SqlOpportunityStore
 from investment_os.infrastructure.opportunity_research import SqlCandidateResearchStore
+from investment_os.infrastructure.opportunity_schedule import SqlWeeklyFunnel
 from investment_os.infrastructure.portfolio_valuation import SqlValuationInputs
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
@@ -117,6 +119,7 @@ def create_production_app() -> FastAPI:
             SqlAnalysisChoices(session_factory), provider_settings_service, budget_service
         ),
         opportunity_service=opportunities,
+        weekly_funnel_service=WeeklyService(SqlWeeklyFunnel(session_factory)),
         opportunity_research_service=OpportunityResearchService(
             opportunities,
             SqlCandidateResearchStore(session_factory),

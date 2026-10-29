@@ -424,6 +424,11 @@ class OpportunityService:
         replay = await self._runs.replay(query)
         if replay:
             return replay
+        result = await self.prepare_run(query)
+        return await self._runs.save_run(result)
+
+    async def prepare_run(self, query: FunnelQuery) -> FunnelRun:
+        """Read and compute only; a scheduler can commit the result in its own UOW."""
         if query.as_of > self._now():
             raise OpportunityError("FUTURE_AS_OF_NOT_ALLOWED")
         entries = await self._universe.resolve(query.instrument_ids)
@@ -530,7 +535,7 @@ class OpportunityService:
             rows=tuple(bounded),
             candidate_ids=candidates,
         )
-        return await self._runs.save_run(result)
+        return result
 
     async def get_run(self, run_id: UUID) -> FunnelRun | None:
         return await self._runs.get_run(run_id)

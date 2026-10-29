@@ -164,12 +164,13 @@ work_items:
     status: REVIEW
     claim_branch: agent/MVP-402
     claim_owner: pr-02-review-and-next-stage-monitor / mvp402_resume
-    # 有限范围切片已入PR25；续接单候选显式研究，整体仍PARTIAL，非完整P8或Checkpoint接受。
+    # PR25/29有限切片已集成；续接默认暂停/零外部调用的本地周筛选，整体仍PARTIAL。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:
       - MVP-201
       - MVP-203
+      - MVP-401
     scope:
       - universe to deterministic filters to bounded candidates to deep research.
       - Never strong-model fan-out across full market.

@@ -29,6 +29,7 @@ from investment_os.application.market_data import MarketDataService
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.opportunities import OpportunityService
 from investment_os.application.opportunity_research import OpportunityResearchService
+from investment_os.application.opportunity_schedule import WeeklyService
 from investment_os.application.portfolio_book import (
     PortfolioBookService,
     PortfolioPositionInput,
@@ -81,6 +82,7 @@ from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, T
 
 from .market_routes import market_router
 from .opportunity_routes import opportunity_router
+from .opportunity_schedule_routes import weekly_router
 from .schemas import (
     CsvImportCommitResponse,
     CsvImportPreviewResponse,
@@ -363,6 +365,7 @@ def create_app(
     valuation_service: PortfolioValuationService | None = None,
     opportunity_service: OpportunityService | None = None,
     opportunity_research_service: OpportunityResearchService | None = None,
+    weekly_funnel_service: WeeklyService | None = None,
     analysis_start: AnalysisStartService | None = None,
     analysis_store: AnalysisStorePort | None = None,
     analysis_choices: AnalysisChoicesService | None = None,
@@ -465,6 +468,7 @@ def create_app(
         opportunity_router(opportunity_service, opportunity_research_service)
     )
     application.include_router(analysis_router(analysis_start, analysis_store, analysis_choices))
+    application.include_router(weekly_router(weekly_funnel_service))
     application.include_router(decision_center_router(decision_center))
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
@@ -570,6 +574,7 @@ def create_app(
             valuation=valuation_service is not None,
             opportunities=opportunity_service is not None,
             opportunity_research=opportunity_research_service is not None,
+            weekly_funnel=weekly_funnel_service is not None,
             analysis=analysis_start is not None
             and analysis_store is not None
             and analysis_choices is not None,
