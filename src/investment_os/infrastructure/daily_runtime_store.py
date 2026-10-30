@@ -208,6 +208,14 @@ class SqlDailyRuntimeStore:
             if calendar.content_hash != prepared.calendar_hash:
                 raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
             await self.setup.verify_profiles(prepared, datetime.now(UTC))
+            # Profile/budget verification may await while another transaction
+            # changes the current portfolio membership or calendar import.
+            # A saved (even paused) authorization must not freeze stale scope.
+            if await capture_scope(session, command, lock=True) != prepared.members:
+                raise DailyError("DAILY_SCOPE_CHANGED_DURING_CONFIRMATION")
+            calendar, _ = await capture_calendar(session, command, lock=True)
+            if calendar.content_hash != prepared.calendar_hash:
+                raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
             revision_id = uuid4()
             if record is None:
                 record = DailyConfigurationRecord(
