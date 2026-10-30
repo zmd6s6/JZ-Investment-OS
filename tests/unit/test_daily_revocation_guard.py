@@ -369,3 +369,143 @@ async def test_enable_unchanged_scope_and_calendar_after_profile_await_succeeds(
     assert session.record.enabled is True
     assert session.record.enabled_since is not None
     assert session.record.version == 8
+
+
+@pytest.mark.parametrize(
+    ("scope_drift", "calendar_drift", "expected_error"),
+    [
+        (True, False, "DAILY_SCOPE_CHANGED_DURING_CONFIRMATION"),
+        (False, True, "DAILY_CALENDAR_CHANGED_OR_MISSING"),
+    ],
+)
+async def test_save_rechecks_scope_and_calendar_after_awaited_profile_verification(
+    scope_drift: bool, calendar_drift: bool, expected_error: str
+):
+    """A paused revision must not persist an authorization invalidated during an await."""
+    session = _RevokedSession(version=7)
+    session.record.revoked = False
+    schedule_id, request_id = uuid4(), uuid4()
+    command = SimpleNamespace(
+        schedule_id=schedule_id,
+        request_id=request_id,
+        expected_version=7,
+        model_dump=lambda *, mode: {"schedule_id": str(schedule_id)},
+    )
+    prepared = SimpleNamespace(
+        command=command,
+        members=(),
+        calendar_hash="a" * 64,
+        input_hash="c" * 64,
+        model_dump=lambda *, mode, exclude: {},
+    )
+    setup = SimpleNamespace(verify_profiles=AsyncMock())
+    store = SqlDailyRuntimeStore(lambda: session, setup)
+    store._replay = AsyncMock(return_value=None)
+    drifted_scope = (SimpleNamespace(instrument_id=uuid4()),) if scope_drift else ()
+    calendar_before = SimpleNamespace(content_hash=prepared.calendar_hash)
+    calendar_after = SimpleNamespace(
+        content_hash="b" * 64 if calendar_drift else prepared.calendar_hash
+    )
+
+    with (
+        patch("investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock),
+        patch("investment_os.infrastructure.daily_runtime_store.fingerprint", return_value="c" * 64),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_scope",
+            new_callable=AsyncMock,
+            side_effect=[(), drifted_scope],
+        ) as capture_members,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_calendar",
+            new_callable=AsyncMock,
+            side_effect=[(calendar_before, ()), (calendar_after, ())],
+        ) as capture_sessions,
+        pytest.raises(DailyError, match=expected_error),
+    ):
+        await store.save(prepared)
+
+    assert capture_members.await_count == 2
+    assert capture_sessions.await_count == (1 if scope_drift else 2)
+    setup.verify_profiles.assert_awaited_once()
+    assert session.record.version == 7
+    assert session.record.revoked is False
+
+
+async def test_save_unchanged_scope_and_calendar_after_profile_await_persists_paused_revision():
+    """A stable frozen scope still saves as paused; the extra checks are not a false veto."""
+    from datetime import date
+    from unittest.mock import MagicMock
+
+    session = _RevokedSession(version=7)
+    schedule_id, request_id = uuid4(), uuid4()
+    session.record.id = schedule_id
+    session.record.revision_id = uuid4()
+    session.record.revoked = False
+    session.record.enabled = True
+    session.record.enabled_since = datetime.now(UTC)
+    session.add = MagicMock()
+    session.add_all = MagicMock()
+    session.flush = AsyncMock()
+    now = datetime.now(UTC)
+    command = SimpleNamespace(
+        schedule_id=schedule_id,
+        request_id=request_id,
+        expected_version=7,
+        mode="LOCAL_STATUS_ONLY",
+        market="SSE",
+        portfolio_id=uuid4(),
+        calendar_import_id=uuid4(),
+        coverage_start=date(2026, 10, 30),
+        coverage_end=date(2026, 10, 31),
+        valid_from=now - timedelta(days=1),
+        valid_until=now + timedelta(days=1),
+        retention_days=7,
+        model_dump=lambda *, mode: {"schedule_id": str(schedule_id)},
+    )
+    prepared = SimpleNamespace(
+        command=command,
+        members=(),
+        calendar_hash="a" * 64,
+        input_hash="c" * 64,
+        model_dump=lambda *, mode, exclude=None: {},
+    )
+    setup = SimpleNamespace(verify_profiles=AsyncMock())
+    store = SqlDailyRuntimeStore(lambda: session, setup)
+    store._replay = AsyncMock(return_value=None)
+    receipt = SimpleNamespace(model_dump=lambda *, mode: {"enabled": False})
+    with (
+        patch("investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock),
+        patch("investment_os.infrastructure.daily_runtime_store.fingerprint", return_value="c" * 64),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_scope",
+            new_callable=AsyncMock,
+            return_value=(),
+        ) as capture_members,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_calendar",
+            new_callable=AsyncMock,
+            return_value=(SimpleNamespace(content_hash=prepared.calendar_hash), ()),
+        ) as capture_sessions,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.configuration",
+            new_callable=AsyncMock,
+            return_value=receipt,
+        ),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.emit",
+            new_callable=AsyncMock,
+        ) as emit,
+    ):
+        result = await store.save(prepared)
+
+    assert result is receipt
+    assert capture_members.await_count == 2
+    assert capture_sessions.await_count == 2
+    setup.verify_profiles.assert_awaited_once()
+    assert session.record.version == 8
+    assert session.record.enabled is False
+    assert session.record.enabled_since is None
+    assert session.record.revoked is False
+    session.add.assert_called()
+    session.flush.assert_awaited()
+    emit.assert_awaited_once()
