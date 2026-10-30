@@ -1,13 +1,22 @@
 """Revocation is terminal: saving a new revision cannot resurrect the same daily schedule."""
 
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 
-from investment_os.application.daily_runtime import DailyError, DailyMode
-from investment_os.infrastructure.daily_runtime_store import SqlDailyRuntimeStore
+from investment_os.application.daily_runtime import (
+    DailyError,
+    DailyMode,
+    DailyPrepared,
+    DailySave,
+)
+from investment_os.infrastructure.daily_runtime_store import (
+    SqlDailyRuntimeStore,
+    configuration,
+)
 
 
 class _RevokedSession:
@@ -111,3 +120,115 @@ async def test_revoked_schedule_rejects_fresh_mode_commands_without_writes(
     setup.verify_profiles.assert_not_awaited()
     assert session.record.version == 7
     assert session.record.revoked is True
+
+
+async def test_enable_expiring_during_awaited_profile_check_is_rejected_without_writes():
+    """A valid initial clock check must not permit an ENABLE after its expiry."""
+    session = _RevokedSession(version=7)
+    session.record.revoked = False
+    session.record.enabled = False
+    session.record.enabled_since = None
+    now = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
+    expiry = now + timedelta(seconds=1)
+    prepared = SimpleNamespace(
+        command=SimpleNamespace(
+            valid_from=now - timedelta(days=1), valid_until=expiry
+        ),
+        members=(),
+        calendar_hash="a" * 64,
+    )
+    setup = SimpleNamespace(verify_profiles=AsyncMock())
+    store = SqlDailyRuntimeStore(lambda: session, setup)
+    store._replay = AsyncMock(return_value=None)
+    command = DailyMode(
+        request_id=uuid4(),
+        expected_version=7,
+        action="ENABLE",
+        confirmed=True,
+    )
+
+    with (
+        patch("investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock)
+        as lock,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.read_prepared",
+            new_callable=AsyncMock,
+            return_value=prepared,
+        ),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_scope",
+            new_callable=AsyncMock,
+            return_value=(),
+        ),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_calendar",
+            new_callable=AsyncMock,
+            return_value=(SimpleNamespace(content_hash=prepared.calendar_hash), ()),
+        ),
+        patch("investment_os.infrastructure.daily_runtime_store.datetime") as clock,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.emit", new_callable=AsyncMock
+        ) as emit,
+        pytest.raises(DailyError, match="DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID"),
+    ):
+        clock.now.side_effect = [now, expiry]
+        await store.mode(uuid4(), command)
+
+    assert clock.now.call_count == 2
+    assert lock.await_count == 2
+    setup.verify_profiles.assert_awaited_once()
+    emit.assert_not_awaited()
+    assert session.record.enabled is False
+    assert session.record.enabled_since is None
+    assert session.record.version == 7
+
+
+@pytest.mark.parametrize(
+    ("start_offset", "end_offset", "enabled", "revoked", "expected"),
+    [
+        (1, 2, True, False, "DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID"),
+        (-2, 0, True, False, "DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID"),
+        (-1, 1, True, False, None),
+        (-2, -1, False, False, "DAILY_PAUSED"),
+        (-2, -1, False, True, "DAILY_AUTHORIZATION_REVOKED"),
+    ],
+)
+async def test_configuration_exposes_current_time_authorization_blocker(
+    start_offset: int,
+    end_offset: int,
+    enabled: bool,
+    revoked: bool,
+    expected: str | None,
+):
+    """Read-only UI state must not present expired enabled schedules as healthy."""
+    now = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
+    prepared = DailyPrepared.model_construct(
+        command=DailySave.model_construct(
+            valid_from=now + timedelta(days=start_offset),
+            valid_until=now + timedelta(days=end_offset),
+        )
+    )
+    record = SimpleNamespace(
+        id=uuid4(),
+        revision_id=uuid4(),
+        version=7,
+        enabled=enabled,
+        revoked=revoked,
+        enabled_since=now - timedelta(days=1) if enabled else None,
+    )
+    with (
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.read_prepared",
+            new_callable=AsyncMock,
+            return_value=prepared,
+        ) as read,
+        patch("investment_os.infrastructure.daily_runtime_store.datetime") as clock,
+    ):
+        clock.now.return_value = now
+        result = await configuration(SimpleNamespace(), record)
+
+    read.assert_awaited_once()
+    assert result.blocker == expected
+    assert result.enabled is enabled
+    assert result.revoked is revoked
+    assert result.auto_trade is False
