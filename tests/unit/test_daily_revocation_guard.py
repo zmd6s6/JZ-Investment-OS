@@ -76,6 +76,7 @@ async def test_save_cannot_resurrect_revoked_schedule(expected_version: int, exp
     setup.verify_profiles.assert_not_awaited()
     assert session.record.revoked is True
 
+
 @pytest.mark.parametrize("action", ["ENABLE", "PAUSE", "REVOKE"])
 @pytest.mark.parametrize(
     ("expected_version", "expected_error"),
