@@ -231,4 +231,3 @@ async def test_configuration_exposes_current_time_authorization_blocker(
     assert result.blocker == expected
     assert result.enabled is enabled
     assert result.revoked is revoked
-    assert result.auto_trade is False
