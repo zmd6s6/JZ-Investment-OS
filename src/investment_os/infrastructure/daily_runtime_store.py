@@ -306,6 +306,15 @@ class SqlDailyRuntimeStore:
                 if calendar.content_hash != prepared.calendar_hash:
                     raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
                 await self.setup.verify_profiles(prepared, now)
+                # Provider/budget verification can await another transaction that
+                # adds a portfolio position or replaces a calendar import. Row
+                # locks on existing members do not prevent new member phantoms.
+                # Re-read the frozen authorization scope before enabling.
+                if await capture_scope(session, prepared.command, lock=True) != prepared.members:
+                    raise DailyError("DAILY_SCOPE_CHANGED")
+                calendar, _ = await capture_calendar(session, prepared.command, lock=True)
+                if calendar.content_hash != prepared.calendar_hash:
+                    raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
                 # Profile and budget checks await I/O. An authorization can expire
                 # while those checks run, even though the row lock prevents PAUSE.
                 # Reject before any write and use the final checked time for ENABLE.

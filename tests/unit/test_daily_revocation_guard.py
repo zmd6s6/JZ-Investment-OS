@@ -231,3 +231,144 @@ async def test_configuration_exposes_current_time_authorization_blocker(
     assert result.blocker == expected
     assert result.enabled is enabled
     assert result.revoked is revoked
+
+@pytest.mark.parametrize(
+    ("scope_drift", "calendar_drift", "expected_error"),
+    [
+        (True, False, "DAILY_SCOPE_CHANGED"),
+        (False, True, "DAILY_CALENDAR_CHANGED_OR_MISSING"),
+    ],
+)
+async def test_enable_rechecks_scope_and_calendar_after_awaited_profile_verification(
+    scope_drift: bool, calendar_drift: bool, expected_error: str
+):
+    """New portfolio members or a changed calendar during awaits must block ENABLE."""
+    session = _RevokedSession(version=7)
+    session.record.revoked = False
+    session.record.enabled = False
+    session.record.enabled_since = None
+    now = datetime.now(UTC)
+    prepared = SimpleNamespace(
+        command=SimpleNamespace(
+            valid_from=now - timedelta(days=1),
+            valid_until=now + timedelta(days=1),
+        ),
+        members=(),
+        calendar_hash="a" * 64,
+    )
+    setup = SimpleNamespace(verify_profiles=AsyncMock())
+    store = SqlDailyRuntimeStore(lambda: session, setup)
+    store._replay = AsyncMock(return_value=None)
+    command = DailyMode(
+        request_id=uuid4(), expected_version=7, action="ENABLE", confirmed=True
+    )
+    second_scope = (SimpleNamespace(instrument_id=uuid4()),) if scope_drift else ()
+    first_calendar = SimpleNamespace(content_hash=prepared.calendar_hash)
+    second_calendar = SimpleNamespace(
+        content_hash="b" * 64 if calendar_drift else prepared.calendar_hash
+    )
+    with (
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.lock",
+            new_callable=AsyncMock,
+        ) as lock,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.read_prepared",
+            new_callable=AsyncMock,
+            return_value=prepared,
+        ),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_scope",
+            new_callable=AsyncMock,
+            side_effect=[(), second_scope],
+        ) as capture_members,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_calendar",
+            new_callable=AsyncMock,
+            side_effect=[
+                (first_calendar, ()),
+                (second_calendar, ()),
+            ],
+        ) as capture_sessions,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.emit",
+            new_callable=AsyncMock,
+        ) as emit,
+        pytest.raises(DailyError, match=expected_error),
+    ):
+        await store.mode(uuid4(), command)
+
+    assert lock.await_count == 2
+    assert capture_members.await_count == 2
+    assert capture_sessions.await_count == (1 if scope_drift else 2)
+    setup.verify_profiles.assert_awaited_once()
+    emit.assert_not_awaited()
+    assert session.record.enabled is False
+    assert session.record.enabled_since is None
+    assert session.record.version == 7
+
+
+async def test_enable_unchanged_scope_and_calendar_after_profile_await_succeeds():
+    """The extra fail-closed checks must not prevent an explicitly valid ENABLE."""
+    session = _RevokedSession(version=7)
+    session.record.revoked = False
+    session.record.enabled = False
+    session.record.enabled_since = None
+    session.flush = AsyncMock()
+    now = datetime.now(UTC)
+    prepared = SimpleNamespace(
+        command=SimpleNamespace(
+            valid_from=now - timedelta(days=1),
+            valid_until=now + timedelta(days=1),
+        ),
+        members=(),
+        calendar_hash="a" * 64,
+    )
+    setup = SimpleNamespace(verify_profiles=AsyncMock())
+    store = SqlDailyRuntimeStore(lambda: session, setup)
+    store._replay = AsyncMock(return_value=None)
+    command = DailyMode(
+        request_id=uuid4(), expected_version=7, action="ENABLE", confirmed=True
+    )
+    calendar = SimpleNamespace(content_hash=prepared.calendar_hash)
+    receipt = SimpleNamespace(model_dump=lambda *, mode: {"enabled": True})
+    with (
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.lock",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.read_prepared",
+            new_callable=AsyncMock,
+            return_value=prepared,
+        ),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_scope",
+            new_callable=AsyncMock,
+            return_value=(),
+        ) as capture_members,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.capture_calendar",
+            new_callable=AsyncMock,
+            return_value=(calendar, ()),
+        ) as capture_sessions,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.configuration",
+            new_callable=AsyncMock,
+            return_value=receipt,
+        ),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.emit",
+            new_callable=AsyncMock,
+        ) as emit,
+    ):
+        result = await store.mode(uuid4(), command)
+
+    assert result is receipt
+    assert capture_members.await_count == 2
+    assert capture_sessions.await_count == 2
+    setup.verify_profiles.assert_awaited_once()
+    emit.assert_awaited_once()
+    assert session.record.enabled is True
+    assert session.record.enabled_since is not None
+    assert session.record.version == 8
