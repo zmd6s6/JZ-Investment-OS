@@ -7,12 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from investment_os.application.daily_runtime import (
-    DailyError,
-    DailyMode,
-    DailyPrepared,
-    DailySave,
-)
+from investment_os.application.daily_runtime import DailyError, DailyMode
 from investment_os.infrastructure.daily_runtime_store import (
     SqlDailyRuntimeStore,
     configuration,
@@ -201,8 +196,8 @@ async def test_configuration_exposes_current_time_authorization_blocker(
 ):
     """Read-only UI state must not present expired enabled schedules as healthy."""
     now = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
-    prepared = DailyPrepared.model_construct(
-        command=DailySave.model_construct(
+    prepared = SimpleNamespace(
+        command=SimpleNamespace(
             valid_from=now + timedelta(days=start_offset),
             valid_until=now + timedelta(days=end_offset),
         )
@@ -222,6 +217,12 @@ async def test_configuration_exposes_current_time_authorization_blocker(
             return_value=prepared,
         ) as read,
         patch("investment_os.infrastructure.daily_runtime_store.datetime") as clock,
+        # This test isolates status mapping; DTO validation is covered by the
+        # existing daily contract tests with complete authorization snapshots.
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.DailyConfiguration",
+            new=SimpleNamespace,
+        ),
     ):
         clock.now.return_value = now
         result = await configuration(SimpleNamespace(), record)
