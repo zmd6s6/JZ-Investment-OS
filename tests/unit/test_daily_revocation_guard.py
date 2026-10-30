@@ -259,9 +259,7 @@ async def test_enable_rechecks_scope_and_calendar_after_awaited_profile_verifica
     setup = SimpleNamespace(verify_profiles=AsyncMock())
     store = SqlDailyRuntimeStore(lambda: session, setup)
     store._replay = AsyncMock(return_value=None)
-    command = DailyMode(
-        request_id=uuid4(), expected_version=7, action="ENABLE", confirmed=True
-    )
+    command = DailyMode(request_id=uuid4(), expected_version=7, action="ENABLE", confirmed=True)
     second_scope = (SimpleNamespace(instrument_id=uuid4()),) if scope_drift else ()
     first_calendar = SimpleNamespace(content_hash=prepared.calendar_hash)
     second_calendar = SimpleNamespace(
@@ -327,9 +325,7 @@ async def test_enable_unchanged_scope_and_calendar_after_profile_await_succeeds(
     setup = SimpleNamespace(verify_profiles=AsyncMock())
     store = SqlDailyRuntimeStore(lambda: session, setup)
     store._replay = AsyncMock(return_value=None)
-    command = DailyMode(
-        request_id=uuid4(), expected_version=7, action="ENABLE", confirmed=True
-    )
+    command = DailyMode(request_id=uuid4(), expected_version=7, action="ENABLE", confirmed=True)
     calendar = SimpleNamespace(content_hash=prepared.calendar_hash)
     receipt = SimpleNamespace(model_dump=lambda *, mode: {"enabled": True})
     with (
