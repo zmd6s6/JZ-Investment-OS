@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from investment_os.application.daily_runtime import DailyError
+from investment_os.application.daily_runtime import DailyError, DailyMode
 from investment_os.infrastructure.daily_runtime_store import SqlDailyRuntimeStore
 
 
@@ -74,4 +74,39 @@ async def test_save_cannot_resurrect_revoked_schedule(expected_version: int, exp
     assert lock.await_count == 2
     store._replay.assert_awaited_once()
     setup.verify_profiles.assert_not_awaited()
+    assert session.record.revoked is True
+
+@pytest.mark.parametrize("action", ["ENABLE", "PAUSE", "REVOKE"])
+@pytest.mark.parametrize(
+    ("expected_version", "expected_error"),
+    [(7, "DAILY_AUTHORIZATION_REVOKED"), (6, "DAILY_VERSION_CONFLICT")],
+)
+async def test_revoked_schedule_rejects_fresh_mode_commands_without_writes(
+    action: str, expected_version: int, expected_error: str
+):
+    session = _RevokedSession(version=7)
+    setup = SimpleNamespace(verify_profiles=AsyncMock())
+    store = SqlDailyRuntimeStore(lambda: session, setup)
+    store._replay = AsyncMock(return_value=None)
+    schedule_id = uuid4()
+    command = DailyMode(
+        request_id=uuid4(),
+        expected_version=expected_version,
+        action=action,
+        confirmed=True,
+    )
+
+    with (
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock
+        ) as lock,
+        pytest.raises(DailyError, match=expected_error),
+    ):
+        await store.mode(schedule_id, command)
+
+    assert session.get_count == 1
+    assert lock.await_count == 2
+    store._replay.assert_awaited_once()
+    setup.verify_profiles.assert_not_awaited()
+    assert session.record.version == 7
     assert session.record.revoked is True
