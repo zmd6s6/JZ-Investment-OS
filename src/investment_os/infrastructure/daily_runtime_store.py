@@ -285,11 +285,14 @@ class SqlDailyRuntimeStore:
                 raise DailyError("DAILY_CONFIGURATION_NOT_FOUND")
             if record.version != command.expected_version:
                 raise DailyError("DAILY_VERSION_CONFLICT")
+            # REVOKE is terminal for this schedule. A new command may not
+            # mutate its version or history, even if it only requests PAUSE.
+            # Exact retries of the original REVOKE are handled by _replay above.
+            if record.revoked:
+                raise DailyError("DAILY_AUTHORIZATION_REVOKED")
             prepared = await read_prepared(session, record)
             now = datetime.now(UTC)
             if command.action == "ENABLE":
-                if record.revoked:
-                    raise DailyError("DAILY_AUTHORIZATION_REVOKED")
                 if not prepared.command.valid_from <= now < prepared.command.valid_until:
                     raise DailyError("DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID")
                 if await capture_scope(session, prepared.command, lock=True) != prepared.members:
