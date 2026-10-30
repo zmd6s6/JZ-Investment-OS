@@ -130,6 +130,15 @@ async def configuration(
     session: AsyncSession, record: DailyConfigurationRecord
 ) -> DailyConfiguration:
     prepared = await read_prepared(session, record)
+    now = datetime.now(UTC)
+    if record.revoked:
+        blocker = "DAILY_AUTHORIZATION_REVOKED"
+    elif not record.enabled:
+        blocker = "DAILY_PAUSED"
+    elif not prepared.command.valid_from <= now < prepared.command.valid_until:
+        blocker = "DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID"
+    else:
+        blocker = None
     return DailyConfiguration(
         schedule_id=record.id,
         revision_id=record.revision_id,
@@ -138,11 +147,7 @@ async def configuration(
         revoked=record.revoked,
         enabled_since=record.enabled_since,
         prepared=prepared,
-        blocker="DAILY_AUTHORIZATION_REVOKED"
-        if record.revoked
-        else "DAILY_PAUSED"
-        if not record.enabled
-        else None,
+        blocker=blocker,
     )
 
 
@@ -301,6 +306,12 @@ class SqlDailyRuntimeStore:
                 if calendar.content_hash != prepared.calendar_hash:
                     raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
                 await self.setup.verify_profiles(prepared, now)
+                # Profile and budget checks await I/O. An authorization can expire
+                # while those checks run, even though the row lock prevents PAUSE.
+                # Reject before any write and use the final checked time for ENABLE.
+                now = datetime.now(UTC)
+                if not prepared.command.valid_from <= now < prepared.command.valid_until:
+                    raise DailyError("DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID")
                 record.enabled = True
                 record.enabled_since = now
             else:
