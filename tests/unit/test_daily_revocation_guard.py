@@ -131,9 +131,7 @@ async def test_enable_expiring_during_awaited_profile_check_is_rejected_without_
     now = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
     expiry = now + timedelta(seconds=1)
     prepared = SimpleNamespace(
-        command=SimpleNamespace(
-            valid_from=now - timedelta(days=1), valid_until=expiry
-        ),
+        command=SimpleNamespace(valid_from=now - timedelta(days=1), valid_until=expiry),
         members=(),
         calendar_hash="a" * 64,
     )
@@ -148,8 +146,9 @@ async def test_enable_expiring_during_awaited_profile_check_is_rejected_without_
     )
 
     with (
-        patch("investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock)
-        as lock,
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock
+        ) as lock,
         patch(
             "investment_os.infrastructure.daily_runtime_store.read_prepared",
             new_callable=AsyncMock,
