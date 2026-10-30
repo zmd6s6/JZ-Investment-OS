@@ -409,7 +409,9 @@ async def test_save_rechecks_scope_and_calendar_after_awaited_profile_verificati
 
     with (
         patch("investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock),
-        patch("investment_os.infrastructure.daily_runtime_store.fingerprint", return_value="c" * 64),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.fingerprint", return_value="c" * 64
+        ),
         patch(
             "investment_os.infrastructure.daily_runtime_store.capture_scope",
             new_callable=AsyncMock,
@@ -475,7 +477,9 @@ async def test_save_unchanged_scope_and_calendar_after_profile_await_persists_pa
     receipt = SimpleNamespace(model_dump=lambda *, mode: {"enabled": False})
     with (
         patch("investment_os.infrastructure.daily_runtime_store.lock", new_callable=AsyncMock),
-        patch("investment_os.infrastructure.daily_runtime_store.fingerprint", return_value="c" * 64),
+        patch(
+            "investment_os.infrastructure.daily_runtime_store.fingerprint", return_value="c" * 64
+        ),
         patch(
             "investment_os.infrastructure.daily_runtime_store.capture_scope",
             new_callable=AsyncMock,
