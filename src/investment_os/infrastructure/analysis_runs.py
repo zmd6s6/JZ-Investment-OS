@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from investment_os.application.analysis_risk_sizing import RiskSizingView
 from investment_os.application.analysis_runs import (
     AnalysisCancelled,
     AnalysisFrozenInput,
@@ -16,6 +17,7 @@ from investment_os.application.analysis_runs import (
     AnalysisRunView,
     AnalysisStep,
     ShadowDecision,
+    analysis_command_payload,
 )
 from investment_os.application.evidence import derive_display_freshness
 from investment_os.application.portfolio_valuation import fingerprint
@@ -23,6 +25,10 @@ from investment_os.domain.analysis_run import (
     TERMINAL_ANALYSIS,
     AnalysisStatus,
     require_analysis_transition,
+)
+from investment_os.infrastructure.analysis_risk_sizing_models import (
+    AnalysisRiskResultRecord,
+    AnalysisSizingResultRecord,
 )
 from investment_os.infrastructure.persistence.analysis_models import (
     AnalysisEvidenceRecord,
@@ -146,7 +152,7 @@ class SqlAnalysisRuns:
 
     async def enqueue(self, snapshot: AnalysisQueuedInput) -> AnalysisRunView:
         command = snapshot.command
-        request_hash = fingerprint(command.model_dump(mode="json"))
+        request_hash = fingerprint(analysis_command_payload(command))
         async with self._sessions() as session, session.begin():
             await session.execute(
                 text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
@@ -469,6 +475,7 @@ class SqlAnalysisRuns:
         steps: tuple[AnalysisStep, ...] = ()
         frozen = None
         result = None
+        risk_sizing = None
         if details:
             rows = (
                 await session.scalars(
@@ -500,6 +507,16 @@ class SqlAnalysisRuns:
             )
             if shadow:
                 result = ShadowDecision.model_validate(shadow.payload_json)
+        if details:
+            sizing_link = await session.get(AnalysisSizingResultRecord, record.id)
+            risk_link = (
+                await session.get(AnalysisRiskResultRecord, record.id)
+                if sizing_link is None
+                else None
+            )
+            link = sizing_link if sizing_link is not None else risk_link
+            if link is not None:
+                risk_sizing = RiskSizingView.model_validate(link.payload_json)
         return AnalysisRunView(
             run_id=record.id,
             request_id=record.request_id,
@@ -521,4 +538,5 @@ class SqlAnalysisRuns:
             steps=steps,
             frozen_input=frozen,
             shadow_decision=result,
+            risk_sizing=risk_sizing,
         )

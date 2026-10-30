@@ -40,6 +40,7 @@ from investment_os.application.research_runtime import (
 from investment_os.application.secrets import SecretStore
 from investment_os.domain.agent import AgentRole
 from investment_os.domain.values import UtcTimestamp
+from investment_os.infrastructure.analysis_risk_sizing import SqlNumericSources
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.openai_compatible_llm import (
     ModelProfileChanged,
@@ -218,6 +219,16 @@ class SqlAnalysisInputPreparer:
         self, run_id: UUID, lease: UUID, queued: AnalysisQueuedInput
     ) -> AnalysisFrozenInput:
         identifiers = list(queued.command.evidence_ids)
+        numeric_source = None
+        numeric_blockers = []
+        if queued.command.numeric_snapshot_id is not None:
+            try:
+                numeric_source = await SqlNumericSources(self._sessions).get(
+                    queued.command.numeric_snapshot_id
+                )
+                identifiers.extend(fact.evidence_id for fact in numeric_source.facts)
+            except ValueError as error:
+                numeric_blockers.append(str(error))
         for selected in queued.data_profiles:
             await self._store.check_running(run_id, lease)
             profile = await self._providers.get_data_profile(selected.profile_id)
@@ -351,7 +362,7 @@ class SqlAnalysisInputPreparer:
         thesis = await SqlAlchemyThesisReader(self._sessions).as_of_for_instrument(
             queued.command.instrument_id, as_of=as_of
         )
-        blockers = []
+        blockers = numeric_blockers
         thesis_state = thesis.state if thesis else "UNKNOWN"
         thesis_json = (
             json.dumps(asdict(thesis), default=str, ensure_ascii=False, sort_keys=True)
@@ -372,6 +383,7 @@ class SqlAnalysisInputPreparer:
             thesis_version_id=thesis.version_id if thesis else None,
             thesis_state=thesis_state,
             thesis_json=thesis_json,
+            numeric_source=numeric_source,
             input_hash="",
             blockers=tuple(blockers),
         )

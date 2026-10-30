@@ -5,7 +5,12 @@ from uuid import uuid4
 import pytest
 from test_opportunities import NOW, inputs
 
-from investment_os.application.analysis_runs import ANALYSIS_ROLES, AnalysisRunView, AnalysisStart
+from investment_os.application.analysis_runs import (
+    ANALYSIS_ROLES,
+    AnalysisRunView,
+    AnalysisStart,
+    analysis_command_payload,
+)
 from investment_os.application.opportunities import (
     FunnelRun,
     OpportunityError,
@@ -68,7 +73,7 @@ def analysis_view(command):
         cancel_requested=False,
         retry_of=None,
         error_code=None,
-        request_hash=fingerprint(command.model_dump(mode="json")),
+        request_hash=fingerprint(analysis_command_payload(command)),
         input_hash=None,
         policy_version_id=None,
     )

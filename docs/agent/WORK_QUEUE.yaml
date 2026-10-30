@@ -24,7 +24,7 @@ work_items:
     depends_on: []
     scope:
       - Add a product-visible acceptance/progress page, target route /acceptance.
-      - Show capability status truthfully: engineering, integrated, human acceptance.
+      - "Show capability status truthfully: engineering, integrated, human acceptance."
       - Provide direct links to usable product surfaces.
     acceptance:
       route: /acceptance
@@ -146,7 +146,9 @@ work_items:
   - id: MVP-205
     title: Deterministic Risk and Sizing closeout for AnalysisRun
     priority: 0
-    status: READY
+    status: IN_PROGRESS
+    claim_branch: agent/MVP-205
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp301_decision_center
     stage: PRODUCT-06
     checkpoint: B
     depends_on:
@@ -194,7 +196,7 @@ work_items:
       - MVP-401
     scope:
       - Build durable paused-by-default daily tasks, authorized portfolio/watchlist freshness checks, evidence change summary, shadow analysis trigger and readable daily run report.
-      - Persist an explicit Owner authorization snapshot before enabling any real scheduled research: market and instrument/portfolio/watchlist scope, run frequency and calendar, allowed data/model provider profiles, cost and budget limits, retention period, and pause/revoke method. Bind each run to the authorized snapshot/version; never infer or silently expand permission.
+      - "Persist an explicit Owner authorization snapshot before enabling any real scheduled research: market and instrument/portfolio/watchlist scope, run frequency and calendar, allowed data/model provider profiles, cost and budget limits, retention period, and pause/revoke method. Bind each run to the authorized snapshot/version; never infer or silently expand permission."
       - Fail closed on any absent, stale, revoked, disabled or mismatched authorization field, provider profile, budget or scope; no external provider/model requests or scheduled real research without a complete confirmed snapshot. Synthetic tests and local status-only paths remain usable without authorization.
       - Preserve calendar as-of, idempotency, bounded retries, failure/degraded explanations and append-only history; never submit or record broker orders.
     acceptance:

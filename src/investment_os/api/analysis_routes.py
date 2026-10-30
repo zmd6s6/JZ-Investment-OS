@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from investment_os.application.analysis_choices import AnalysisChoices, AnalysisChoicesService
 from investment_os.application.analysis_configuration import AnalysisStartService
+from investment_os.application.analysis_risk_sizing import NumericSourcePort, NumericSourceSnapshot
 from investment_os.application.analysis_runs import (
     AnalysisRunView,
     AnalysisStart,
@@ -18,6 +19,7 @@ def analysis_router(
     start: AnalysisStartService | None,
     store: AnalysisStorePort | None,
     choices: AnalysisChoicesService | None,
+    numeric_sources: NumericSourcePort | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/analysis", tags=["analysis"])
 
@@ -43,6 +45,23 @@ def analysis_router(
                 "message": "分析输入未就绪或已变化, 请刷新配置并核对组合、标的、模型凭据和预算。",
             },
         )
+
+    @router.get("/numeric-sources", response_model=tuple[NumericSourceSnapshot, ...])
+    async def numeric_choices(
+        portfolio_id: UUID, instrument_id: UUID
+    ) -> tuple[NumericSourceSnapshot, ...]:
+        if numeric_sources is None:
+            return ()
+        try:
+            return await numeric_sources.list(portfolio_id, instrument_id)
+        except ValueError:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "NUMERIC_SOURCE_INVALID",
+                    "message": "数值来源快照无效或已变化, 本次不展示来源或补齐数值。",
+                },
+            ) from None
 
     @router.get("/choices", response_model=AnalysisChoices)
     async def get_choices(instrument_id: UUID) -> AnalysisChoices:

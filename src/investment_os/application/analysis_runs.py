@@ -1,6 +1,7 @@
 """Versioned input, lifecycle and shadow-result boundary for PRODUCT-06 analysis."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal, Protocol, Self
 from uuid import UUID
 
@@ -14,10 +15,11 @@ from pydantic import (
     model_validator,
 )
 
+from investment_os.application.analysis_risk_sizing import NumericSourceSnapshot, RiskSizingView
 from investment_os.application.portfolio_valuation import ValuationContext
 from investment_os.domain.agent import AgentRole
 from investment_os.domain.analysis_run import AnalysisStatus
-from investment_os.domain.enums import Action, RiskIntent
+from investment_os.domain.enums import Action, PositionBucket, RiskIntent
 
 ANALYSIS_ROLES = tuple(role for role in AgentRole if role is not AgentRole.REVIEW)
 
@@ -49,6 +51,8 @@ class AnalysisStart(AnalysisDto):
     allow_model_calls: Literal[True]
     allow_data_calls: StrictBool = False
     retry_of: UUID | None = None
+    numeric_snapshot_id: UUID | None = None
+    position_bucket: PositionBucket | None = None
 
     @field_validator("allow_model_calls", mode="before")
     @classmethod
@@ -72,6 +76,15 @@ class AnalysisStart(AnalysisDto):
         if not self.market_source_name.strip():
             raise ValueError("market source name is required")
         return self
+
+
+def analysis_command_payload(command: AnalysisStart) -> dict[str, object]:
+    """Do not change legacy request identities when optional numeric fields are absent."""
+    payload = command.model_dump(mode="json")
+    for key in ("numeric_snapshot_id", "position_bucket"):
+        if payload[key] is None:
+            payload.pop(key)
+    return payload
 
 
 class SelectedModel(AnalysisDto):
@@ -126,6 +139,7 @@ class AnalysisFrozenInput(AnalysisDto):
     thesis_version_id: UUID | None
     thesis_state: str
     thesis_json: str | None
+    numeric_source: NumericSourceSnapshot | None = None
     input_hash: str
     blockers: tuple[str, ...] = ()
     feature_set_version: Literal["evidence-count-v1"] = "evidence-count-v1"
@@ -159,9 +173,11 @@ class ShadowDecision(AnalysisDto):
     policy_version_id: UUID | None
     thesis_version_id: UUID | None
     sizing_run_id: UUID | None = None
-    sizing_status: Literal["BLOCKED"] = "BLOCKED"
-    target_quantity: None = None
-    delta_quantity: None = None
+    sizing_status: Literal["BLOCKED", "COMPUTED"] = "BLOCKED"
+    target_quantity: Decimal | None = None
+    delta_quantity: Decimal | None = None
+    risk_assessment_id: UUID | None = None
+    simulation_only: Literal[True] = True
     reasons: tuple[EvidenceReason, ...]
     blockers: tuple[str, ...]
     input_hash: str
@@ -203,6 +219,7 @@ class AnalysisRunView(AnalysisDto):
     steps: tuple[AnalysisStep, ...] = ()
     frozen_input: AnalysisFrozenInput | None = None
     shadow_decision: ShadowDecision | None = None
+    risk_sizing: RiskSizingView | None = None
 
 
 class AnalysisStorePort(Protocol):
