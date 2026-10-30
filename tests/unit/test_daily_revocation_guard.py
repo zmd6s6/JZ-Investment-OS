@@ -232,6 +232,7 @@ async def test_configuration_exposes_current_time_authorization_blocker(
     assert result.enabled is enabled
     assert result.revoked is revoked
 
+
 @pytest.mark.parametrize(
     ("scope_drift", "calendar_drift", "expected_error"),
     [
