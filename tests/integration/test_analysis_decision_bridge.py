@@ -1,17 +1,27 @@
 """Real Worker Analysis -> explicit atomic Decision -> existing human-only approval chain."""
 
+from datetime import timedelta
 from uuid import uuid4
 
+import httpx
 import pytest
 from analysis_decision_fixture import seed_qualification
+from fastapi import FastAPI
 from sqlalchemy import func, select, text
 from test_analysis_numeric_pipeline import pipeline
 
-from investment_os.application.analysis_decision_bridge import PrepareAnalysisDecision
+from investment_os.api.analysis_decision_routes import analysis_decision_router
+from investment_os.api.write_auth import WriteApiAuthMiddleware
+from investment_os.application.analysis_decision_bridge import (
+    DecisionBridgeView,
+    PrepareAnalysisDecision,
+)
 from investment_os.application.decision_center import HumanCommand
 from investment_os.infrastructure.analysis_decision_bridge import SqlAnalysisDecisionBridge
 from investment_os.infrastructure.analysis_decision_models import AnalysisDecisionBridgeRecord
+from investment_os.infrastructure.analysis_decision_sources import SqlDecisionQualifications
 from investment_os.infrastructure.decision_center import SqlDecisionCenter
+from investment_os.infrastructure.persistence.analysis_models import AnalysisRunRecord
 from investment_os.infrastructure.persistence.models import (
     AgentOpinionRecord,
     AgentRunRecord,
@@ -124,7 +134,24 @@ async def test_real_analysis_to_decision_preserves_shadow_and_requires_explicit_
     try:
         before_calls = len(calls)
         bridge = SqlAnalysisDecisionBridge(sessions)
-        result = await bridge.prepare(command)
+        app = FastAPI()
+        app.add_middleware(WriteApiAuthMiddleware, token="synthetic-206-write-only")
+        app.include_router(analysis_decision_router(bridge, SqlDecisionQualifications(sessions)))
+        path = f"/api/v1/analysis/runs/{command.run_id}/decision-preparations"
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://synthetic"
+        ) as api:
+            denied = await api.post(path, json=command.model_dump(mode="json"))
+            assert denied.status_code == 401
+            saved = await api.post(
+                path,
+                json=command.model_dump(mode="json"),
+                headers={"Authorization": "Bearer synthetic-206-write-only"},
+            )
+            assert saved.status_code == 200, saved.text
+            result = DecisionBridgeView.model_validate(saved.json())
+            history = await api.get(path)
+            assert history.status_code == 200 and len(history.json()) == 1
         assert result.status == "PENDING_APPROVAL", result.model_dump(mode="json")
         assert result.decision_id is not None and result.revision == 1
         assert await bridge.prepare(command) == result
@@ -344,6 +371,107 @@ async def test_human_approval_rechecks_pending_capacity_after_bridge_creation(da
             )
             assert (
                 await session.scalar(select(func.count()).select_from(DecisionExecutionRecord)) == 0
+            )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize(
+    "offset_us,expected", [(-1, "PENDING_APPROVAL"), (0, "BLOCKED"), (1, "BLOCKED")]
+)
+async def test_qualification_expiry_is_half_open_at_actual_write(
+    database_engine, offset_us, expected
+):
+    (
+        sessions,
+        _store,
+        _original,
+        command,
+        _calls,
+        client,
+        qualification,
+        _s,
+    ) = await complete_analysis(
+        database_engine, qualification_options={"qualification_lifetime": timedelta(minutes=30)}
+    )
+    try:
+        at = qualification.expires_at + timedelta(microseconds=offset_us)
+        result = await SqlAnalysisDecisionBridge(sessions, now=lambda: at).prepare(command)
+        assert result.status == expected, result.model_dump(mode="json")
+        async with sessions() as session:
+            assert await session.scalar(
+                select(func.count()).select_from(InvestmentDecisionRecord)
+            ) == (1 if expected == "PENDING_APPROVAL" else 0)
+    finally:
+        await client.aclose()
+
+
+async def test_candidate_and_attempt_rollback_together_if_outbox_emission_fails(
+    database_engine, monkeypatch
+):
+    sessions, _store, _original, command, _calls, client, _q, _s = await complete_analysis(
+        database_engine
+    )
+
+    async def broken_emit(*_args, **_kwargs):
+        raise RuntimeError("synthetic-outbox-failure")
+
+    monkeypatch.setattr("investment_os.infrastructure.analysis_decision_bridge.emit", broken_emit)
+    try:
+        with pytest.raises(RuntimeError, match="synthetic-outbox-failure"):
+            await SqlAnalysisDecisionBridge(sessions).prepare(command)
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
+                == 0
+            )
+            assert (
+                await session.scalar(
+                    select(func.count()).select_from(InvestmentDecisionEvidenceRecord)
+                )
+                == 0
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(AnalysisDecisionBridgeRecord))
+                == 0
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(DecisionApprovalRecord)) == 0
+            )
+    finally:
+        await client.aclose()
+
+
+async def test_persisted_scheduled_shadow_origin_cannot_be_omitted_by_preparation_request(
+    database_engine,
+):
+    sessions, _store, original, command, _calls, client, _q, _s = await complete_analysis(
+        database_engine
+    )
+    try:
+        scheduled_id = uuid4()
+        async with sessions() as session, session.begin():
+            source = await session.get(AnalysisRunRecord, original.run_id)
+            values = {
+                column.name: getattr(source, column.name)
+                for column in AnalysisRunRecord.__table__.columns
+            }
+            payload = dict(source.queued_input_json)
+            payload["command"] = {
+                **payload["command"],
+                "runtime_authorization": {"intent": "SCHEDULED_SHADOW"},
+            }
+            values.update(id=scheduled_id, request_id=uuid4(), queued_input_json=payload)
+            session.add(AnalysisRunRecord(**values))
+        result = await SqlAnalysisDecisionBridge(sessions).prepare(
+            command.model_copy(update={"run_id": scheduled_id})
+        )
+        assert result.status == "BLOCKED"
+        assert "SCHEDULED_SHADOW_CANNOT_CREATE_INVESTMENT_DECISION" in result.blockers
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
+                == 0
             )
     finally:
         await client.aclose()

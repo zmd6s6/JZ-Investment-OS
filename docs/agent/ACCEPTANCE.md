@@ -135,4 +135,12 @@ MVP-301修后候选另已实际合并Release39f5738：完整674/87.56%、集成1
 
 失败入口：不选快照/分仓、REFERENCE_ONLY、TEST_DEFAULT、未批准 Policy、缺公式/波动率/流动性/风险预算/相关性/价格、FX缺失、证据关系损坏或到期，必须显示具名UNKNOWN/BLOCKED而非默认0或PASS；Veto不生成增仓数量，允许确定性减仓测算。所有结果保留simulation_only=true、execution_allowed=false、auto_trade=false，没有可审批Decision或自动订单。
 
-角色失败或有效结构化INSUFFICIENT_DATA也必须显示具名UNKNOWN/BLOCKED，没有建议数量和标准Risk/Sizing记录；有效末次修复不被误判失败。新8项真实PG正常/失败/边界已通过，最终全量与真实API/DB/Worker/Chrome证据见工作项。[PR #36](https://github.com/zmd6s6/JZ-Investment-OS/pull/36)的a67b61c已实际合入Release01f439f，精确HEAD CI全绿；root独立复核按实际先后另记，不追认root合入前Gate或合并。MVP-206审批桥接仍未实现，仅依赖满足后待合法领取；Owner实例部署/产品接受PENDING，不宣称Product Done、完整P6或Owner接受。
+角色失败或有效结构化INSUFFICIENT_DATA也必须显示具名UNKNOWN/BLOCKED，没有建议数量和标准Risk/Sizing记录；有效末次修复不被误判失败。新8项真实PG正常/失败/边界已通过，最终全量与真实API/DB/Worker/Chrome证据见工作项。[PR #36](https://github.com/zmd6s6/JZ-Investment-OS/pull/36)的a67b61c已实际合入Release01f439f，精确HEAD CI全绿；root独立复核按实际先后另记，不追认root合入前Gate或合并。MVP-206当前功能分支新增显式后置桥接，尚未独立Gate/Release集成，见下节；Owner实例部署/产品接受PENDING，不宣称Product Done、完整P6或Owner接受。
+
+## MVP-206 显式分析到人工审阅（当前功能分支，Owner PENDING）
+
+入口`/analysis`：完整合成资格资料和具体Strategy必须在原Run冻结时已经存在。选择组合、标的、模型、合格数值快照/分仓及含资格facts的Evidence，明确同意研究后发起，等待真实Worker终态。新的“准备人工审阅决策”区单独选择固定资格、填写操作者并勾选仅准备记录，点击确认；不接受UI任意数量或投资阈值，也不追加模型调用。
+
+成功应展示标准Decision编号和“前往决策中心审阅”，精确打开原编号。审阅完整Evidence/Thesis/委员会/风险/Policy/Strategy/Sizing后填写人工归属与理由、勾选本人动作，再明确批准或拒绝。批准后可撤销未成交批准，刷新仍显示不可变历史。准备不等于批准、批准不等于成交，零订单/auto_trade=false。当前真实合格配置不存在，正常链只在独立完整SYNTHETIC_FIXTURE环境证明，不向Owner实例种数据/激活策略。
+
+失败：未冻结资格Evidence、未批准Strategy/Policy、角色失败/高严重风险、Hash/Prompt不符、过期、Risk Veto增仓、pending容量改变或实际scheduled_shadow origin都具名阻断；保存BLOCKED尝试而不保留候选标准Decision。超时显示结果未知、保留输入与请求UUID，用户明确刷新核对，不自动重试。TTL精确到期不可批准。合成API/PG/Worker/Chrome精确当前Decision3/3（22.9s）已演示approve→revoke、reject和缺原Evidence阻断；15项真实PG/前端证据见工作项。完整Python验证、独立Gate及Release集成尚未完成，不宣称Product Done、Owner接受或部署。
