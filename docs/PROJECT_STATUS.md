@@ -17,7 +17,7 @@
 
 ## 已建立
 
-- MVP-205受限影子数值链在[PR #36](https://github.com/zmd6s6/JZ-Investment-OS/pull/36)待独立Gate与Release合入：`/analysis`只读选择数值快照和Core/Tactical，真实Worker复用Evidence/P5冻结值及具体Policy1.1显式公式，保存标准RiskAssessment/PositionSizingRun及不可变链接。仅完整显式合成输入证明正常路径；REFERENCE_ONLY、TEST_DEFAULT、未批准/缺数字/FX/过期均UNKNOWN/BLOCKED，Veto禁止增仓。独立审查复现角色失败仍出数值的缺口后，已将角色失败或有效INSUFFICIENT_DATA传入数值闸门，UNKNOWN/BLOCKED且无标准Risk/Sizing记录；新8项真实PG正常/失败/末次修复边界通过。最终本地全量与真实API/PG/Worker/Chrome证据见工作项，最新HEAD CI与独立复核另核，不借旧HEAD绿色状态。仍Shadow，不创建InvestmentDecision，206/501仍BLOCKED；完整P6及Owner部署/验收PENDING。
+- MVP-205受限影子数值链已于2026-11-04T09:30:36Z由其他执行者将[PR #36](https://github.com/zmd6s6/JZ-Investment-OS/pull/36)实际合入Release `01f439fe8d5bcedc95b694069aaf0f05756ad24b`（源码a67b61c，精确HEAD CI全绿）；此为合入事实记录，不冒充root合并或合入前独立Gate。`/analysis`提供显式冻结快照/分仓、确定性Risk/Sizing及不可变标准产物；REFERENCE_ONLY、TEST_DEFAULT、缺项/过期/角色失败或INSUFFICIENT_DATA保持失败关闭。实际769后端/8项新PG回归及Chrome4/4等合成证据见工作项，不等于Owner真实数据/部署/验收。205为INTEGRATED；205与301显式依赖已满足，MVP-206仅随本次队列收口PR真正合入才成为可领取READY，尚未实现或领取。全部仍Shadow，无可审批InvestmentDecision；完整P6/Owner接受PENDING、501仍BLOCKED。
 
 - PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
