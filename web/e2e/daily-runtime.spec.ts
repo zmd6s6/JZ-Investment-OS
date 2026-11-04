@@ -55,10 +55,14 @@ test("real daily API PG production Worker and Chrome persist local and explicitl
         await page.getByLabel(label, { exact: true }).fill(value);
     await page.getByLabel(/我明确允许所选模型出站/).check();
     await saveAndEnable(shadowName);
-    await expect.poll(async () => { const response = await request.get("/api/v1/runtime/daily/reports"); const reports = await response.json(); return reports.some((r: {
-        mode: string;
-        phase: string;
-    }) => r.mode === "SCHEDULED_SHADOW" && r.phase === "DEGRADED"); }, { timeout: 180000, intervals: [2000, 3000] }).toBe(true);
+    await expect.poll(async () => {
+        const response = await request.get("/api/v1/runtime/daily/reports");
+        const reports = await response.json();
+        return reports.some((r: {
+            mode: string;
+            phase: string;
+        }) => r.mode === "SCHEDULED_SHADOW" && r.phase === "DEGRADED");
+    }, { timeout: 180000, intervals: [2000, 3000] }).toBe(true);
     await page.getByRole("button", { name: "刷新每日状态与报告" }).click();
     await expect(page.getByRole("heading", { name: /需要处理/ }).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: /待处理审批/ }).first()).toBeVisible();

@@ -22,7 +22,12 @@ url = urlparse(args.database_url)
 if (
     url.scheme != "postgresql+asyncpg"
     or url.hostname not in {"127.0.0.1", "localhost"}
-    or url.path not in {"/investment_os_mvp403_browser", "/investment_os_mvp403_browser_validation"}
+    or url.path
+    not in {
+        "/investment_os_mvp403_browser",
+        "/investment_os_mvp403_browser_validation",
+        "/investment_os_mvp403_browser_final",
+    }
     or url.port != 15446
 ):
     raise SystemExit(
