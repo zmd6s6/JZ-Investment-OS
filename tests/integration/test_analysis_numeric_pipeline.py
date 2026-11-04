@@ -421,6 +421,8 @@ async def test_tactical_measurement_does_not_resize_core(database_engine):
 
 
 async def test_numeric_history_rejects_update_delete_and_migration_downgrade(database_engine):
+    async with database_engine.connect() as connection:
+        original_revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
     sessions, service, store, runner, command, _calls, client, _source = await pipeline(
         database_engine
     )
@@ -446,7 +448,7 @@ async def test_numeric_history_rejects_update_delete_and_migration_downgrade(dat
         async with sessions() as session:
             assert (
                 await session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "20261029_0021"
+                == original_revision
             )
             assert (
                 await session.scalar(select(func.count()).select_from(PositionSizingRunRecord)) == 1
