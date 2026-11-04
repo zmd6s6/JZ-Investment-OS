@@ -129,10 +129,10 @@ MVP-301的条件式INTEGRATED只指有效完整PR07 Decision输入下的决策�
 MVP-301修后候选另已实际合并Release39f5738：完整674/87.56%、集成147、前端95与新源码真实中心3/3通过；时间竞态、完整引用链及跨Decision幂等三项独立Review反馈为fixed-awaiting-review，新HEAD CI/root独立Gate另核。旧源码绿色证据不替代修后验收；这不改变上述P7/Checkpoint B/Owner PENDING及MVP-501 BLOCKED边界。
 
 
-## MVP-205 确定性影子数值链（实现中，Owner PENDING）
+## MVP-205 确定性影子数值链（PR #36待独立Gate，Owner PENDING）
 
 入口 `/analysis`。选择组合、标的、显式数值快照及 Core/Tactical 分仓，再选择模型并明确同意调用后新建分析。完整合法合成输入应在同一运行显示 NAV、价格、权重、风险原因/Evidence、固定 Policy 版本、仓位公式/容量/舍入/目标数量与不可变产物 ID；刷新读取原保存结果。真实来源资格端口尚未接入，页面没有将人工数值升级成可执行资格的按钮；未提供合成fixture的Owner实例保持缺项。
 
 失败入口：不选快照/分仓、REFERENCE_ONLY、TEST_DEFAULT、未批准 Policy、缺公式/波动率/流动性/风险预算/相关性/价格、FX缺失、证据关系损坏或到期，必须显示具名UNKNOWN/BLOCKED而非默认0或PASS；Veto不生成增仓数量，允许确定性减仓测算。所有结果保留simulation_only=true、execution_allowed=false、auto_trade=false，没有可审批Decision或自动订单。
 
-实际24项PG/Worker及3项UI组件验证仅工程证据；真实浏览器、完整检查/CI、独立Gate及Release合入尚未完成，不宣称Product Done、完整P6或Owner接受。最新证据见 `docs/agent/work-items/MVP-205.md`。
+实现源码5dd28b9已有24项PG/Worker、104项前端与真实API/DB/Worker/Chrome3/3的隔离合成工程接线证据；本地最终全量761项通过。f4ea1f1精确HEAD的CI quality/compose-smoke/secrets通过（761后端、195集成），不代替后续HEAD的CI或独立审查。PR #36的独立Gate、Release合入和Owner实例部署/产品接受仍未完成；不宣称Product Done、完整P6或Owner接受。最新证据见 `docs/agent/work-items/MVP-205.md`。

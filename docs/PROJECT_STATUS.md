@@ -13,11 +13,11 @@
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 自治控制面：`docs/agent/RELEASE.md` + `docs/agent/WORK_QUEUE.yaml`
-- 上次状态更新：`2026-10-30`
+- 上次状态更新：`2026-11-04`
 
 ## 已建立
 
-- MVP-205本分支实现中的受限影子数值链（尚未独立Gate/合入）：`/analysis`只读选择数值快照和Core/Tactical，真实Worker复用Evidence/P5冻结值及具体Policy1.1显式公式，保存标准RiskAssessment/PositionSizingRun及不可变链接。仅完整显式合成输入可证明正常路径；REFERENCE_ONLY、TEST_DEFAULT、未批准/缺数字/FX/过期均UNKNOWN/BLOCKED，Veto禁止增仓。真实PG/Worker正常/失败/事件临界24项通过，UI组件3项通过；真实浏览器、完整必要检查及最终CI尚未完成。仍Shadow，不创建InvestmentDecision，206/501仍BLOCKED；完整P6及Owner部署/验收PENDING。见 `docs/agent/work-items/MVP-205.md`。
+- MVP-205受限影子数值链已提交[PR #36](https://github.com/zmd6s6/JZ-Investment-OS/pull/36)，独立Gate与Release合入仍待：`/analysis`只读选择数值快照和Core/Tactical，真实Worker复用Evidence/P5冻结值及具体Policy1.1显式公式，保存标准RiskAssessment/PositionSizingRun及不可变链接。仅完整显式合成输入可证明正常路径；REFERENCE_ONLY、TEST_DEFAULT、未批准/缺数字/FX/过期均UNKNOWN/BLOCKED，Veto禁止增仓。实现源码5dd28b9的真实PG/Worker正常/失败/事件临界24项、前端104项及真实API/DB/Worker/Chrome3/3通过；最终本地全量761项通过（87.91%）。f4ea1f1精确HEAD的CI quality/compose-smoke/secrets通过（761后端、195集成）；这些旧HEAD证据不代替后续文档修订HEAD的CI或独立Gate。仍Shadow，不创建InvestmentDecision，206/501仍BLOCKED；完整P6及Owner部署/验收PENDING。见 `docs/agent/work-items/MVP-205.md`。
 
 - PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
