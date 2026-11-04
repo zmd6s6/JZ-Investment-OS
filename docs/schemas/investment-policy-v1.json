@@ -325,6 +325,150 @@
       "title": "ReviewFrequencySchema",
       "type": "object"
     },
+    "RiskIntent": {
+      "enum": [
+        "NONE",
+        "TINY",
+        "SMALL",
+        "NORMAL",
+        "HIGH",
+        "EXIT"
+      ],
+      "title": "RiskIntent",
+      "type": "string"
+    },
+    "SizingRules": {
+      "additionalProperties": false,
+      "properties": {
+        "correlation_attention_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Correlation Attention Threshold"
+        },
+        "formula_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Formula Version",
+          "type": "string"
+        },
+        "intent_weights": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ]
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/RiskIntent"
+          },
+          "title": "Intent Weights",
+          "type": "object"
+        },
+        "max_instrument_volatility": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Max Instrument Volatility"
+        },
+        "reduce_fraction": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Reduce Fraction"
+        },
+        "schema_version": {
+          "const": "sizing-rules-1.0",
+          "default": "sizing-rules-1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_volatility": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Target Volatility"
+        },
+        "volatility_floor": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Volatility Floor"
+        },
+        "volatility_scale_max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Volatility Scale Max"
+        },
+        "volatility_scale_min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Volatility Scale Min"
+        }
+      },
+      "required": [
+        "formula_version",
+        "intent_weights",
+        "target_volatility",
+        "volatility_floor",
+        "volatility_scale_min",
+        "volatility_scale_max",
+        "reduce_fraction",
+        "max_instrument_volatility",
+        "correlation_attention_threshold"
+      ],
+      "title": "SizingRules",
+      "type": "object"
+    },
     "StrategyPolicySchema": {
       "additionalProperties": false,
       "properties": {
@@ -386,9 +530,23 @@
       "$ref": "#/$defs/ReviewFrequencySchema"
     },
     "schema_version": {
-      "const": "1.0",
+      "enum": [
+        "1.0",
+        "1.1"
+      ],
       "title": "Schema Version",
       "type": "string"
+    },
+    "sizing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SizingRules"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "strategy": {
       "$ref": "#/$defs/StrategyPolicySchema"

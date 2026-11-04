@@ -17,6 +17,7 @@ from investment_os.infrastructure.analysis_inputs import (
     AnalysisGatewayFactory,
     SqlAnalysisInputPreparer,
 )
+from investment_os.infrastructure.analysis_risk_sizing import SqlAnalysisRiskSizing
 from investment_os.infrastructure.analysis_runs import SqlAnalysisRuns
 from investment_os.infrastructure.bocha.adapter import BochaWebSearchConnectionTester
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
@@ -57,4 +58,9 @@ def analysis_worker(
         ),
         AnalysisGatewayFactory(providers, secrets, budget, store),
     )
-    return AnalysisWorkerRunner(store, InvestmentAnalysisOrchestrator(store, execution)), execution
+    return AnalysisWorkerRunner(
+        store,
+        InvestmentAnalysisOrchestrator(
+            store, execution, risk_sizing=SqlAnalysisRiskSizing(sessions)
+        ),
+    ), execution

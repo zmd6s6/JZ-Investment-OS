@@ -334,4 +334,25 @@ def acceptance_snapshot(
         )
         for key, label, item, detail, baseline in pending
     )
+    items.append(
+        CapabilityDelivery(
+            key="analysis_numeric_risk",
+            label="确定性影子风险与仓位",
+            work_item="MVP-205",
+            engineering="PARTIAL",
+            integration="BASELINE_ONLY",
+            service="ASSEMBLED" if analysis else "UNAVAILABLE",
+            route="/analysis" if analysis else None,
+            detail=(
+                "完整显式合成数值/Policy公式可测算; 真实资格来源和可审批Decision未提供, 仍影子。"
+            ),
+            steps=(
+                "选择组合/标的、数值快照及Core或Tactical, 再明确同意新建分析。",
+                "核对当次NAV、Risk原因、公式容量与数量; 刷新只读原保存产物。",
+            ),
+            failure=(
+                "未提供合法数值/Policy公式/FX或到期则UNKNOWN/BLOCKED; Veto禁止增仓, 缺值不当0。"
+            ),
+        )
+    )
     return AcceptanceSnapshot(capabilities=tuple(items))
