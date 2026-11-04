@@ -47,8 +47,11 @@ from investment_os.infrastructure.persistence.models import (
 async def capture_scope(
     session: AsyncSession, command: DailySave, *, lock: bool = False
 ) -> tuple[DailyMember, ...]:
+    # The migrated position.portfolio_id FK takes KEY SHARE when inserting.
+    # A parent FOR UPDATE blocks new members; child FOR SHARE below blocks edits.
+    # Keep this per-portfolio fence through the bounded call, never lock all books.
     portfolio = await session.get(
-        PortfolioRecord, command.portfolio_id, with_for_update={"read": True} if lock else None
+        PortfolioRecord, command.portfolio_id, with_for_update=True if lock else None
     )
     if portfolio is None or portfolio.status != "ACTIVE" or portfolio.base_currency != "CNY":
         raise DailyError("DAILY_PORTFOLIO_UNAVAILABLE_OR_CURRENCY_UNSUPPORTED")

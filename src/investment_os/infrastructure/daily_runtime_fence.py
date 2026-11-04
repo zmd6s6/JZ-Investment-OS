@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from investment_os.application.analysis_runs import AnalysisQueuedInput
+from investment_os.application.analysis_runs import AnalysisQueuedInput, analysis_command_payload
 from investment_os.application.daily_runtime import DailyError, assert_authorized
 from investment_os.application.llm_gateway import (
     LLMGatewayPort,
@@ -96,7 +96,7 @@ class SqlDailyAuthorizationFence:
                 or queued.data_profiles
                 or queued.command.data_profile_ids
                 or queued.command.allow_data_calls
-                or fingerprint(queued.command.model_dump(mode="json")) != intent.request_hash
+                or fingerprint(analysis_command_payload(queued.command)) != intent.request_hash
                 or fingerprint(intent.command_json) != intent.request_hash
                 or {h.instrument_id for h in queued.valuation.input_snapshot.holdings}
                 != set(command.portfolio_instrument_ids)

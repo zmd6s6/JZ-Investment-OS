@@ -848,6 +848,16 @@
             ],
             "title": "Retry Of"
           },
+          "runtime_authorization": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuntimeAuthorizationRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "schema_version": {
             "const": "1.0",
             "default": "1.0",
@@ -6244,6 +6254,57 @@
           "model_provider_profile_id"
         ],
         "title": "RoleModelAssignmentResponse",
+        "type": "object"
+      },
+      "RuntimeAuthorizationRef": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Authorization Hash",
+            "type": "string"
+          },
+          "authorization_version": {
+            "minimum": 1.0,
+            "title": "Authorization Version",
+            "type": "integer"
+          },
+          "intent_id": {
+            "format": "uuid",
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "DAILY_SHADOW",
+            "title": "Kind",
+            "type": "string"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "schedule_id",
+          "revision_id",
+          "authorization_version",
+          "authorization_hash",
+          "intent_id"
+        ],
+        "title": "RuntimeAuthorizationRef",
         "type": "object"
       },
       "SelectedData": {
