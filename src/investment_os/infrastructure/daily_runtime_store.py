@@ -12,13 +12,16 @@ from investment_os.application.daily_runtime import (
     DailyError,
     DailyMode,
     DailyPrepared,
+    DailyReport,
     DailySave,
 )
 from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.infrastructure.daily_runtime_models import (
     DailyAuthorizationRecord,
     DailyConfigurationRecord,
+    DailyExecutionRecord,
     DailyMemberRecord,
+    DailyReportRecord,
 )
 from investment_os.infrastructure.daily_runtime_setup import (
     SqlDailySetup,
@@ -364,3 +367,28 @@ class SqlDailyRuntimeStore:
                 )
             ).all()
             return tuple([await configuration(session, record) for record in records])
+
+    async def reports(self, schedule_id: UUID | None = None) -> tuple[DailyReport, ...]:
+        async with self.sessions() as session:
+            query = select(DailyReportRecord).join(
+                DailyExecutionRecord, DailyReportRecord.execution_id == DailyExecutionRecord.id
+            )
+            if schedule_id is not None:
+                query = query.where(DailyExecutionRecord.schedule_id == schedule_id)
+            records = (
+                await session.scalars(
+                    query.order_by(DailyReportRecord.recorded_at.desc()).limit(100)
+                )
+            ).all()
+            output = []
+            for record in records:
+                if record.usable_until <= datetime.now(UTC):
+                    # Preserve audit history, but do not display/reuse expired bodies.
+                    continue
+                if fingerprint(record.report_json) != record.content_hash:
+                    raise DailyError("DAILY_REPORT_HASH_INVALID")
+                report = DailyReport.model_validate(record.report_json)
+                if report.report_id != record.id or report.phase != record.phase:
+                    raise DailyError("DAILY_REPORT_REFERENCE_INVALID")
+                output.append(report)
+            return tuple(output)

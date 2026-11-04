@@ -22,6 +22,7 @@ from investment_os.application.analysis_configuration import AnalysisStartServic
 from investment_os.application.analysis_risk_sizing import NumericSourcePort
 from investment_os.application.analysis_runs import AnalysisStorePort
 from investment_os.application.calendar_product import CalendarProductService
+from investment_os.application.daily_runtime import DailyRuntimeService
 from investment_os.application.decision_center import DecisionCenterPort
 from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
@@ -82,6 +83,7 @@ from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
+from .daily_routes import daily_router
 from .market_routes import market_router
 from .opportunity_routes import opportunity_router
 from .opportunity_schedule_routes import weekly_router
@@ -369,6 +371,7 @@ def create_app(
     opportunity_service: OpportunityService | None = None,
     opportunity_research_service: OpportunityResearchService | None = None,
     weekly_funnel_service: WeeklyService | None = None,
+    daily_runtime_service: DailyRuntimeService | None = None,
     universe_snapshot_service: UniverseSnapshotService | None = None,
     analysis_start: AnalysisStartService | None = None,
     analysis_store: AnalysisStorePort | None = None,
@@ -476,6 +479,7 @@ def create_app(
         analysis_router(analysis_start, analysis_store, analysis_choices, numeric_sources)
     )
     application.include_router(weekly_router(weekly_funnel_service))
+    application.include_router(daily_router(daily_runtime_service))
     application.include_router(universe_router(universe_snapshot_service))
     application.include_router(decision_center_router(decision_center))
 
