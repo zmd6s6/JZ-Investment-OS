@@ -189,7 +189,10 @@ work_items:
   - id: MVP-403
     title: Owner-controlled daily shadow runtime and report
     priority: 1
-    status: READY
+    status: REVIEW
+    claim_branch: agent/MVP-403
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp403_recovery
+    # 原PR37候选，必须最终CI与独立Gate；不提前INTEGRATED或解锁404/501。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:

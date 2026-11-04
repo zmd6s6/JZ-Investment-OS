@@ -13,6 +13,7 @@ from investment_os.application.daily_runtime import (
     DailyReport,
     DailyRuntimeService,
     DailySave,
+    DailyTask,
 )
 
 
@@ -35,7 +36,7 @@ def daily_router(service: DailyRuntimeService | None) -> APIRouter:
             409 if "CONFLICT" in exc.code else 422,
             detail={
                 "code": exc.code,
-                "message": "授权边界不满足; 请刷新核对错误代码, 未扩大权限。",
+                "message": f"授权边界不满足 ({exc.code}); 请刷新核对范围、日历和费用, 未扩大权限。",
             },
         )
 
@@ -45,6 +46,10 @@ def daily_router(service: DailyRuntimeService | None) -> APIRouter:
             return await ready().store.configurations()
         except DailyError as exc:
             raise failed(exc) from None
+
+    @router.get("/runs", response_model=tuple[DailyTask, ...])
+    async def runs() -> tuple[DailyTask, ...]:
+        return await ready().store.runs()
 
     @router.get("/reports", response_model=tuple[DailyReport, ...])
     async def reports(schedule_id: UUID | None = None) -> tuple[DailyReport, ...]:

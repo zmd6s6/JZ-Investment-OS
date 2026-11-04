@@ -1,3 +1,4 @@
+import { DailyRuntimePanel } from "./DailyRuntimePanel";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
 import { apiFetch, readApiError } from "./writeApi";
@@ -140,5 +141,6 @@ export function CalendarPage(){
         {run.error_code?<p>失败代码：{run.error_code}{run.attempt>=3?"（已达自动重试上限）":"；Worker可在上限内重试，暂停可停止后续调度。"}</p>:null}
       </article>)}
     </Panel>
+    <DailyRuntimePanel/>
   </ProductChrome>;
 }

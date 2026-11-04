@@ -14,6 +14,7 @@ from investment_os.application.daily_runtime import (
     DailyPrepared,
     DailyReport,
     DailySave,
+    DailyTask,
 )
 from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.infrastructure.daily_runtime_models import (
@@ -33,6 +34,7 @@ from investment_os.infrastructure.persistence.models import (
     AuditLogRecord,
     EventLogRecord,
     OutboxEventRecord,
+    TaskRunRecord,
 )
 
 
@@ -366,7 +368,24 @@ class SqlDailyRuntimeStore:
                     .limit(50)
                 )
             ).all()
-            return tuple([await configuration(session, record) for record in records])
+            result = []
+            for record in records:
+                config = await configuration(session, record)
+                if config.enabled and not config.revoked and config.blocker is None:
+                    try:
+                        if (
+                            await capture_scope(session, config.prepared.command)
+                            != config.prepared.members
+                        ):
+                            raise DailyError("DAILY_SCOPE_CHANGED")
+                        calendar, _ = await capture_calendar(session, config.prepared.command)
+                        if calendar.content_hash != config.prepared.calendar_hash:
+                            raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
+                        await self.setup.verify_profiles(config.prepared, datetime.now(UTC))
+                    except DailyError as exc:
+                        config = config.model_copy(update={"blocker": exc.code})
+                result.append(config)
+            return tuple(result)
 
     async def reports(self, schedule_id: UUID | None = None) -> tuple[DailyReport, ...]:
         async with self.sessions() as session:
@@ -377,7 +396,11 @@ class SqlDailyRuntimeStore:
                 query = query.where(DailyExecutionRecord.schedule_id == schedule_id)
             records = (
                 await session.scalars(
-                    query.order_by(DailyReportRecord.recorded_at.desc()).limit(100)
+                    query.order_by(
+                        DailyReportRecord.recorded_at.desc(),
+                        DailyReportRecord.sequence.desc(),
+                        DailyReportRecord.id,
+                    ).limit(100)
                 )
             ).all()
             output = []
@@ -392,3 +415,26 @@ class SqlDailyRuntimeStore:
                     raise DailyError("DAILY_REPORT_REFERENCE_INVALID")
                 output.append(report)
             return tuple(output)
+
+    async def runs(self) -> tuple[DailyTask, ...]:
+        async with self.sessions() as session:
+            rows = (
+                await session.scalars(
+                    select(TaskRunRecord)
+                    .where(TaskRunRecord.task_name.like("daily:%"))
+                    .order_by(TaskRunRecord.started_at.desc())
+                    .limit(100)
+                )
+            ).all()
+            return tuple(
+                DailyTask(
+                    task_run_id=row.id,
+                    schedule_id=UUID(row.task_name.split(":", 1)[1]),
+                    status=row.status,
+                    attempt=row.attempt,
+                    started_at=row.started_at,
+                    finished_at=row.finished_at,
+                    error_code=(row.error_json or {}).get("code"),
+                )
+                for row in rows
+            )

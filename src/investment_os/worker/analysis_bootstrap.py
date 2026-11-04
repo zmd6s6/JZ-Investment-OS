@@ -20,6 +20,8 @@ from investment_os.infrastructure.analysis_inputs import (
 from investment_os.infrastructure.analysis_risk_sizing import SqlAnalysisRiskSizing
 from investment_os.infrastructure.analysis_runs import SqlAnalysisRuns
 from investment_os.infrastructure.bocha.adapter import BochaWebSearchConnectionTester
+from investment_os.infrastructure.daily_runtime_fence import SqlDailyAuthorizationFence
+from investment_os.infrastructure.daily_runtime_setup import SqlDailySetup
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
 from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSettingsStore
@@ -40,6 +42,7 @@ def analysis_worker(
     providers = ProviderSettingsService(SqlAlchemyProviderSettingsStore(sessions), secrets)
     budget = LLMBudgetService(SqlAlchemyLLMBudgetStore(sessions))
     store = SqlAnalysisRuns(sessions)
+    daily_fence = SqlDailyAuthorizationFence(sessions, SqlDailySetup(sessions, providers, budget))
     research = ResearchProviderRuntime(
         provider_settings=providers,
         secret_store=secrets,
@@ -55,8 +58,11 @@ def analysis_worker(
             providers,
             research,
             SqlAlchemyEvidenceIngestor(sessions, now=lambda: datetime.now(UTC)),
+            runtime_authorization=daily_fence,
         ),
-        AnalysisGatewayFactory(providers, secrets, budget, store),
+        AnalysisGatewayFactory(
+            providers, secrets, budget, store, runtime_authorization=daily_fence
+        ),
     )
     return AnalysisWorkerRunner(
         store,

@@ -127,6 +127,8 @@ class SqlDailyAuthorizationFence:
             def final_check() -> None:
                 current = self.now()
                 assert_authorized(config, version=execution.authorization_version, now=current)
+                if current < execution.business_as_of:
+                    raise DailyError("DAILY_SESSION_NOT_CLOSED")
                 if (
                     current.astimezone(MarketVenue(command.market).timezone).date()
                     != execution.business_date

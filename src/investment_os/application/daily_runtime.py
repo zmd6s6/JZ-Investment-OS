@@ -377,6 +377,16 @@ class DailyReport(DailyDto):
     auto_trade: Literal[False] = False
 
 
+class DailyTask(DailyDto):
+    task_run_id: UUID
+    schedule_id: UUID
+    status: str
+    attempt: int
+    started_at: AwareDatetime
+    finished_at: AwareDatetime | None
+    error_code: str | None
+
+
 class DailySetupPort(Protocol):
     async def prepare(self, command: DailySave, now: datetime) -> DailyPrepared: ...
 
@@ -386,6 +396,7 @@ class DailyStorePort(Protocol):
     async def save(self, prepared: DailyPrepared) -> DailyConfiguration: ...
     async def mode(self, schedule_id: UUID, command: DailyMode) -> DailyConfiguration: ...
     async def configurations(self) -> tuple[DailyConfiguration, ...]: ...
+    async def runs(self) -> tuple[DailyTask, ...]: ...
     async def reports(self, schedule_id: UUID | None = None) -> tuple[DailyReport, ...]: ...
 
 

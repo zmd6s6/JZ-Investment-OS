@@ -3165,6 +3165,68 @@
         "title": "DailySection",
         "type": "object"
       },
+      "DailyTask": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_run_id",
+          "schedule_id",
+          "status",
+          "attempt",
+          "started_at",
+          "finished_at",
+          "error_code"
+        ],
+        "title": "DailyTask",
+        "type": "object"
+      },
       "DataProviderProfileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -11918,6 +11980,31 @@
           }
         },
         "summary": "Reports",
+        "tags": [
+          "daily-runtime"
+        ]
+      }
+    },
+    "/api/v1/runtime/daily/runs": {
+      "get": {
+        "operationId": "runs_api_v1_runtime_daily_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DailyTask"
+                  },
+                  "title": "Response Runs Api V1 Runtime Daily Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Runs",
         "tags": [
           "daily-runtime"
         ]

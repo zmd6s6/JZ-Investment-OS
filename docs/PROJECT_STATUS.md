@@ -133,3 +133,9 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
   PRODUCT-09 `ACCEPTED` 与所有者明确恢复指令；已采取的替代方案是转而推进 P5–P9。
 - 详细清单与证据放在对应阶段文档；本文件保持简明。
 - 阶段 ACCEPTED 顺序保持 P5→P9；实现调度改由 Release Work Queue 驱动，无真实依赖的后续阶段 Work Item 不必等待前一阶段整体 ACCEPTED。
+
+## MVP-403 每日运行候选与验收边界
+
+以下实现仅随原功能PR #37真正合入Release生效；当前候选REVIEW，不能从工作分支或静态装配推断Owner部署/接受。实际入口/calendar提供独立于401 STATUS_ONLY的完整授权预览、默认暂停保存、单独启用/暂停/永久撤销、生产Worker日任务与只追加六节日报；LOCAL_STATUS_ONLY零出站，SCHEDULED_SHADOW仅完整已确认模型/预算与明确本地Evidence。外部资料费用准入未提供，data profiles固定为空，未知费用/旧日不自动补发；没有可审批Decision或订单。
+
+专用PG/API/生产Worker/loopback Chrome已有正常与失败证据；真实SQL父/子/FK范围屏障、日历替换、终端撤销、await后授权时限和暂停确认后零后续调用均有具名回归。旧873全量/107前端与Chrome1+1不能冒充最终新HEAD验证；最新命令/边界/审阅台账见docs/agent/work-items/MVP-403.md。MVP-404/501仍按真实队列依赖，完整P8、Checkpoint C及Owner接受保持PENDING；未改Owner18102/15433。
