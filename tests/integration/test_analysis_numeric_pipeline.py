@@ -59,7 +59,16 @@ pytestmark = pytest.mark.integration
 
 
 async def pipeline(
-    engine, *, candidate_action="ADD", bucket="CORE", clock=None, on_request=None, **seed_options
+    engine,
+    *,
+    candidate_action="ADD",
+    bucket="CORE",
+    clock=None,
+    on_request=None,
+    invalid_role=None,
+    invalid_attempts=3,
+    insufficient_role=None,
+    **seed_options,
 ):
     ids, source = await seed_numeric(engine, **seed_options)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
@@ -101,6 +110,13 @@ async def pipeline(
         if on_request is not None:
             await on_request(wrapper)
         output = model_output(wrapper)
+        if wrapper["role"] == insufficient_role:
+            output.update(stance="INSUFFICIENT_DATA", confidence="0", observations=[])
+        if (
+            wrapper["role"] == invalid_role
+            and sum(call["role"] == invalid_role for call in calls) <= invalid_attempts
+        ):
+            output = {"arbitrary_target_percentage": "90"}
         if wrapper["role"] == "CIO":
             output["proposed_action"] = candidate_action
         return httpx.Response(
@@ -185,6 +201,79 @@ async def test_complete_numeric_pipeline_persists_real_risk_sizing_and_never_bri
                 await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
                 == 0
             )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("role", ["MACRO", "DEVILS_ADVOCATE", "RISK"])
+async def test_failed_agent_role_blocks_numeric_risk_sizing_and_data_gate(database_engine, role):
+    sessions, service, store, runner, command, _calls, client, _source = await pipeline(
+        database_engine, invalid_role=role
+    )
+    try:
+        queued = await service.start(command)
+        await runner.dispatch_due()
+        run = await store.get(queued.run_id)
+        assert run.error_code is None
+        assert run.risk_sizing.risk_gate == "UNKNOWN"
+        assert run.risk_sizing.sizing_status == "BLOCKED"
+        assert "AGENT_ROLE_FAILED" in run.risk_sizing.blockers
+        assert run.risk_sizing.target_quantity is run.risk_sizing.delta_quantity is None
+        assert run.shadow_decision.target_quantity is run.shadow_decision.delta_quantity is None
+        final = next(step for step in run.steps if step.stage == "FINAL_GATES")
+        assert (
+            next(gate for gate in final.payload["reasons"] if gate["gate"] == "DATA_SUFFICIENCY")[
+                "outcome"
+            ]
+            != "PASS"
+        )
+        async with sessions() as session:
+            for model in (RiskAssessmentRecord, PositionSizingRunRecord, InvestmentDecisionRecord):
+                assert await session.scalar(select(func.count()).select_from(model)) == 0
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("role", ["MACRO", "RISK"])
+async def test_agent_valid_on_last_bounded_repair_preserves_numeric_path(database_engine, role):
+    _sessions, service, store, runner, command, calls, client, _source = await pipeline(
+        database_engine, invalid_role=role, invalid_attempts=2
+    )
+    try:
+        queued = await service.start(command)
+        await runner.dispatch_due()
+        run = await store.get(queued.run_id)
+        assert run.error_code is None
+        assert sum(call["role"] == role for call in calls) == 3
+        assert "AGENT_ROLE_FAILED" not in run.shadow_decision.blockers
+        assert run.risk_sizing.risk_gate == "PASS"
+        assert run.risk_sizing.sizing_status == "COMPUTED"
+        assert run.risk_sizing.delta_quantity == Decimal(400)
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("role", ["MACRO", "DEVILS_ADVOCATE", "RISK"])
+async def test_valid_insufficient_data_opinion_never_becomes_numeric_permission(
+    database_engine, role
+):
+    sessions, service, store, runner, command, calls, client, _source = await pipeline(
+        database_engine, insufficient_role=role
+    )
+    try:
+        queued = await service.start(command)
+        await runner.dispatch_due()
+        run = await store.get(queued.run_id)
+        assert run.error_code is None
+        assert sum(call["role"] == role for call in calls) == 1
+        assert "AGENT_ROLE_FAILED" not in run.shadow_decision.blockers
+        assert "AGENT_ROLE_INSUFFICIENT_DATA" in run.risk_sizing.blockers
+        assert run.risk_sizing.risk_gate == "UNKNOWN"
+        assert run.risk_sizing.sizing_status == "BLOCKED"
+        assert run.risk_sizing.target_quantity is run.risk_sizing.delta_quantity is None
+        async with sessions() as session:
+            for model in (RiskAssessmentRecord, PositionSizingRunRecord, InvestmentDecisionRecord):
+                assert await session.scalar(select(func.count()).select_from(model)) == 0
     finally:
         await client.aclose()
 

@@ -287,6 +287,8 @@ class SqlAnalysisRiskSizing:
         lease: UUID,
         frozen: AnalysisFrozenInput,
         committee_id: UUID,
+        *,
+        runtime_blockers: tuple[str, ...] = (),
     ) -> RiskPrepared:
         async with self._sessions() as session, session.begin():
             record = await locked(session, run_id, lease)
@@ -308,7 +310,10 @@ class SqlAnalysisRiskSizing:
                 pending_reasons += ("POLICY_VERSION_CHANGED",)
             existing = await session.get(AnalysisRiskResultRecord, run_id)
             prepared = prepare_risk(
-                frozen, pending=pending, pending_reasons=pending_reasons, evaluated_at=self._now()
+                frozen,
+                pending=pending,
+                pending_reasons=(*pending_reasons, *runtime_blockers),
+                evaluated_at=self._now(),
             )
             if existing is not None:
                 view = RiskSizingView.model_validate(existing.payload_json)

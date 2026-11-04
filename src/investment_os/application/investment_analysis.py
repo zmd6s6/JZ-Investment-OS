@@ -51,7 +51,7 @@ from investment_os.application.llm_gateway import (
     LLMGatewayPort,
     LLMGatewayRequest,
 )
-from investment_os.domain.agent import AgentRole, AgentTool
+from investment_os.domain.agent import AgentRole, AgentTool, OpinionStance
 from investment_os.domain.analysis_run import AnalysisStatus
 from investment_os.domain.enums import Action, RiskGateState, ThesisState
 from investment_os.domain.values import UtcTimestamp
@@ -376,12 +376,22 @@ class InvestmentAnalysisOrchestrator:
             run_id, lease, context, risk_request, risk_result, bundles
         )
         # Model risk judgments do not compute or authorize numeric inputs.
-        prepared = await self._risk_sizing.risk(run_id, lease, frozen, session_id)
+        runtime_blockers: tuple[str, ...] = (
+            ("AGENT_ROLE_FAILED",)
+            if any(result.failure for result in results) or risk_result.failure
+            else ()
+        )
+        if any(
+            result.failure is None and result.opinion.stance is OpinionStance.INSUFFICIENT_DATA
+            for result in (*results, risk_result)
+        ):
+            runtime_blockers += ("AGENT_ROLE_INSUFFICIENT_DATA",)
+        prepared = await self._risk_sizing.risk(
+            run_id, lease, frozen, session_id, runtime_blockers=runtime_blockers
+        )
         blockers = [*prepared.view.blockers, *frozen.blockers]
         if prepared.view.risk_gate == "UNKNOWN":
             blockers.extend(queued.valuation.blockers)
-        if any(result.failure for result in results) or risk_result.failure:
-            blockers.append("AGENT_ROLE_FAILED")
         await begin("CIO")
         cio = await self._structured(
             run_id,

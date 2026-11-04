@@ -22,7 +22,12 @@ url = urlparse(args.database_url)
 if (
     url.scheme != "postgresql+asyncpg"
     or url.hostname not in {"127.0.0.1", "localhost"}
-    or url.path != "/investment_os_mvp205_browser"
+    or url.path
+    not in {
+        "/investment_os_mvp205_browser",
+        "/investment_os_mvp205_browser_rolefix",
+        "/investment_os_mvp205_browser_rolefix_final",
+    }
     or url.port != 15445
 ):
     raise SystemExit(
@@ -70,7 +75,8 @@ class Handler(BaseHTTPRequestHandler):
             wrapper = json.loads(data["messages"][1]["content"])
             value = (
                 {"invalid": True}
-                if data.get("model") == "synthetic-invalid-cio" and wrapper["role"] == "CIO"
+                if (data.get("model") == "synthetic-invalid-cio" and wrapper["role"] == "CIO")
+                or (data.get("model") == "synthetic-invalid-risk" and wrapper["role"] == "RISK")
                 else model_output(wrapper)
             )
             if wrapper["role"] == "CIO":

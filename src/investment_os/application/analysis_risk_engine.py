@@ -298,7 +298,13 @@ def compute_sizing(
 
 class RiskSizingPort(Protocol):
     async def risk(
-        self, run_id: UUID, lease: UUID, frozen: AnalysisFrozenInput, committee_id: UUID
+        self,
+        run_id: UUID,
+        lease: UUID,
+        frozen: AnalysisFrozenInput,
+        committee_id: UUID,
+        *,
+        runtime_blockers: tuple[str, ...] = (),
     ) -> RiskPrepared: ...
     async def sizing(
         self,
@@ -319,12 +325,18 @@ class UnavailableRiskSizing:
         self._store = store
 
     async def risk(
-        self, run_id: UUID, lease: UUID, frozen: AnalysisFrozenInput, committee_id: UUID
+        self,
+        run_id: UUID,
+        lease: UUID,
+        frozen: AnalysisFrozenInput,
+        committee_id: UUID,
+        *,
+        runtime_blockers: tuple[str, ...] = (),
     ) -> RiskPrepared:
         prepared = prepare_risk(
             frozen,
             pending=None,
-            pending_reasons=("DETERMINISTIC_RISK_INPUTS_UNAVAILABLE",),
+            pending_reasons=("DETERMINISTIC_RISK_INPUTS_UNAVAILABLE", *runtime_blockers),
             evaluated_at=datetime.now(UTC),
         )
         await self._store.step(

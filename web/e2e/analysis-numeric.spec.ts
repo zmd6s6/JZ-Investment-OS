@@ -6,9 +6,9 @@ const ids=numeric.ids;
 const token="synthetic-mvp205-only";
 const headers={Authorization:`Bearer ${token}`};
 test.beforeEach(async({context})=>{await context.addInitScript(t=>sessionStorage.setItem("investment_os_write_token",t),token);});
-for(const bucket of ["CORE","TACTICAL",""]){
- test(`real API DB Worker UI numeric ${bucket||"missing inputs"} stays shadow`,async({page,request})=>{
-  const model=await request.post("/api/v1/settings/model-providers",{headers,data:{name:`205合成模型${bucket||"missing"}-${Date.now()}`,provider_type:"OPENAI_COMPATIBLE",base_url:fixture.base_url,model_name:"synthetic-205",timeout_seconds:30,max_tokens:1000,enabled:true,credential:"synthetic-model-not-real",pricing_version:"synthetic-205",pricing_currency:"CNY",input_token_price:"0",output_token_price:"0",pricing_effective_at:new Date().toISOString()}});
+for(const [bucket,failedRole] of [["CORE",false],["TACTICAL",false],["",false],["CORE",true]] as const){
+ test(`real API DB Worker UI numeric ${failedRole?"failed risk role":bucket||"missing inputs"} stays shadow`,async({page,request})=>{
+  const model=await request.post("/api/v1/settings/model-providers",{headers,data:{name:`205合成模型${failedRole?"failed-role":bucket||"missing"}-${Date.now()}`,provider_type:"OPENAI_COMPATIBLE",base_url:fixture.base_url,model_name:failedRole?"synthetic-invalid-risk":"synthetic-205",timeout_seconds:30,max_tokens:1000,enabled:true,credential:"synthetic-model-not-real",pricing_version:"synthetic-205",pricing_currency:"CNY",input_token_price:"0",output_token_price:"0",pricing_effective_at:new Date().toISOString()}});
   expect(model.ok()).toBeTruthy();const profile=await model.json();
   expect((await request.put("/api/v1/settings/llm-budget",{headers,data:{version:"synthetic-205",currency:"CNY",task_token_limit:2000000,daily_token_limit:20000000,task_cost_limit:"1",daily_cost_limit:"2"}})).ok()).toBeTruthy();
   await page.goto(`/analysis?portfolio_id=${ids.portfolio}`);
@@ -26,14 +26,14 @@ for(const bucket of ["CORE","TACTICAL",""]){
   await page.getByRole("button",{name:"刷新运行",exact:true}).click();
   const panel=page.getByRole("region",{name:"确定性风险与仓位"});
   const saved=await(await request.get(`/api/v1/analysis/runs/${queued.run_id}`)).json();
-  expect(saved.risk_sizing.risk_gate).toBe(bucket?"PASS":"UNKNOWN");
-  expect(saved.risk_sizing.sizing_status).toBe(bucket?"COMPUTED":"BLOCKED");
+  expect(saved.risk_sizing.risk_gate).toBe(bucket&&!failedRole?"PASS":"UNKNOWN");
+  expect(saved.risk_sizing.sizing_status).toBe(bucket&&!failedRole?"COMPUTED":"BLOCKED");
   expect(saved.shadow_decision.execution_allowed).toBe(false);
-  if(bucket){expect(Number(saved.risk_sizing.target_quantity)).toBe(500);expect(Number(saved.risk_sizing.delta_quantity)).toBe(bucket==="CORE"?400:300);await expect(panel.getByText(/目标数量（影子测算）500/)).toBeVisible();await expect(panel.getByText(/单标的上限余量/)).toBeVisible();}
-  else {await expect(panel.getByText(/建议数量未提供，不能把缺项显示成0股/)).toBeVisible();await expect(panel.getByText(/未选择具备完整证据的数值来源/)).toBeVisible();}
+  if(bucket&&!failedRole){expect(Number(saved.risk_sizing.target_quantity)).toBe(500);expect(Number(saved.risk_sizing.delta_quantity)).toBe(bucket==="CORE"?400:300);await expect(panel.getByText(/目标数量（影子测算）500/)).toBeVisible();await expect(panel.getByText(/单标的上限余量/)).toBeVisible();}
+  else {await expect(panel.getByText(/建议数量未提供，不能把缺项显示成0股/)).toBeVisible();await expect(panel.getByText(failedRole?/AGENT_ROLE_FAILED/:/未选择具备完整证据的数值来源/)).toBeVisible();expect(saved.risk_sizing.target_quantity).toBeNull();expect(saved.risk_sizing.sizing_run_id).toBeNull();}
   expect(await page.getByRole("button",{name:/批准|提交订单/}).count()).toBe(0);
   await page.reload();await page.getByRole("button",{name:new RegExp(queued.run_id.slice(0,8))}).click();
-  await expect(page.getByRole("region",{name:"确定性风险与仓位"})).toContainText(bucket?"Sizing COMPUTED":"Sizing BLOCKED");
-  await page.screenshot({path:`../.runtime/mvp205-${bucket||"missing"}.png`,fullPage:true});
+  await expect(page.getByRole("region",{name:"确定性风险与仓位"})).toContainText(bucket&&!failedRole?"Sizing COMPUTED":"Sizing BLOCKED");
+  await page.screenshot({path:`../.runtime/mvp205-${failedRole?"failed-role":bucket||"missing"}.png`,fullPage:true});
  });
 }

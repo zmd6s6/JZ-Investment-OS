@@ -135,4 +135,4 @@ MVP-301修后候选另已实际合并Release39f5738：完整674/87.56%、集成1
 
 失败入口：不选快照/分仓、REFERENCE_ONLY、TEST_DEFAULT、未批准 Policy、缺公式/波动率/流动性/风险预算/相关性/价格、FX缺失、证据关系损坏或到期，必须显示具名UNKNOWN/BLOCKED而非默认0或PASS；Veto不生成增仓数量，允许确定性减仓测算。所有结果保留simulation_only=true、execution_allowed=false、auto_trade=false，没有可审批Decision或自动订单。
 
-实现源码5dd28b9已有24项PG/Worker、104项前端与真实API/DB/Worker/Chrome3/3的隔离合成工程接线证据；本地最终全量761项通过。f4ea1f1精确HEAD的CI quality/compose-smoke/secrets通过（761后端、195集成），不代替后续HEAD的CI或独立审查。PR #36的独立Gate、Release合入和Owner实例部署/产品接受仍未完成；不宣称Product Done、完整P6或Owner接受。最新证据见 `docs/agent/work-items/MVP-205.md`。
+角色失败或有效结构化INSUFFICIENT_DATA也必须显示具名UNKNOWN/BLOCKED，没有建议数量和标准Risk/Sizing记录；有效末次修复不被误判失败。新8项真实PG正常/失败/边界已通过，最终全量与真实API/DB/Worker/Chrome证据见工作项；旧f4ea1f1的CI不代替修复后新HEAD的CI或独立审查。PR #36的独立Gate、Release合入和Owner实例部署/产品接受仍未完成；不宣称Product Done、完整P6或Owner接受。

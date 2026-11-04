@@ -146,9 +146,9 @@ work_items:
   - id: MVP-205
     title: Deterministic Risk and Sizing closeout for AnalysisRun
     priority: 0
-    status: IN_PROGRESS
+    status: REVIEW
     claim_branch: agent/MVP-205
-    claim_owner: pr-02-review-and-next-stage-monitor / mvp301_decision_center
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp205_recovery
     stage: PRODUCT-06
     checkpoint: B
     depends_on:
