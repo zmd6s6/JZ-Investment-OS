@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import replace
 from time import monotonic
 from typing import Any
@@ -23,6 +24,7 @@ from investment_os.application.provider_settings import (
     ProviderTestResult,
     provider_profile_hash,
 )
+from investment_os.application.runtime_authorization import RuntimeEgressBlocked
 from investment_os.application.secrets import SecretStore
 
 _OPENAI_COMPATIBLE = "OPENAI_COMPATIBLE"
@@ -45,12 +47,14 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
         secret_store: SecretStore,
         budget_service: LLMBudgetService,
         client: httpx.AsyncClient | None = None,
+        before_egress: Callable[[], None] | None = None,
     ) -> None:
         self._provider_settings = provider_settings
         self._secret_store = secret_store
         self._budget_service = budget_service
         self._client = client or httpx.AsyncClient(follow_redirects=False)
         self._owns_client = client is None
+        self._before_egress = before_egress
 
     async def close(self) -> None:
         """Close the owned HTTP client during application shutdown."""
@@ -65,6 +69,8 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
             raise LLMGatewayFailure("configured model provider is unavailable") from exc
         credential = await self._credential_for(profile)
         await self._check_frozen_profile(request, profile)
+        if self._before_egress is not None:
+            self._before_egress()
         if request.system_instruction is None or request.input_payload_json is None:
             raise LLMGatewayFailure(
                 "configured model runtime requires a rendered system instruction and JSON input"
@@ -80,7 +86,9 @@ class OpenAICompatibleLLMGateway(LLMGatewayPort):
         reservation = await self._budget_service.reserve(profile=profile, request=request)
         try:
             await self._check_frozen_profile(request, profile)
-        except ModelProfileChanged:
+            if self._before_egress is not None:
+                self._before_egress()
+        except (ModelProfileChanged, RuntimeEgressBlocked):
             await self._budget_service.release_before_egress(reservation)
             raise
         response = await self._complete(

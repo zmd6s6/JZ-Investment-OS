@@ -37,6 +37,10 @@ from investment_os.application.research_runtime import (
     ResearchProviderProfileChangedError,
     ResearchProviderRuntime,
 )
+from investment_os.application.runtime_authorization import (
+    AnalysisRuntimeAuthorizationPort,
+    RuntimeEgressBlocked,
+)
 from investment_os.application.secrets import SecretStore
 from investment_os.domain.agent import AgentRole
 from investment_os.domain.values import UtcTimestamp
@@ -121,7 +125,7 @@ class PinnedAnalysisGateway:
                     expected_model_profile_hash=self._queued.models[request.role].config_hash,
                 )
             )
-        except (LLMBudgetPolicyChanged, ModelProfileChanged) as exc:
+        except (LLMBudgetPolicyChanged, ModelProfileChanged, RuntimeEgressBlocked) as exc:
             await self._store.step(
                 self._run_id,
                 self._lease,
@@ -129,7 +133,9 @@ class PinnedAnalysisGateway:
                 status="BLOCKED",
                 payload={"role": request.role.value, "egress": False, "cost_unconfirmed": False},
                 reason_code=(
-                    "ANALYSIS_MODEL_PROFILE_CHANGED"
+                    exc.code
+                    if isinstance(exc, RuntimeEgressBlocked)
+                    else "ANALYSIS_MODEL_PROFILE_CHANGED"
                     if isinstance(exc, ModelProfileChanged)
                     else "ANALYSIS_BUDGET_CHANGED"
                 ),
@@ -174,6 +180,7 @@ class AnalysisGatewayFactory:
         store: AnalysisStorePort,
         *,
         client: httpx.AsyncClient | None = None,
+        runtime_authorization: AnalysisRuntimeAuthorizationPort | None = None,
     ):
         self._providers = providers
         self._secrets = secrets
@@ -181,15 +188,23 @@ class AnalysisGatewayFactory:
         self._client = client or httpx.AsyncClient(follow_redirects=False)
         self._owns_client = client is None
         self._store = store
+        self._runtime_authorization = runtime_authorization
 
     def gateway_for(self, run_id: UUID, lease: UUID, queued: AnalysisQueuedInput) -> LLMGatewayPort:
+        if queued.command.runtime_authorization is not None and self._runtime_authorization is None:
+            raise ValueError("DAILY_AUTHORIZATION_MODULE_UNAVAILABLE")
         resolver = PinnedModelResolver(self._providers, queued)
-        delegate = OpenAICompatibleLLMGateway(
+        delegate: LLMGatewayPort = OpenAICompatibleLLMGateway(
             provider_settings=resolver,
             secret_store=self._secrets,
             budget_service=self._budget,
             client=self._client,
+            before_egress=self._runtime_authorization.before_model_egress
+            if self._runtime_authorization
+            else None,
         )
+        if self._runtime_authorization is not None:
+            delegate = self._runtime_authorization.wrap_model(run_id, lease, queued, delegate)
         return PinnedAnalysisGateway(
             resolver, self._budget, queued, delegate, self._store, run_id, lease
         )
@@ -207,14 +222,27 @@ class SqlAnalysisInputPreparer:
         providers: ProviderSettingsService,
         research: ResearchProviderRuntime,
         ingestor: SqlAlchemyEvidenceIngestor,
+        *,
+        runtime_authorization: AnalysisRuntimeAuthorizationPort | None = None,
     ):
         self._sessions = sessions
         self._store = store
         self._providers = providers
         self._research = research
         self._ingestor = ingestor
+        self._runtime_authorization = runtime_authorization
 
     async def prepare(
+        self, run_id: UUID, lease: UUID, queued: AnalysisQueuedInput
+    ) -> AnalysisFrozenInput:
+        if self._runtime_authorization is None:
+            if queued.command.runtime_authorization is not None:
+                raise ValueError("DAILY_AUTHORIZATION_MODULE_UNAVAILABLE")
+            return await self._prepare(run_id, lease, queued)
+        async with self._runtime_authorization.prepare_permit(run_id, lease, queued):
+            return await self._prepare(run_id, lease, queued)
+
+    async def _prepare(
         self, run_id: UUID, lease: UUID, queued: AnalysisQueuedInput
     ) -> AnalysisFrozenInput:
         identifiers = list(queued.command.evidence_ids)

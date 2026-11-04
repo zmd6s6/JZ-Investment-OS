@@ -130,6 +130,15 @@ async def configuration(
     session: AsyncSession, record: DailyConfigurationRecord
 ) -> DailyConfiguration:
     prepared = await read_prepared(session, record)
+    now = datetime.now(UTC)
+    if record.revoked:
+        blocker = "DAILY_AUTHORIZATION_REVOKED"
+    elif not record.enabled:
+        blocker = "DAILY_PAUSED"
+    elif not prepared.command.valid_from <= now < prepared.command.valid_until:
+        blocker = "DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID"
+    else:
+        blocker = None
     return DailyConfiguration(
         schedule_id=record.id,
         revision_id=record.revision_id,
@@ -138,11 +147,7 @@ async def configuration(
         revoked=record.revoked,
         enabled_since=record.enabled_since,
         prepared=prepared,
-        blocker="DAILY_AUTHORIZATION_REVOKED"
-        if record.revoked
-        else "DAILY_PAUSED"
-        if not record.enabled
-        else None,
+        blocker=blocker,
     )
 
 
@@ -188,6 +193,10 @@ class SqlDailyRuntimeStore:
             )
             if (record.version if record else 0) != command.expected_version:
                 raise DailyError("DAILY_VERSION_CONFLICT")
+            # REVOKE is terminal for a schedule ID. A new SAVE must not clear it:
+            # a fresh authorization requires a fresh schedule_id and explicit consent.
+            if record is not None and record.revoked:
+                raise DailyError("DAILY_AUTHORIZATION_REVOKED")
             if prepared.input_hash != fingerprint(
                 prepared.model_dump(mode="json", exclude={"input_hash"})
             ):
@@ -199,6 +208,14 @@ class SqlDailyRuntimeStore:
             if calendar.content_hash != prepared.calendar_hash:
                 raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
             await self.setup.verify_profiles(prepared, datetime.now(UTC))
+            # Profile/budget verification may await while another transaction
+            # changes the current portfolio membership or calendar import.
+            # A saved (even paused) authorization must not freeze stale scope.
+            if await capture_scope(session, command, lock=True) != prepared.members:
+                raise DailyError("DAILY_SCOPE_CHANGED_DURING_CONFIRMATION")
+            calendar, _ = await capture_calendar(session, command, lock=True)
+            if calendar.content_hash != prepared.calendar_hash:
+                raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
             revision_id = uuid4()
             if record is None:
                 record = DailyConfigurationRecord(
@@ -281,11 +298,14 @@ class SqlDailyRuntimeStore:
                 raise DailyError("DAILY_CONFIGURATION_NOT_FOUND")
             if record.version != command.expected_version:
                 raise DailyError("DAILY_VERSION_CONFLICT")
+            # REVOKE is terminal for this schedule. A new command may not
+            # mutate its version or history, even if it only requests PAUSE.
+            # Exact retries of the original REVOKE are handled by _replay above.
+            if record.revoked:
+                raise DailyError("DAILY_AUTHORIZATION_REVOKED")
             prepared = await read_prepared(session, record)
             now = datetime.now(UTC)
             if command.action == "ENABLE":
-                if record.revoked:
-                    raise DailyError("DAILY_AUTHORIZATION_REVOKED")
                 if not prepared.command.valid_from <= now < prepared.command.valid_until:
                     raise DailyError("DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID")
                 if await capture_scope(session, prepared.command, lock=True) != prepared.members:
@@ -294,6 +314,21 @@ class SqlDailyRuntimeStore:
                 if calendar.content_hash != prepared.calendar_hash:
                     raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
                 await self.setup.verify_profiles(prepared, now)
+                # Provider/budget verification can await another transaction that
+                # adds a portfolio position or replaces a calendar import. Row
+                # locks on existing members do not prevent new member phantoms.
+                # Re-read the frozen authorization scope before enabling.
+                if await capture_scope(session, prepared.command, lock=True) != prepared.members:
+                    raise DailyError("DAILY_SCOPE_CHANGED")
+                calendar, _ = await capture_calendar(session, prepared.command, lock=True)
+                if calendar.content_hash != prepared.calendar_hash:
+                    raise DailyError("DAILY_CALENDAR_CHANGED_OR_MISSING")
+                # Profile and budget checks await I/O. An authorization can expire
+                # while those checks run, even though the row lock prevents PAUSE.
+                # Reject before any write and use the final checked time for ENABLE.
+                now = datetime.now(UTC)
+                if not prepared.command.valid_from <= now < prepared.command.valid_until:
+                    raise DailyError("DAILY_AUTHORIZATION_EXPIRED_OR_NOT_YET_VALID")
                 record.enabled = True
                 record.enabled_since = now
             else:
