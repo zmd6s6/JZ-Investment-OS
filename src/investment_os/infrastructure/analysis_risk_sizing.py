@@ -153,10 +153,10 @@ class SqlNumericSources:
 
 
 async def pending_capacity(
-    session: AsyncSession, frozen: AnalysisFrozenInput
+    session: AsyncSession, frozen: AnalysisFrozenInput, *, as_of: datetime | None = None
 ) -> tuple[tuple[Decimal, Decimal, Decimal] | None, tuple[str, ...]]:
     book = frozen.queued.valuation.input_snapshot
-    at = book.captured_at
+    at = as_of if as_of is not None else book.captured_at
     source = frozen.numeric_source
     if source is None:
         return None, ("PENDING_NUMERIC_SOURCE_UNAVAILABLE",)

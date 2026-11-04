@@ -145,6 +145,8 @@ class DecisionBridgeView(NumericDto):
     schema_version: Literal["analysis-decision-bridge-1.0"] = "analysis-decision-bridge-1.0"
     status: Literal["BLOCKED", "READY_FOR_RECONSTRUCTION", "PENDING_APPROVAL"] = "BLOCKED"
     decision_id: UUID | None = None
+    request_id: UUID | None = None
+    revision: int = Field(default=0, ge=0)
     qualification_id: UUID | None = None
     strategy_version_id: UUID | None = None
     gates: dict[GateName, GateOutcome] = Field(default_factory=dict)
@@ -154,6 +156,33 @@ class DecisionBridgeView(NumericDto):
     simulation_only: Literal[True] = True
     execution_allowed: Literal[False] = False
     auto_trade: Literal[False] = False
+
+
+class PrepareAnalysisDecision(NumericDto):
+    """One explicit UI preparation, never an approval and never an arbitrary Action input."""
+
+    schema_version: Literal["prepare-analysis-decision-1.0"] = "prepare-analysis-decision-1.0"
+    request_id: UUID
+    run_id: UUID
+    qualification_id: UUID
+    expected_input_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_revision: int = Field(default=0, ge=0, strict=True)
+    actor_id: str = Field(min_length=1, max_length=120)
+    confirm_preparation: Literal[True]
+    confirm_risk_reduction_exception: StrictBool = False
+
+    @field_validator("confirm_preparation", mode="before")
+    @classmethod
+    def explicit_confirmation(cls, value: object) -> object:
+        if value is not True:
+            raise ValueError("explicit boolean Decision preparation confirmation required")
+        return value
+
+
+class AnalysisDecisionBridgePort(Protocol):
+    async def prepare(self, command: PrepareAnalysisDecision) -> DecisionBridgeView: ...
+    async def get(self, run_id: UUID) -> DecisionBridgeView | None: ...
+    async def history(self, run_id: UUID) -> tuple[DecisionBridgeView, ...]: ...
 
 
 class DecisionQualificationPort(Protocol):

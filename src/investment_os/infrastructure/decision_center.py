@@ -366,6 +366,12 @@ class SqlDecisionCenter:
             allowed_actions=tuple(allowed),
         )
 
+    async def validate_proposal_lineage(
+        self, session: AsyncSession, decision: InvestmentDecisionRecord, now: datetime
+    ) -> tuple[builtins.list[str], dict[str, object], Decimal | None]:
+        """Reuse canonical 301 guards inside a caller-owned atomic proposal transaction."""
+        return await self._lineage(session, decision, now)
+
     async def _lineage(
         self, session: AsyncSession, d: InvestmentDecisionRecord, now: datetime
     ) -> tuple[builtins.list[str], dict[str, object], Decimal | None]:
