@@ -43,6 +43,7 @@ class SqlDecisionQualifications:
                 version=row.version,
                 status=row.status,
                 approved_by=row.approved_by,
+                approved_by_actor=row.metadata_json.get("approved_by_actor"),
                 approved_at=row.metadata_json.get("approved_at"),
                 prompt_bundle_hash=row.prompt_bundle_hash,
                 code_ref=row.code_ref,

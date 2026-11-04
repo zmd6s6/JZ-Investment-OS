@@ -1,6 +1,7 @@
 """Explicit complete synthetic Strategy/facts; never used to seed an Owner instance."""
 
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from uuid import uuid4
 
 from analysis_numeric_fixture import seed_numeric
@@ -14,7 +15,11 @@ from investment_os.application.analysis_decision_bridge import (
     StrategyDecisionSnapshot,
 )
 from investment_os.application.analysis_risk_sizing import exact_number
+from investment_os.application.analysis_runs import ANALYSIS_ROLES
+from investment_os.application.investment_analysis import system_prompt
+from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.application.research import ResearchArtifactDTO
+from investment_os.domain.agent import AgentRole
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.analysis_decision_models import (
     BridgeStrategyVersionRecord,
@@ -25,8 +30,21 @@ from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIn
 from investment_os.infrastructure.persistence.models import EvidenceRecord
 
 
-async def seed_qualification(engine, *, defect=None, **numeric_options):
-    ids, numeric = await seed_numeric(engine, **numeric_options)
+async def seed_qualification(
+    engine,
+    *,
+    defect=None,
+    existing_numeric=None,
+    qualification_lifetime=timedelta(days=1),
+    quality_threshold="1",
+    strategy_human_approved=True,
+    **numeric_options,
+):
+    ids, numeric = (
+        existing_numeric
+        if existing_numeric is not None
+        else await seed_numeric(engine, **numeric_options)
+    )
     now = datetime.now(UTC)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     rule_names = ("INVESTMENT_QUALITY", "TIMING", "PORTFOLIO_FIT")
@@ -61,7 +79,13 @@ async def seed_qualification(engine, *, defect=None, **numeric_options):
         valid_until=now + timedelta(days=1),
         review_after_seconds=3600,
         gates={
-            name: (DecisionGateRule(metric=name, comparison="GTE", threshold="1"),)
+            name: (
+                DecisionGateRule(
+                    metric=name,
+                    comparison="GTE",
+                    threshold=quality_threshold if name == "INVESTMENT_QUALITY" else "1",
+                ),
+            )
             for name in rule_names
         },
     )
@@ -69,9 +93,17 @@ async def seed_qualification(engine, *, defect=None, **numeric_options):
         strategy_version_id=uuid4(),
         version=1,
         status="ACTIVE",
-        approved_by="explicit-synthetic-human",
+        approved_by="explicit-synthetic-human" if strategy_human_approved else None,
+        approved_by_actor="HUMAN" if strategy_human_approved else None,
         approved_at=now - timedelta(hours=1),
-        prompt_bundle_hash="a" * 64,
+        prompt_bundle_hash=fingerprint(
+            {
+                role.value: sha256(
+                    system_prompt(role, role in {AgentRole.CIO, AgentRole.PORTFOLIO}).encode()
+                ).hexdigest()
+                for role in ANALYSIS_ROLES
+            }
+        ),
         code_ref="synthetic-206-only",
         rules=rules,
         content_hash="0" * 64,
@@ -94,7 +126,7 @@ async def seed_qualification(engine, *, defect=None, **numeric_options):
             source_name="206明确合成资格",
             as_of=now,
             created_at=now,
-            expires_at=now + timedelta(days=1),
+            expires_at=now + qualification_lifetime,
             facts=tuple(
                 DecisionGateFact(
                     metric=name,
@@ -127,7 +159,10 @@ async def seed_qualification(engine, *, defect=None, **numeric_options):
                 created_at=now,
                 created_by="synthetic-206-only",
                 correlation_id=uuid4(),
-                metadata_json={"approved_at": strategy.approved_at.isoformat()},
+                metadata_json={
+                    "approved_at": strategy.approved_at.isoformat(),
+                    "approved_by_actor": strategy.approved_by_actor,
+                },
             )
         )
         await session.flush()

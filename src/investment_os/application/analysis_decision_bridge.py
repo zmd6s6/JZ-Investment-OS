@@ -87,6 +87,7 @@ class StrategyDecisionSnapshot(NumericDto):
     version: int = Field(ge=1)
     status: str
     approved_by: str | None
+    approved_by_actor: Literal["HUMAN"] | None
     approved_at: AwareDatetime | None
     prompt_bundle_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     code_ref: str = Field(min_length=1, max_length=255)
@@ -252,6 +253,7 @@ def evaluate_decision_readiness(
         if (
             strategy.status != "ACTIVE"
             or not strategy.approved_by
+            or strategy.approved_by_actor != "HUMAN"
             or strategy.approved_at is None
             or strategy.approved_at > scope.captured_at
         ):

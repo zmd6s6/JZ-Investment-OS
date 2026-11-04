@@ -1,0 +1,349 @@
+"""Real Worker Analysis -> explicit atomic Decision -> existing human-only approval chain."""
+
+from uuid import uuid4
+
+import pytest
+from analysis_decision_fixture import seed_qualification
+from sqlalchemy import func, select, text
+from test_analysis_numeric_pipeline import pipeline
+
+from investment_os.application.analysis_decision_bridge import PrepareAnalysisDecision
+from investment_os.application.decision_center import HumanCommand
+from investment_os.infrastructure.analysis_decision_bridge import SqlAnalysisDecisionBridge
+from investment_os.infrastructure.analysis_decision_models import AnalysisDecisionBridgeRecord
+from investment_os.infrastructure.decision_center import SqlDecisionCenter
+from investment_os.infrastructure.persistence.models import (
+    AgentOpinionRecord,
+    AgentRunRecord,
+    DecisionApprovalRecord,
+    DecisionExecutionRecord,
+    InvestmentDecisionEvidenceRecord,
+    InvestmentDecisionRecord,
+)
+
+pytestmark = pytest.mark.integration
+
+
+async def complete_analysis(
+    engine, *, include_gate_evidence=True, qualification_options=None, **options
+):
+    sessions, service, store, runner, command, calls, client, numeric = await pipeline(
+        engine, **options
+    )
+    ids = {
+        "portfolio": command.portfolio_id,
+        "instrument": command.instrument_id,
+        "policy_version": numeric.policy_version_id,
+        "snapshot": numeric.snapshot_id,
+    }
+    ids, _numeric, qualification, strategy = await seed_qualification(
+        engine, existing_numeric=(ids, numeric), **(qualification_options or {})
+    )
+    if include_gate_evidence:
+        command = command.model_copy(
+            update={"evidence_ids": (*command.evidence_ids, ids["gate_evidence"])}
+        )
+    queued = await service.start(command)
+    await runner.dispatch_due()
+    run = await store.get(queued.run_id)
+    assert run.error_code is None, run.model_dump(mode="json")
+    preparation = PrepareAnalysisDecision(
+        request_id=uuid4(),
+        run_id=run.run_id,
+        qualification_id=qualification.qualification_id,
+        expected_input_hash=run.input_hash,
+        actor_id="明确合成用户",
+        confirm_preparation=True,
+    )
+    return sessions, store, run, preparation, calls, client, qualification, strategy
+
+
+async def test_worker_persists_every_validated_opinion_evidence_fk_in_the_original_transaction(
+    database_engine,
+):
+    (
+        sessions,
+        _store,
+        original,
+        _command,
+        _calls,
+        client,
+        _qualification,
+        _strategy,
+    ) = await complete_analysis(database_engine)
+    try:
+        async with sessions() as session:
+            opinions = (
+                await session.scalars(
+                    select(AgentOpinionRecord)
+                    .join(AgentRunRecord, AgentRunRecord.id == AgentOpinionRecord.agent_run_id)
+                    .where(AgentRunRecord.correlation_id == original.run_id)
+                )
+            ).all()
+            assert len(opinions) == 7
+            for opinion in opinions:
+                expected = {
+                    str(identifier)
+                    for item in [
+                        *opinion.observations_json,
+                        *opinion.risks_json,
+                        *opinion.thesis_impacts_json,
+                    ]
+                    for identifier in item["evidence_ids"]
+                }
+                actual = {
+                    str(identifier)
+                    for identifier in (
+                        await session.scalars(
+                            text(
+                                "SELECT evidence_id FROM agent_opinion_evidence "
+                                "WHERE agent_opinion_id=:id"
+                            ),
+                            {"id": opinion.id},
+                        )
+                    ).all()
+                }
+                assert actual == expected and actual
+    finally:
+        await client.aclose()
+
+
+async def test_real_analysis_to_decision_preserves_shadow_and_requires_explicit_human_approval(
+    database_engine,
+):
+    (
+        sessions,
+        store,
+        original,
+        command,
+        calls,
+        client,
+        _qualification,
+        _strategy,
+    ) = await complete_analysis(database_engine)
+    try:
+        before_calls = len(calls)
+        bridge = SqlAnalysisDecisionBridge(sessions)
+        result = await bridge.prepare(command)
+        assert result.status == "PENDING_APPROVAL", result.model_dump(mode="json")
+        assert result.decision_id is not None and result.revision == 1
+        assert await bridge.prepare(command) == result
+        assert await bridge.get(original.run_id) == result
+        assert len(calls) == before_calls, "preparation must never call a model"
+        assert (await store.get(original.run_id)).shadow_decision == original.shadow_decision
+        center = SqlDecisionCenter(sessions)
+        detail = await center.get(result.decision_id)
+        assert not detail.decision.blockers, detail.model_dump(mode="json")
+        assert "APPROVE" in detail.allowed_actions
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
+                == 1
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(AnalysisDecisionBridgeRecord))
+                == 1
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(DecisionApprovalRecord)) == 0
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(DecisionExecutionRecord)) == 0
+            )
+        approved = await center.act(
+            result.decision_id,
+            "APPROVE",
+            HumanCommand(
+                request_id=uuid4(),
+                expected_revision=detail.decision.revision,
+                actor_id="明确合成人工批准者",
+                comment="仅测试明确人工批准",
+                confirmed=True,
+            ),
+        )
+        assert approved.decision.state == "APPROVED"
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(DecisionExecutionRecord)) == 0
+            )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("action", ["REJECT", "REVOKE"])
+async def test_real_bridge_human_rejection_and_revocation_never_execute(database_engine, action):
+    sessions, _store, _original, command, _calls, client, _q, _s = await complete_analysis(
+        database_engine
+    )
+    try:
+        result = await SqlAnalysisDecisionBridge(sessions).prepare(command)
+        assert result.status == "PENDING_APPROVAL", result.blockers
+        center = SqlDecisionCenter(sessions)
+        detail = await center.get(result.decision_id)
+        actions = ("APPROVE", "REVOKE") if action == "REVOKE" else ("REJECT",)
+        for step in actions:
+            detail = await center.act(
+                result.decision_id,
+                step,
+                HumanCommand(
+                    request_id=uuid4(),
+                    expected_revision=detail.decision.revision,
+                    actor_id="明确合成人工操作者",
+                    comment="验证人工动作不执行",
+                    confirmed=True,
+                ),
+            )
+        assert detail.decision.state == ("CANCELLED" if action == "REVOKE" else "REJECTED")
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(DecisionExecutionRecord)) == 0
+            )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize(
+    "case", ["not_frozen", "unapproved_strategy", "quality_fail", "role_failed"]
+)
+async def test_unqualified_analysis_only_appends_blocked_attempt_and_preserves_shadow(
+    database_engine, case
+):
+    sessions, store, original, command, calls, client, _q, _s = await complete_analysis(
+        database_engine,
+        include_gate_evidence=case != "not_frozen",
+        qualification_options={"strategy_human_approved": False}
+        if case == "unapproved_strategy"
+        else {"quality_threshold": "2"}
+        if case == "quality_fail"
+        else {},
+        **({"invalid_role": "MACRO"} if case == "role_failed" else {}),
+    )
+    try:
+        count = len(calls)
+        bridge = SqlAnalysisDecisionBridge(sessions)
+        result = await bridge.prepare(command)
+        assert result.status == "BLOCKED" and result.decision_id is None, result.model_dump(
+            mode="json"
+        )
+        assert result.blockers
+        assert await bridge.prepare(command) == result
+        assert len(calls) == count
+        assert (await store.get(original.run_id)).shadow_decision == original.shadow_decision
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
+                == 0
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(DecisionApprovalRecord)) == 0
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(DecisionExecutionRecord)) == 0
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(AnalysisDecisionBridgeRecord))
+                == 1
+            )
+    finally:
+        await client.aclose()
+
+
+async def test_bridge_idempotency_revision_and_unique_decision_reject_conflicting_commands(
+    database_engine,
+):
+    sessions, _store, _original, command, _calls, client, _q, _s = await complete_analysis(
+        database_engine
+    )
+    try:
+        bridge = SqlAnalysisDecisionBridge(sessions)
+        result = await bridge.prepare(command)
+        assert result.status == "PENDING_APPROVAL"
+        with pytest.raises(ValueError, match="REQUEST_CONFLICT"):
+            await bridge.prepare(command.model_copy(update={"actor_id": "不同操作者"}))
+        with pytest.raises(ValueError, match="REVISION_CONFLICT"):
+            await bridge.prepare(command.model_copy(update={"request_id": uuid4()}))
+        with pytest.raises(ValueError, match="ALREADY_HAS_INVESTMENT_DECISION"):
+            await bridge.prepare(
+                command.model_copy(update={"request_id": uuid4(), "expected_revision": 1})
+            )
+        assert len(await bridge.history(command.run_id)) == 1
+    finally:
+        await client.aclose()
+
+
+async def test_human_approval_rechecks_pending_capacity_after_bridge_creation(database_engine):
+    sessions, _store, _original, command, _calls, client, _q, _s = await complete_analysis(
+        database_engine
+    )
+    try:
+        result = await SqlAnalysisDecisionBridge(sessions).prepare(command)
+        assert result.status == "PENDING_APPROVAL", result.blockers
+        other_id = uuid4()
+        async with sessions() as session, session.begin():
+            original = await session.get(InvestmentDecisionRecord, result.decision_id)
+            values = {
+                column.name: getattr(original, column.name)
+                for column in InvestmentDecisionRecord.__table__.columns
+            }
+            values.update(
+                id=other_id,
+                metadata_json={"simulation_only": True, "fixture": "independent-pending-decision"},
+            )
+            session.add(InvestmentDecisionRecord(**values))
+            await session.flush()
+            evidence = (
+                await session.scalars(
+                    select(InvestmentDecisionEvidenceRecord.evidence_id).where(
+                        InvestmentDecisionEvidenceRecord.investment_decision_id == original.id
+                    )
+                )
+            ).all()
+            session.add_all(
+                [
+                    InvestmentDecisionEvidenceRecord(
+                        investment_decision_id=other_id, evidence_id=identifier
+                    )
+                    for identifier in evidence
+                ]
+            )
+        center = SqlDecisionCenter(sessions)
+        other = await center.get(other_id)
+        assert "APPROVE" in other.allowed_actions, other.model_dump(mode="json")
+        await center.act(
+            other_id,
+            "APPROVE",
+            HumanCommand(
+                request_id=uuid4(),
+                expected_revision=other.decision.revision,
+                actor_id="合成独立批准者",
+                comment="使其他合法待成交暴露变化",
+                confirmed=True,
+            ),
+        )
+        detail = await center.get(result.decision_id)
+        with pytest.raises(ValueError, match="PENDING_EXPOSURE_CHANGED"):
+            await center.act(
+                result.decision_id,
+                "APPROVE",
+                HumanCommand(
+                    request_id=uuid4(),
+                    expected_revision=detail.decision.revision,
+                    actor_id="合成批准者",
+                    comment="不得沿用旧容量",
+                    confirmed=True,
+                ),
+            )
+        async with sessions() as session:
+            assert (
+                await session.scalar(
+                    select(func.count())
+                    .select_from(DecisionApprovalRecord)
+                    .where(DecisionApprovalRecord.decision_id == result.decision_id)
+                )
+                == 0
+            )
+            assert (
+                await session.scalar(select(func.count()).select_from(DecisionExecutionRecord)) == 0
+            )
+    finally:
+        await client.aclose()

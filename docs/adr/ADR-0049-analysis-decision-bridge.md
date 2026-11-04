@@ -14,6 +14,12 @@
 
 SCHEDULED_SHADOW/daily runtime marker只授权影子分析与费用，不授予生成可审批Decision的权限。桥接依据持久Run实际来源与intent失败关闭，不能让客户端传false/遗漏marker绕过；此边界须真实PG/UI回归。
 
+## 固定来源与显式动作实现
+
+采用后置显式准备：原Analysis终态之后，用户从该Run原冻结Evidence选择原时点已存在的资格/具体已HUMAN批准Strategy，单独确认生成待审阅Decision。原Shadow不可变；零额外模型调用，准备不代表人工批准。固定Strategy Prompt bundle与实际七角色Prompt身份一致；Risk模型高/严重风险不由数字PASS覆盖。Worker在原Opinion事务写全部引用的正规FK关联，不追补旧历史。
+
+prepare保存只追加request/revision尝试，成功Run最多一个Decision；失败候选以savepoint回滚标准记录后保存BLOCKED。人工批准桥接Decision还必须在同事务重核当前pending容量，账本与Position phantom及批准/执行并发写均锁定；授权读取完成后使用同一最终时间写不可变批准。REDUCE/EXIT的Risk Veto例外只在明确确认后追加新的标准Sizer副本记录，原Sizer不变。
+
 ## 兼容、迁移与恢复
 
 新typed字段仅明确使用时参与canonical请求身份，旧请求/旧Shadow照常读取。旧Strategy rules_json未满足新严格协议时显示缺项，不填默认、猜规则或原地改版本。新关联/资格快照只追加，保留FK/唯一/Hash与规范化Evidence；已有历史时拒绝破坏性降级，使用保留表的应用回退/前向修复。

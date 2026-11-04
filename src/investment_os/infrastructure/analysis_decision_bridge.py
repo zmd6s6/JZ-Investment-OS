@@ -1,5 +1,6 @@
 """Atomic explicit preparation from immutable Analysis facts to an unapproved Decision."""
 
+import json
 from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
@@ -23,6 +24,7 @@ from investment_os.application.analysis_risk_sizing import (
     utc_now,
 )
 from investment_os.application.analysis_runs import (
+    ANALYSIS_ROLES,
     AnalysisFrozenInput,
     CioProposal,
     PortfolioIntent,
@@ -30,8 +32,10 @@ from investment_os.application.analysis_runs import (
 from investment_os.application.decision_center import clean_text
 from investment_os.application.policy_schema import InvestmentPolicySchema
 from investment_os.application.portfolio_valuation import fingerprint
+from investment_os.domain.agent import OpinionStance
 from investment_os.domain.decision import DecisionClaim, DecisionPosition, InvestmentDecision
 from investment_os.domain.enums import Action, BucketAction, DecisionState
+from investment_os.domain.risk import RiskFlag
 from investment_os.domain.sizing import SizingRequest
 from investment_os.domain.values import UtcTimestamp, Weight
 from investment_os.infrastructure.analysis_decision_models import (
@@ -57,7 +61,6 @@ from investment_os.infrastructure.persistence.analysis_models import (
 from investment_os.infrastructure.persistence.models import (
     AgentOpinionRecord,
     AgentRunRecord,
-    CommitteeMessageRecord,
     InvestmentDecisionRecord,
     InvestmentPolicyRecord,
     InvestmentPolicyVersionRecord,
@@ -212,7 +215,16 @@ class SqlAnalysisDecisionBridge:
                 try:
                     async with session.begin_nested():
                         decision = await self._append_candidate(
-                            uow, run, frozen, numeric, view, source, proposal, intent, command
+                            uow,
+                            run,
+                            frozen,
+                            numeric,
+                            view,
+                            source,
+                            strategy,
+                            proposal,
+                            intent,
+                            command,
                         )
                         (
                             blockers,
@@ -328,6 +340,7 @@ class SqlAnalysisDecisionBridge:
         numeric: RiskSizingView,
         view: DecisionBridgeView,
         source: DecisionQualification,
+        strategy: StrategyDecisionSnapshot,
         proposal: CioProposal,
         intent: PortfolioIntent,
         command: PrepareAnalysisDecision,
@@ -341,8 +354,38 @@ class SqlAnalysisDecisionBridge:
         if any(item is None for item in (risk, sizing, policy, thesis)):
             raise CandidateBlocked("DECISION_STANDARD_LINEAGE_MISSING")
         assert risk is not None and sizing is not None and policy is not None and thesis is not None
+        agent_runs = (
+            await session.scalars(
+                select(AgentRunRecord)
+                .join(
+                    AnalysisRoleOutputRecord,
+                    AnalysisRoleOutputRecord.agent_run_id == AgentRunRecord.id,
+                )
+                .where(AnalysisRoleOutputRecord.run_id == run.id)
+            )
+        ).all()
+        prompt_hashes: dict[str, str] = {}
+        for agent_run in agent_runs:
+            prompt_hash = agent_run.metadata_json.get("prompt_hash") or agent_run.metadata_json.get(
+                "prompt_bundle_hash"
+            )
+            if (
+                not isinstance(prompt_hash, str)
+                or len(prompt_hash) != 64
+                or (
+                    agent_run.agent_role in prompt_hashes
+                    and prompt_hashes[agent_run.agent_role] != prompt_hash
+                )
+            ):
+                raise CandidateBlocked("DECISION_PROMPT_PROVENANCE_INVALID")
+            prompt_hashes[agent_run.agent_role] = prompt_hash
+        if (
+            set(prompt_hashes) != {role.value for role in ANALYSIS_ROLES}
+            or fingerprint(prompt_hashes) != strategy.prompt_bundle_hash
+        ):
+            raise CandidateBlocked("DECISION_STRATEGY_PROMPT_BUNDLE_MISMATCH")
         parent = await session.get(InvestmentPolicyRecord, policy.policy_id, with_for_update=True)
-        schema = InvestmentPolicySchema.model_validate(policy.config_json)
+        schema = InvestmentPolicySchema.model_validate_json(json.dumps(policy.config_json))
         if (
             parent is None
             or parent.status != "ACTIVE"
@@ -351,6 +394,7 @@ class SqlAnalysisDecisionBridge:
             or schema.sizing is None
             or policy.approved_at is None
             or not policy.approved_by
+            or policy.metadata_json.get("approved_by_actor") != "HUMAN"
             or policy.approved_at > frozen.as_of
             or policy.effective_from is None
             or policy.effective_from > frozen.as_of
@@ -406,15 +450,31 @@ class SqlAnalysisDecisionBridge:
                 select(AgentOpinionRecord, AgentRunRecord)
                 .join(AgentRunRecord, AgentRunRecord.id == AgentOpinionRecord.agent_run_id)
                 .join(
-                    CommitteeMessageRecord,
-                    CommitteeMessageRecord.opinion_id == AgentOpinionRecord.id,
+                    AnalysisRoleOutputRecord,
+                    AnalysisRoleOutputRecord.agent_run_id == AgentRunRecord.id,
                 )
-                .where(CommitteeMessageRecord.session_id == risk.session_id)
+                .where(
+                    AnalysisRoleOutputRecord.run_id == run.id,
+                    AnalysisRoleOutputRecord.schema_kind == "agent-opinion-1.0",
+                )
             )
         ).all()
         opinions = [agent_opinion(opinion, agent_run) for opinion, agent_run in pairs]
-        if not opinions or any(opinion.unknowns for opinion in opinions):
+        if (
+            not opinions
+            or any(
+                opinion.unknowns or opinion.stance is OpinionStance.INSUFFICIENT_DATA
+                for opinion in opinions
+            )
+            or any(agent_run.status != "SUCCEEDED" for _opinion, agent_run in pairs)
+        ):
             raise CandidateBlocked("DECISION_COMMITTEE_INCOMPLETE_OR_UNKNOWN")
+        if action in {Action.BUY, Action.ADD} and any(
+            item.severity.value in {"HIGH", "CRITICAL"}
+            for opinion in opinions
+            for item in opinion.risks
+        ):
+            raise CandidateBlocked("DECISION_UNRESOLVED_HIGH_OR_CRITICAL_AGENT_RISK")
         before_core = Decimal(str(numeric.numbers["core_weight"]))
         before_tactical = Decimal(str(numeric.numbers["tactical_weight"]))
         after_core, after_tactical = before_core, before_tactical
@@ -437,6 +497,24 @@ class SqlAnalysisDecisionBridge:
                 "固定已批准Strategy的具名规则及资料通过确定性校验(合成)",
                 tuple(sorted({fact.evidence_id for fact in source.facts}, key=str)),
             ),
+        )
+        flags = TypeAdapter(tuple[RiskFlag, ...]).validate_python(
+            [*risk.hard_flags_json, *risk.soft_flags_json]
+        )
+        risks = tuple(
+            DecisionClaim(f"{flag.code}: {flag.release_condition}", flag.evidence_ids)
+            for flag in flags
+        )
+        risks += tuple(
+            DecisionClaim(f"{opinion.role.value}: {item.code}", item.evidence_ids)
+            for opinion in opinions
+            for item in opinion.risks
+        )
+        dissent = tuple(
+            f"{opinion.role.value}: {fact.statement}"
+            for opinion in opinions
+            if opinion.stance in {OpinionStance.NEGATIVE, OpinionStance.STRONGLY_NEGATIVE}
+            for fact in opinion.observations
         )
         domain = InvestmentDecision(
             instrument_id=run.instrument_id,
@@ -462,13 +540,13 @@ class SqlAnalysisDecisionBridge:
             if request.bucket.value == "TACTICAL"
             else BucketAction.NONE,
             reasons=reasons,
-            risks=(),
+            risks=risks,
             watch_conditions=content.monitoring_conditions,
             invalidation_conditions=tuple(
                 item.condition for item in content.invalidation_conditions
             ),
             unknowns=(),
-            dissent=(),
+            dissent=dissent,
             next_review_at=UtcTimestamp(expiry),
             input_snapshot_hash=frozen.input_hash,
             prompt_bundle_version=frozen.prompt_bundle_version,

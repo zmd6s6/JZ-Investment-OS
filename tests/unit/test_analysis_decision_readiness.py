@@ -41,6 +41,7 @@ def complete():
         version=1,
         status="ACTIVE",
         approved_by="explicit-synthetic-human",
+        approved_by_actor="HUMAN",
         approved_at=now - timedelta(hours=1),
         prompt_bundle_hash="a" * 64,
         code_ref="synthetic-206-only",

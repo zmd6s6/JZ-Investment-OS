@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.agent_registry import AgentRoleRegistry
@@ -124,6 +124,26 @@ class SqlAnalysisExecution:
         repository = AgentObservabilityRepository(session)
         await repository.append_run(run)
         await repository.append_opinion(opinion)
+        references = (
+            {identifier for item in result.opinion.observations for identifier in item.evidence_ids}
+            | {identifier for item in result.opinion.risks for identifier in item.evidence_ids}
+            | {
+                identifier
+                for item in result.opinion.thesis_impacts
+                for identifier in item.evidence_ids
+            }
+        )
+        if references:
+            await session.execute(
+                text(
+                    "INSERT INTO agent_opinion_evidence (agent_opinion_id, evidence_id) "
+                    "VALUES (:opinion_id, :evidence_id)"
+                ),
+                [
+                    {"opinion_id": opinion.id, "evidence_id": identifier}
+                    for identifier in sorted(references, key=str)
+                ],
+            )
         payload: dict[str, object] = {
             "agent_run_id": str(run.id),
             "opinion_id": str(opinion.id),
