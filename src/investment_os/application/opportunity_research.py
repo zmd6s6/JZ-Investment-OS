@@ -3,7 +3,12 @@
 from typing import Literal, Protocol
 from uuid import UUID
 
-from investment_os.application.analysis_runs import AnalysisDto, AnalysisRunView, AnalysisStart
+from investment_os.application.analysis_runs import (
+    AnalysisDto,
+    AnalysisRunView,
+    AnalysisStart,
+    analysis_command_payload,
+)
 from investment_os.application.opportunities import FunnelRun, OpportunityError
 from investment_os.application.portfolio_valuation import fingerprint
 
@@ -69,7 +74,7 @@ class OpportunityResearchService:
         # A caller cannot attach this origin to an unrelated pre-existing request.
         existing = await self._analyses.find_request(command.analysis.request_id)
         if existing and existing.request_hash != fingerprint(
-            command.analysis.model_dump(mode="json")
+            analysis_command_payload(command.analysis)
         ):
             raise OpportunityError("REQUEST_CONTENT_CONFLICT")
         self._view(command, existing)
@@ -86,7 +91,7 @@ class OpportunityResearchService:
     ) -> CandidateResearchView:
         if run is not None and (
             run.request_id != command.analysis.request_id
-            or run.request_hash != fingerprint(command.analysis.model_dump(mode="json"))
+            or run.request_hash != fingerprint(analysis_command_payload(command.analysis))
             or run.instrument_id != command.analysis.instrument_id
             or run.portfolio_id != command.analysis.portfolio_id
         ):

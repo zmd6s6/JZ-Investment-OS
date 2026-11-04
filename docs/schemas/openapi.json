@@ -386,6 +386,16 @@
             "title": "Instrument Id",
             "type": "string"
           },
+          "numeric_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericSourceSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "prompt_bundle_version": {
             "const": "analysis-runtime-v1",
             "default": "analysis-runtime-v1",
@@ -645,6 +655,16 @@
             ],
             "title": "Retry Of"
           },
+          "risk_sizing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskSizingView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "run_id": {
             "format": "uuid",
             "title": "Run Id",
@@ -771,10 +791,32 @@
             "title": "Model Profiles",
             "type": "object"
           },
+          "numeric_snapshot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Snapshot Id"
+          },
           "portfolio_id": {
             "format": "uuid",
             "title": "Portfolio Id",
             "type": "string"
+          },
+          "position_bucket": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionBucket"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "query": {
             "anyOf": [
@@ -4889,6 +4931,193 @@
         "title": "ModelProviderProfileResponse",
         "type": "object"
       },
+      "NumericFact": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "metric": {
+            "enum": [
+              "REFERENCE_PRICE",
+              "VOLATILITY",
+              "LIQUIDITY_CAPACITY",
+              "RISK_BUDGET_CAPACITY",
+              "CORRELATION"
+            ],
+            "title": "Metric",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "instrument_id",
+          "evidence_id",
+          "value"
+        ],
+        "title": "NumericFact",
+        "type": "object"
+      },
+      "NumericSourceSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/NumericFact"
+            },
+            "maxItems": 1100,
+            "minItems": 1,
+            "title": "Facts",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "policy_version_id": {
+            "format": "uuid",
+            "title": "Policy Version Id",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "portfolio_identity_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Portfolio Identity Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "analysis-numeric-input-1.0",
+            "default": "analysis-numeric-input-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "REFERENCE_ONLY",
+              "SYNTHETIC_FIXTURE"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/NumericTarget"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "portfolio_id",
+          "instrument_id",
+          "policy_version_id",
+          "portfolio_identity_hash",
+          "target",
+          "source_kind",
+          "source_name",
+          "created_at",
+          "as_of",
+          "expires_at",
+          "facts",
+          "content_hash"
+        ],
+        "title": "NumericSourceSnapshot",
+        "type": "object"
+      },
+      "NumericTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "lot_size": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Lot Size",
+            "type": "string"
+          },
+          "sector": {
+            "minLength": 1,
+            "title": "Sector",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "currency",
+          "sector",
+          "lot_size"
+        ],
+        "title": "NumericTarget",
+        "type": "object"
+      },
       "OnboardingStateResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5261,6 +5490,14 @@
         ],
         "title": "PortfolioResponse",
         "type": "object"
+      },
+      "PositionBucket": {
+        "enum": [
+          "CORE",
+          "TACTICAL"
+        ],
+        "title": "PositionBucket",
+        "type": "string"
       },
       "ProductCapabilityResponse": {
         "additionalProperties": false,
@@ -5770,6 +6007,204 @@
         "title": "RiskIntent",
         "type": "string"
       },
+      "RiskSizingView": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blockers": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "bucket": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionBucket"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delta_quantity": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Quantity"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "execution_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Execution Allowed",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "numbers": {
+            "additionalProperties": true,
+            "title": "Numbers",
+            "type": "object"
+          },
+          "numeric_snapshot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Snapshot Id"
+          },
+          "policy_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version Id"
+          },
+          "risk_assessment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Assessment Id"
+          },
+          "risk_flags": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "risk_gate": {
+            "default": "UNKNOWN",
+            "enum": [
+              "UNKNOWN",
+              "PASS",
+              "VETO"
+            ],
+            "title": "Risk Gate",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "analysis-risk-sizing-1.0",
+            "default": "analysis-risk-sizing-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
+          "sizing_input": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sizing Input"
+          },
+          "sizing_output": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sizing Output"
+          },
+          "sizing_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sizing Run Id"
+          },
+          "sizing_status": {
+            "default": "BLOCKED",
+            "enum": [
+              "BLOCKED",
+              "COMPUTED"
+            ],
+            "title": "Sizing Status",
+            "type": "string"
+          },
+          "target_quantity": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Quantity"
+          }
+        },
+        "required": [
+          "evaluated_at"
+        ],
+        "title": "RiskSizingView",
+        "type": "object"
+      },
       "RoleModelAssignmentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5901,8 +6336,16 @@
             "type": "array"
           },
           "delta_quantity": {
-            "title": "Delta Quantity",
-            "type": "null"
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Quantity"
           },
           "execution_allowed": {
             "const": false,
@@ -5933,6 +6376,18 @@
             "title": "Reasons",
             "type": "array"
           },
+          "risk_assessment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Assessment Id"
+          },
           "risk_gate": {
             "enum": [
               "UNKNOWN",
@@ -5951,6 +6406,12 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
           "sizing_run_id": {
             "anyOf": [
               {
@@ -5964,14 +6425,25 @@
             "title": "Sizing Run Id"
           },
           "sizing_status": {
-            "const": "BLOCKED",
             "default": "BLOCKED",
+            "enum": [
+              "BLOCKED",
+              "COMPUTED"
+            ],
             "title": "Sizing Status",
             "type": "string"
           },
           "target_quantity": {
-            "title": "Target Quantity",
-            "type": "null"
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Quantity"
           },
           "thesis_version_id": {
             "anyOf": [
@@ -7811,6 +8283,63 @@
           }
         },
         "summary": "Get Choices",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis/numeric-sources": {
+      "get": {
+        "operationId": "numeric_choices_api_v1_analysis_numeric_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NumericSourceSnapshot"
+                  },
+                  "title": "Response Numeric Choices Api V1 Analysis Numeric Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Numeric Choices",
         "tags": [
           "analysis"
         ]
