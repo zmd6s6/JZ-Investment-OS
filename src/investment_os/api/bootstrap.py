@@ -44,6 +44,7 @@ from investment_os.infrastructure.decision_center import SqlDecisionCenter
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
 from investment_os.infrastructure.llm_budget import SqlAlchemyLLMBudgetStore
 from investment_os.infrastructure.manual_market_data import SqlManualMarketData
+from investment_os.infrastructure.monthly_review_store import SqlMonthlyReview
 from investment_os.infrastructure.onboarding import (
     SqlAlchemyOnboardingRuntime,
     SqlAlchemyOnboardingStore,
@@ -127,6 +128,7 @@ def create_production_app() -> FastAPI:
     )
     return create_app(
         daily_runtime_service=daily_service,
+        monthly_review_service=SqlMonthlyReview(session_factory),
         numeric_sources=SqlNumericSources(session_factory),
         analysis_decision_bridge=SqlAnalysisDecisionBridge(session_factory),
         decision_qualifications=SqlDecisionQualifications(session_factory),

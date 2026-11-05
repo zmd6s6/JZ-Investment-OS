@@ -4929,6 +4929,98 @@
         "title": "HoldingNumbers",
         "type": "object"
       },
+      "HoldingValue": {
+        "properties": {
+          "core_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Value"
+          },
+          "core_weight": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Weight"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "tactical_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Value"
+          },
+          "tactical_weight": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Weight"
+          },
+          "total_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Value"
+          },
+          "total_weight": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Weight"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "core_value",
+          "tactical_value",
+          "total_value",
+          "core_weight",
+          "tactical_weight",
+          "total_weight"
+        ],
+        "title": "HoldingValue",
+        "type": "object"
+      },
       "HumanCommand": {
         "additionalProperties": false,
         "properties": {
@@ -6383,6 +6475,736 @@
         "title": "ModelProviderProfileResponse",
         "type": "object"
       },
+      "MonthlyConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "prepared": {
+            "$ref": "#/components/schemas/MonthlyPrepared"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "revoked": {
+            "title": "Revoked",
+            "type": "boolean"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "revision_id",
+          "version",
+          "enabled",
+          "revoked",
+          "prepared",
+          "blocker"
+        ],
+        "title": "MonthlyConfiguration",
+        "type": "object"
+      },
+      "MonthlyConfirm": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "$ref": "#/components/schemas/MonthlySave"
+          },
+          "preview_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Preview Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "preview_hash"
+        ],
+        "title": "MonthlyConfirm",
+        "type": "object"
+      },
+      "MonthlyHoldingReview": {
+        "additionalProperties": false,
+        "properties": {
+          "core_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Change"
+          },
+          "core_quantity": {
+            "title": "Core Quantity",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "quote_status": {
+            "title": "Quote Status",
+            "type": "string"
+          },
+          "reentry_assessment": {
+            "const": "NOT_PROVIDED",
+            "default": "NOT_PROVIDED",
+            "title": "Reentry Assessment",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/MonthlyReadReference"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "tactical_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tactical Change"
+          },
+          "tactical_quantity": {
+            "title": "Tactical Quantity",
+            "type": "string"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "symbol",
+          "core_quantity",
+          "tactical_quantity",
+          "core_change",
+          "tactical_change",
+          "quote_status",
+          "references",
+          "unknowns"
+        ],
+        "title": "MonthlyHoldingReview",
+        "type": "object"
+      },
+      "MonthlyPrepared": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Calendar Hash",
+            "type": "string"
+          },
+          "calendar_source": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Calendar Source",
+            "type": "string"
+          },
+          "calendar_version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Calendar Version",
+            "type": "string"
+          },
+          "command": {
+            "$ref": "#/components/schemas/MonthlySave"
+          },
+          "content_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/DailyMember"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "prepared_at": {
+            "format": "date-time",
+            "title": "Prepared At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "calendar_hash",
+          "calendar_source",
+          "calendar_version",
+          "members",
+          "prepared_at",
+          "content_hash"
+        ],
+        "title": "MonthlyPrepared",
+        "type": "object"
+      },
+      "MonthlyReadReference": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "THESIS",
+              "ANALYSIS",
+              "RISK",
+              "DECISION"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "unknowns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "record_id",
+          "instrument_id",
+          "recorded_at",
+          "status",
+          "evidence_ids",
+          "content_hash"
+        ],
+        "title": "MonthlyReadReference",
+        "type": "object"
+      },
+      "MonthlyReport": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization": {
+            "$ref": "#/components/schemas/MonthlyPrepared"
+          },
+          "authorization_version": {
+            "title": "Authorization Version",
+            "type": "integer"
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "baseline_report_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Report Id"
+          },
+          "baseline_status": {
+            "enum": [
+              "FIRST_RUN_NO_BASELINE",
+              "COMPARABLE_BASELINE"
+            ],
+            "title": "Baseline Status",
+            "type": "string"
+          },
+          "business_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business As Of"
+          },
+          "content_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "evidence_diff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DailyEvidenceDiff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "holdings": {
+            "items": {
+              "$ref": "#/components/schemas/MonthlyHoldingReview"
+            },
+            "title": "Holdings",
+            "type": "array"
+          },
+          "knowledge_as_of": {
+            "format": "date-time",
+            "title": "Knowledge As Of",
+            "type": "string"
+          },
+          "local_inputs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DailyLocalInputs"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "LOCAL_REVIEW",
+              "DEGRADED",
+              "CLOSED_MONTH_SKIPPED"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "quotes": {
+            "items": {
+              "$ref": "#/components/schemas/MarketDataSnapshot"
+            },
+            "title": "Quotes",
+            "type": "array"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "recovery": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recovery",
+            "type": "array"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          },
+          "usable_until": {
+            "format": "date-time",
+            "title": "Usable Until",
+            "type": "string"
+          },
+          "valuation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortfolioNumbers"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "report_id",
+          "task_run_id",
+          "schedule_id",
+          "revision_id",
+          "authorization_version",
+          "period_start",
+          "period_end",
+          "business_as_of",
+          "knowledge_as_of",
+          "recorded_at",
+          "usable_until",
+          "phase",
+          "authorization",
+          "local_inputs",
+          "evidence_diff",
+          "baseline_report_id",
+          "baseline_status",
+          "holdings",
+          "valuation",
+          "quotes",
+          "unknowns",
+          "recovery",
+          "content_hash"
+        ],
+        "title": "MonthlyReport",
+        "type": "object"
+      },
+      "MonthlyReportHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "usable": {
+            "title": "Usable",
+            "type": "boolean"
+          },
+          "usable_until": {
+            "format": "date-time",
+            "title": "Usable Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "schedule_id",
+          "period_start",
+          "period_end",
+          "recorded_at",
+          "usable_until",
+          "content_hash",
+          "usable"
+        ],
+        "title": "MonthlyReportHistory",
+        "type": "object"
+      },
+      "MonthlySave": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar_import_id": {
+            "format": "uuid",
+            "title": "Calendar Import Id",
+            "type": "string"
+          },
+          "complete_calendar_acknowledgement": {
+            "const": true,
+            "title": "Complete Calendar Acknowledgement",
+            "type": "boolean"
+          },
+          "coverage_end": {
+            "format": "date",
+            "title": "Coverage End",
+            "type": "string"
+          },
+          "coverage_start": {
+            "format": "date",
+            "title": "Coverage Start",
+            "type": "string"
+          },
+          "data_profile_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Data Profile Ids",
+            "type": "array"
+          },
+          "evidence_source_names": {
+            "items": {
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Evidence Source Names",
+            "type": "array"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "frequency": {
+            "const": "MONTHLY_AFTER_COMPLETE_CALENDAR_MONTH",
+            "title": "Frequency",
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/DailyLimits"
+          },
+          "local_only_acknowledgement": {
+            "const": true,
+            "title": "Local Only Acknowledgement",
+            "type": "boolean"
+          },
+          "market": {
+            "enum": [
+              "SSE",
+              "SZSE"
+            ],
+            "title": "Market",
+            "type": "string"
+          },
+          "missed_run_policy": {
+            "const": "LOCAL_CURRENT_KNOWLEDGE_EXPLICIT_PERIOD",
+            "title": "Missed Run Policy",
+            "type": "string"
+          },
+          "mode": {
+            "const": "LOCAL_MONTHLY_REVIEW",
+            "title": "Mode",
+            "type": "string"
+          },
+          "model_profile_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Model Profile Ids",
+            "type": "array"
+          },
+          "monthly_frequency_acknowledgement": {
+            "const": true,
+            "title": "Monthly Frequency Acknowledgement",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pause_method": {
+            "const": "MONTHLY_UI_PAUSE_OR_REVOKE",
+            "title": "Pause Method",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "portfolio_instrument_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Portfolio Instrument Ids",
+            "type": "array"
+          },
+          "quote_source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Quote Source Name",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "retention_days": {
+            "maximum": 3650.0,
+            "minimum": 1.0,
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope_acknowledgement": {
+            "const": true,
+            "title": "Scope Acknowledgement",
+            "type": "boolean"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "schedule_id",
+          "expected_version",
+          "name",
+          "mode",
+          "frequency",
+          "market",
+          "portfolio_id",
+          "portfolio_instrument_ids",
+          "calendar_import_id",
+          "coverage_start",
+          "coverage_end",
+          "quote_source_name",
+          "evidence_source_names",
+          "valid_from",
+          "valid_until",
+          "retention_days",
+          "pause_method",
+          "missed_run_policy",
+          "complete_calendar_acknowledgement",
+          "monthly_frequency_acknowledgement",
+          "scope_acknowledgement",
+          "local_only_acknowledgement",
+          "model_profile_ids",
+          "data_profile_ids",
+          "limits"
+        ],
+        "title": "MonthlySave",
+        "type": "object"
+      },
       "NumericFact": {
         "additionalProperties": false,
         "properties": {
@@ -6778,6 +7600,117 @@
           "base_currency"
         ],
         "title": "PortfolioCreateRequest",
+        "type": "object"
+      },
+      "PortfolioNumbers": {
+        "properties": {
+          "cash": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cash",
+            "type": "string"
+          },
+          "cash_weight": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Weight"
+          },
+          "gross_exposure": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Exposure"
+          },
+          "holdings": {
+            "items": {
+              "$ref": "#/components/schemas/HoldingValue"
+            },
+            "title": "Holdings",
+            "type": "array"
+          },
+          "market_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Value"
+          },
+          "nav": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nav"
+          },
+          "net_exposure": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Exposure"
+          },
+          "sector_weights": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Sector Weights",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "cash",
+          "nav",
+          "market_value",
+          "cash_weight",
+          "gross_exposure",
+          "net_exposure",
+          "sector_weights",
+          "holdings"
+        ],
+        "title": "PortfolioNumbers",
         "type": "object"
       },
       "PortfolioPositionResponse": {
@@ -12576,6 +13509,391 @@
         "summary": "Mode",
         "tags": [
           "daily-runtime"
+        ]
+      }
+    },
+    "/api/v1/runtime/monthly": {
+      "get": {
+        "operationId": "configurations_api_v1_runtime_monthly_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyConfiguration"
+                  },
+                  "title": "Response Configurations Api V1 Runtime Monthly Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Configurations",
+        "tags": [
+          "monthly-review"
+        ]
+      },
+      "post": {
+        "operationId": "save_api_v1_runtime_monthly_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MonthlyConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyConfiguration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save",
+        "tags": [
+          "monthly-review"
+        ]
+      }
+    },
+    "/api/v1/runtime/monthly/history": {
+      "get": {
+        "operationId": "history_api_v1_runtime_monthly_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyReportHistory"
+                  },
+                  "title": "Response History Api V1 Runtime Monthly History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "History",
+        "tags": [
+          "monthly-review"
+        ]
+      }
+    },
+    "/api/v1/runtime/monthly/preview": {
+      "post": {
+        "operationId": "preview_api_v1_runtime_monthly_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MonthlySave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyPrepared"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "monthly-review"
+        ]
+      }
+    },
+    "/api/v1/runtime/monthly/reports": {
+      "get": {
+        "operationId": "reports_api_v1_runtime_monthly_reports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schedule_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Schedule Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyReport"
+                  },
+                  "title": "Response Reports Api V1 Runtime Monthly Reports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reports",
+        "tags": [
+          "monthly-review"
+        ]
+      }
+    },
+    "/api/v1/runtime/monthly/reports/{report_id}/replay": {
+      "get": {
+        "operationId": "replay_api_v1_runtime_monthly_reports__report_id__replay_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay",
+        "tags": [
+          "monthly-review"
+        ]
+      }
+    },
+    "/api/v1/runtime/monthly/runs": {
+      "get": {
+        "operationId": "runs_api_v1_runtime_monthly_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DailyTask"
+                  },
+                  "title": "Response Runs Api V1 Runtime Monthly Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Runs",
+        "tags": [
+          "monthly-review"
+        ]
+      }
+    },
+    "/api/v1/runtime/monthly/{schedule_id}/mode": {
+      "post": {
+        "operationId": "mode_api_v1_runtime_monthly__schedule_id__mode_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DailyMode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyConfiguration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mode",
+        "tags": [
+          "monthly-review"
         ]
       }
     },
