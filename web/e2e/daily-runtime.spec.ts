@@ -40,28 +40,39 @@ test("real daily API PG production Worker and Chrome persist local and explicitl
         await expect(page.getByRole("heading", { name: "完整授权预览" })).toBeVisible();
         await expect(page.getByRole("button", { name: "保存为暂停（另行启用）" })).toBeDisabled();
         await page.getByLabel(/已核对全部范围/).check();
+        const savedResponse = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/v1/runtime/daily");
         await page.getByRole("button", { name: "保存为暂停（另行启用）" }).click();
+        const saved = await savedResponse;
+        expect(saved.ok()).toBeTruthy();
+        const savedConfig = await saved.json();
         const card = page.locator("article").filter({ has: page.getByRole("heading", { name: new RegExp(name) }) });
         await expect(card).toContainText("已暂停");
         await card.getByLabel(/我已核对此保存授权/).check();
         await card.getByRole("button", { name: "启用每日任务" }).click();
         await expect(card).toContainText("已启用");
+        return savedConfig.schedule_id as string;
     }
-    await saveAndEnable(localName);
+    const localScheduleId = await saveAndEnable(localName);
     await page.getByLabel("运行模式").selectOption("SCHEDULED_SHADOW");
     for (const role of ["宏观", "行业", "基本面", "市场与量化", "事件", "反方", "组合经理", "风险", "投资负责人"])
         await page.getByLabel(`${role}模型`, { exact: true }).selectOption(profile.id);
     for (const [label, value] of [["计费币种", "CNY"], ["单任务Token上限", "2000000"], ["UTC日Token上限", "20000000"], ["单任务费用上限", "1"], ["UTC日费用上限", "2"]])
         await page.getByLabel(label, { exact: true }).fill(value);
     await page.getByLabel(/我明确允许所选模型出站/).check();
-    await saveAndEnable(shadowName);
+    const shadowScheduleId = await saveAndEnable(shadowName);
     await expect.poll(async () => {
         const response = await request.get("/api/v1/runtime/daily/reports");
         const reports = await response.json();
         return reports.some((r: {
+            schedule_id: string;
             mode: string;
             phase: string;
-        }) => r.mode === "SCHEDULED_SHADOW" && r.phase === "DEGRADED");
+            authorization: {
+                command: {
+                    name: string;
+                };
+            };
+        }) => r.mode === "SCHEDULED_SHADOW" && r.phase === "DEGRADED" && r.schedule_id === shadowScheduleId);
     }, { timeout: 180000, intervals: [2000, 3000] }).toBe(true);
     await page.getByRole("button", { name: "刷新每日状态与报告" }).click();
     await expect(page.getByRole("heading", { name: /需要处理/ }).first()).toBeVisible();
@@ -69,12 +80,24 @@ test("real daily API PG production Worker and Chrome persist local and explicitl
     await expect(page.getByRole("heading", { name: /数据 \/ 任务异常/ }).first()).toBeVisible();
     const reports = await (await request.get("/api/v1/runtime/daily/reports")).json();
     expect(reports.some((r: {
+        schedule_id: string;
         mode: string;
-    }) => r.mode === "LOCAL_STATUS_ONLY")).toBeTruthy();
+        authorization: {
+            command: {
+                name: string;
+            };
+        };
+    }) => r.mode === "LOCAL_STATUS_ONLY" && r.schedule_id === localScheduleId)).toBeTruthy();
     const shadow = reports.find((r: {
+        schedule_id: string;
         mode: string;
         phase: string;
-    }) => r.mode === "SCHEDULED_SHADOW" && r.phase === "DEGRADED");
+        authorization: {
+            command: {
+                name: string;
+            };
+        };
+    }) => r.mode === "SCHEDULED_SHADOW" && r.phase === "DEGRADED" && r.schedule_id === shadowScheduleId);
     expect(shadow.hold_watch.analysis_run_ids.length).toBeGreaterThan(0);
     const run = await (await request.get(`/api/v1/analysis/runs/${shadow.hold_watch.analysis_run_ids[0]}`)).json();
     expect(run.shadow_decision.risk_gate).toBe("UNKNOWN");
