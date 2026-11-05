@@ -168,10 +168,10 @@ work_items:
   - id: MVP-206
     title: Traceable InvestmentDecision and human approval bridge
     priority: 0
-    status: REVIEW
+    status: INTEGRATED
     claim_branch: agent/MVP-206
     claim_owner: pr-02-review-and-next-stage-monitor / mvp205_recovery
-    # 独立Claim与Handoff可核；本分支实现/验证不等于Release集成或Owner接受。
+    # PR39经独立Gate6647991606实际合入Release4b3995f；Owner接受仍PENDING。
     stage: PRODUCT-06
     checkpoint: B
     depends_on:
@@ -191,7 +191,10 @@ work_items:
   - id: MVP-403
     title: Owner-controlled daily shadow runtime and report
     priority: 1
-    status: READY
+    status: INTEGRATED
+    claim_branch: agent/MVP-403
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp403_recovery
+    # 仅本PR37真正经独立Gate合入Release才生效；当前分支不是Release事实或Owner接受；501不解锁。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:
@@ -212,7 +215,8 @@ work_items:
   - id: MVP-404
     title: Monthly portfolio review and report E2E
     priority: 2
-    status: BLOCKED
+    status: READY
+    # 仅本PR37真正经独立Gate合入Release、403实际INTEGRATED后生效；当前分支不得提前Claim。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:

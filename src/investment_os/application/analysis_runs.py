@@ -17,6 +17,7 @@ from pydantic import (
 
 from investment_os.application.analysis_risk_sizing import NumericSourceSnapshot, RiskSizingView
 from investment_os.application.portfolio_valuation import ValuationContext
+from investment_os.application.runtime_authorization import RuntimeAuthorizationRef
 from investment_os.domain.agent import AgentRole
 from investment_os.domain.analysis_run import AnalysisStatus
 from investment_os.domain.enums import Action, PositionBucket, RiskIntent
@@ -51,6 +52,9 @@ class AnalysisStart(AnalysisDto):
     allow_model_calls: Literal[True]
     allow_data_calls: StrictBool = False
     retry_of: UUID | None = None
+    runtime_authorization: RuntimeAuthorizationRef | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     numeric_snapshot_id: UUID | None = None
     position_bucket: PositionBucket | None = None
 

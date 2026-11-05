@@ -22,8 +22,11 @@ url = urlparse(args.database_url)
 if (
     url.scheme != "postgresql+asyncpg"
     or url.hostname not in {"127.0.0.1", "localhost"}
-    or url.path != "/investment_os_mvp206_browser_20261105"
-    or url.port != 15447
+    or (url.port, url.path)
+    not in {
+        (15447, "/investment_os_mvp206_browser_20261105"),
+        (15446, "/investment_os_mvp403_combined_decision_20261105"),
+    }
 ):
     raise SystemExit(
         "Only explicitly named disposable loopback analysis synthetic databases are allowed"

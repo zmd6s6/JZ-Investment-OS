@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from investment_os.application.analysis_choices import AnalysisChoicesService
 from investment_os.application.analysis_configuration import AnalysisStartService
 from investment_os.application.calendar_product import CalendarProductService
+from investment_os.application.daily_runtime import DailyRuntimeService
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetService
 from investment_os.application.market_data import MarketDataService
@@ -36,6 +37,8 @@ from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
     SessionPortfolioBookPort,
 )
+from investment_os.infrastructure.daily_runtime_setup import SqlDailySetup
+from investment_os.infrastructure.daily_runtime_store import SqlDailyRuntimeStore
 from investment_os.infrastructure.database import create_database_engine, create_session_factory
 from investment_os.infrastructure.decision_center import SqlDecisionCenter
 from investment_os.infrastructure.evidence_ingestion import SqlAlchemyEvidenceIngestor
@@ -118,7 +121,12 @@ def create_production_app() -> FastAPI:
         budget_service,
         InstrumentCatalogService(catalog),
     )
+    daily_setup = SqlDailySetup(session_factory, provider_settings_service, budget_service)
+    daily_service = DailyRuntimeService(
+        daily_setup, SqlDailyRuntimeStore(session_factory, daily_setup)
+    )
     return create_app(
+        daily_runtime_service=daily_service,
         numeric_sources=SqlNumericSources(session_factory),
         analysis_decision_bridge=SqlAnalysisDecisionBridge(session_factory),
         decision_qualifications=SqlDecisionQualifications(session_factory),

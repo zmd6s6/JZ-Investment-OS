@@ -46,6 +46,7 @@ def acceptance_snapshot(
     universe_snapshots: bool = False,
     analysis: bool = False,
     decisions: bool = False,
+    daily_runtime: bool = False,
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
 
@@ -310,29 +311,30 @@ def acceptance_snapshot(
             ),
         )
     )
-    pending = (
-        (
-            "runtime",
-            "日常团队运行",
-            "MVP-401",
-            "只有底层调度基础; 产品日历、任务配置与运行页面尚未接通。",
-            True,
-        ),
-    )
-    items.extend(
+    items.append(
         CapabilityDelivery(
-            key=key,
-            label=label,
-            work_item=item,
-            engineering="PARTIAL" if baseline else "NOT_IMPLEMENTED",
-            integration="BASELINE_ONLY" if baseline else "NOT_IMPLEMENTED",
-            service="NOT_APPLICABLE",
-            route=None,
-            detail=detail,
-            steps=(),
-            failure="当前没有可用产品入口; 请等待对应工作项接通, 不需要反复点击或补令牌。",
+            key="runtime",
+            label="每日状态与影子团队报告",
+            work_item="MVP-403",
+            engineering="IMPLEMENTED" if daily_runtime else "PARTIAL",
+            integration="INTEGRATED" if daily_runtime else "BASELINE_ONLY",
+            service="ASSEMBLED" if daily_runtime else "UNAVAILABLE",
+            route="/calendar" if daily_runtime else None,
+            detail=(
+                "默认暂停的每日本地检查与明确授权模型Shadow, 六类日报和真实任务历史。"
+                "不代表完整P8或Owner接受; 外部资料费用准入未提供, data profiles固定为空。"
+                "未提供可审批Decision与新机会/审批总览字段时明确NOT_PROVIDED。"
+            ),
+            steps=(
+                "在日历页核对组合全体/所选观察项、日历覆盖、来源、频率、期限及模型价格/预算后预览。",
+                "另行确认保存为暂停, 核对保存快照后独立启用; 到期后刷新真实任务与六节日报。",
+                "可暂停或永久撤销; 已发出的调用可能收费, 不自动补发历史未知费用。",
+            ),
+            failure=(
+                "授权/成员/来源/日历/预算/价格漂移或过期失败关闭; "
+                "无数据明确降级, 不自动换源或交易。"
+            ),
         )
-        for key, label, item, detail, baseline in pending
     )
     items.append(
         CapabilityDelivery(

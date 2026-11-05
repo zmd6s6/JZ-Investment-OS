@@ -1,0 +1,42 @@
+.daily-runtime { display: grid; gap: 1rem; min-width: 0; }
+.daily-runtime p { line-height: 1.65; overflow-wrap: anywhere; }
+.daily-runtime form fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1rem 1.25rem;
+  border: 1px solid #d3ded6;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 0;
+  min-width: 0;
+}
+.daily-runtime legend { padding: 0 .5rem; font-weight: 700; }
+.daily-runtime label { display: grid; gap: .45rem; line-height: 1.55; min-width: 0; }
+.daily-runtime label:has(input[type="checkbox"]) { display: flex; align-items: flex-start; gap: .65rem; }
+.daily-runtime input:not([type="checkbox"]),
+.daily-runtime select, .daily-runtime textarea {
+  box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px;
+  border: 1px solid #b7c8bc; border-radius: 8px; padding: .6rem .75rem;
+  font: inherit; background: #fff; color: #173a2c;
+}
+.daily-runtime textarea { min-height: 92px; resize: vertical; }
+.daily-runtime input[type="checkbox"] { margin-top: .3rem; flex: 0 0 auto; }
+.daily-runtime fieldset > p,
+.daily-runtime fieldset > button,
+.daily-runtime fieldset > label:has(input[type="checkbox"]) { grid-column: 1 / -1; }
+.daily-runtime button { min-height: 40px; padding: .55rem .85rem; border-radius: 8px; cursor: pointer; }
+.daily-runtime button:disabled { cursor: default; opacity: .55; }
+.daily-runtime article,
+.daily-runtime section[aria-label="每日授权预览"] {
+  border: 1px solid #d3ded6; border-radius: 12px; padding: 1.25rem;
+  background: #fbfdfb; min-width: 0;
+}
+.daily-runtime article > button { margin: .6rem .6rem 0 0; }
+.daily-runtime article section { border-top: 1px solid #e4ebe6; padding: .5rem 0; }
+.daily-runtime [role="alert"] { color: #8a2525; background: #fff1ef; padding: .85rem; border-radius: 8px; }
+.daily-runtime [role="status"] { color: #175139; background: #eef8f0; padding: .85rem; border-radius: 8px; }
+@media (max-width: 600px) {
+  .daily-runtime form fieldset { padding: .8rem; }
+  .daily-runtime article { padding: .9rem; }
+  .daily-runtime article > button { display: block; width: 100%; margin-right: 0; }
+}
