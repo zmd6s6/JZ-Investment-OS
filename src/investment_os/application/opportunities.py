@@ -484,6 +484,32 @@ class OpportunityService:
             entry.instrument_id for entry in entries
         } != set(query.instrument_ids):
             raise OpportunityError("UNIVERSE_IDENTITY_MISMATCH")
+        rows = await self.evaluate_entries(query, entries)
+        bounded, candidates = bound_global_candidates(rows, query.candidate_limit)
+        result = FunnelRun(
+            run_id=query.request_id,
+            query=query,
+            ingested_at=self._now(),
+            query_rule_hash=query_rule_hash(query),
+            status="EMPTY"
+            if not rows
+            else "DEGRADED"
+            if any(s.status == "MISSING" for row in rows for s in row.stages)
+            else "COMPLETE",
+            rows=bounded,
+            candidate_ids=candidates,
+        )
+        return result
+
+    async def resolve_entries(
+        self, instrument_ids: tuple[UUID, ...]
+    ) -> tuple[InstrumentCatalogEntry, ...]:
+        return await self._universe.resolve(instrument_ids)
+
+    async def evaluate_entries(
+        self, query: FunnelQuery, entries: tuple[InstrumentCatalogEntry, ...]
+    ) -> list[FunnelRow]:
+        """Evaluate every identity; caller must validate the complete scope first."""
         rows = []
         for entry in sorted(entries, key=lambda e: (e.market, e.symbol, str(e.instrument_id))):
             quote = await self._market.get_snapshot(
@@ -539,21 +565,7 @@ class OpportunityService:
                 ):
                     facts = FactSnapshot(status="INVALID")
             rows.append(evaluate(entry, quote, facts, query))
-        bounded, candidates = bound_global_candidates(rows, query.candidate_limit)
-        result = FunnelRun(
-            run_id=query.request_id,
-            query=query,
-            ingested_at=self._now(),
-            query_rule_hash=query_rule_hash(query),
-            status="EMPTY"
-            if not rows
-            else "DEGRADED"
-            if any(s.status == "MISSING" for row in rows for s in row.stages)
-            else "COMPLETE",
-            rows=bounded,
-            candidate_ids=candidates,
-        )
-        return result
+        return rows
 
     async def get_run(self, run_id: UUID) -> FunnelRun | None:
         return await self._runs.get_run(run_id)
