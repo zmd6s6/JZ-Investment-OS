@@ -13,9 +13,13 @@
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 自治控制面：`docs/agent/RELEASE.md` + `docs/agent/WORK_QUEUE.yaml`
-- 上次状态更新：`2026-10-28`
+- 上次状态更新：`2026-11-05`
 
 ## 已建立
+
+- MVP-205受限影子数值链已于2026-11-04T09:30:36Z由其他执行者将[PR #36](https://github.com/zmd6s6/JZ-Investment-OS/pull/36)实际合入Release `01f439fe8d5bcedc95b694069aaf0f05756ad24b`（源码a67b61c，精确HEAD CI全绿）；此为合入事实记录，不冒充root合并或合入前独立Gate。`/analysis`提供显式冻结快照/分仓、确定性Risk/Sizing及不可变标准产物；REFERENCE_ONLY、TEST_DEFAULT、缺项/过期/角色失败或INSUFFICIENT_DATA保持失败关闭。实际769后端/8项新PG回归及Chrome4/4等合成证据见工作项，不等于Owner真实数据/部署/验收。205为INTEGRATED；205与301显式依赖已满足，MVP-206随后在PR38实际合入后合法领取，当前分支实现见下项；205原历史仍Shadow且不改写。完整P6/Owner接受PENDING、501仍BLOCKED。
+
+- MVP-206已由PR39实际合入Release4b3995f，接通显式后置准备：`/analysis`原Worker终态→原冻结资格/固定已HUMAN批准Strategy→完整标准Decision→`/decisions`具名人工approve/reject/revoke。资格仅明确SYNTHETIC_FIXTURE，真实未授权/TEST_DEFAULT保持BLOCKED；零额外模型调用、不激活规则或订单，原Shadow保持不可变。独立API18122/PG15447/真实Worker/Chrome精确当前Decision3/3（22.9s）已演示正常/拒绝/撤销/缺原证据失败，15项真实PG覆盖TTL±1µs、事务全回滚、scheduled来源拒绝与批准时容量漂移。完整Python813项通过（636.44s，87.89%），最终前端109项/Chrome精确3项及迁移检查通过；[唯一功能PR #39](https://github.com/zmd6s6/JZ-Investment-OS/pull/39)经root独立Gate6647991606后已于2026-11-05T02:26:08Z实际合入Release4b3995fad5844082e2973daa25a8cdb2d2718d7e（源ff9d5eb）；Owner/P6接受PENDING、501BLOCKED不变。证据及操作见MVP-206工作项。
 
 - PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
@@ -131,3 +135,16 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
   PRODUCT-09 `ACCEPTED` 与所有者明确恢复指令；已采取的替代方案是转而推进 P5–P9。
 - 详细清单与证据放在对应阶段文档；本文件保持简明。
 - 阶段 ACCEPTED 顺序保持 P5→P9；实现调度改由 Release Work Queue 驱动，无真实依赖的后续阶段 Work Item 不必等待前一阶段整体 ACCEPTED。
+
+## MVP-403 每日运行候选与验收边界
+
+以下实现仅随原功能PR #37真正合入Release生效；当前候选REVIEW，不能从工作分支或静态装配推断Owner部署/接受。实际入口/calendar提供独立于401 STATUS_ONLY的完整授权预览、默认暂停保存、单独启用/暂停/永久撤销、生产Worker日任务与只追加六节日报；LOCAL_STATUS_ONLY零出站，SCHEDULED_SHADOW仅完整已确认模型/预算与明确本地Evidence。外部资料费用准入未提供，data profiles固定为空，未知费用/旧日不自动补发；没有可审批Decision或订单。
+
+专用PG/API/生产Worker/loopback Chrome已有正常与失败证据；真实SQL父/子/FK范围屏障、日历替换、终端撤销、await后授权时限和暂停确认后零后续调用均有具名回归。旧873全量/107前端与Chrome1+1不能冒充最终新HEAD验证；最新命令/边界/审阅台账见docs/agent/work-items/MVP-403.md。MVP-404/501仍按真实队列依赖，完整P8、Checkpoint C及Owner接受保持PENDING；未改Owner18102/15433。
+
+
+## MVP-206 已集成与403串行候选
+
+PR39源ff9d5eb经root独立Gate6647991606已于2026-11-05实际合入Release4b3995fad5844082e2973daa25a8cdb2d2718d7e；206为INTEGRATED，Owner/P6/Checkpoint B仍PENDING。403普通同步真实Release后将未合入0022接实际0023，必须以组合HEAD验证后再独立Gate；403仅本PR37实际合入才INTEGRATED，404仅该事件后READY，501及P8/Owner状态不提前完成。
+
+403与实际206合并树f0b9dfd已实际新库空表0021→0023→0022升降升、6文件PG82/82、跨功能unit113/113、前端113/113、Calendar Daily Chrome2/2及Decision Chrome3/3；最终证据HEAD CI/独立Gate待核，不能把组合检查点当Release已合入或Owner接受。

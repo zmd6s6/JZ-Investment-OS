@@ -114,3 +114,15 @@ def test_source_snapshot_manifest_never_promotes_source_declaration_to_full_mark
     assert ("SOURCE_DECLARED/UNVERIFIED" in item.detail) is assembled
     assert ("201可查看但拒绝筛选" in item.detail) is assembled
     assert any("来源CSV全行预览" in step for step in item.steps) is assembled
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_daily_manifest_keeps_owner_pending_and_restricts_scheduled_research(assembled):
+    snapshot = acceptance_snapshot(
+        portfolio=False, watchlist=False, providers=False, policy=False, daily_runtime=assembled
+    )
+    item = next(value for value in snapshot.capabilities if value.key == "runtime")
+    assert item.route == ("/calendar" if assembled else None)
+    assert item.integration == ("INTEGRATED" if assembled else "BASELINE_ONLY")
+    assert item.human_acceptance == "PENDING" and snapshot.auto_trade is False
+    assert "固定为空" in item.detail and "NOT_PROVIDED" in item.detail

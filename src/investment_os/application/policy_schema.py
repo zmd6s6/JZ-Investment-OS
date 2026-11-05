@@ -6,6 +6,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from investment_os.application.analysis_risk_sizing import SizingRules
 from investment_os.domain.enums import PolicyStatus, ReviewCadence, ThesisState
 from investment_os.domain.policy import (
     BehaviorPolicy,
@@ -130,7 +131,7 @@ class ReviewFrequencySchema(StrictPolicyModel):
 class InvestmentPolicySchema(StrictPolicyModel):
     """Versioned machine protocol for an Investment Policy configuration."""
 
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.0", "1.1"]
     metadata: PolicyMetadataSchema
     strategy: StrategyPolicySchema
     horizon: HorizonPolicySchema
@@ -140,6 +141,13 @@ class InvestmentPolicySchema(StrictPolicyModel):
     exit: ExitPolicySchema
     execution: ExecutionPolicySchema
     review_frequency: ReviewFrequencySchema
+    sizing: SizingRules | None = None
+
+    @model_validator(mode="after")
+    def explicit_sizing_schema_version(self) -> Self:
+        if self.sizing is not None and self.schema_version != "1.1":
+            raise ValueError("explicit sizing rules require Policy schema 1.1")
+        return self
 
     def to_domain(self) -> InvestmentPolicy:
         hundred = Decimal("100")

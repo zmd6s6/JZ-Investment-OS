@@ -9,6 +9,7 @@ from investment_os.application.analysis_runs import (
     AnalysisLeaseLost,
     AnalysisStorePort,
 )
+from investment_os.application.daily_runtime import DailyError
 from investment_os.application.investment_analysis import InvestmentAnalysisOrchestrator
 from investment_os.domain.analysis_run import AnalysisStatus
 
@@ -27,6 +28,7 @@ SAFE_CODES = frozenset(
         "ANALYSIS_ROLE_EVIDENCE_UNAVAILABLE",
         "ANALYSIS_INPUT_HASH_MISMATCH",
         "ANALYSIS_EVIDENCE_STATE_MISMATCH",
+        "DAILY_AUTHORIZATION_MODULE_UNAVAILABLE",
     }
 )
 
@@ -86,6 +88,8 @@ class AnalysisWorkerRunner:
             code = (
                 "ANALYSIS_TIMEOUT"
                 if isinstance(exc, TimeoutError)
+                else exc.code
+                if isinstance(exc, DailyError)
                 else str(exc)
                 if isinstance(exc, ValueError) and str(exc) in SAFE_CODES
                 else "ANALYSIS_EXECUTION_FAILED"

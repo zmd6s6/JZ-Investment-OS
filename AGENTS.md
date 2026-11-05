@@ -154,6 +154,7 @@ docker compose config
 - 当前 Release：`docs/agent/RELEASE.md`
 - 自治工作队列：`docs/agent/WORK_QUEUE.yaml`
 - Agent 操作协议：`docs/agent/AUTONOMOUS_DEVELOPMENT.md`
+- 开发执行与审查分工：`docs/agent/DEVELOPMENT_LOOP.md`
 - 用户可见验收台账：`docs/agent/ACCEPTANCE.md`
 - 人工治理决定：`docs/agent/DECISIONS.md`
 

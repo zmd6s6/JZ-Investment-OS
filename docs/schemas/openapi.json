@@ -386,6 +386,16 @@
             "title": "Instrument Id",
             "type": "string"
           },
+          "numeric_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericSourceSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "prompt_bundle_version": {
             "const": "analysis-runtime-v1",
             "default": "analysis-runtime-v1",
@@ -645,6 +655,16 @@
             ],
             "title": "Retry Of"
           },
+          "risk_sizing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskSizingView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "run_id": {
             "format": "uuid",
             "title": "Run Id",
@@ -771,10 +791,32 @@
             "title": "Model Profiles",
             "type": "object"
           },
+          "numeric_snapshot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Snapshot Id"
+          },
           "portfolio_id": {
             "format": "uuid",
             "title": "Portfolio Id",
             "type": "string"
+          },
+          "position_bucket": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionBucket"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "query": {
             "anyOf": [
@@ -805,6 +847,16 @@
               }
             ],
             "title": "Retry Of"
+          },
+          "runtime_authorization": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuntimeAuthorizationRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "schema_version": {
             "const": "1.0",
@@ -1993,6 +2045,835 @@
         "title": "CsvRowResultResponse",
         "type": "object"
       },
+      "DailyBudgetSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "limits": {
+            "$ref": "#/components/schemas/DailyLimits"
+          },
+          "version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "limits"
+        ],
+        "title": "DailyBudgetSnapshot",
+        "type": "object"
+      },
+      "DailyConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "enabled_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled Since"
+          },
+          "prepared": {
+            "$ref": "#/components/schemas/DailyPrepared"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "revoked": {
+            "title": "Revoked",
+            "type": "boolean"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "revision_id",
+          "version",
+          "enabled",
+          "revoked",
+          "enabled_since",
+          "prepared"
+        ],
+        "title": "DailyConfiguration",
+        "type": "object"
+      },
+      "DailyEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "quality_score": {
+            "title": "Quality Score",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "instrument_id",
+          "source_name",
+          "content_hash",
+          "observed_at",
+          "effective_at",
+          "available_at",
+          "ingested_at",
+          "expires_at",
+          "quality_score"
+        ],
+        "title": "DailyEvidence",
+        "type": "object"
+      },
+      "DailyEvidenceDiff": {
+        "additionalProperties": false,
+        "properties": {
+          "added_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Added Ids",
+            "type": "array"
+          },
+          "baseline_report_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Report Id"
+          },
+          "baseline_status": {
+            "enum": [
+              "FIRST_RUN_NO_BASELINE",
+              "COMPARABLE_BASELINE"
+            ],
+            "title": "Baseline Status",
+            "type": "string"
+          },
+          "excluded": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Excluded",
+            "type": "object"
+          },
+          "removed_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Removed Ids",
+            "type": "array"
+          },
+          "visible_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Visible Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "baseline_report_id",
+          "baseline_status",
+          "visible_ids",
+          "added_ids",
+          "removed_ids",
+          "excluded"
+        ],
+        "title": "DailyEvidenceDiff",
+        "type": "object"
+      },
+      "DailyLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^(?:[A-Z]{3}|NONE)$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "day_cost": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Day Cost",
+            "type": "string"
+          },
+          "day_tokens": {
+            "minimum": 0.0,
+            "title": "Day Tokens",
+            "type": "integer"
+          },
+          "task_cost": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Task Cost",
+            "type": "string"
+          },
+          "task_tokens": {
+            "minimum": 0.0,
+            "title": "Task Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "task_tokens",
+          "day_tokens",
+          "task_cost",
+          "day_cost"
+        ],
+        "title": "DailyLimits",
+        "type": "object"
+      },
+      "DailyLocalInputs": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/DailyEvidence"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/DailyMember"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "portfolio": {
+            "$ref": "#/components/schemas/DailyPortfolioSnapshot"
+          },
+          "portfolio_read_at": {
+            "format": "date-time",
+            "title": "Portfolio Read At",
+            "type": "string"
+          },
+          "quote_evidence_ids": {
+            "additionalProperties": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Quote Evidence Ids",
+            "type": "object"
+          },
+          "quote_statuses": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Quote Statuses",
+            "type": "object"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "read_at",
+          "portfolio_read_at",
+          "portfolio",
+          "members",
+          "evidence",
+          "quote_statuses",
+          "quote_evidence_ids",
+          "content_hash"
+        ],
+        "title": "DailyLocalInputs",
+        "type": "object"
+      },
+      "DailyMember": {
+        "additionalProperties": false,
+        "properties": {
+          "in_portfolio": {
+            "title": "In Portfolio",
+            "type": "boolean"
+          },
+          "in_watchlist": {
+            "title": "In Watchlist",
+            "type": "boolean"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "market": {
+            "title": "Market",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "market",
+          "symbol",
+          "name",
+          "in_portfolio",
+          "in_watchlist"
+        ],
+        "title": "DailyMember",
+        "type": "object"
+      },
+      "DailyMode": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "ENABLE",
+              "PAUSE",
+              "REVOKE"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_version",
+          "action",
+          "confirmed"
+        ],
+        "title": "DailyMode",
+        "type": "object"
+      },
+      "DailyModelPrice": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Base Url",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "input_token_price": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Input Token Price",
+            "type": "string"
+          },
+          "output_token_price": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Output Token Price",
+            "type": "string"
+          },
+          "provider_type": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_type",
+          "base_url",
+          "version",
+          "currency",
+          "input_token_price",
+          "output_token_price",
+          "effective_at"
+        ],
+        "title": "DailyModelPrice",
+        "type": "object"
+      },
+      "DailyPortfolioSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "base_currency": {
+            "const": "CNY",
+            "title": "Base Currency",
+            "type": "string"
+          },
+          "cash_balance": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Cash Balance",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/DailyPosition"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          },
+          "time_semantics": {
+            "const": "CURRENT_BOOK_READ_NOT_HISTORICAL_CLOSE_SNAPSHOT",
+            "title": "Time Semantics",
+            "type": "string"
+          }
+        },
+        "required": [
+          "portfolio_id",
+          "name",
+          "base_currency",
+          "cash_balance",
+          "read_at",
+          "time_semantics",
+          "positions"
+        ],
+        "title": "DailyPortfolioSnapshot",
+        "type": "object"
+      },
+      "DailyPosition": {
+        "additionalProperties": false,
+        "properties": {
+          "core_average_cost": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Core Average Cost",
+            "type": "string"
+          },
+          "core_quantity": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Core Quantity",
+            "type": "string"
+          },
+          "core_reason": {
+            "title": "Core Reason",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "tactical_average_cost": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Tactical Average Cost",
+            "type": "string"
+          },
+          "tactical_quantity": {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+            "title": "Tactical Quantity",
+            "type": "string"
+          },
+          "tactical_reason": {
+            "title": "Tactical Reason",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "core_quantity",
+          "tactical_quantity",
+          "core_average_cost",
+          "tactical_average_cost",
+          "core_reason",
+          "tactical_reason",
+          "version"
+        ],
+        "title": "DailyPosition",
+        "type": "object"
+      },
+      "DailyPrepared": {
+        "additionalProperties": false,
+        "properties": {
+          "budget_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Hash"
+          },
+          "budget_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DailyBudgetSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calendar_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Calendar Hash",
+            "type": "string"
+          },
+          "calendar_source": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Calendar Source",
+            "type": "string"
+          },
+          "calendar_version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Calendar Version",
+            "type": "string"
+          },
+          "command": {
+            "$ref": "#/components/schemas/DailySave"
+          },
+          "data_profiles": {
+            "items": {
+              "$ref": "#/components/schemas/SelectedData"
+            },
+            "title": "Data Profiles",
+            "type": "array"
+          },
+          "input_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/DailyMember"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "model_pricing": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DailyModelPrice"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/AgentRole"
+            },
+            "title": "Model Pricing",
+            "type": "object"
+          },
+          "models": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SelectedModel"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/AgentRole"
+            },
+            "title": "Models",
+            "type": "object"
+          },
+          "prepared_at": {
+            "format": "date-time",
+            "title": "Prepared At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "calendar_hash",
+          "calendar_source",
+          "calendar_version",
+          "members",
+          "models",
+          "model_pricing",
+          "data_profiles",
+          "budget_hash",
+          "budget_snapshot",
+          "prepared_at",
+          "input_hash"
+        ],
+        "title": "DailyPrepared",
+        "type": "object"
+      },
+      "DailyReport": {
+        "additionalProperties": false,
+        "properties": {
+          "action_required": {
+            "$ref": "#/components/schemas/DailySection"
+          },
+          "approvals": {
+            "$ref": "#/components/schemas/DailySection"
+          },
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "authorization": {
+            "$ref": "#/components/schemas/DailyPrepared"
+          },
+          "authorization_version": {
+            "title": "Authorization Version",
+            "type": "integer"
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "business_as_of": {
+            "format": "date-time",
+            "title": "Business As Of",
+            "type": "string"
+          },
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "data_job_degraded": {
+            "$ref": "#/components/schemas/DailySection"
+          },
+          "evidence_diff": {
+            "$ref": "#/components/schemas/DailyEvidenceDiff"
+          },
+          "hold_watch": {
+            "$ref": "#/components/schemas/DailySection"
+          },
+          "local_inputs": {
+            "$ref": "#/components/schemas/DailyLocalInputs"
+          },
+          "mode": {
+            "enum": [
+              "LOCAL_STATUS_ONLY",
+              "SCHEDULED_SHADOW"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "new_opportunity": {
+            "$ref": "#/components/schemas/DailySection"
+          },
+          "phase": {
+            "enum": [
+              "LOCAL_COMPLETE",
+              "SHADOW_PENDING",
+              "SHADOW_COMPLETE",
+              "DEGRADED"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "risk_veto": {
+            "$ref": "#/components/schemas/DailySection"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Scope Hash",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "task_run_id",
+          "schedule_id",
+          "revision_id",
+          "authorization_version",
+          "business_date",
+          "business_as_of",
+          "as_of",
+          "recorded_at",
+          "phase",
+          "mode",
+          "scope_hash",
+          "authorization",
+          "local_inputs",
+          "evidence_diff",
+          "action_required",
+          "hold_watch",
+          "new_opportunity",
+          "risk_veto",
+          "approvals",
+          "data_job_degraded"
+        ],
+        "title": "DailyReport",
+        "type": "object"
+      },
       "DailyReportResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2028,6 +2909,322 @@
           "simulation_only"
         ],
         "title": "DailyReportResponse",
+        "type": "object"
+      },
+      "DailySave": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar_import_id": {
+            "format": "uuid",
+            "title": "Calendar Import Id",
+            "type": "string"
+          },
+          "complete_calendar_acknowledgement": {
+            "const": true,
+            "title": "Complete Calendar Acknowledgement",
+            "type": "boolean"
+          },
+          "cost_acknowledgement": {
+            "title": "Cost Acknowledgement",
+            "type": "boolean"
+          },
+          "coverage_end": {
+            "format": "date",
+            "title": "Coverage End",
+            "type": "string"
+          },
+          "coverage_start": {
+            "format": "date",
+            "title": "Coverage Start",
+            "type": "string"
+          },
+          "data_profile_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Data Profile Ids",
+            "type": "array"
+          },
+          "evidence_source_names": {
+            "items": {
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Evidence Source Names",
+            "type": "array"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "frequency": {
+            "const": "DAILY_AFTER_EXPLICIT_CLOSE",
+            "title": "Frequency",
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/DailyLimits"
+          },
+          "local_only_acknowledgement": {
+            "title": "Local Only Acknowledgement",
+            "type": "boolean"
+          },
+          "market": {
+            "enum": [
+              "SSE",
+              "SZSE"
+            ],
+            "title": "Market",
+            "type": "string"
+          },
+          "missed_run_policy": {
+            "const": "LOCAL_REPORT_ONLY_NO_RESEARCH",
+            "title": "Missed Run Policy",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "LOCAL_STATUS_ONLY",
+              "SCHEDULED_SHADOW"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "model_egress_acknowledgement": {
+            "title": "Model Egress Acknowledgement",
+            "type": "boolean"
+          },
+          "model_profiles": {
+            "additionalProperties": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/AgentRole"
+            },
+            "title": "Model Profiles",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pause_method": {
+            "const": "DAILY_UI_PAUSE_OR_REVOKE",
+            "title": "Pause Method",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "portfolio_instrument_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Portfolio Instrument Ids",
+            "type": "array"
+          },
+          "quote_source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Quote Source Name",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "retention_days": {
+            "maximum": 3650.0,
+            "minimum": 1.0,
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope_acknowledgement": {
+            "const": true,
+            "title": "Scope Acknowledgement",
+            "type": "boolean"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          },
+          "watchlist_instrument_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Watchlist Instrument Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "mode",
+          "market",
+          "portfolio_id",
+          "portfolio_instrument_ids",
+          "watchlist_instrument_ids",
+          "calendar_import_id",
+          "coverage_start",
+          "coverage_end",
+          "frequency",
+          "missed_run_policy",
+          "quote_source_name",
+          "evidence_source_names",
+          "retention_days",
+          "valid_from",
+          "valid_until",
+          "model_profiles",
+          "data_profile_ids",
+          "limits",
+          "pause_method",
+          "complete_calendar_acknowledgement",
+          "scope_acknowledgement",
+          "local_only_acknowledgement",
+          "model_egress_acknowledgement",
+          "cost_acknowledgement",
+          "request_id",
+          "schedule_id",
+          "expected_version"
+        ],
+        "title": "DailySave",
+        "type": "object"
+      },
+      "DailySection": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_run_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Analysis Run Ids",
+            "type": "array"
+          },
+          "availability": {
+            "enum": [
+              "PROVIDED",
+              "NOT_PROVIDED",
+              "DEGRADED"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "messages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "availability",
+          "messages"
+        ],
+        "title": "DailySection",
+        "type": "object"
+      },
+      "DailyTask": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_run_id",
+          "schedule_id",
+          "status",
+          "attempt",
+          "started_at",
+          "finished_at",
+          "error_code"
+        ],
+        "title": "DailyTask",
         "type": "object"
       },
       "DataProviderProfileRequest": {
@@ -2210,6 +3407,143 @@
         "title": "DecisionApprovalResponse",
         "type": "object"
       },
+      "DecisionBridgeView": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blockers": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "execution_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Execution Allowed",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "gates": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GateOutcome"
+            },
+            "propertyNames": {
+              "enum": [
+                "INVESTMENT_QUALITY",
+                "TIMING",
+                "PORTFOLIO_FIT"
+              ]
+            },
+            "title": "Gates",
+            "type": "object"
+          },
+          "qualification_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualification Id"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "revision": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "analysis-decision-bridge-1.0",
+            "default": "analysis-decision-bridge-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "BLOCKED",
+            "enum": [
+              "BLOCKED",
+              "READY_FOR_RECONSTRUCTION",
+              "PENDING_APPROVAL"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Version Id"
+          }
+        },
+        "required": [
+          "evaluated_at"
+        ],
+        "title": "DecisionBridgeView",
+        "type": "object"
+      },
       "DecisionCard": {
         "additionalProperties": false,
         "properties": {
@@ -2349,6 +3683,42 @@
           "occurred_at"
         ],
         "title": "DecisionExecutionResponse",
+        "type": "object"
+      },
+      "DecisionGateFact": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evidence Content Hash",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "metric": {
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "title": "Metric",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "value",
+          "evidence_id",
+          "evidence_content_hash"
+        ],
+        "title": "DecisionGateFact",
         "type": "object"
       },
       "DecisionJournalResponse": {
@@ -2635,6 +4005,120 @@
           "created_at"
         ],
         "title": "DecisionJournalResponse",
+        "type": "object"
+      },
+      "DecisionQualification": {
+        "additionalProperties": false,
+        "description": "Trusted typed source port result, never a model/provider-declared verified boolean.",
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionGateFact"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Facts",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "numeric_snapshot_id": {
+            "format": "uuid",
+            "title": "Numeric Snapshot Id",
+            "type": "string"
+          },
+          "policy_version_id": {
+            "format": "uuid",
+            "title": "Policy Version Id",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "portfolio_identity_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Portfolio Identity Hash",
+            "type": "string"
+          },
+          "qualification_id": {
+            "format": "uuid",
+            "title": "Qualification Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "decision-qualification-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "SYNTHETIC_FIXTURE",
+              "REFERENCE_ONLY"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "strategy_content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Strategy Content Hash",
+            "type": "string"
+          },
+          "strategy_version_id": {
+            "format": "uuid",
+            "title": "Strategy Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "qualification_id",
+          "portfolio_id",
+          "instrument_id",
+          "policy_version_id",
+          "numeric_snapshot_id",
+          "portfolio_identity_hash",
+          "strategy_version_id",
+          "strategy_content_hash",
+          "source_kind",
+          "source_name",
+          "as_of",
+          "created_at",
+          "expires_at",
+          "facts",
+          "content_hash"
+        ],
+        "title": "DecisionQualification",
         "type": "object"
       },
       "EvidenceClaimResponse": {
@@ -3328,6 +4812,16 @@
         ],
         "title": "FunnelRun",
         "type": "object"
+      },
+      "GateOutcome": {
+        "description": "Closed outcome vocabulary for one independently auditable CIO gate.",
+        "enum": [
+          "PASS",
+          "FAIL",
+          "UNKNOWN"
+        ],
+        "title": "GateOutcome",
+        "type": "string"
       },
       "HTTPValidationError": {
         "properties": {
@@ -4889,6 +6383,193 @@
         "title": "ModelProviderProfileResponse",
         "type": "object"
       },
+      "NumericFact": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "metric": {
+            "enum": [
+              "REFERENCE_PRICE",
+              "VOLATILITY",
+              "LIQUIDITY_CAPACITY",
+              "RISK_BUDGET_CAPACITY",
+              "CORRELATION"
+            ],
+            "title": "Metric",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "instrument_id",
+          "evidence_id",
+          "value"
+        ],
+        "title": "NumericFact",
+        "type": "object"
+      },
+      "NumericSourceSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/NumericFact"
+            },
+            "maxItems": 1100,
+            "minItems": 1,
+            "title": "Facts",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "policy_version_id": {
+            "format": "uuid",
+            "title": "Policy Version Id",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "portfolio_identity_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Portfolio Identity Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "analysis-numeric-input-1.0",
+            "default": "analysis-numeric-input-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "REFERENCE_ONLY",
+              "SYNTHETIC_FIXTURE"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/NumericTarget"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "portfolio_id",
+          "instrument_id",
+          "policy_version_id",
+          "portfolio_identity_hash",
+          "target",
+          "source_kind",
+          "source_name",
+          "created_at",
+          "as_of",
+          "expires_at",
+          "facts",
+          "content_hash"
+        ],
+        "title": "NumericSourceSnapshot",
+        "type": "object"
+      },
+      "NumericTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "lot_size": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Lot Size",
+            "type": "string"
+          },
+          "sector": {
+            "minLength": 1,
+            "title": "Sector",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "currency",
+          "sector",
+          "lot_size"
+        ],
+        "title": "NumericTarget",
+        "type": "object"
+      },
       "OnboardingStateResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5260,6 +6941,78 @@
           "positions"
         ],
         "title": "PortfolioResponse",
+        "type": "object"
+      },
+      "PositionBucket": {
+        "enum": [
+          "CORE",
+          "TACTICAL"
+        ],
+        "title": "PositionBucket",
+        "type": "string"
+      },
+      "PrepareAnalysisDecision": {
+        "additionalProperties": false,
+        "description": "One explicit UI preparation, never an approval and never an arbitrary Action input.",
+        "properties": {
+          "actor_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "confirm_preparation": {
+            "const": true,
+            "title": "Confirm Preparation",
+            "type": "boolean"
+          },
+          "confirm_risk_reduction_exception": {
+            "default": false,
+            "title": "Confirm Risk Reduction Exception",
+            "type": "boolean"
+          },
+          "expected_input_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Input Hash",
+            "type": "string"
+          },
+          "expected_revision": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "qualification_id": {
+            "format": "uuid",
+            "title": "Qualification Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prepare-analysis-decision-1.0",
+            "default": "prepare-analysis-decision-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "run_id",
+          "qualification_id",
+          "expected_input_hash",
+          "actor_id",
+          "confirm_preparation"
+        ],
+        "title": "PrepareAnalysisDecision",
         "type": "object"
       },
       "ProductCapabilityResponse": {
@@ -5770,6 +7523,204 @@
         "title": "RiskIntent",
         "type": "string"
       },
+      "RiskSizingView": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blockers": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "bucket": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionBucket"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delta_quantity": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Quantity"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "execution_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Execution Allowed",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "numbers": {
+            "additionalProperties": true,
+            "title": "Numbers",
+            "type": "object"
+          },
+          "numeric_snapshot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Snapshot Id"
+          },
+          "policy_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version Id"
+          },
+          "risk_assessment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Assessment Id"
+          },
+          "risk_flags": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "risk_gate": {
+            "default": "UNKNOWN",
+            "enum": [
+              "UNKNOWN",
+              "PASS",
+              "VETO"
+            ],
+            "title": "Risk Gate",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "analysis-risk-sizing-1.0",
+            "default": "analysis-risk-sizing-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
+          "sizing_input": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sizing Input"
+          },
+          "sizing_output": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sizing Output"
+          },
+          "sizing_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sizing Run Id"
+          },
+          "sizing_status": {
+            "default": "BLOCKED",
+            "enum": [
+              "BLOCKED",
+              "COMPUTED"
+            ],
+            "title": "Sizing Status",
+            "type": "string"
+          },
+          "target_quantity": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Quantity"
+          }
+        },
+        "required": [
+          "evaluated_at"
+        ],
+        "title": "RiskSizingView",
+        "type": "object"
+      },
       "RoleModelAssignmentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5809,6 +7760,57 @@
           "model_provider_profile_id"
         ],
         "title": "RoleModelAssignmentResponse",
+        "type": "object"
+      },
+      "RuntimeAuthorizationRef": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Authorization Hash",
+            "type": "string"
+          },
+          "authorization_version": {
+            "minimum": 1.0,
+            "title": "Authorization Version",
+            "type": "integer"
+          },
+          "intent_id": {
+            "format": "uuid",
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "DAILY_SHADOW",
+            "title": "Kind",
+            "type": "string"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "schedule_id",
+          "revision_id",
+          "authorization_version",
+          "authorization_hash",
+          "intent_id"
+        ],
+        "title": "RuntimeAuthorizationRef",
         "type": "object"
       },
       "SelectedData": {
@@ -5901,8 +7903,16 @@
             "type": "array"
           },
           "delta_quantity": {
-            "title": "Delta Quantity",
-            "type": "null"
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Quantity"
           },
           "execution_allowed": {
             "const": false,
@@ -5933,6 +7943,18 @@
             "title": "Reasons",
             "type": "array"
           },
+          "risk_assessment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Assessment Id"
+          },
           "risk_gate": {
             "enum": [
               "UNKNOWN",
@@ -5951,6 +7973,12 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
           "sizing_run_id": {
             "anyOf": [
               {
@@ -5964,14 +7992,25 @@
             "title": "Sizing Run Id"
           },
           "sizing_status": {
-            "const": "BLOCKED",
             "default": "BLOCKED",
+            "enum": [
+              "BLOCKED",
+              "COMPUTED"
+            ],
             "title": "Sizing Status",
             "type": "string"
           },
           "target_quantity": {
-            "title": "Target Quantity",
-            "type": "null"
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Quantity"
           },
           "thesis_version_id": {
             "anyOf": [
@@ -7816,6 +9855,120 @@
         ]
       }
     },
+    "/api/v1/analysis/decision-qualifications": {
+      "get": {
+        "operationId": "sources_api_v1_analysis_decision_qualifications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionQualification"
+                  },
+                  "title": "Response Sources Api V1 Analysis Decision Qualifications Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sources",
+        "tags": [
+          "analysis-decision"
+        ]
+      }
+    },
+    "/api/v1/analysis/numeric-sources": {
+      "get": {
+        "operationId": "numeric_choices_api_v1_analysis_numeric_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NumericSourceSnapshot"
+                  },
+                  "title": "Response Numeric Choices Api V1 Analysis Numeric Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Numeric Choices",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
     "/api/v1/analysis/runs": {
       "get": {
         "operationId": "list_runs_api_v1_analysis_runs_get",
@@ -7992,6 +10145,104 @@
         "summary": "Cancel",
         "tags": [
           "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis/runs/{run_id}/decision-preparations": {
+      "get": {
+        "operationId": "history_api_v1_analysis_runs__run_id__decision_preparations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionBridgeView"
+                  },
+                  "title": "Response History Api V1 Analysis Runs  Run Id  Decision Preparations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "History",
+        "tags": [
+          "analysis-decision"
+        ]
+      },
+      "post": {
+        "operationId": "prepare_api_v1_analysis_runs__run_id__decision_preparations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareAnalysisDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionBridgeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare",
+        "tags": [
+          "analysis-decision"
         ]
       }
     },
@@ -10088,6 +12339,243 @@
         "summary": "Fetch Provider Research",
         "tags": [
           "research"
+        ]
+      }
+    },
+    "/api/v1/runtime/daily": {
+      "get": {
+        "operationId": "configurations_api_v1_runtime_daily_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DailyConfiguration"
+                  },
+                  "title": "Response Configurations Api V1 Runtime Daily Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Configurations",
+        "tags": [
+          "daily-runtime"
+        ]
+      },
+      "post": {
+        "operationId": "save_api_v1_runtime_daily_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DailySave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyConfiguration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save",
+        "tags": [
+          "daily-runtime"
+        ]
+      }
+    },
+    "/api/v1/runtime/daily/preview": {
+      "post": {
+        "operationId": "preview_api_v1_runtime_daily_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DailySave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyPrepared"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "daily-runtime"
+        ]
+      }
+    },
+    "/api/v1/runtime/daily/reports": {
+      "get": {
+        "operationId": "reports_api_v1_runtime_daily_reports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schedule_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Schedule Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DailyReport"
+                  },
+                  "title": "Response Reports Api V1 Runtime Daily Reports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reports",
+        "tags": [
+          "daily-runtime"
+        ]
+      }
+    },
+    "/api/v1/runtime/daily/runs": {
+      "get": {
+        "operationId": "runs_api_v1_runtime_daily_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DailyTask"
+                  },
+                  "title": "Response Runs Api V1 Runtime Daily Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Runs",
+        "tags": [
+          "daily-runtime"
+        ]
+      }
+    },
+    "/api/v1/runtime/daily/{schedule_id}/mode": {
+      "post": {
+        "operationId": "mode_api_v1_runtime_daily__schedule_id__mode_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DailyMode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyConfiguration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mode",
+        "tags": [
+          "daily-runtime"
         ]
       }
     },

@@ -78,3 +78,9 @@ Portfolio/Watchlist Evidence diff、自动分析触发、每日报告、每周�
 
 运行受影响的格式、lint、类型、单元/属性/契约/集成/迁移、API/OpenAPI、Worker/Compose、前端构建与浏览器 E2E。
 真实定时运行只在所有者已确认的边界内做最小验证；证据必须脱敏并记录仍未验证项。
+
+## MVP-403 每日授权/日报纵切候选
+
+仅在原PR #37最终独立Gate且实际合入Release后，本项工程链生效；不把当前分支REVIEW写成Release已集成或完整P8接受。交付完整授权快照/默认暂停/独立启停撤销、真实日历到期TaskRun→本地输入/Evidence diff/持久意图→标准Analysis唯一队列→只追加六节日报→/calendar刷新；当前仅本地资料与明确模型Shadow，外部资料成本未提供具名阻断。缺字段NOT_PROVIDED，Risk UNKNOWN不能包装PASS，无Decision批准或交易。
+
+隔离合成生产API/DB/Worker/Chrome已有正常与越界失败路径、范围FK父/子行锁、SAVE/ENABLE日历替换先后、终端撤销、暂停与held HTTP及授权期限临界PG证据。最终HEAD全量/CI与独立Gate待核，Owner实例与Checkpoint C仍PENDING。MVP-404月度链不由此冒充完成；详见docs/agent/work-items/MVP-403.md。
