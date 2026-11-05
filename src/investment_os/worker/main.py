@@ -15,6 +15,9 @@ from investment_os.infrastructure.database import (
     create_database_engine,
     create_session_factory,
 )
+from investment_os.infrastructure.manual_market_data import SqlManualMarketData
+from investment_os.infrastructure.monthly_review_reader import SqlMonthlyReader
+from investment_os.infrastructure.monthly_review_runner import MonthlyReviewRunner
 from investment_os.infrastructure.runtime_scheduler import (
     RuntimeScheduleRunner,
     load_synthetic_calendar,
@@ -61,6 +64,7 @@ class WorkerRuntime:
         analysis_resources: AsyncClosable | None = None,
         weekly: CalendarScheduler | None = None,
         daily: CalendarScheduler | None = None,
+        monthly: CalendarScheduler | None = None,
     ) -> None:
         self._probe = probe
         self._ready_file = ready_file
@@ -71,6 +75,7 @@ class WorkerRuntime:
         self._analysis_task: asyncio.Task[object] | None = None
         self._weekly = weekly
         self._daily = daily
+        self._monthly = monthly
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "WorkerRuntime":
@@ -99,6 +104,10 @@ class WorkerRuntime:
             analysis_resources=resources,
             weekly=weekly_worker(create_session_factory(engine)),
             daily=daily_worker(create_session_factory(engine), settings),
+            monthly=MonthlyReviewRunner(
+                create_session_factory(engine),
+                SqlMonthlyReader(SqlManualMarketData(create_session_factory(engine))),
+            ),
             probe=DatabaseReadinessProbe(settings.database_url),
             ready_file=settings.worker_ready_file,
             scheduler=scheduler,
@@ -115,6 +124,11 @@ class WorkerRuntime:
                 await self._daily.dispatch_due(now=now or datetime.now(UTC))
             except Exception:
                 LOGGER.error("daily_dispatch_failed")
+        if ready and self._monthly is not None:
+            try:
+                await self._monthly.dispatch_due(now=now or datetime.now(UTC))
+            except Exception:
+                LOGGER.error("monthly_local_dispatch_failed")
         if ready and self._weekly is not None:
             try:
                 await self._weekly.dispatch_due(now=now or datetime.now(UTC))

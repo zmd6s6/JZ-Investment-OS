@@ -84,3 +84,8 @@ Portfolio/Watchlist Evidence diff、自动分析触发、每日报告、每周�
 仅在原PR #37最终独立Gate且实际合入Release后，本项工程链生效；不把当前分支REVIEW写成Release已集成或完整P8接受。交付完整授权快照/默认暂停/独立启停撤销、真实日历到期TaskRun→本地输入/Evidence diff/持久意图→标准Analysis唯一队列→只追加六节日报→/calendar刷新；当前仅本地资料与明确模型Shadow，外部资料成本未提供具名阻断。缺字段NOT_PROVIDED，Risk UNKNOWN不能包装PASS，无Decision批准或交易。
 
 隔离合成生产API/DB/Worker/Chrome已有正常与越界失败路径、范围FK父/子行锁、SAVE/ENABLE日历替换先后、终端撤销、暂停与held HTTP及授权期限临界PG证据。最终HEAD全量/CI与独立Gate待核，Owner实例与Checkpoint C仍PENDING。MVP-404月度链不由此冒充完成；详见docs/agent/work-items/MVP-403.md。
+
+
+## MVP-404 月度只读复核候选
+
+独立月度授权、完整自然月和本地冻结报告的合成API/PG/生产Worker/Chrome正常及部分月拒绝路径已实际运行；最终HEAD的CI、独立Gate及Owner产品接受仍待核。当前账本不能冒充历史收盘持仓，缺失判断明确未知，不调用模型或外部数据。具体证据见 `docs/agent/work-items/MVP-404.md`。
