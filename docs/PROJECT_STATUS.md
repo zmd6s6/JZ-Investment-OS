@@ -19,7 +19,7 @@
 
 - MVP-205受限影子数值链已于2026-11-04T09:30:36Z由其他执行者将[PR #36](https://github.com/zmd6s6/JZ-Investment-OS/pull/36)实际合入Release `01f439fe8d5bcedc95b694069aaf0f05756ad24b`（源码a67b61c，精确HEAD CI全绿）；此为合入事实记录，不冒充root合并或合入前独立Gate。`/analysis`提供显式冻结快照/分仓、确定性Risk/Sizing及不可变标准产物；REFERENCE_ONLY、TEST_DEFAULT、缺项/过期/角色失败或INSUFFICIENT_DATA保持失败关闭。实际769后端/8项新PG回归及Chrome4/4等合成证据见工作项，不等于Owner真实数据/部署/验收。205为INTEGRATED；205与301显式依赖已满足，MVP-206随后在PR38实际合入后合法领取，当前分支实现见下项；205原历史仍Shadow且不改写。完整P6/Owner接受PENDING、501仍BLOCKED。
 
-- MVP-206当前功能分支已接通显式后置准备：`/analysis`原Worker终态→原冻结资格/固定已HUMAN批准Strategy→完整标准Decision→`/decisions`具名人工approve/reject/revoke。资格仅明确SYNTHETIC_FIXTURE，真实未授权/TEST_DEFAULT保持BLOCKED；零额外模型调用、不激活规则或订单，原Shadow保持不可变。独立API18122/PG15447/真实Worker/Chrome精确当前Decision3/3（22.9s）已演示正常/拒绝/撤销/缺原证据失败，15项真实PG覆盖TTL±1µs、事务全回滚、scheduled来源拒绝与批准时容量漂移。完整Python验证仍进行，PR/独立Gate/Release集成未完成；Owner/P6接受PENDING、501BLOCKED不变。证据及操作见MVP-206工作项。
+- MVP-206当前功能分支已接通显式后置准备：`/analysis`原Worker终态→原冻结资格/固定已HUMAN批准Strategy→完整标准Decision→`/decisions`具名人工approve/reject/revoke。资格仅明确SYNTHETIC_FIXTURE，真实未授权/TEST_DEFAULT保持BLOCKED；零额外模型调用、不激活规则或订单，原Shadow保持不可变。独立API18122/PG15447/真实Worker/Chrome精确当前Decision3/3（22.9s）已演示正常/拒绝/撤销/缺原证据失败，15项真实PG覆盖TTL±1µs、事务全回滚、scheduled来源拒绝与批准时容量漂移。完整Python813项通过（636.44s，87.89%），最终前端109项/Chrome精确3项及迁移检查通过；正在提交唯一功能PR，独立Gate/Release集成未完成；Owner/P6接受PENDING、501BLOCKED不变。证据及操作见MVP-206工作项。
 
 - PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 

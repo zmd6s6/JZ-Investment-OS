@@ -8,6 +8,7 @@ import pytest
 from analysis_decision_fixture import seed_qualification
 from fastapi import FastAPI
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import DBAPIError
 from test_analysis_numeric_pipeline import pipeline
 
 from investment_os.api.analysis_decision_routes import analysis_decision_router
@@ -118,8 +119,10 @@ async def test_worker_persists_every_validated_opinion_evidence_fk_in_the_origin
         await client.aclose()
 
 
+@pytest.mark.parametrize("bucket", ["CORE", "TACTICAL"])
 async def test_real_analysis_to_decision_preserves_shadow_and_requires_explicit_human_approval(
     database_engine,
+    bucket,
 ):
     (
         sessions,
@@ -130,7 +133,7 @@ async def test_real_analysis_to_decision_preserves_shadow_and_requires_explicit_
         client,
         _qualification,
         _strategy,
-    ) = await complete_analysis(database_engine)
+    ) = await complete_analysis(database_engine, bucket=bucket)
     try:
         before_calls = len(calls)
         bridge = SqlAnalysisDecisionBridge(sessions)
@@ -473,5 +476,61 @@ async def test_persisted_scheduled_shadow_origin_cannot_be_omitted_by_preparatio
                 await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
                 == 0
             )
+    finally:
+        await client.aclose()
+
+
+async def test_high_risk_agent_does_not_become_approvable_from_numeric_pass(
+    database_engine, monkeypatch
+):
+    import test_analysis_numeric_pipeline as pipeline_module
+
+    original_output = pipeline_module.model_output
+
+    def high_risk(wrapper):
+        result = original_output(wrapper)
+        if wrapper["role"] == "RISK":
+            result["risks"] = [
+                {
+                    "code": "SYNTHETIC_HIGH_RISK",
+                    "severity": "HIGH",
+                    "evidence_ids": result["observations"][0]["evidence_ids"],
+                }
+            ]
+        return result
+
+    monkeypatch.setattr(pipeline_module, "model_output", high_risk)
+    sessions, _store, original, command, _calls, client, _q, _s = await complete_analysis(
+        database_engine
+    )
+    try:
+        assert original.risk_sizing.risk_gate == "PASS"
+        result = await SqlAnalysisDecisionBridge(sessions).prepare(command)
+        assert result.status == "BLOCKED"
+        assert "DECISION_UNRESOLVED_HIGH_OR_CRITICAL_AGENT_RISK" in result.blockers
+        async with sessions() as session:
+            assert (
+                await session.scalar(select(func.count()).select_from(InvestmentDecisionRecord))
+                == 0
+            )
+    finally:
+        await client.aclose()
+
+
+async def test_bridge_blocked_attempt_is_database_append_only(database_engine):
+    sessions, _store, _original, command, _calls, client, _q, _s = await complete_analysis(
+        database_engine, include_gate_evidence=False
+    )
+    try:
+        result = await SqlAnalysisDecisionBridge(sessions).prepare(command)
+        assert result.status == "BLOCKED"
+        for statement in (
+            "UPDATE analysis_decision_bridge SET status=status",
+            "DELETE FROM analysis_decision_bridge",
+        ):
+            with pytest.raises(DBAPIError, match=r"append-only|immutable"):
+                async with database_engine.begin() as connection:
+                    await connection.execute(text(statement))
+        assert await SqlAnalysisDecisionBridge(sessions).get(command.run_id) == result
     finally:
         await client.aclose()

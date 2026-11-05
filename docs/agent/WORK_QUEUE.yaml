@@ -168,7 +168,7 @@ work_items:
   - id: MVP-206
     title: Traceable InvestmentDecision and human approval bridge
     priority: 0
-    status: IN_PROGRESS
+    status: REVIEW
     claim_branch: agent/MVP-206
     claim_owner: pr-02-review-and-next-stage-monitor / mvp205_recovery
     # 独立Claim与Handoff可核；本分支实现/验证不等于Release集成或Owner接受。
