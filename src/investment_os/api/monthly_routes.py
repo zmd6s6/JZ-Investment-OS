@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from investment_os.application.daily_runtime import DailyMode, DailyTask
 from investment_os.application.monthly_review import (
@@ -38,9 +38,9 @@ def monthly_router(service: MonthlyReviewPort | None) -> APIRouter:
         )
 
     @router.get("", response_model=tuple[MonthlyConfiguration, ...])
-    async def configurations() -> tuple[MonthlyConfiguration, ...]:
+    async def configurations(offset: int = Query(0, ge=0)) -> tuple[MonthlyConfiguration, ...]:
         try:
-            return await ready().configurations()
+            return await ready().configurations(offset)
         except MonthlyError as exc:
             raise failed(exc) from None
 
@@ -66,9 +66,11 @@ def monthly_router(service: MonthlyReviewPort | None) -> APIRouter:
             raise failed(exc) from None
 
     @router.get("/reports", response_model=tuple[MonthlyReport, ...])
-    async def reports(schedule_id: UUID | None = None) -> tuple[MonthlyReport, ...]:
+    async def reports(
+        schedule_id: UUID | None = None, offset: int = Query(0, ge=0)
+    ) -> tuple[MonthlyReport, ...]:
         try:
-            return await ready().reports(schedule_id)
+            return await ready().reports(schedule_id, offset)
         except MonthlyError as exc:
             raise failed(exc) from None
 
@@ -80,11 +82,11 @@ def monthly_router(service: MonthlyReviewPort | None) -> APIRouter:
             raise failed(exc) from None
 
     @router.get("/history", response_model=tuple[MonthlyReportHistory, ...])
-    async def history() -> tuple[MonthlyReportHistory, ...]:
-        return await ready().history()
+    async def history(offset: int = Query(0, ge=0)) -> tuple[MonthlyReportHistory, ...]:
+        return await ready().history(offset)
 
     @router.get("/runs", response_model=tuple[DailyTask, ...])
-    async def runs() -> tuple[DailyTask, ...]:
-        return await ready().runs()
+    async def runs(offset: int = Query(0, ge=0)) -> tuple[DailyTask, ...]:
+        return await ready().runs(offset)
 
     return router

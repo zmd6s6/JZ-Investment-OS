@@ -4,7 +4,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.daily_runtime import evidence_diff
@@ -56,19 +56,44 @@ class MonthlyReviewRunner:
         if now.utcoffset() is None:
             raise MonthlyError("MONTHLY_TIMEZONE_REQUIRED")
         plans = []
-        async with self.sessions() as session:
-            rows = (
-                await session.scalars(
-                    select(MonthlyConfigurationRecord)
-                    .where(
-                        MonthlyConfigurationRecord.enabled.is_(True),
-                        MonthlyConfigurationRecord.revoked.is_(False),
-                    )
-                    .order_by(MonthlyConfigurationRecord.id)
-                    .limit(50)
+        async with self.sessions() as session, session.begin():
+            # A singleton row serializes bounded scans across Worker processes/restarts.
+            # It records traversal only, never authorization or report state.
+            await session.execute(
+                text(
+                    "INSERT INTO monthly_scan_cursor (id, after_id) VALUES (1, NULL) "
+                    "ON CONFLICT (id) DO NOTHING"
                 )
+            )
+            scan_after = await session.scalar(
+                text("SELECT after_id FROM monthly_scan_cursor WHERE id = 1 FOR UPDATE")
+            )
+            statement = select(MonthlyConfigurationRecord).where(
+                MonthlyConfigurationRecord.enabled.is_(True),
+                MonthlyConfigurationRecord.revoked.is_(False),
+            )
+            if scan_after is not None:
+                statement = statement.where(MonthlyConfigurationRecord.id > scan_after)
+            rows = (
+                await session.scalars(statement.order_by(MonthlyConfigurationRecord.id).limit(50))
             ).all()
+            if not rows and scan_after is not None:
+                # Wrap immediately without examining more than 50 configurations.
+                rows = (
+                    await session.scalars(
+                        select(MonthlyConfigurationRecord)
+                        .where(
+                            MonthlyConfigurationRecord.enabled.is_(True),
+                            MonthlyConfigurationRecord.revoked.is_(False),
+                        )
+                        .order_by(MonthlyConfigurationRecord.id)
+                        .limit(50)
+                    )
+                ).all()
+            # Advance only through the last actually examined row, even when max_periods is hit.
+            last_examined = None
             for pointer in rows:
+                last_examined = pointer.id
                 config = await configuration(session, pointer, now)
                 if config.blocker:
                     continue
@@ -95,6 +120,10 @@ class MonthlyReviewRunner:
                         break
                 if len(plans) >= self.max_periods:
                     break
+            await session.execute(
+                text("UPDATE monthly_scan_cursor SET after_id = :after_id WHERE id = 1"),
+                {"after_id": last_examined},
+            )
         completed = []
         for config, start, end in plans:
             key = f"monthly:{config.schedule_id}:{config.revision_id}:{start:%Y-%m}"

@@ -70,3 +70,40 @@ test("expired frozen replay shows named refusal without stale body or extra writ
     expect(screen.queryByRole("region", { name: "月报冻结快照" })).toBeNull();
     expect(fetch.mock.calls.every(([, init]) => !init?.method)).toBe(true);
 });
+
+test("monthly pagination exposes older authorized and revoked records, reports and tasks", async () => {
+    const fetch = mock(), original = fetch.getMockImplementation()!;
+    const config = (i: number) => ({ schedule_id: `s${i}`, version: 1, enabled: false, revoked: i === 51, prepared: { command: { name: `月任务${i}`, coverage_start: "2026-10-01", coverage_end: "2026-10-31", quote_source_name: "合成", evidence_source_names: [] }, calendar_source: "合成", calendar_version: "v1", members: [] } });
+    const history = (i: number) => ({ report_id: `r${i}`, schedule_id: "s1", period_start: "2026-10-01", period_end: "2026-10-31", recorded_at: "2026-11-01", usable_until: "2026-12-01", usable: true, content_hash: "hash" });
+    const task = (i: number) => ({ task_run_id: `t${i}`, status: "FAILED", attempt: 3, error_code: `失败${i}` });
+    fetch.mockImplementation(async (url, init) => {
+        const path = String(url);
+        if (path === "/api/v1/runtime/monthly") return response(Array.from({ length: 50 }, (_, i) => config(i)));
+        if (path === "/api/v1/runtime/monthly?offset=50") return response([config(51)]);
+        if (path === "/api/v1/runtime/monthly/history") return response(Array.from({ length: 60 }, (_, i) => history(i)));
+        if (path === "/api/v1/runtime/monthly/history?offset=60") return response([history(60)]);
+        if (path === "/api/v1/runtime/monthly/runs") return response(Array.from({ length: 60 }, (_, i) => task(i)));
+        if (path === "/api/v1/runtime/monthly/runs?offset=60") return response([task(60)]);
+        return original(url, init);
+    });
+    render(<MonthlyReviewPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "加载更多月度授权" }));
+    await screen.findByRole("heading", { name: /月任务51 · 已永久撤销/ });
+    fireEvent.click(screen.getByRole("button", { name: "加载更多月度任务记录" }));
+    await screen.findByText(/任务t60/);
+    fireEvent.click(screen.getByRole("button", { name: "加载更多月报历史" }));
+    await screen.findByText(/报告r60/);
+    expect(screen.getByRole("status")).toHaveTextContent("记录同时变化，请刷新");
+    expect(fetch.mock.calls.every(([, init]) => !init?.method)).toBe(true);
+});
+
+test("monthly pagination failure retains visible records and names a read failure", async () => {
+    const fetch = mock(), original = fetch.getMockImplementation()!;
+    const config = (i: number) => ({ schedule_id: `s${i}`, version: 1, enabled: false, revoked: false, prepared: { command: { name: `已保留${i}`, coverage_start: "2026-10-01", coverage_end: "2026-10-31", quote_source_name: "合成", evidence_source_names: [] }, calendar_source: "合成", calendar_version: "v1", members: [] } });
+    fetch.mockImplementation(async (url, init) => String(url) === "/api/v1/runtime/monthly" ? response(Array.from({ length: 50 }, (_, i) => config(i))) : String(url) === "/api/v1/runtime/monthly?offset=50" ? response({ detail: { code: "SYNTHETIC_FAILURE", message: "读取失败" } }, 503) : original(url, init));
+    render(<MonthlyReviewPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "加载更多月度授权" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("加载下一页失败，已有内容保留");
+    expect(screen.getByRole("heading", { name: /已保留0/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: "加载更多月度授权" })).toBeEnabled();
+});

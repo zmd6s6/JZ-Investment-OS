@@ -350,13 +350,17 @@ class SqlMonthlyReview:
             )
             return result
 
-    async def configurations(self) -> tuple[MonthlyConfiguration, ...]:
+    async def configurations(self, offset: int = 0) -> tuple[MonthlyConfiguration, ...]:
         result = []
         async with self.sessions() as session:
             rows = (
                 await session.scalars(
                     select(MonthlyConfigurationRecord)
-                    .order_by(MonthlyConfigurationRecord.created_at.desc())
+                    .order_by(
+                        MonthlyConfigurationRecord.created_at.desc(),
+                        MonthlyConfigurationRecord.id.desc(),
+                    )
+                    .offset(offset)
                     .limit(50)
                 )
             ).all()
@@ -374,7 +378,9 @@ class SqlMonthlyReview:
                 result.append(config)
         return tuple(result)
 
-    async def reports(self, schedule_id: UUID | None = None) -> tuple[MonthlyReport, ...]:
+    async def reports(
+        self, schedule_id: UUID | None = None, offset: int = 0
+    ) -> tuple[MonthlyReport, ...]:
         statement = select(MonthlyReportRecord).where(
             MonthlyReportRecord.usable_until > datetime.now(UTC)
         )
@@ -383,7 +389,11 @@ class SqlMonthlyReview:
         async with self.sessions() as session:
             rows = (
                 await session.scalars(
-                    statement.order_by(MonthlyReportRecord.recorded_at.desc()).limit(60)
+                    statement.order_by(
+                        MonthlyReportRecord.recorded_at.desc(), MonthlyReportRecord.id.desc()
+                    )
+                    .offset(offset)
+                    .limit(60)
                 )
             ).all()
             result = []
@@ -402,12 +412,13 @@ class SqlMonthlyReview:
             await verify_relations(session, record, report)
             return report
 
-    async def history(self) -> tuple[MonthlyReportHistory, ...]:
+    async def history(self, offset: int = 0) -> tuple[MonthlyReportHistory, ...]:
         async with self.sessions() as session:
             rows = (
                 await session.scalars(
                     select(MonthlyReportRecord)
-                    .order_by(MonthlyReportRecord.recorded_at.desc())
+                    .order_by(MonthlyReportRecord.recorded_at.desc(), MonthlyReportRecord.id.desc())
+                    .offset(offset)
                     .limit(60)
                 )
             ).all()
@@ -425,13 +436,14 @@ class SqlMonthlyReview:
                 for row in rows
             )
 
-    async def runs(self) -> tuple[DailyTask, ...]:
+    async def runs(self, offset: int = 0) -> tuple[DailyTask, ...]:
         async with self.sessions() as session:
             rows = (
                 await session.scalars(
                     select(TaskRunRecord)
                     .where(TaskRunRecord.task_name == "monthly_portfolio_review")
-                    .order_by(TaskRunRecord.started_at.desc())
+                    .order_by(TaskRunRecord.started_at.desc(), TaskRunRecord.id.desc())
+                    .offset(offset)
                     .limit(60)
                 )
             ).all()

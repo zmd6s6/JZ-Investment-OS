@@ -113,3 +113,27 @@ test("partial natural month is visibly rejected with input retained and no month
   expect((await (await request.get("/api/v1/runtime/monthly")).json()).length).toBe(before.length);
   await page.screenshot({ path: "../.runtime/mvp404-rejected-month.png", fullPage: true });
 });
+
+
+test("more than fifty real authorizations remain visible after revocation", async ({ page, request }) => {
+  test.setTimeout(120000);
+  const original = (await (await request.get("/api/v1/runtime/monthly")).json())[0];
+  expect(original.revoked).toBe(true);
+  for (let index = 0; index < 51; index++) {
+    const command = { ...original.prepared.command, request_id: crypto.randomUUID(), schedule_id: crypto.randomUUID(), expected_version: 0, name: `分页合成${index}` };
+    const preview = await request.post("/api/v1/runtime/monthly/preview", { headers, data: command });
+    expect(preview.ok(), await preview.text()).toBeTruthy();
+    const prepared = await preview.json();
+    const saved = await request.post("/api/v1/runtime/monthly", { headers, data: { command, preview_hash: prepared.content_hash } });
+    expect(saved.ok(), await saved.text()).toBeTruthy();
+    expect((await saved.json()).enabled).toBe(false);
+  }
+  await page.goto("/calendar");
+  const panel = page.getByRole("region", { name: "月度组合复核" });
+  const oldName = String(original.prepared.command.name);
+  await expect(panel.getByRole("heading", { name: new RegExp(oldName) })).toHaveCount(0);
+  await panel.getByRole("button", { name: "加载更多月度授权" }).click();
+  await expect(panel.getByRole("heading", { name: new RegExp(oldName) })).toContainText("已永久撤销");
+  await expect(panel.getByRole("status")).toContainText("已加载下一页");
+  await page.screenshot({ path: "../.runtime/mvp404-pagination-review.png", fullPage: true });
+});

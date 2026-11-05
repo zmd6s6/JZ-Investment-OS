@@ -23,6 +23,8 @@ if (
     not in {
         "/investment_os_mvp404_browser_20261105",
         "/investment_os_mvp404_browser_resume_20261105",
+        "/investment_os_mvp404_browser_cursor_20261105",
+        "/investment_os_mvp404_browser_cursor2_20261105",
     }
 ):
     raise SystemExit("Only the named disposable monthly loopback database is allowed")
@@ -68,7 +70,7 @@ async def seed():
 
 
 asyncio.run(seed())
-log = (root / ".runtime" / "mvp404-browser-worker.log").open("w", encoding="utf-8")
+log = (root / ".runtime" / f"mvp404-browser-worker-{args.port}.log").open("w", encoding="utf-8")
 worker = subprocess.Popen(
     [sys.executable, "-m", "investment_os.worker"],
     env=os.environ.copy(),

@@ -21,6 +21,15 @@ from investment_os.infrastructure.persistence.base import Base
 from investment_os.infrastructure.persistence.models import AuditFieldsMixin
 
 
+class MonthlyScanCursorRecord(Base):
+    """Mutable traversal checkpoint; never an authorization or business fact."""
+
+    __tablename__ = "monthly_scan_cursor"
+    __table_args__ = (CheckConstraint("id = 1", name="singleton"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    after_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+
+
 class MonthlyConfigurationRecord(AuditFieldsMixin, Base):
     __tablename__ = "monthly_configuration"
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
