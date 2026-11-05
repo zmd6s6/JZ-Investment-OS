@@ -143,4 +143,4 @@ MVP-301修后候选另已实际合并Release39f5738：完整674/87.56%、集成1
 
 成功应展示标准Decision编号和“前往决策中心审阅”，精确打开原编号。审阅完整Evidence/Thesis/委员会/风险/Policy/Strategy/Sizing后填写人工归属与理由、勾选本人动作，再明确批准或拒绝。批准后可撤销未成交批准，刷新仍显示不可变历史。准备不等于批准、批准不等于成交，零订单/auto_trade=false。当前真实合格配置不存在，正常链只在独立完整SYNTHETIC_FIXTURE环境证明，不向Owner实例种数据/激活策略。
 
-失败：未冻结资格Evidence、未批准Strategy/Policy、角色失败/高严重风险、Hash/Prompt不符、过期、Risk Veto增仓、pending容量改变或实际scheduled_shadow origin都具名阻断；保存BLOCKED尝试而不保留候选标准Decision。超时显示结果未知、保留输入与请求UUID，用户明确刷新核对，不自动重试。TTL精确到期不可批准。合成API/PG/Worker/Chrome精确当前Decision3/3（22.9s）已演示approve→revoke、reject和缺原Evidence阻断；15项真实PG/前端证据见工作项。完整Python813项/87.89%、最终前端109项、迁移与Domain门槛已通过；独立Gate及Release集成尚未完成，不宣称Product Done、Owner接受或部署。
+失败：未冻结资格Evidence、未批准Strategy/Policy、角色失败/高严重风险、Hash/Prompt不符、过期、Risk Veto增仓、pending容量改变或实际scheduled_shadow origin都具名阻断；保存BLOCKED尝试而不保留候选标准Decision。超时显示结果未知、保留输入与请求UUID，用户明确刷新核对，不自动重试。TTL精确到期不可批准。合成API/PG/Worker/Chrome精确当前Decision3/3（22.9s）已演示approve→revoke、reject和缺原Evidence阻断；15项真实PG/前端证据见工作项。完整Python813项/87.89%、最终前端109项、迁移与Domain门槛已通过；[PR #39](https://github.com/zmd6s6/JZ-Investment-OS/pull/39)已Ready，最新HEAD CI/独立Gate及Release集成尚未完成，不宣称Product Done、Owner接受或部署。
