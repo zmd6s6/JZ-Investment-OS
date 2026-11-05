@@ -16,6 +16,7 @@ from sqlalchemy import select
 from investment_os.api.analysis_decision_routes import analysis_decision_router
 from investment_os.api.analysis_routes import analysis_router
 from investment_os.api.decision_center import decision_center_router
+from investment_os.api.monthly_routes import monthly_router
 from investment_os.api.valuation_routes import valuation_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
 from investment_os.application.analysis_choices import AnalysisChoicesService
@@ -33,6 +34,7 @@ from investment_os.application.health import AsyncClosable, ReadinessProbe
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetPolicy, LLMBudgetService
 from investment_os.application.market_data import MarketDataService
+from investment_os.application.monthly_review import MonthlyReviewPort
 from investment_os.application.onboarding import OnboardingService
 from investment_os.application.opportunities import OpportunityService
 from investment_os.application.opportunity_research import OpportunityResearchService
@@ -377,6 +379,7 @@ def create_app(
     opportunity_research_service: OpportunityResearchService | None = None,
     weekly_funnel_service: WeeklyService | None = None,
     daily_runtime_service: DailyRuntimeService | None = None,
+    monthly_review_service: MonthlyReviewPort | None = None,
     universe_snapshot_service: UniverseSnapshotService | None = None,
     analysis_start: AnalysisStartService | None = None,
     analysis_store: AnalysisStorePort | None = None,
@@ -487,6 +490,7 @@ def create_app(
     )
     application.include_router(weekly_router(weekly_funnel_service))
     application.include_router(daily_router(daily_runtime_service))
+    application.include_router(monthly_router(monthly_review_service))
     application.include_router(universe_router(universe_snapshot_service))
     application.include_router(decision_center_router(decision_center))
     application.include_router(
