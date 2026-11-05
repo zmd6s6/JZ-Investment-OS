@@ -19,7 +19,8 @@ if (
     url.scheme != "postgresql+asyncpg"
     or url.hostname not in {"127.0.0.1", "localhost"}
     or url.port != 15446
-    or url.path not in {
+    or url.path
+    not in {
         "/investment_os_mvp404_browser_20261105",
         "/investment_os_mvp404_browser_resume_20261105",
     }
