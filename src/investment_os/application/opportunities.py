@@ -404,6 +404,46 @@ def evaluate(
     )
 
 
+def bound_global_candidates(
+    rows: list[FunnelRow], candidate_limit: int
+) -> tuple[tuple[FunnelRow, ...], tuple[UUID, ...]]:
+    """Rank the complete evaluated scope once; do not combine truncated batches."""
+    if not 1 <= candidate_limit <= 20 or len({r.instrument_id for r in rows}) != len(rows):
+        raise OpportunityError("INVALID_GLOBAL_SCREEN_INPUT")
+    qualified = sorted(
+        (row for row in rows if row.candidate),
+        key=lambda row: (
+            Decimal(row.features["price_change"]).copy_negate(),
+            row.market,
+            row.symbol,
+            str(row.instrument_id),
+        ),
+    )
+    candidates = tuple(row.instrument_id for row in qualified[:candidate_limit])
+    bounded = []
+    for row in rows:
+        if row.candidate:
+            selected = row.instrument_id in candidates
+            row = row.model_copy(
+                update={
+                    "candidate": selected,
+                    "stages": (
+                        *row.stages,
+                        StageResult(
+                            stage="BOUND",
+                            status="PASSED" if selected else "REJECTED",
+                            reason="WITHIN_LIMIT" if selected else "CANDIDATE_LIMIT_REACHED",
+                        ),
+                    ),
+                    "next_condition": "DEEP_RESEARCH_NOT_PROVIDED"
+                    if selected
+                    else "OUTSIDE_CURRENT_RESEARCH_LIMIT",
+                }
+            )
+        bounded.append(row)
+    return tuple(bounded), candidates
+
+
 class OpportunityService:
     def __init__(
         self,
@@ -499,37 +539,7 @@ class OpportunityService:
                 ):
                     facts = FactSnapshot(status="INVALID")
             rows.append(evaluate(entry, quote, facts, query))
-        qualified = sorted(
-            (row for row in rows if row.candidate),
-            key=lambda row: (
-                Decimal(row.features["price_change"]).copy_negate(),
-                row.market,
-                row.symbol,
-                str(row.instrument_id),
-            ),
-        )
-        candidates = tuple(row.instrument_id for row in qualified[: query.candidate_limit])
-        bounded = []
-        for row in rows:
-            if row.candidate:
-                selected = row.instrument_id in candidates
-                row = row.model_copy(
-                    update={
-                        "candidate": selected,
-                        "stages": (
-                            *row.stages,
-                            StageResult(
-                                stage="BOUND",
-                                status="PASSED" if selected else "REJECTED",
-                                reason="WITHIN_LIMIT" if selected else "CANDIDATE_LIMIT_REACHED",
-                            ),
-                        ),
-                        "next_condition": "DEEP_RESEARCH_NOT_PROVIDED"
-                        if selected
-                        else "OUTSIDE_CURRENT_RESEARCH_LIMIT",
-                    }
-                )
-            bounded.append(row)
+        bounded, candidates = bound_global_candidates(rows, query.candidate_limit)
         result = FunnelRun(
             run_id=query.request_id,
             query=query,
@@ -540,7 +550,7 @@ class OpportunityService:
             else "DEGRADED"
             if any(s.status == "MISSING" for row in rows for s in row.stages)
             else "COMPLETE",
-            rows=tuple(bounded),
+            rows=bounded,
             candidate_ids=candidates,
         )
         return result
