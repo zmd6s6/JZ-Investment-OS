@@ -148,3 +148,8 @@ PR-09。因此产品路线图要求 P5–P9 先于 PR-09；当前活跃实现阶
 PR39源ff9d5eb经root独立Gate6647991606已于2026-11-05实际合入Release4b3995fad5844082e2973daa25a8cdb2d2718d7e；206为INTEGRATED，Owner/P6/Checkpoint B仍PENDING。403普通同步真实Release后将未合入0022接实际0023，必须以组合HEAD验证后再独立Gate；403仅本PR37实际合入才INTEGRATED，404仅该事件后READY，501及P8/Owner状态不提前完成。
 
 403与实际206合并树f0b9dfd已实际新库空表0021→0023→0022升降升、6文件PG82/82、跨功能unit113/113、前端113/113、Calendar Daily Chrome2/2及Decision Chrome3/3；最终证据HEAD CI/独立Gate待核，不能把组合检查点当Release已合入或Owner接受。
+
+
+## MVP-404 月度复核候选与验收边界
+
+月度完整自然月、独立授权和只读冻结报告已接入真实API/PG/Worker及 `/calendar`。隔离合成Chrome实际完成保存暂停、显式启用、冻结报告、刷新和永久撤销，并验证部分月失败；这不是Owner部署或Checkpoint C接受。候选PR、最终HEAD的CI与独立Gate均需单独确认；501继续按真实依赖BLOCKED。细节见 `docs/agent/work-items/MVP-404.md`。

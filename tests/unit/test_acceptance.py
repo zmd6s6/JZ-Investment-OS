@@ -126,3 +126,16 @@ def test_daily_manifest_keeps_owner_pending_and_restricts_scheduled_research(ass
     assert item.integration == ("INTEGRATED" if assembled else "BASELINE_ONLY")
     assert item.human_acceptance == "PENDING" and snapshot.auto_trade is False
     assert "固定为空" in item.detail and "NOT_PROVIDED" in item.detail
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_monthly_manifest_requires_distinct_assembly_and_preserves_owner_pending(assembled):
+    snapshot = acceptance_snapshot(
+        portfolio=False, watchlist=False, providers=False, policy=False, monthly_review=assembled
+    )
+    item = next(value for value in snapshot.capabilities if value.key == "monthly_review")
+    assert item.route == ("/calendar" if assembled else None)
+    assert item.integration == ("INTEGRATED" if assembled else "BASELINE_ONLY")
+    assert item.human_acceptance == "PENDING" and snapshot.auto_trade is False
+    assert "新的明确月频授权" in item.detail and "零模型/网络/费用" in item.detail
+    assert any("只读重放" in step for step in item.steps)

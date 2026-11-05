@@ -74,18 +74,29 @@ class SqlMonthlyReader:
         )
         if risk and risk.created_at > now:
             risk = None
-        for kind, row, relation, parent in (
-            ("THESIS", thesis, ThesisVersionEvidenceRecord, "thesis_version_id"),
-            ("RISK", risk, RiskAssessmentEvidenceRecord, "risk_assessment_id"),
-            ("DECISION", decision, InvestmentDecisionEvidenceRecord, "decision_id"),
+        for kind, row, evidence_column, parent_column in (
+            (
+                "THESIS",
+                thesis,
+                ThesisVersionEvidenceRecord.evidence_id,
+                ThesisVersionEvidenceRecord.thesis_version_id,
+            ),
+            (
+                "RISK",
+                risk,
+                RiskAssessmentEvidenceRecord.evidence_id,
+                RiskAssessmentEvidenceRecord.risk_assessment_id,
+            ),
+            (
+                "DECISION",
+                decision,
+                InvestmentDecisionEvidenceRecord.evidence_id,
+                InvestmentDecisionEvidenceRecord.investment_decision_id,
+            ),
         ):
             if row is None:
                 continue
-            ids = set(
-                await session.scalars(
-                    select(relation.evidence_id).where(getattr(relation, parent) == row.id)
-                )
-            )
+            ids = set(await session.scalars(select(evidence_column).where(parent_column == row.id)))
             unknowns = ["HISTORICAL_REFERENCE_NOT_REVALIDATED_OR_CURRENT_APPROVAL"]
             if not ids or not ids <= visible:
                 unknowns.append("REFERENCE_EVIDENCE_MISSING_EXPIRED_OR_OUTSIDE_EXPLICIT_SOURCE")

@@ -88,8 +88,28 @@ type Report = History & {
         cash_weight: string | null;
         gross_exposure: string | null;
     } | null;
+    quotes: {
+        instrument_id: string;
+        source_name: string;
+        as_of: string;
+        status: string;
+        quote: {
+            price: string;
+        } | null;
+        provenance: {
+            evidence_id: string;
+            expires_at: string;
+        } | null;
+    }[];
     local_inputs: {
         portfolio: {
+            positions: {
+                instrument_id: string;
+                core_average_cost: string;
+                tactical_average_cost: string;
+                core_reason: string;
+                tactical_reason: string;
+            }[];
             cash_balance: string;
             read_at: string;
             time_semantics: string;
@@ -118,7 +138,27 @@ async function read<T>(path: string, init?: RequestInit): Promise<T> {
     return response.json() as Promise<T>;
 }
 const post = (value: unknown) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
-const missing = (value: string | null | undefined) => value ?? "未提供";
+const missing = (value: string | null | undefined) => value == null ? "未提供" : /^-?\d+\.\d+$/.test(value) ? value.replace(/0+$/, "").replace(/\.$/, "") : value;
+const labels: Record<string, string> = {
+    DEGRADED: "有缺口的本地复核", CLOSED_MONTH_SKIPPED: "声明完整但无会话, 已跳过",
+    FIRST_RUN_NO_BASELINE: "首次运行, 无可比基线", COMPARABLE_BASELINE: "同授权既往捕获快照",
+    REFERENCE_ONLY: "仅供参考, 非交易级", AVAILABLE: "参考报价可用",
+    MACRO_AND_INDUSTRY_PANORAMA_NOT_PROVIDED: "宏观与行业全景未提供",
+    CORRELATION_AND_CAPITAL_EFFICIENCY_NOT_PROVIDED: "相关性与资本效率未提供",
+    NO_NEW_INVESTMENT_JUDGMENT_OR_APPROVAL: "没有产生新的投资判断或批准",
+    CURRENT_BOOK_NOT_HISTORICAL_MONTH_END_SNAPSHOT: "当前账本不等于历史月末快照",
+    REENTRY_WILLINGNESS_NOT_ASSESSED: "今天是否愿意重新进入尚未评估",
+    ANCHORING_AND_SUNK_COST_NOT_ASSESSED: "锚定与沉没成本偏差尚未评估",
+    STYLE_DRIFT_AND_BUCKET_BALANCE_REQUIRE_EXPLICIT_POLICY_REVIEW: "风格漂移与分仓平衡需要明确政策复核",
+    NO_COMPARABLE_POSITION_BASELINE: "没有可比持仓基线, 不填零变化",
+    THESIS_NOT_PROVIDED: "未提供论点", RISK_NOT_PROVIDED: "未提供风险评估", DECISION_NOT_PROVIDED: "未提供决策",
+    HISTORICAL_REFERENCE_NOT_REVALIDATED_OR_CURRENT_APPROVAL: "历史引用未重新评估, 不代表当前批准",
+    REFERENCE_EVIDENCE_MISSING_EXPIRED_OR_OUTSIDE_EXPLICIT_SOURCE: "引用资料缺失/过期或不在本次明确来源中",
+    HISTORICAL_RISK_EXPIRED: "历史风险评估已过期", HISTORICAL_NO_CURRENT_RISK_CLEARANCE: "历史风险记录不代表当前通过",
+    VETO_RECORDED: "记录有风险否决", STATUS_OBSERVED_AT_KNOWLEDGE_TIME_NOT_HISTORICAL_MONTH_END: "知识时点观察的状态, 非历史月末状态",
+    EXPLICIT_COMPLETE_CLOSED_MONTH_NO_RESEARCH: "声明完整的该月没有提供会话, 不推断交易日也不发起研究",
+};
+const explain = (code: string) => labels[code] ?? code;
 export function MonthlyReviewPanel() {
     const [books, setBooks] = useState<Book[]>([]), [calendars, setCalendars] = useState<Calendar[]>([]);
     const [configs, setConfigs] = useState<Config[]>([]), [history, setHistory] = useState<History[]>([]), [tasks, setTasks] = useState<Task[]>([]);
@@ -156,8 +196,14 @@ export function MonthlyReviewPanel() {
         setTasks(t);
         setHealthy(true);
     }
-    useEffect(() => { const controller = new AbortController(); void load(controller.signal).catch(e => { if (!controller.signal.aborted)
-        setError(String(e)); }); return () => { controller.abort(); ++reads.current; ++reportRead.current; }; }, []);
+    useEffect(() => {
+        const controller = new AbortController();
+        void load(controller.signal).catch(e => {
+            if (!controller.signal.aborted)
+                setError(String(e));
+        });
+        return () => { controller.abort(); ++reads.current; ++reportRead.current; };
+    }, []);
     async function act(operation: () => Promise<void>) {
         if (busy.current)
             return;
@@ -206,21 +252,28 @@ export function MonthlyReviewPanel() {
     async function replay(id: string) {
         const request = ++reportRead.current;
         setReport(null);
-        await act(async () => { const value = await read<Report>(`/api/v1/runtime/monthly/reports/${id}/replay`); if (request === reportRead.current) {
-            setReport(value);
-            setMessage("已核对原报告并只读重放冻结快照, 未重新取数或发起研究。");
-        } });
+        await act(async () => {
+            const value = await read<Report>(`/api/v1/runtime/monthly/reports/${id}/replay`);
+            if (request === reportRead.current) {
+                setReport(value);
+                setMessage("已核对原报告并只读重放冻结快照, 未重新取数或发起研究。");
+            }
+        });
     }
-    return <Panel title="月度组合复核" description="独立月频许可, 默认暂停。当前仅本地已存资料, 零网络/模型/费用; 不生成投资动作或批准。"><div className="daily-runtime">
+    return <section aria-label="月度组合复核"><Panel title="月度组合复核" description="独立月频许可, 默认暂停。当前仅本地已存资料, 零网络/模型/费用; 不生成投资动作或批准。"><div className="daily-runtime">
     {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
     <button disabled={working} onClick={() => void act(() => load())}>刷新月度状态与报告</button>
     {!healthy && <p>月度状态未确认, 写操作不可用。读取失败不会显示旧配置为当前成功。</p>}
-    <form onSubmit={e => { e.preventDefault(); void prepare(); }} onChange={e => { setPreview(null); setConfirmed(false); if (!(e.target instanceof HTMLInputElement && e.target.type === "checkbox"))
-        setAck(false); }}><fieldset disabled={working || !healthy}><legend>建立新的独立月度授权</legend>
+    <form onSubmit={e => { e.preventDefault(); void prepare(); }} onChange={e => {
+            setPreview(null);
+            setConfirmed(false);
+            if (!(e.target instanceof HTMLInputElement && e.target.type === "checkbox"))
+                setAck(false);
+        }}><fieldset disabled={working || !healthy}><legend>建立新的独立月度授权</legend>
       <label>月度任务名称<input value={name} onChange={e => setName(e.target.value)} required/></label>
-      <label>月度组合<select value={book} onChange={e => setBook(e.target.value)} required><option value="">请选择组合</option>{books.map(value => <option key={value.portfolio_id} value={value.portfolio_id}>{value.name}</option>)}</select></label>
+      <label>月度组合<select aria-label="月度组合" value={book} onChange={e => setBook(e.target.value)} required><option value="">请选择组合</option>{books.map(value => <option key={value.portfolio_id} value={value.portfolio_id}>{value.name}</option>)}</select></label>
       <p>冻结组合全部持仓: {currentBook?.positions.map(value => `${value.name} ${value.symbol}`).join("、") || "尚未选择非空组合"}。新成员或身份变化须重新授权, 不自动扩大范围。</p>
-      <label>月度显式日历<select value={calendar} onChange={e => setCalendar(e.target.value)} required><option value="">请选择已导入日历</option>{calendars.map(value => <option key={value.import_id} value={value.import_id}>{value.venue} · {value.source_name} {value.source_version}</option>)}</select></label>
+      <label>月度显式日历<select aria-label="月度显式日历" value={calendar} onChange={e => setCalendar(e.target.value)} required><option value="">请选择已导入日历</option>{calendars.map(value => <option key={value.import_id} value={value.import_id}>{value.venue} · {value.source_name} {value.source_version}</option>)}</select></label>
       <label>首月起日（必须1日）<input type="date" value={start} onChange={e => setStart(e.target.value)} required/></label>
       <label>末月末日（必须月末）<input type="date" value={end} onChange={e => setEnd(e.target.value)} required/></label>
       <label>月度授权开始（浏览器本地时区）<input type="datetime-local" value={validFrom} onChange={e => setValidFrom(e.target.value)} required/></label>
@@ -234,8 +287,8 @@ export function MonthlyReviewPanel() {
     </fieldset></form>
     {preview && <section aria-label="月度授权预览"><h3>完整月度授权预览</h3><p>组合全部: {preview.members.map(value => `${value.name} ${value.symbol}`).join("、")}</p><p>日历 {preview.calendar_source} / {preview.calendar_version} · {preview.calendar_hash}</p><p>{String(preview.command.coverage_start)} 至 {String(preview.command.coverage_end)} · 完整月结束后一次 · 报告使用{String(preview.command.retention_days)}天</p><p>本地报价 {String(preview.command.quote_source_name)} · 本地资料 {String(preview.command.evidence_source_names)} · 授权 {String(preview.command.valid_from)} 至 {String(preview.command.valid_until)}</p><p>固定LOCAL_MONTHLY_REVIEW, 模型/资料档案为空, 费用与Token=0。暂停/永久撤销在此页面。</p><label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>已核对本次全部月度范围与零成本, 明确保存为暂停。</label><button disabled={working || !healthy || !confirmed} onClick={() => void save()}>保存月度授权为暂停</button></section>}
     <h3>已保存月度任务</h3>{configs.map(value => <article key={value.schedule_id}><h4>{String(value.prepared.command.name)} · {value.revoked ? "已永久撤销" : value.enabled ? "已启用" : "已暂停"}</h4><p>版本{value.version} · {value.blocker ?? "等待完整自然月结束及Worker轮询"}</p><p>完整月范围{String(value.prepared.command.coverage_start)} 至{String(value.prepared.command.coverage_end)} · {value.prepared.calendar_source} / {value.prepared.calendar_version}</p><p>组合全部{value.prepared.members.map(member => `${member.name} ${member.symbol}`).join("、")} · {String(value.prepared.command.quote_source_name)} · 本地来源{String(value.prepared.command.evidence_source_names)}</p><label><input type="checkbox" checked={modeConfirm.includes(value.schedule_id)} onChange={e => setModeConfirm(old => e.target.checked ? [...old, value.schedule_id] : old.filter(id => id !== value.schedule_id))}/>我已核对此保存月度授权, 明确确认本次启停或永久撤销。</label>{["ENABLE", "PAUSE", "REVOKE"].map((action, index) => <button key={action} disabled={working || !healthy || value.revoked || !modeConfirm.includes(value.schedule_id)} onClick={() => void mode(value, action)}>{["启用月度复核", "暂停月度复核", "永久撤销月度授权"][index]}</button>)}</article>)}
-    <h3>真实月度任务记录</h3>{tasks.length ? tasks.map(task => <p key={task.task_run_id}>任务{task.task_run_id} · {task.status} · 尝试{task.attempt} · {task.error_code ?? "无记录错误"}</p>) : <p>没有记录不代表Worker健康; 可能尚未到期、暂停或未运行。失败最多三次本地重试, 来源修复须新暂停版本再确认启用。</p>}
+    <h3>真实月度任务记录</h3>{tasks.length ? tasks.map(task => <p key={task.task_run_id}>任务{task.task_run_id} · {task.status} · 尝试{task.attempt} · {task.error_code ?? "无记录错误"}{task.status === "FAILED" && task.attempt >= 3 ? " · 本授权月份重试已耗尽, 修复后保存新暂停授权再确认启用" : ""}</p>) : <p>没有记录不代表Worker健康; 可能尚未到期、暂停或未运行。失败最多三次本地重试, 来源修复须新暂停版本再确认启用。</p>}
     <h3>月报历史与只读重放</h3>{history.map(value => <article key={value.report_id}><h4>{value.period_start} 至 {value.period_end}</h4><p>记录{value.recorded_at} · 正文有效至{value.usable_until} · {value.usable ? "可只读重放" : "已过期, 仅保留审计历史"}</p><p>报告{value.report_id} · hash {value.content_hash}</p><button disabled={working} onClick={() => void replay(value.report_id)}>打开月报冻结快照</button></article>)}
-    {report && <section aria-label="月报冻结快照"><h3>月度组合复核报告 · {report.phase}</h3><p>期间{report.period_start} 至{report.period_end} · 业务会话{missing(report.business_as_of)} · 知识截止{report.knowledge_as_of} · 记录{report.recorded_at}</p><p>基线{report.baseline_status} · 原报告{missing(report.baseline_report_id)}。首次没有基线不填零变化。</p><h4>参考估值与现金</h4><p>状态{report.valuation?.status ?? "未提供"} · 参考NAV{missing(report.valuation?.nav)} · 现金{missing(report.valuation?.cash)} · 现金比例{missing(report.valuation?.cash_weight)} · 总暴露{missing(report.valuation?.gross_exposure)}</p><p>账本实际读取{missing(report.local_inputs?.portfolio.read_at)} · {report.local_inputs?.portfolio.time_semantics ?? "无会话未取数"}。人工参考估值非交易级, 不能推导Risk PASS。</p><h4>持仓、变化与历史风险</h4>{report.holdings.map(holding => <article key={holding.instrument_id}><h5>{holding.symbol}</h5><p>Core {holding.core_quantity} / Tactical {holding.tactical_quantity} · Core变化{missing(holding.core_change)} / Tactical变化{missing(holding.tactical_change)} · 报价{holding.quote_status}</p><p>若今天未持有是否重新进入: 未提供判断。当前不自动交易或推断再平衡阈值。</p>{holding.references.map(ref => <p key={`${ref.kind}:${ref.record_id}`}>{ref.kind}历史记录 {ref.status} · {ref.recorded_at} · {ref.record_id} · hash{ref.content_hash} · Evidence {ref.evidence_ids.join("、") || "无范围内有效引用"} · {ref.unknowns.join("; ")}{ref.kind === "ANALYSIS" && <a href={`/analysis?run_id=${ref.record_id}`}>查看分析依据</a>}{ref.kind === "DECISION" && <a href={`/decisions?decision_id=${ref.record_id}`}>只读定位决策</a>}</p>)}<p>持仓未知项: {holding.unknowns.join("; ")}</p></article>)}<h4>资料变化与日期来源</h4><p>新增Evidence{report.evidence_diff?.added_ids.join("、") || "无"} · 移出有效集合{report.evidence_diff?.removed_ids.join("、") || "无"}（不代表删除历史）</p>{report.local_inputs?.evidence.map(evidence => <p key={evidence.evidence_id}>{evidence.source_name} · {evidence.evidence_id} · observed {evidence.observed_at} / effective {evidence.effective_at} / available {evidence.available_at} / ingested {evidence.ingested_at} / expires {missing(evidence.expires_at)} · hash {evidence.content_hash}</p>)}<h4>未知与恢复</h4><p>{report.unknowns.join("; ")}</p>{report.recovery.map(value => <p key={value}>{value}</p>)}<p>SIMULATION / NO AUTO TRADE · 原历史引用不等于当前风险通过或批准; 报告不创建新的投资动作。</p></section>}
-  </div></Panel>;
+    {report && <section aria-label="月报冻结快照"><h3>月度组合复核报告 · {explain(report.phase)}</h3><p>期间{report.period_start} 至{report.period_end} · 业务会话{missing(report.business_as_of)} · 知识截止{report.knowledge_as_of} · 记录{report.recorded_at}</p><p>基线{explain(report.baseline_status)} · 原报告{missing(report.baseline_report_id)}。首次没有基线不填零变化; 变化仅比较实际捕获快照, 不是历史月末收益。</p><h4>参考估值与现金</h4><p>状态{report.valuation ? explain(report.valuation.status) : "未提供"} · 参考NAV{missing(report.valuation?.nav)} · 现金{missing(report.valuation?.cash)} · 现金比例{missing(report.valuation?.cash_weight)} · 总暴露{missing(report.valuation?.gross_exposure)}</p><p>账本实际读取{missing(report.local_inputs?.portfolio.read_at)} · {report.local_inputs?.portfolio.time_semantics ?? "无会话未取数"}。人工参考估值非交易级, 不能推导Risk PASS。</p><h4>持仓、变化与历史风险</h4>{report.holdings.map(holding => <article key={holding.instrument_id}><h5>{holding.symbol}</h5><p>Core {missing(holding.core_quantity)} / Tactical {missing(holding.tactical_quantity)} · Core变化{missing(holding.core_change)} / Tactical变化{missing(holding.tactical_change)} · 报价{explain(holding.quote_status)}</p>{report.local_inputs?.portfolio.positions.filter(position => position.instrument_id === holding.instrument_id).map(position => <p key={position.instrument_id}>Core平均成本{missing(position.core_average_cost)} / 理由{position.core_reason || "未记录"} · Tactical平均成本{missing(position.tactical_average_cost)} / 理由{position.tactical_reason || "未记录"}。成本不作为参考行情。</p>)}{report.quotes?.filter(quote => quote.instrument_id === holding.instrument_id).map(quote => <p key={quote.instrument_id}>参考价格{missing(quote.quote?.price)} · 来源{quote.source_name} · 知识截止{quote.as_of} · Evidence {quote.provenance?.evidence_id ?? "未提供"} · 到期{missing(quote.provenance?.expires_at)}。仅人工参考, 未独立核实。</p>)}<p>若今天未持有是否重新进入: 未提供判断。当前不自动交易或推断再平衡阈值。</p>{holding.references.map(ref => <p key={`${ref.kind}:${ref.record_id}`}>{ref.kind}历史记录 {explain(ref.status)} · {ref.recorded_at} · {ref.record_id} · hash{ref.content_hash} · Evidence {ref.evidence_ids.join("、") || "无范围内有效引用"} · {ref.unknowns.map(explain).join("; ")}{ref.kind === "ANALYSIS" && <a href={`/analysis?run_id=${ref.record_id}`}>查看分析依据</a>}{ref.kind === "DECISION" && <a href={`/decisions?decision_id=${ref.record_id}`}>只读定位决策</a>}</p>)}<p>持仓未知项: {holding.unknowns.map(explain).join("; ")}</p></article>)}<h4>资料变化与日期来源</h4><p>新增Evidence{report.evidence_diff?.added_ids.join("、") || "无"} · 移出有效集合{report.evidence_diff?.removed_ids.join("、") || "无"}（不代表删除历史）</p>{report.local_inputs?.evidence.map(evidence => <p key={evidence.evidence_id}>{evidence.source_name} · {evidence.evidence_id} · 观察 {evidence.observed_at} / 生效 {evidence.effective_at} / 可得 {evidence.available_at} / 入库 {evidence.ingested_at} / 到期 {missing(evidence.expires_at)} · hash {evidence.content_hash}</p>)}<h4>未知与恢复</h4><p>{report.unknowns.map(explain).join("; ")}</p>{report.recovery.map(value => <p key={value}>{value}</p>)}<p>SIMULATION / NO AUTO TRADE · 原历史引用不等于当前风险通过或批准; 报告不创建新的投资动作。</p></section>}
+  </div></Panel></section>;
 }

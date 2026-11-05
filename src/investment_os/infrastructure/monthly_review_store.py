@@ -22,7 +22,9 @@ from investment_os.infrastructure.monthly_review_models import (
     MonthlyAuthorizationRecord,
     MonthlyConfigurationRecord,
     MonthlyMemberRecord,
+    MonthlyReportEvidenceRecord,
     MonthlyReportRecord,
+    MonthlyReportReferenceRecord,
 )
 from investment_os.infrastructure.monthly_review_scope import capture, prepared_hash
 from investment_os.infrastructure.persistence.models import (
@@ -159,6 +161,44 @@ def verify_report(record: MonthlyReportRecord, now: datetime) -> MonthlyReport:
     if now >= report.usable_until:
         raise MonthlyError("MONTHLY_REPORT_EXPIRED_HISTORY_PRESERVED")
     return report
+
+
+async def verify_relations(
+    session: AsyncSession, record: MonthlyReportRecord, report: MonthlyReport
+) -> None:
+    authorization = await session.get(MonthlyAuthorizationRecord, record.revision_id)
+    if (
+        authorization is None
+        or authorization.schedule_id != report.schedule_id
+        or fingerprint(authorization.prepared_json)
+        != fingerprint(report.authorization.model_dump(mode="json"))
+        or authorization.content_hash != report.authorization.content_hash
+    ):
+        raise MonthlyError("MONTHLY_REPORT_AUTHORIZATION_REFERENCE_INVALID")
+    evidence = set(
+        await session.scalars(
+            select(MonthlyReportEvidenceRecord.evidence_id).where(
+                MonthlyReportEvidenceRecord.report_id == record.id
+            )
+        )
+    )
+    if evidence != set(report.evidence_diff.visible_ids if report.evidence_diff else ()):
+        raise MonthlyError("MONTHLY_REPORT_EVIDENCE_REFERENCE_INVALID")
+    rows = (
+        await session.scalars(
+            select(MonthlyReportReferenceRecord).where(
+                MonthlyReportReferenceRecord.report_id == record.id
+            )
+        )
+    ).all()
+    actual = {(row.kind, row.record_id, row.instrument_id, row.content_hash) for row in rows}
+    expected = {
+        (ref.kind, ref.record_id, ref.instrument_id, ref.content_hash)
+        for holding in report.holdings
+        for ref in holding.references
+    }
+    if actual != expected:
+        raise MonthlyError("MONTHLY_REPORT_HISTORICAL_REFERENCE_INVALID")
 
 
 class SqlMonthlyReview:
@@ -346,14 +386,21 @@ class SqlMonthlyReview:
                     statement.order_by(MonthlyReportRecord.recorded_at.desc()).limit(60)
                 )
             ).all()
-            return tuple(verify_report(row, datetime.now(UTC)) for row in rows)
+            result = []
+            for row in rows:
+                report = verify_report(row, datetime.now(UTC))
+                await verify_relations(session, row, report)
+                result.append(report)
+            return tuple(result)
 
     async def replay(self, report_id: UUID) -> MonthlyReport:
         async with self.sessions() as session:
             record = await session.get(MonthlyReportRecord, report_id)
             if record is None:
                 raise MonthlyError("MONTHLY_REPORT_NOT_FOUND")
-            return verify_report(record, datetime.now(UTC))
+            report = verify_report(record, datetime.now(UTC))
+            await verify_relations(session, record, report)
+            return report
 
     async def history(self) -> tuple[MonthlyReportHistory, ...]:
         async with self.sessions() as session:

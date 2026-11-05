@@ -33,6 +33,7 @@ from investment_os.infrastructure.monthly_review_store import (
     verify_report,
 )
 from investment_os.infrastructure.persistence.jobs import ReliableJobExecutor
+from investment_os.infrastructure.persistence.models import TaskRunRecord
 from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 
 
@@ -43,9 +44,13 @@ class MonthlyReviewRunner:
         reader: SqlMonthlyReader,
         *,
         clock: Callable[[], datetime] | None = None,
+        max_periods: int = 4,
     ):
         self.sessions, self.reader = sessions, reader
         self.clock = clock or (lambda: datetime.now(UTC))
+        if not 1 <= max_periods <= 4:
+            raise ValueError("monthly max_periods must be between 1 and 4")
+        self.max_periods = max_periods
 
     async def dispatch_due(self, *, now: datetime) -> tuple[UUID, ...]:
         if now.utcoffset() is None:
@@ -80,10 +85,15 @@ class MonthlyReviewRunner:
                         )
                         is None
                     ):
-                        plans.append((config, start, end))
-                    if len(plans) >= 4:
+                        key = f"monthly:{config.schedule_id}:{config.revision_id}:{start:%Y-%m}"
+                        prior_task = await session.scalar(
+                            select(TaskRunRecord).where(TaskRunRecord.idempotency_key == key)
+                        )
+                        if prior_task is None or prior_task.attempt < 3:
+                            plans.append((config, start, end))
+                    if len(plans) >= self.max_periods:
                         break
-                if len(plans) >= 4:
+                if len(plans) >= self.max_periods:
                     break
         completed = []
         for config, start, end in plans:

@@ -607,6 +607,7 @@ def create_app(
             and analysis_choices is not None,
             decisions=decision_center is not None,
             daily_runtime=daily_runtime_service is not None,
+            monthly_review=monthly_review_service is not None,
         )
 
     def provider_settings_or_503() -> ProviderSettingsService:

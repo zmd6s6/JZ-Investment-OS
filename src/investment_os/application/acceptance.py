@@ -47,6 +47,7 @@ def acceptance_snapshot(
     analysis: bool = False,
     decisions: bool = False,
     daily_runtime: bool = False,
+    monthly_review: bool = False,
 ) -> AcceptanceSnapshot:
     """Declare shipped paths separately from composition and owner confirmation.
 
@@ -309,6 +310,27 @@ def acceptance_snapshot(
                 "详情读取失败清空旧运行依据并显示错误; 尚无冻结输入或部分角色失败不补造结论。"
                 "资料正文仅纯文本显示, 不自动打开来源或执行外部文字。"
             ),
+        )
+    )
+    items.append(
+        CapabilityDelivery(
+            key="monthly_review",
+            label="独立月频本地组合复核",
+            work_item="MVP-404",
+            engineering="IMPLEMENTED" if monthly_review else "PARTIAL",
+            integration="INTEGRATED" if monthly_review else "BASELINE_ONLY",
+            service="ASSEMBLED" if monthly_review else "UNAVAILABLE",
+            route="/calendar" if monthly_review else None,
+            detail="默认暂停, 新的明确月频授权。当前仅本地零模型/网络/费用复核, "
+            "冻结来源/四时间/分仓/参考估值/变化与已有历史引用, 缺判断诚实未知。"
+            "不是完整周月AI团队研究、投资动作或Owner接受。",
+            steps=(
+                "选择完整自然月、全组合/来源及显式日历, 明确月频/期限与零费用后预览。",
+                "另行确认保存暂停, 核对后独立启用; 完整月结束后刷新真实任务与月报。",
+                "打开冻结快照只读重放, 核对当前知识与历史月末区别; 可暂停/永久撤销。",
+            ),
+            failure="部分月、范围/日历漂移、到期或陈旧/缺价可见拒绝或降级; "
+            "报告过期只留审计元数据, 不重新取数/模型或用旧风险代当前批准。",
         )
     )
     items.append(

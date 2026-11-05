@@ -215,9 +215,10 @@ work_items:
   - id: MVP-404
     title: Monthly portfolio review and report E2E
     priority: 2
-    status: IN_PROGRESS
+    # 仅本项PR经独立Gate实际合入Release后生效，非Owner接受。
+    status: INTEGRATED
     claim_branch: agent/MVP-404
-    claim_owner: pr-02-review-and-next-stage-monitor / mvp403_recovery
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp404_resume
     # PR37已实际合入e1babd2；create-only Claim已成功，Owner接受仍PENDING。
     stage: PRODUCT-08
     checkpoint: C
