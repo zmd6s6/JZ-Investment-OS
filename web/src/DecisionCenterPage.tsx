@@ -65,7 +65,12 @@ export function DecisionCenterPage() {
     try {
       const value = await read<Card[]>("/api/v1/decision-center");
       if (!Array.isArray(value) || value.some(card => !card.decision_id || !Array.isArray(card.blockers) || !Number.isInteger(card.revision))) throw new Error("决策列表协议不符");
-      if (seq === listSequence.current) setCards(value);
+      if (seq === listSequence.current) {
+        setCards(value);
+        const linked = new URLSearchParams(window.location.search).get("decision_id");
+        if (linked && value.some(card => card.decision_id === linked)) void open(linked);
+        else if (linked) setError("链接中的决策不在当前可读列表，请核对编号与部署环境。");
+      }
     } catch (e) { if (seq === listSequence.current) { setCards([]); setError(e instanceof Error ? e.message : "读取失败，请刷新"); } }
     finally { if (seq === listSequence.current) setLoading(false); }
   }
@@ -106,7 +111,7 @@ export function DecisionCenterPage() {
   return <ProductChrome eyebrow="人工决定与不可变日志" title="决策中心" subtitle="SIMULATION / NO AUTO TRADE · 批准与记录是不同动作。本页仅记录人工决定和外部手工事实，不连接券商或提交订单。">
     <div className="decision-center">
     <StatusBanner kind="error" text={error} /><StatusBanner kind="ok" text={message} />
-    <Panel title="从哪里开始"><ol><li>先查看结论、证据、Core/Tactical、风险与确定性数量，再填写自己的归属名称与理由并明确确认。</li><li>批准期限来自固定政策，Risk Veto、缺项、输入变化或到期不能被批准覆盖。</li><li>只有在系统外已完成手工动作后才登记事实；填写真实时间和费用，不把批准按钮理解为交易。</li></ol><p>当前<a href="/analysis">团队分析</a>仅产生受限 ShadowDecision（Risk UNKNOWN / Sizing BLOCKED），不会出现在可审批列表中，也不能转成订单。没有完整 Decision 时本页如实为空；测试默认政策不是交易授权。</p></Panel>
+    <Panel title="从哪里开始"><ol><li>先查看结论、证据、Core/Tactical、风险与确定性数量，再填写自己的归属名称与理由并明确确认。</li><li>批准期限来自固定政策，Risk Veto、缺项、输入变化或到期不能被批准覆盖。</li><li>只有在系统外已完成手工动作后才登记事实；填写真实时间和费用，不把批准按钮理解为交易。</li></ol><p>当前<a href="/analysis">团队分析</a>保留原 ShadowDecision 历史；具备完整固定资格时，可单独准备待人工审阅 Decision。缺少配置或未授权时继续阻断，不把数值 PASS 当作投资授权。当前完整资格仅在明确合成环境验证；没有完整 Decision 时本页如实为空，测试默认政策不是交易授权。</p></Panel>
     <Panel title="决策列表（最近100条）"><button type="button" disabled={busy || loading} onClick={() => void refreshList()}>刷新决策列表</button><label>按状态筛选<select aria-label="决策状态筛选" disabled={busy} value={filter} onChange={e => setFilter(e.target.value)}><option value="">全部状态</option>{Object.entries(states).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>{loading ? <p role="status">正在读取决策…</p> : null}{!visible.length && !loading ? <p>没有符合条件的完整决策。影子结论和失败分析不是待批准交易。</p> : null}<ul>{visible.map(card => <li key={card.decision_id}><button type="button" disabled={busy} onClick={() => void open(card.decision_id)} aria-pressed={selected === card.decision_id}>{card.symbol} · {card.action} · {states[card.state] ?? card.state}</button><small> {card.created_at} · 版本{card.revision}</small></li>)}</ul></Panel>
     {selected ? <Panel title="决策详情与审阅"><button type="button" disabled={busy} onClick={() => void open(selected)}>重新读取当前决策</button>{!detail ? <p>等待有效详情，人工操作尚未启用。</p> : <>
       <h3>{detail.decision.symbol} · {detail.decision.action} · {states[detail.decision.state] ?? detail.decision.state}</h3><p>Decision {detail.decision.decision_id} · 组合 {detail.decision.portfolio_id}<br />读取时点 {detail.as_of} · 当前版本 {detail.decision.revision}</p>

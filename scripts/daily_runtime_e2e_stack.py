@@ -27,6 +27,7 @@ if (
         "/investment_os_mvp403_browser",
         "/investment_os_mvp403_browser_validation",
         "/investment_os_mvp403_browser_final",
+        "/investment_os_mvp403_combined_browser_20261105",
     }
     or url.port != 15446
 ):

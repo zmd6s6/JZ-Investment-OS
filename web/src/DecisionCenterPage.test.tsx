@@ -75,3 +75,13 @@ it("legacy human receipts show missing facts explicitly without reopening approv
   expect(screen.getByText(/实际成交 旧记录未提供/)).toBeVisible();
   expect(screen.queryByRole("button", { name: "批准" })).toBeNull();
 });
+it("opens an Analysis-linked decision only after finding its ID in the actual read list", async () => {
+  const prior = window.location.href;
+  window.history.replaceState({}, "", "/decisions?decision_id=decision-a");
+  try {
+    const fetch = mock(); render(<DecisionCenterPage />);
+    expect(await screen.findByText("合成理由")).toBeVisible();
+    expect(screen.getByRole("button", { name: "批准" })).toBeDisabled();
+    expect(fetch.mock.calls.every(([, init]) => !init?.method)).toBe(true);
+  } finally { window.history.replaceState({}, "", prior); }
+});

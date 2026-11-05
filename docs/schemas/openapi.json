@@ -3407,6 +3407,143 @@
         "title": "DecisionApprovalResponse",
         "type": "object"
       },
+      "DecisionBridgeView": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "blockers": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "execution_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Execution Allowed",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "gates": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GateOutcome"
+            },
+            "propertyNames": {
+              "enum": [
+                "INVESTMENT_QUALITY",
+                "TIMING",
+                "PORTFOLIO_FIT"
+              ]
+            },
+            "title": "Gates",
+            "type": "object"
+          },
+          "qualification_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualification Id"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "revision": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "analysis-decision-bridge-1.0",
+            "default": "analysis-decision-bridge-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "simulation_only": {
+            "const": true,
+            "default": true,
+            "title": "Simulation Only",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "BLOCKED",
+            "enum": [
+              "BLOCKED",
+              "READY_FOR_RECONSTRUCTION",
+              "PENDING_APPROVAL"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Version Id"
+          }
+        },
+        "required": [
+          "evaluated_at"
+        ],
+        "title": "DecisionBridgeView",
+        "type": "object"
+      },
       "DecisionCard": {
         "additionalProperties": false,
         "properties": {
@@ -3546,6 +3683,42 @@
           "occurred_at"
         ],
         "title": "DecisionExecutionResponse",
+        "type": "object"
+      },
+      "DecisionGateFact": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evidence Content Hash",
+            "type": "string"
+          },
+          "evidence_id": {
+            "format": "uuid",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "metric": {
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "title": "Metric",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "value",
+          "evidence_id",
+          "evidence_content_hash"
+        ],
+        "title": "DecisionGateFact",
         "type": "object"
       },
       "DecisionJournalResponse": {
@@ -3832,6 +4005,120 @@
           "created_at"
         ],
         "title": "DecisionJournalResponse",
+        "type": "object"
+      },
+      "DecisionQualification": {
+        "additionalProperties": false,
+        "description": "Trusted typed source port result, never a model/provider-declared verified boolean.",
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionGateFact"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Facts",
+            "type": "array"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "numeric_snapshot_id": {
+            "format": "uuid",
+            "title": "Numeric Snapshot Id",
+            "type": "string"
+          },
+          "policy_version_id": {
+            "format": "uuid",
+            "title": "Policy Version Id",
+            "type": "string"
+          },
+          "portfolio_id": {
+            "format": "uuid",
+            "title": "Portfolio Id",
+            "type": "string"
+          },
+          "portfolio_identity_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Portfolio Identity Hash",
+            "type": "string"
+          },
+          "qualification_id": {
+            "format": "uuid",
+            "title": "Qualification Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "decision-qualification-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "SYNTHETIC_FIXTURE",
+              "REFERENCE_ONLY"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "strategy_content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Strategy Content Hash",
+            "type": "string"
+          },
+          "strategy_version_id": {
+            "format": "uuid",
+            "title": "Strategy Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "qualification_id",
+          "portfolio_id",
+          "instrument_id",
+          "policy_version_id",
+          "numeric_snapshot_id",
+          "portfolio_identity_hash",
+          "strategy_version_id",
+          "strategy_content_hash",
+          "source_kind",
+          "source_name",
+          "as_of",
+          "created_at",
+          "expires_at",
+          "facts",
+          "content_hash"
+        ],
+        "title": "DecisionQualification",
         "type": "object"
       },
       "EvidenceClaimResponse": {
@@ -4525,6 +4812,16 @@
         ],
         "title": "FunnelRun",
         "type": "object"
+      },
+      "GateOutcome": {
+        "description": "Closed outcome vocabulary for one independently auditable CIO gate.",
+        "enum": [
+          "PASS",
+          "FAIL",
+          "UNKNOWN"
+        ],
+        "title": "GateOutcome",
+        "type": "string"
       },
       "HTTPValidationError": {
         "properties": {
@@ -6653,6 +6950,70 @@
         ],
         "title": "PositionBucket",
         "type": "string"
+      },
+      "PrepareAnalysisDecision": {
+        "additionalProperties": false,
+        "description": "One explicit UI preparation, never an approval and never an arbitrary Action input.",
+        "properties": {
+          "actor_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "confirm_preparation": {
+            "const": true,
+            "title": "Confirm Preparation",
+            "type": "boolean"
+          },
+          "confirm_risk_reduction_exception": {
+            "default": false,
+            "title": "Confirm Risk Reduction Exception",
+            "type": "boolean"
+          },
+          "expected_input_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Input Hash",
+            "type": "string"
+          },
+          "expected_revision": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "qualification_id": {
+            "format": "uuid",
+            "title": "Qualification Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prepare-analysis-decision-1.0",
+            "default": "prepare-analysis-decision-1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "run_id",
+          "qualification_id",
+          "expected_input_hash",
+          "actor_id",
+          "confirm_preparation"
+        ],
+        "title": "PrepareAnalysisDecision",
+        "type": "object"
       },
       "ProductCapabilityResponse": {
         "additionalProperties": false,
@@ -9494,6 +9855,63 @@
         ]
       }
     },
+    "/api/v1/analysis/decision-qualifications": {
+      "get": {
+        "operationId": "sources_api_v1_analysis_decision_qualifications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "instrument_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Instrument Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionQualification"
+                  },
+                  "title": "Response Sources Api V1 Analysis Decision Qualifications Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sources",
+        "tags": [
+          "analysis-decision"
+        ]
+      }
+    },
     "/api/v1/analysis/numeric-sources": {
       "get": {
         "operationId": "numeric_choices_api_v1_analysis_numeric_sources_get",
@@ -9727,6 +10145,104 @@
         "summary": "Cancel",
         "tags": [
           "analysis"
+        ]
+      }
+    },
+    "/api/v1/analysis/runs/{run_id}/decision-preparations": {
+      "get": {
+        "operationId": "history_api_v1_analysis_runs__run_id__decision_preparations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionBridgeView"
+                  },
+                  "title": "Response History Api V1 Analysis Runs  Run Id  Decision Preparations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "History",
+        "tags": [
+          "analysis-decision"
+        ]
+      },
+      "post": {
+        "operationId": "prepare_api_v1_analysis_runs__run_id__decision_preparations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareAnalysisDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionBridgeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare",
+        "tags": [
+          "analysis-decision"
         ]
       }
     },

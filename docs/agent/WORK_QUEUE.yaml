@@ -168,8 +168,10 @@ work_items:
   - id: MVP-206
     title: Traceable InvestmentDecision and human approval bridge
     priority: 0
-    status: READY
-    # 205/301均已实际合入；此队列修正PR真正合入后才可领取，未授权真实Policy/交易。
+    status: INTEGRATED
+    claim_branch: agent/MVP-206
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp205_recovery
+    # PR39经独立Gate6647991606实际合入Release4b3995f；Owner接受仍PENDING。
     stage: PRODUCT-06
     checkpoint: B
     depends_on:
@@ -192,7 +194,7 @@ work_items:
     status: REVIEW
     claim_branch: agent/MVP-403
     claim_owner: pr-02-review-and-next-stage-monitor / mvp403_recovery
-    # 原PR37候选，必须最终CI与独立Gate；不提前INTEGRATED或解锁404/501。
+    # 本PR真实合入后才INTEGRATED；当前REVIEW，须组合HEAD CI与独立Gate；404只在本PR合入后READY，501不提前解锁。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:

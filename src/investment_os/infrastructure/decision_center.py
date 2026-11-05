@@ -13,6 +13,7 @@ from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from investment_os.application.analysis_runs import AnalysisFrozenInput
 from investment_os.application.approval_gate import approval_transition_context
 from investment_os.application.decision_center import (
     CenterDetail,
@@ -35,8 +36,11 @@ from investment_os.domain.enums import (
 from investment_os.domain.errors import DomainError
 from investment_os.domain.execution import DecisionExecution
 from investment_os.domain.risk import RiskFlag
+from investment_os.domain.sizing import SizingRequest
 from investment_os.domain.state_machines import transition_decision
 from investment_os.domain.values import Quantity, UtcTimestamp
+from investment_os.infrastructure.analysis_decision_models import AnalysisDecisionBridgeRecord
+from investment_os.infrastructure.analysis_risk_sizing import pending_capacity
 from investment_os.infrastructure.decision_center_models import (
     DecisionCenterActionRecord,
     ManualExecutionDetailRecord,
@@ -46,6 +50,7 @@ from investment_os.infrastructure.decision_center_validation import (
     sizing_request,
     thesis_content,
 )
+from investment_os.infrastructure.persistence.analysis_models import AnalysisInputRecord
 from investment_os.infrastructure.persistence.models import (
     AgentOpinionRecord,
     AgentRunRecord,
@@ -365,6 +370,12 @@ class SqlDecisionCenter:
             remaining_quantity=remaining,
             allowed_actions=tuple(allowed),
         )
+
+    async def validate_proposal_lineage(
+        self, session: AsyncSession, decision: InvestmentDecisionRecord, now: datetime
+    ) -> tuple[builtins.list[str], dict[str, object], Decimal | None]:
+        """Reuse canonical 301 guards inside a caller-owned atomic proposal transaction."""
+        return await self._lineage(session, decision, now)
 
     async def _lineage(
         self, session: AsyncSession, d: InvestmentDecisionRecord, now: datetime
@@ -745,6 +756,47 @@ class SqlDecisionCenter:
         }
         return list(dict.fromkeys(blockers)), lineage, quantity
 
+    async def _bridge_approval_capacity(
+        self, session: AsyncSession, decision: InvestmentDecisionRecord
+    ) -> None:
+        """Recheck qualified frozen capacity when a human approves a bridged Decision."""
+        bridge = await session.scalar(
+            select(AnalysisDecisionBridgeRecord).where(
+                AnalysisDecisionBridgeRecord.decision_id == decision.id
+            )
+        )
+        if bridge is None:
+            if decision.metadata_json.get("origin") == "EXPLICIT_POST_ANALYSIS_PREPARATION":
+                raise ValueError("DECISION_BRIDGE_LINEAGE_MISSING")
+            return
+        # Existing Position rows have no parent FK that could prevent phantom inserts.
+        # Serialize approval/execution writers before reading current pending exposure;
+        # SHARE ROW EXCLUSIVE permits this transaction's append without a lock upgrade race.
+        await session.execute(text("LOCK TABLE position IN SHARE MODE"))
+        await session.execute(
+            text("LOCK TABLE decision_approval, decision_execution IN SHARE ROW EXCLUSIVE MODE")
+        )
+        stored = await session.scalar(
+            select(AnalysisInputRecord).where(AnalysisInputRecord.run_id == bridge.run_id)
+        )
+        sizing = await session.get(PositionSizingRunRecord, decision.position_sizing_run_id)
+        if stored is None or sizing is None:
+            raise ValueError("DECISION_BRIDGE_LINEAGE_MISSING")
+        frozen = AnalysisFrozenInput.model_validate(stored.payload_json)
+        request = TypeAdapter(SizingRequest).validate_python(sizing.input_json["request"])
+        pending, reasons = await pending_capacity(session, frozen, as_of=self._now())
+        if (
+            pending is None
+            or reasons
+            or pending
+            != (
+                request.capacity_inputs.pending_instrument_weight.value,
+                request.capacity_inputs.pending_sector_weight.value,
+                request.capacity_inputs.pending_gross_exposure.value,
+            )
+        ):
+            raise ValueError("DECISION_PENDING_EXPOSURE_CHANGED")
+
     async def _action_time(
         self,
         session: AsyncSession,
@@ -833,6 +885,8 @@ class SqlDecisionCenter:
                 if receipt.decision_id != d.id or receipt.command_hash != digest:
                     raise ValueError("IDEMPOTENCY_CONFLICT")
                 return await self._detail(session, d)
+            if action == "APPROVE":
+                await self._bridge_approval_capacity(session, d)
             detail = await self._detail(session, d)
             if command.expected_revision != detail.decision.revision:
                 raise ValueError("DECISION_REVISION_CONFLICT")
