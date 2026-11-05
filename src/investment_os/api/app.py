@@ -13,12 +13,17 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 from sqlalchemy import select
 
+from investment_os.api.analysis_decision_routes import analysis_decision_router
 from investment_os.api.analysis_routes import analysis_router
 from investment_os.api.decision_center import decision_center_router
 from investment_os.api.valuation_routes import valuation_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
 from investment_os.application.analysis_choices import AnalysisChoicesService
 from investment_os.application.analysis_configuration import AnalysisStartService
+from investment_os.application.analysis_decision_bridge import (
+    AnalysisDecisionBridgePort,
+    DecisionQualificationPort,
+)
 from investment_os.application.analysis_risk_sizing import NumericSourcePort
 from investment_os.application.analysis_runs import AnalysisStorePort
 from investment_os.application.calendar_product import CalendarProductService
@@ -375,6 +380,8 @@ def create_app(
     analysis_choices: AnalysisChoicesService | None = None,
     decision_center: DecisionCenterPort | None = None,
     numeric_sources: NumericSourcePort | None = None,
+    analysis_decision_bridge: AnalysisDecisionBridgePort | None = None,
+    decision_qualifications: DecisionQualificationPort | None = None,
 ) -> FastAPI:
     """Build an application, allowing tests to inject a deterministic probe."""
 
@@ -478,6 +485,9 @@ def create_app(
     application.include_router(weekly_router(weekly_funnel_service))
     application.include_router(universe_router(universe_snapshot_service))
     application.include_router(decision_center_router(decision_center))
+    application.include_router(
+        analysis_decision_router(analysis_decision_bridge, decision_qualifications)
+    )
 
     @application.get("/health/live", response_model=LivenessResponse, tags=["health"])
     async def liveness() -> LivenessResponse:

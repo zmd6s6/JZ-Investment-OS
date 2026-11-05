@@ -439,6 +439,8 @@ async def test_numeric_history_rejects_update_delete_and_migration_downgrade(dat
                 with pytest.raises(DBAPIError, match=r"append-only|immutable"):
                     async with database_engine.begin() as connection:
                         await connection.execute(text(statement))
+        async with sessions() as session:
+            migrated_head = await session.scalar(text("SELECT version_num FROM alembic_version"))
         with pytest.raises(DBAPIError, match="preserve and forward-fix"):
             await asyncio.to_thread(
                 migration_command.downgrade, Config("alembic.ini"), "20261029_0020"
@@ -446,7 +448,7 @@ async def test_numeric_history_rejects_update_delete_and_migration_downgrade(dat
         async with sessions() as session:
             assert (
                 await session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "20261029_0021"
+                == migrated_head
             )
             assert (
                 await session.scalar(select(func.count()).select_from(PositionSizingRunRecord)) == 1

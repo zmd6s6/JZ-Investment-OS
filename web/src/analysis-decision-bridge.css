@@ -1,0 +1,47 @@
+.analysis-decision-bridge {
+  margin-block: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #ccd8d1;
+  border-radius: 12px;
+  background: #f7faf7;
+  overflow-wrap: anywhere;
+}
+.analysis-decision-bridge h3 { margin-top: 0; }
+.analysis-decision-bridge p { line-height: 1.65; }
+.analysis-decision-bridge label {
+  display: block;
+  margin-block: 1rem;
+  line-height: 1.7;
+}
+.analysis-decision-bridge label:has(input[type="checkbox"]) {
+  display: flex;
+  gap: .6rem;
+  align-items: flex-start;
+}
+.analysis-decision-bridge input[type="checkbox"] { flex-shrink: 0; margin-top: .4rem; }
+.analysis-decision-bridge select,
+.analysis-decision-bridge input:not([type="checkbox"]) {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  margin-top: .35rem;
+  padding: .5rem;
+  border: 1px solid #b6c5bc;
+  border-radius: 7px;
+  background: white;
+  font: inherit;
+}
+.analysis-decision-bridge button {
+  min-height: 40px;
+  margin: .35rem .75rem .35rem 0;
+  padding: .45rem .85rem;
+  border: 1px solid #496c59;
+  border-radius: 7px;
+  background: white;
+  color: #234c36;
+  cursor: pointer;
+}
+.analysis-decision-bridge button:disabled { cursor: default; opacity: .55; }
+.analysis-decision-bridge [role="alert"] { color: #8b3027; }
+.analysis-decision-bridge a { font-weight: 600; margin-left: .5rem; }
