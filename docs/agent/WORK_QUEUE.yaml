@@ -256,7 +256,7 @@ work_items:
     status: REVIEW
     claim_branch: agent/MVP-402
     claim_owner: pr-02-review-and-next-stage-monitor / mvp402_resume
-    # PR25/29有限切片已集成；续接默认暂停/零外部调用的本地周筛选，整体仍PARTIAL。
+    # PR25/29/30/32/34有限切片已合入；v2完整声明范围仅随本PR实际合入生效，整体仍PARTIAL。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:

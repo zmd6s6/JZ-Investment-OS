@@ -1687,6 +1687,267 @@
         "title": "CenterDetail",
         "type": "object"
       },
+      "CompleteScopeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "candidate_limit": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Candidate Limit",
+            "type": "integer"
+          },
+          "fact_source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Fact Source Name",
+            "type": "string"
+          },
+          "industry_filter": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry Filter"
+          },
+          "max_pe": {
+            "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Max Pe",
+            "type": "string"
+          },
+          "min_price_change": {
+            "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Min Price Change",
+            "type": "string"
+          },
+          "min_profit_margin": {
+            "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Min Profit Margin",
+            "type": "string"
+          },
+          "min_revenue_growth": {
+            "pattern": "^-?(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$",
+            "title": "Min Revenue Growth",
+            "type": "string"
+          },
+          "protocol_version": {
+            "const": "declared-complete-scan-v2",
+            "default": "declared-complete-scan-v2",
+            "title": "Protocol Version",
+            "type": "string"
+          },
+          "quote_source_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Quote Source Name",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshot Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "snapshot_hash",
+          "quote_source_name",
+          "fact_source_name",
+          "candidate_limit",
+          "min_profit_margin",
+          "min_revenue_growth",
+          "max_pe",
+          "min_price_change"
+        ],
+        "title": "CompleteScopeCommand",
+        "type": "object"
+      },
+      "CompleteScopeRun": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "candidate_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Candidate Ids",
+            "type": "array"
+          },
+          "command": {
+            "$ref": "#/components/schemas/CompleteScopeCommand"
+          },
+          "deep_research": {
+            "const": "NOT_PROVIDED",
+            "default": "NOT_PROVIDED",
+            "title": "Deep Research",
+            "type": "string"
+          },
+          "effective_as_of": {
+            "format": "date-time",
+            "title": "Effective As Of",
+            "type": "string"
+          },
+          "external_calls": {
+            "const": 0,
+            "default": 0,
+            "title": "External Calls",
+            "type": "integer"
+          },
+          "formula_version": {
+            "const": "manual-screen-v1",
+            "default": "manual-screen-v1",
+            "title": "Formula Version",
+            "type": "string"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "market_universe": {
+            "const": "NOT_PROVIDED",
+            "default": "NOT_PROVIDED",
+            "title": "Market Universe",
+            "type": "string"
+          },
+          "model_calls": {
+            "const": 0,
+            "default": 0,
+            "title": "Model Calls",
+            "type": "integer"
+          },
+          "paid_calls": {
+            "const": 0,
+            "default": 0,
+            "title": "Paid Calls",
+            "type": "integer"
+          },
+          "ranking_version": {
+            "const": "global-price-change-v2",
+            "default": "global-price-change-v2",
+            "title": "Ranking Version",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "rule_hash": {
+            "title": "Rule Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "2.0",
+            "default": "2.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/UniverseSummary"
+          }
+        },
+        "required": [
+          "command",
+          "source",
+          "effective_as_of",
+          "ingested_at",
+          "rule_hash",
+          "rows",
+          "candidate_ids"
+        ],
+        "title": "CompleteScopeRun",
+        "type": "object"
+      },
+      "CompleteScopeSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "candidate_count": {
+            "title": "Candidate Count",
+            "type": "integer"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "member_count": {
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_version": {
+            "title": "Source Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "snapshot_id",
+          "source_name",
+          "source_version",
+          "member_count",
+          "candidate_count",
+          "as_of",
+          "ingested_at"
+        ],
+        "title": "CompleteScopeSummary",
+        "type": "object"
+      },
       "CsvImportAppliedRowResponse": {
         "additionalProperties": false,
         "properties": {
@@ -12326,6 +12587,82 @@
         ]
       }
     },
+    "/api/v1/opportunities/universes/complete-runs": {
+      "get": {
+        "operationId": "complete_history_api_v1_opportunities_universes_complete_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CompleteScopeSummary"
+                  },
+                  "title": "Response Complete History Api V1 Opportunities Universes Complete Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Complete History",
+        "tags": [
+          "universe-snapshots"
+        ]
+      }
+    },
+    "/api/v1/opportunities/universes/complete-runs/{run_id}": {
+      "get": {
+        "operationId": "complete_detail_api_v1_opportunities_universes_complete_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CompleteScopeRun"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Complete Detail Api V1 Opportunities Universes Complete Runs  Run Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Detail",
+        "tags": [
+          "universe-snapshots"
+        ]
+      }
+    },
     "/api/v1/opportunities/universes/imports": {
       "post": {
         "operationId": "confirm_api_v1_opportunities_universes_imports_post",
@@ -12497,6 +12834,59 @@
           }
         },
         "summary": "Detail",
+        "tags": [
+          "universe-snapshots"
+        ]
+      }
+    },
+    "/api/v1/opportunities/universes/{snapshot_id}/complete-runs": {
+      "post": {
+        "operationId": "complete_run_api_v1_opportunities_universes__snapshot_id__complete_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteScopeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteScopeRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Run",
         "tags": [
           "universe-snapshots"
         ]

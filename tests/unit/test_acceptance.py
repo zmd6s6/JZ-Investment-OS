@@ -139,3 +139,21 @@ def test_monthly_manifest_requires_distinct_assembly_and_preserves_owner_pending
     assert item.human_acceptance == "PENDING" and snapshot.auto_trade is False
     assert "新的明确月频授权" in item.detail and "零模型/网络/费用" in item.detail
     assert any("只读重放" in step for step in item.steps)
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_complete_scope_manifest_requires_assembled_v2_and_retains_legacy_boundary(assembled):
+    snapshot = acceptance_snapshot(
+        portfolio=False,
+        watchlist=False,
+        providers=False,
+        policy=False,
+        opportunities=True,
+        universe_snapshots=True,
+        complete_scope=assembled,
+    )
+    item = next(value for value in snapshot.capabilities if value.key == "opportunities")
+    assert "201可查看但拒绝筛选" in item.detail
+    assert ("v2可完整筛选最多1000" in item.detail) is assembled
+    assert ("v2深研未提供" in item.detail) is assembled
+    assert item.engineering == "PARTIAL" and item.human_acceptance == "PENDING"

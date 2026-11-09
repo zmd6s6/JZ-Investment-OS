@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, getcontext
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -18,6 +18,8 @@ from investment_os.application.opportunities import (
     FactSnapshot,
     FunnelQuery,
     ManualScreenFacts,
+    OpportunityError,
+    bound_global_candidates,
     evaluate,
 )
 
@@ -255,3 +257,40 @@ async def test_universe_port_cannot_expand_scope_or_duplicate_targets():
     market.get_snapshot.assert_not_awaited()
     facts.get_facts.assert_not_awaited()
     runs.save_run.assert_not_awaited()
+
+
+@pytest.mark.parametrize("count", [200, 201, 1000])
+def test_whole_scope_global_top_twenty_retains_every_row(count):
+    base = evaluate(*inputs())
+    rows = [
+        base.model_copy(
+            update={
+                "instrument_id": UUID(int=i + 1),
+                "symbol": f"{i:06d}",
+                "features": {**base.features, "price_change": str(i)},
+            }
+        )
+        for i in range(count)
+    ]
+    output, candidates = bound_global_candidates(rows, 20)
+    assert len(output) == count
+    assert candidates == tuple(UUID(int=i + 1) for i in reversed(range(count - 20, count)))
+    assert sum(row.candidate for row in output) == 20
+    assert output[0].stages[-1].reason == "CANDIDATE_LIMIT_REACHED"
+    assert output[-1].stages[-1].reason == "WITHIN_LIMIT"
+    assert bound_global_candidates(list(reversed(rows)), 20)[1] == candidates
+
+
+def test_global_ties_use_identity_and_invalid_duplicate_is_rejected():
+    base = evaluate(*inputs())
+    rows = [
+        base.model_copy(update={"instrument_id": UUID(int=i), "symbol": f"{i:06d}"})
+        for i in range(1, 31)
+    ]
+    assert bound_global_candidates(list(reversed(rows)), 20)[1] == tuple(
+        UUID(int=i) for i in range(1, 21)
+    )
+    with pytest.raises(OpportunityError, match="INVALID_GLOBAL_SCREEN_INPUT"):
+        bound_global_candidates(rows + rows[:1], 20)
+    with pytest.raises(OpportunityError, match="INVALID_GLOBAL_SCREEN_INPUT"):
+        bound_global_candidates(rows, 21)

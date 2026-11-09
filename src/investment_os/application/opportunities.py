@@ -404,6 +404,46 @@ def evaluate(
     )
 
 
+def bound_global_candidates(
+    rows: list[FunnelRow], candidate_limit: int
+) -> tuple[tuple[FunnelRow, ...], tuple[UUID, ...]]:
+    """Rank the complete evaluated scope once; do not combine truncated batches."""
+    if not 1 <= candidate_limit <= 20 or len({r.instrument_id for r in rows}) != len(rows):
+        raise OpportunityError("INVALID_GLOBAL_SCREEN_INPUT")
+    qualified = sorted(
+        (row for row in rows if row.candidate),
+        key=lambda row: (
+            Decimal(row.features["price_change"]).copy_negate(),
+            row.market,
+            row.symbol,
+            str(row.instrument_id),
+        ),
+    )
+    candidates = tuple(row.instrument_id for row in qualified[:candidate_limit])
+    bounded = []
+    for row in rows:
+        if row.candidate:
+            selected = row.instrument_id in candidates
+            row = row.model_copy(
+                update={
+                    "candidate": selected,
+                    "stages": (
+                        *row.stages,
+                        StageResult(
+                            stage="BOUND",
+                            status="PASSED" if selected else "REJECTED",
+                            reason="WITHIN_LIMIT" if selected else "CANDIDATE_LIMIT_REACHED",
+                        ),
+                    ),
+                    "next_condition": "DEEP_RESEARCH_NOT_PROVIDED"
+                    if selected
+                    else "OUTSIDE_CURRENT_RESEARCH_LIMIT",
+                }
+            )
+        bounded.append(row)
+    return tuple(bounded), candidates
+
+
 class OpportunityService:
     def __init__(
         self,
@@ -444,6 +484,32 @@ class OpportunityService:
             entry.instrument_id for entry in entries
         } != set(query.instrument_ids):
             raise OpportunityError("UNIVERSE_IDENTITY_MISMATCH")
+        rows = await self.evaluate_entries(query, entries)
+        bounded, candidates = bound_global_candidates(rows, query.candidate_limit)
+        result = FunnelRun(
+            run_id=query.request_id,
+            query=query,
+            ingested_at=self._now(),
+            query_rule_hash=query_rule_hash(query),
+            status="EMPTY"
+            if not rows
+            else "DEGRADED"
+            if any(s.status == "MISSING" for row in rows for s in row.stages)
+            else "COMPLETE",
+            rows=bounded,
+            candidate_ids=candidates,
+        )
+        return result
+
+    async def resolve_entries(
+        self, instrument_ids: tuple[UUID, ...]
+    ) -> tuple[InstrumentCatalogEntry, ...]:
+        return await self._universe.resolve(instrument_ids)
+
+    async def evaluate_entries(
+        self, query: FunnelQuery, entries: tuple[InstrumentCatalogEntry, ...]
+    ) -> list[FunnelRow]:
+        """Evaluate every identity; caller must validate the complete scope first."""
         rows = []
         for entry in sorted(entries, key=lambda e: (e.market, e.symbol, str(e.instrument_id))):
             quote = await self._market.get_snapshot(
@@ -499,51 +565,7 @@ class OpportunityService:
                 ):
                     facts = FactSnapshot(status="INVALID")
             rows.append(evaluate(entry, quote, facts, query))
-        qualified = sorted(
-            (row for row in rows if row.candidate),
-            key=lambda row: (
-                Decimal(row.features["price_change"]).copy_negate(),
-                row.market,
-                row.symbol,
-                str(row.instrument_id),
-            ),
-        )
-        candidates = tuple(row.instrument_id for row in qualified[: query.candidate_limit])
-        bounded = []
-        for row in rows:
-            if row.candidate:
-                selected = row.instrument_id in candidates
-                row = row.model_copy(
-                    update={
-                        "candidate": selected,
-                        "stages": (
-                            *row.stages,
-                            StageResult(
-                                stage="BOUND",
-                                status="PASSED" if selected else "REJECTED",
-                                reason="WITHIN_LIMIT" if selected else "CANDIDATE_LIMIT_REACHED",
-                            ),
-                        ),
-                        "next_condition": "DEEP_RESEARCH_NOT_PROVIDED"
-                        if selected
-                        else "OUTSIDE_CURRENT_RESEARCH_LIMIT",
-                    }
-                )
-            bounded.append(row)
-        result = FunnelRun(
-            run_id=query.request_id,
-            query=query,
-            ingested_at=self._now(),
-            query_rule_hash=query_rule_hash(query),
-            status="EMPTY"
-            if not rows
-            else "DEGRADED"
-            if any(s.status == "MISSING" for row in rows for s in row.stages)
-            else "COMPLETE",
-            rows=tuple(bounded),
-            candidate_ids=candidates,
-        )
-        return result
+        return rows
 
     async def get_run(self, run_id: UUID) -> FunnelRun | None:
         return await self._runs.get_run(run_id)

@@ -290,6 +290,8 @@ class SqlOpportunityStore:
         async with SqlAlchemyUnitOfWork(self._sessions) as uow:
             previous = await self._receipt(uow, "opportunity_funnel_run", query.request_id)
             if previous is None:
+                if await self._receipt(uow, "opportunity_complete_scope_v2", query.request_id):
+                    raise OpportunityError("REQUEST_CONTENT_CONFLICT")
                 return None
             if previous.payload_json["request_hash"] != digest(query.model_dump(mode="json")):
                 raise OpportunityError("REQUEST_CONTENT_CONFLICT")
@@ -322,6 +324,10 @@ class SqlOpportunityStore:
         fingerprint = digest(run.query.model_dump(mode="json"))
         await self._lock(uow, "opportunity-funnel-run", run.run_id)
         previous = await self._receipt(uow, "opportunity_funnel_run", run.run_id)
+        if previous is None and await self._receipt(
+            uow, "opportunity_complete_scope_v2", run.run_id
+        ):
+            raise OpportunityError("REQUEST_CONTENT_CONFLICT")
         if previous:
             if previous.payload_json["request_hash"] != fingerprint:
                 raise OpportunityError("REQUEST_CONTENT_CONFLICT")

@@ -163,3 +163,13 @@ MVP-301修后候选另已实际合并Release39f5738：完整674/87.56%、集成1
 失败入口：不完整月份、日历覆盖/范围漂移、授权过期或撤销、报告引用损坏均具名阻断，不静默扩权或生成新分析/订单。隔离合成PG/API/真实Worker/Chrome已实际演示成功、刷新与撤销，以及部分月拒绝并保留输入；这不是Owner部署或本人验收。缺失宏观、相关性、资本效率及重新进入判断明确未知；不声称已经完成完整PRODUCT-08或Checkpoint C。更多证据及限制见 `docs/agent/work-items/MVP-404.md`。
 
 MVP-404独立Review发现并修复超过50项配置导致后续任务饥饿：0025持久扫描位置跨Worker/重启前进，配置、任务和报告历史可分页；复核状态fixed-awaiting-review，尚非最终Gate。具体测试和已知offset并发刷新限制见 `docs/agent/work-items/MVP-404.md`。
+
+## MVP-402 全成员来源声明筛选 v2（本 PR 候选，Owner PENDING）
+
+仅在本 PR 实际经独立 Gate 合入后生效：在 `/opportunities` 保存或读取声明来源快照，填写本地报价/年报来源与本次研究条件，点击「完整筛选所选快照（v2）」。所有冻结成员均经确定性规则检查并一次全局排序，最多20个候选；页面列出全部成员的通过/排除/缺项、Evidence、来源四时间与 hash。刷新历史再读取原运行，不重新计算。未知响应保留相同请求，先刷新历史再明确重试；时点早于来源入库、身份漂移或数据异常失败关闭。旧v1仍拒绝201项；v2不改变旧运行。
+
+来源仍 SOURCE_DECLARED/UNVERIFIED，真实 market universe 及真实财务/Timing 来源未提供；不是全市场已验证或投资建议。筛选零网络/模型/费用、不启用交易；v2候选当前不能直接发起深研。合成 API/DB/UI 工程验证不代表 Owner 部署或验收，402与完整P8仍 PARTIAL、501 BLOCKED、Owner PENDING。完整证据以本项工作记录及最终PR/CI为准。
+
+### MVP-404 实际合并事实澄清
+
+此前fixed-awaiting-review仅描述历史修复状态；PR #40 最终 [独立 Gate](https://github.com/zmd6s6/JZ-Investment-OS/pull/40#issuecomment-6665931499) 后已实际合入 Release 1cd5801bdfeca69a9e7c3f540e6b0ef74ad41c7c。Owner部署与产品接受仍 PENDING。

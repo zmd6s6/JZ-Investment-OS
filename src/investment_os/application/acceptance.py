@@ -44,6 +44,7 @@ def acceptance_snapshot(
     opportunity_research: bool = False,
     weekly_funnel: bool = False,
     universe_snapshots: bool = False,
+    complete_scope: bool = False,
     analysis: bool = False,
     decisions: bool = False,
     daily_runtime: bool = False,
@@ -189,6 +190,12 @@ def acceptance_snapshot(
                     else ""
                 )
                 + (
+                    "旧版201拒绝保留; v2可完整筛选最多1000声明成员并全局排序, "
+                    "候选最多20、无模型/网络/费用, v2深研未提供。"
+                    if complete_scope and universe_snapshots
+                    else ""
+                )
+                + (
                     "有界候选可逐个明确授权研究, 真实AnalysisRun保留来源与失败; "
                     if opportunity_research
                     else "深研尚未提供; "
@@ -210,6 +217,11 @@ def acceptance_snapshot(
                         "查看冻结成员后完整绑定, 不采用客户端子集或早于入库的业务时点。",
                     )
                     if universe_snapshots
+                    else ()
+                ),
+                *(
+                    ("读取来源快照后选择v2完整筛选, 核对全部成员原因与有界候选; 读取冻结历史。",)
+                    if complete_scope and universe_snapshots
                     else ()
                 ),
                 *(
