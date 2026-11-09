@@ -46,6 +46,7 @@ def acceptance_snapshot(
     universe_snapshots: bool = False,
     complete_scope: bool = False,
     complete_research: bool = False,
+    complete_weekly: bool = False,
     analysis: bool = False,
     decisions: bool = False,
     daily_runtime: bool = False,
@@ -201,6 +202,11 @@ def acceptance_snapshot(
                     "有界候选可逐个明确授权研究, 真实AnalysisRun保留来源与失败; "
                     if opportunity_research
                     else "深研尚未提供; "
+                )
+                + (
+                    "完整来源v2也可另存本地周配置, 冻结全部成员与来源, 默认暂停且须独立启用。"
+                    if complete_weekly and complete_scope and universe_snapshots
+                    else ""
                 )
                 + (
                     "默认暂停的本地周筛选已接通, 需明确完整周/日历/来源与独立启用; "

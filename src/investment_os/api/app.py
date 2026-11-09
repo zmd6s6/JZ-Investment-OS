@@ -29,6 +29,7 @@ from investment_os.application.analysis_risk_sizing import NumericSourcePort
 from investment_os.application.analysis_runs import AnalysisStorePort
 from investment_os.application.calendar_product import CalendarProductService
 from investment_os.application.complete_scope import CompleteScopeService
+from investment_os.application.complete_weekly import CompleteWeeklyService
 from investment_os.application.daily_runtime import DailyRuntimeService
 from investment_os.application.decision_center import DecisionCenterPort
 from investment_os.application.health import AsyncClosable, ReadinessProbe
@@ -91,6 +92,7 @@ from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
 
+from .complete_weekly_routes import complete_weekly_router
 from .daily_routes import daily_router
 from .market_routes import market_router
 from .opportunity_routes import opportunity_router
@@ -379,6 +381,7 @@ def create_app(
     opportunity_service: OpportunityService | None = None,
     opportunity_research_service: OpportunityResearchService | None = None,
     weekly_funnel_service: WeeklyService | None = None,
+    complete_weekly_service: CompleteWeeklyService | None = None,
     daily_runtime_service: DailyRuntimeService | None = None,
     monthly_review_service: MonthlyReviewPort | None = None,
     universe_snapshot_service: UniverseSnapshotService | None = None,
@@ -491,6 +494,7 @@ def create_app(
         analysis_router(analysis_start, analysis_store, analysis_choices, numeric_sources)
     )
     application.include_router(weekly_router(weekly_funnel_service))
+    application.include_router(complete_weekly_router(complete_weekly_service))
     application.include_router(daily_router(daily_runtime_service))
     application.include_router(monthly_router(monthly_review_service))
     application.include_router(universe_router(universe_snapshot_service, complete_scope_service))
@@ -603,6 +607,7 @@ def create_app(
             opportunities=opportunity_service is not None,
             opportunity_research=opportunity_research_service is not None,
             weekly_funnel=weekly_funnel_service is not None,
+            complete_weekly=complete_weekly_service is not None,
             universe_snapshots=universe_snapshot_service is not None,
             complete_scope=complete_scope_service is not None,
             complete_research=(

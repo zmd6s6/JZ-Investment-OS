@@ -173,3 +173,20 @@ def test_complete_research_manifest_requires_separate_assembled_port():
     item = next(value for value in snapshot.capabilities if value.key == "opportunities")
     assert "v2逐候选研究须另行明确授权" in item.detail
     assert "v2深研未提供" not in item.detail
+
+
+@pytest.mark.parametrize("assembled", [False, True])
+def test_complete_weekly_manifest_declares_only_separately_assembled_paused_path(assembled):
+    snapshot = acceptance_snapshot(
+        portfolio=False,
+        watchlist=False,
+        providers=False,
+        policy=False,
+        opportunities=True,
+        universe_snapshots=True,
+        complete_scope=True,
+        complete_weekly=assembled,
+    )
+    item = next(value for value in snapshot.capabilities if value.key == "opportunities")
+    assert ("完整来源v2也可另存本地周配置" in item.detail) is assembled
+    assert item.engineering == "PARTIAL" and item.human_acceptance == "PENDING"

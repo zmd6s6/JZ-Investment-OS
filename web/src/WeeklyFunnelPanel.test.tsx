@@ -12,3 +12,18 @@ async function fill(){await screen.findByText(/尚无周筛选任务/);fireEvent
 test('requires explicit scope and both acknowledgements then saves paused with exact calendar',async()=>{const calls=mock();render(<WeeklyFunnelPanel template={template}/>);await fill();fireEvent.click(screen.getByRole('button',{name:'保存周配置（暂停）'}));await screen.findByText(/周筛选新版本已保存，默认暂停/);expect(calls).toHaveLength(1);expect(calls[0]).toMatchObject({venue:'SSE',funnel_run_id:id,calendar_import_id:id,complete_calendar_acknowledgement:true,local_only_acknowledgement:true,expected_version:0});expect(calls[0]).not.toHaveProperty('enabled');expect(calls[0]).not.toHaveProperty('model');});
 test('unknown write response preserves request and schedule IDs on retry',async()=>{let n=0;const calls=mock(body=>{if(n++===0)throw new TypeError('offline');return {...config,schedule_id:body.schedule_id};});render(<WeeklyFunnelPanel template={template}/>);await fill();const button=screen.getByRole('button',{name:'保存周配置（暂停）'});fireEvent.click(button);await screen.findByText(/结果未确认，输入已保留/);await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);await screen.findByText(/周筛选新版本已保存/);expect(calls[0]).toEqual(calls[1]);});
 test('no selected funnel cannot save and malformed paid scope is rejected',async()=>{mock();render(<WeeklyFunnelPanel template={null}/>);await screen.findByText(/尚无周筛选任务/);expect(screen.getByRole('button',{name:'保存周配置（暂停）'})).toBeDisabled();expect(()=>parseWeeklyOverview({...overview,configurations:[{...config,paid_calls:1}]})).toThrow();expect(()=>parseWeeklyOverview({...overview,recent_runs:[{status:'COMPLETE'}]})).toThrow();});
+
+test('v2 requires versioned full scope and does not accept it as legacy200',async()=>{
+ const ids=Array.from({length:201},(_,i)=>`11111111-1111-4111-8111-${String(i).padStart(12,'0')}`);
+ const full={...config,schema_version:'2.0',template:{...config.template,snapshot_id:id,snapshot_hash:'b'.repeat(64),instrument_ids:ids}};
+ expect(()=>parseWeeklyOverview({...overview,schema_version:'2.0',configurations:[full]},'2.0')).not.toThrow();
+ expect(()=>parseWeeklyOverview({...overview,configurations:[full]})).toThrow();
+ expect(()=>parseWeeklyOverview({...overview,schema_version:'2.0',configurations:[{...full,paid_calls:1}]},'2.0')).toThrow();
+ const writes:Record<string,unknown>[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{
+  if(init?.method==='POST'){const body=JSON.parse(String(init.body));writes.push(body);expect(url).toBe('/api/v1/opportunities/complete-weekly');return new Response(JSON.stringify({...full,schedule_id:body.schedule_id}));}
+  return new Response(JSON.stringify(url==='/api/v1/calendar'?calendar:{...overview,schema_version:'2.0'}));
+ }));
+ render(<WeeklyFunnelPanel version="2.0" template={{...template,rows:ids.map(instrument_id=>({instrument_id,symbol:'合成'}))}}/>);
+ await fill();fireEvent.click(screen.getByRole('button',{name:'保存周配置（暂停）'}));await screen.findByText(/周筛选新版本已保存/);expect(writes[0].schema_version).toBe('2.0');
+});
