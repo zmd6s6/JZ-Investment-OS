@@ -26,7 +26,7 @@ if (
     or url.hostname not in {"127.0.0.1", "localhost"}
     or url.port != 15441
     or not url.path.endswith("_weekly_complete_synthetic")
-    or args.port not in {18129, 18133}
+    or args.port not in {18129, 18133, 18134}
 ):
     raise SystemExit(
         "Only the explicit MVP402 disposable loopback weekly database/ports are allowed"

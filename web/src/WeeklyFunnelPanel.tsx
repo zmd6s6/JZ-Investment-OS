@@ -34,7 +34,7 @@ async function json(url:string,body?:unknown):Promise<unknown>{
 function Scope({template}:{template:Template|Omit<Template,'instrument_ids'>}){return <p>范围：{template.scope_name}；出处：{template.scope_locator}；报价来源：{template.quote_source_name}；事实来源：{template.fact_source_name}。条件：利润率 ≥ {template.min_profit_margin}，营收增长 ≥ {template.min_revenue_growth}，年报PE ≤ {template.max_pe}，价格变化 ≥ {template.min_price_change}；行业：{template.industry_filter||'不限'}；候选上限：{template.candidate_limit}。</p>;}
 
 export function WeeklyFunnelPanel({template,version="1.0"}:{template:WeeklyTemplate|null;version?:"1.0"|"2.0"}){
- const base=version==="2.0"?"/api/v2/opportunities/weekly":"/api/v1/opportunities/weekly";
+ const base=version==="2.0"?"/api/v1/opportunities/complete-weekly":"/api/v1/opportunities/weekly";
  const originKey=version==="2.0"?"complete_run_id":"run_id";
  const [overview,setOverview]=useState<Overview|null>(null);const [calendars,setCalendars]=useState<Calendar[]>([]);const [healthy,setHealthy]=useState(false);const [working,setWorking]=useState(false);const [error,setError]=useState<string|null>(null);const [message,setMessage]=useState<string|null>(null);
  const [edit,setEdit]=useState('');const [name,setName]=useState('');const [venue,setVenue]=useState('');const [start,setStart]=useState('');const [end,setEnd]=useState('');const [complete,setComplete]=useState(false);const [local,setLocal]=useState(false);const [modeAck,setModeAck]=useState(false);

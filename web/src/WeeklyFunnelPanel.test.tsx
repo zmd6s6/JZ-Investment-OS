@@ -21,7 +21,7 @@ test('v2 requires versioned full scope and does not accept it as legacy200',asyn
  expect(()=>parseWeeklyOverview({...overview,schema_version:'2.0',configurations:[{...full,paid_calls:1}]},'2.0')).toThrow();
  const writes:Record<string,unknown>[]=[];
  vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{
-  if(init?.method==='POST'){const body=JSON.parse(String(init.body));writes.push(body);expect(url).toBe('/api/v2/opportunities/weekly');return new Response(JSON.stringify({...full,schedule_id:body.schedule_id}));}
+  if(init?.method==='POST'){const body=JSON.parse(String(init.body));writes.push(body);expect(url).toBe('/api/v1/opportunities/complete-weekly');return new Response(JSON.stringify({...full,schedule_id:body.schedule_id}));}
   return new Response(JSON.stringify(url==='/api/v1/calendar'?calendar:{...overview,schema_version:'2.0'}));
  }));
  render(<WeeklyFunnelPanel version="2.0" template={{...template,rows:ids.map(instrument_id=>({instrument_id,symbol:'合成'}))}}/>);

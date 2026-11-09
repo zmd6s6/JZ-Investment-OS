@@ -12849,6 +12849,119 @@
         ]
       }
     },
+    "/api/v1/opportunities/complete-weekly": {
+      "get": {
+        "operationId": "overview_api_v1_opportunities_complete_weekly_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteWeeklyOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Overview",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      },
+      "post": {
+        "operationId": "save_api_v1_opportunities_complete_weekly_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteWeeklySave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteWeeklyConfiguration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      }
+    },
+    "/api/v1/opportunities/complete-weekly/{schedule_id}/mode": {
+      "post": {
+        "operationId": "mode_api_v1_opportunities_complete_weekly__schedule_id__mode_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeeklyMode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteWeeklyConfiguration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mode",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      }
+    },
     "/api/v1/opportunities/facts": {
       "post": {
         "operationId": "facts_api_v1_opportunities_facts_post",
@@ -15942,119 +16055,6 @@
         "summary": "Remove Watchlist Item",
         "tags": [
           "watchlist"
-        ]
-      }
-    },
-    "/api/v2/opportunities/weekly": {
-      "get": {
-        "operationId": "overview_api_v2_opportunities_weekly_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CompleteWeeklyOverview"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Overview",
-        "tags": [
-          "opportunities-weekly"
-        ]
-      },
-      "post": {
-        "operationId": "save_api_v2_opportunities_weekly_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CompleteWeeklySave"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CompleteWeeklyConfiguration"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Save",
-        "tags": [
-          "opportunities-weekly"
-        ]
-      }
-    },
-    "/api/v2/opportunities/weekly/{schedule_id}/mode": {
-      "post": {
-        "operationId": "mode_api_v2_opportunities_weekly__schedule_id__mode_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "schedule_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Schedule Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WeeklyMode"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CompleteWeeklyConfiguration"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Mode",
-        "tags": [
-          "opportunities-weekly"
         ]
       }
     },
