@@ -255,7 +255,7 @@ work_items:
     priority: 2
     status: REVIEW
     claim_branch: agent/MVP-402
-    claim_owner: pr-02-review-and-next-stage-monitor / mvp402_weekly_continue
+    claim_owner: pr-02-review-and-next-stage-monitor / root
     # PR25/29/30/32/34/41/42切片已合入；v2本地周筛选仅随本PR实际合入生效，整体仍PARTIAL。
     stage: PRODUCT-08
     checkpoint: C

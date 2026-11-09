@@ -99,4 +99,4 @@ Portfolio/Watchlist Evidence diff、自动分析触发、每日报告、每周�
 
 ## MVP-402 完整声明范围的本地周筛选候选
 
-补充ADR0054，在已实际合入PR41/42完整来源/单候选研究之上，独立schema2.0冻结最多1000成员/来源hash/条件及完整自然周，默认暂停与独立启用，Worker只读本地资料并一次全局排序。TaskRun、完整来源正规关联、周产物/Event/Audit/Outbox同事务；原v1周筛选不扩容。真实PG201/1000、Outbox恢复/暂停换日历/前视与API/DB/Worker/Edge201可见路径已经实际运行，最终全量/CI/独立Gate待核。零外网/模型/费用，不自动深研或解锁Decision；仅随本PR实际合入生效，Owner部署/Checkpoint接受及完整402/P8未完成。
+补充ADR0054，在已实际合入PR41/42完整来源/单候选研究之上，独立schema2.0冻结最多1000成员/来源hash/条件及完整自然周，默认暂停与独立启用，Worker只读本地资料并一次全局排序。TaskRun、完整来源正规关联、周产物/Event/Audit/Outbox同事务；原v1周筛选不扩容。真实PG201/1000、Outbox恢复/暂停换日历/前视与API/DB/Worker/Edge201可见路径已经实际运行，源码fb257225完整1006及六CI已通过，最后证据提交及独立Gate另核。零外网/模型/费用，不自动深研或解锁Decision；仅随本PR实际合入生效，Owner部署/Checkpoint接受及完整402/P8未完成。
