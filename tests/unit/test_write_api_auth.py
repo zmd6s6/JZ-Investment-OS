@@ -3,8 +3,8 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from investment_os.api.write_auth import WriteApiAuthMiddleware
 from investment_os.api.app import create_app
+from investment_os.api.write_auth import WriteApiAuthMiddleware
 
 
 def _app(token: str | None) -> FastAPI:
