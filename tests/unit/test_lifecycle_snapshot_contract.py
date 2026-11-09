@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from investment_os.application.opportunity_lifecycle import LifecycleSnapshot
+from investment_os.domain.enums import InstrumentLifecycleState
 
 
 def test_unknown_snapshot_cannot_claim_state_or_source():
@@ -25,7 +26,7 @@ def test_recorded_snapshot_rejects_future_and_hash_tampering():
         as_of=now,
         status="AVAILABLE",
         reason="RECORDED_INITIAL_STATE",
-        state="WATCH",
+        state=InstrumentLifecycleState.WATCH,
         source_record_id=uuid4(),
         source_version=1,
         effective_at=now,
