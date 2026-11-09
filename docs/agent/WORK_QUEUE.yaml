@@ -255,8 +255,8 @@ work_items:
     priority: 2
     status: REVIEW
     claim_branch: agent/MVP-402
-    claim_owner: pr-02-review-and-next-stage-monitor / mvp402_resume
-    # PR25/29/30/32/34有限切片已合入；v2完整声明范围仅随本PR实际合入生效，整体仍PARTIAL。
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp402_recover_final
+    # PR25/29/30/32/34/41切片已合入；PR42的v2逐候选研究仅随实际合入生效，整体仍PARTIAL。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:
