@@ -256,6 +256,8 @@ class SqlWeeklyFunnel:
                 >= 50
             ):
                 raise OpportunityError("WEEKLY_CONFIGURATION_LIMIT")
+            if config is not None and config.schema_version != "1.0":
+                raise OpportunityError("WEEKLY_PROTOCOL_CONFLICT")
             if (config.version if config else 0) != command.expected_version:
                 raise OpportunityError("WEEKLY_VERSION_CONFLICT")
             source, _ = await calendar(
@@ -337,7 +339,11 @@ class SqlWeeklyFunnel:
             if replay:
                 return replay
             config = await session.get(WeeklyConfigurationRecord, schedule_id, with_for_update=True)
-            if config is None or config.version != command.expected_version:
+            if (
+                config is None
+                or config.schema_version != "1.0"
+                or config.version != command.expected_version
+            ):
                 raise OpportunityError("WEEKLY_VERSION_CONFLICT")
             revision = await read_revision(session, config)
             if command.enabled:
@@ -362,6 +368,7 @@ class SqlWeeklyFunnel:
             configs = (
                 await session.scalars(
                     select(WeeklyConfigurationRecord)
+                    .where(WeeklyConfigurationRecord.schema_version == "1.0")
                     .order_by(WeeklyConfigurationRecord.created_at.desc())
                     .limit(50)
                 )
@@ -418,7 +425,10 @@ class WeeklyFunnelRunner:
             configs = (
                 await session.scalars(
                     select(WeeklyConfigurationRecord)
-                    .where(WeeklyConfigurationRecord.enabled.is_(True))
+                    .where(
+                        WeeklyConfigurationRecord.enabled.is_(True),
+                        WeeklyConfigurationRecord.schema_version == "1.0",
+                    )
                     .order_by(WeeklyConfigurationRecord.id)
                     .limit(50)
                 )

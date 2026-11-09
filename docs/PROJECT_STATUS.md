@@ -4,6 +4,8 @@
 
 ## 当前快照
 
+MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42）上增加独立schema2.0配置/API与完整成员Worker路径；默认暂停、显式完整周/日历/本地零费用授权，201–1000成员使用原全局排序与最多20候选。旧v1读写/Worker仍200边界。真实隔离API/PG/生产Worker/Edge已演示201行、周产物/暂停/刷新/历史和不完整周拒绝；新旧PG29通过。最终全量/CI/独立Gate仍待核，本项仅实际合入后生效，完整402/P8、501与Owner状态不提前完成。
+
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
 - 活跃 Release：`MVP-BETA`

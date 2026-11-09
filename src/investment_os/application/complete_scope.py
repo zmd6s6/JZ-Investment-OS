@@ -194,6 +194,13 @@ class CompleteScopeService:
         replay = await self.store.replay_complete(snapshot_id, command)
         if replay is not None:
             return replay
+        snapshot, result = await self.prepare_run(snapshot_id, command)
+        return await self.store.save_complete(snapshot, command, result)
+
+    async def prepare_run(
+        self, snapshot_id: UUID, command: CompleteScopeCommand
+    ) -> tuple[UniverseSnapshot, CompleteScopeRun]:
+        """Prepare without writing; a scheduled caller commits with its TaskRun UOW."""
         snapshot = await self.store.get(snapshot_id)
         if snapshot.content_hash != command.snapshot_hash:
             raise UniverseError("UNIVERSE_SNAPSHOT_CONFLICT")
@@ -261,4 +268,4 @@ class CompleteScopeService:
             candidate_ids=candidates,
         )
         validate_complete_snapshot(snapshot, result)
-        return await self.store.save_complete(snapshot, command, result)
+        return snapshot, result

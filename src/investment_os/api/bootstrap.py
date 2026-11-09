@@ -8,6 +8,7 @@ from investment_os.application.analysis_choices import AnalysisChoicesService
 from investment_os.application.analysis_configuration import AnalysisStartService
 from investment_os.application.calendar_product import CalendarProductService
 from investment_os.application.complete_scope import CompleteScopeService
+from investment_os.application.complete_weekly import CompleteWeeklyService
 from investment_os.application.daily_runtime import DailyRuntimeService
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.llm_budget import LLMBudgetService
@@ -39,6 +40,7 @@ from investment_os.infrastructure.catalog_portfolio import (
     SessionPortfolioBookPort,
 )
 from investment_os.infrastructure.complete_scope import SqlCompleteScope
+from investment_os.infrastructure.complete_weekly import SqlCompleteWeekly
 from investment_os.infrastructure.daily_runtime_setup import SqlDailySetup
 from investment_os.infrastructure.daily_runtime_store import SqlDailyRuntimeStore
 from investment_os.infrastructure.database import create_database_engine, create_session_factory
@@ -142,6 +144,7 @@ def create_production_app() -> FastAPI:
         ),
         opportunity_service=opportunities,
         weekly_funnel_service=WeeklyService(SqlWeeklyFunnel(session_factory)),
+        complete_weekly_service=CompleteWeeklyService(SqlCompleteWeekly(session_factory)),
         universe_snapshot_service=UniverseSnapshotService(universe_store, opportunities),
         complete_scope_service=CompleteScopeService(
             SqlCompleteScope(session_factory), opportunities

@@ -2,9 +2,11 @@
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from investment_os.application.complete_scope import CompleteScopeService
 from investment_os.application.instrument_catalog import InstrumentCatalogService
 from investment_os.application.market_data import MarketDataService
 from investment_os.application.opportunities import OpportunityService
@@ -13,6 +15,8 @@ from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
     SessionPortfolioBookPort,
 )
+from investment_os.infrastructure.complete_scope import SqlCompleteScope
+from investment_os.infrastructure.complete_weekly import CompleteWeeklyRunner
 from investment_os.infrastructure.manual_market_data import SqlManualMarketData
 from investment_os.infrastructure.opportunities import LocalExplicitUniverse, SqlOpportunityStore
 from investment_os.infrastructure.opportunity_schedule import WeeklyFunnelRunner
@@ -21,7 +25,7 @@ from investment_os.infrastructure.universe_snapshots import SqlUniverseSnapshots
 
 def weekly_worker(
     sessions: async_sessionmaker[AsyncSession], *, now: Callable[[], datetime] | None = None
-) -> WeeklyFunnelRunner:
+) -> "WeeklyLocalRunners":
     clock = now or (lambda: datetime.now(UTC))
     catalog_port = SessionCatalogPort(sessions)
     catalog = InstrumentCatalogService(catalog_port)
@@ -42,4 +46,17 @@ def weekly_worker(
         now=clock,
         scope_validator=SqlUniverseSnapshots(sessions),
     )
-    return WeeklyFunnelRunner(sessions, service)
+    return WeeklyLocalRunners(
+        WeeklyFunnelRunner(sessions, service),
+        CompleteWeeklyRunner(
+            sessions, CompleteScopeService(SqlCompleteScope(sessions), service, now=clock)
+        ),
+    )
+
+
+class WeeklyLocalRunners:
+    def __init__(self, legacy: WeeklyFunnelRunner, complete: CompleteWeeklyRunner):
+        self.legacy, self.complete = legacy, complete
+
+    async def dispatch_due(self, *, now: datetime) -> tuple[UUID, ...]:
+        return await self.legacy.dispatch_due(now=now) + await self.complete.dispatch_due(now=now)

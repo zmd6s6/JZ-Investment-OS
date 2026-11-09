@@ -1,0 +1,43 @@
+import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { createHash } from 'node:crypto';
+const token=process.env.INVESTMENT_OS_API_WRITE_TOKEN??'synthetic-mvp402-only';
+const headers={Authorization:`Bearer ${token}`};
+const root='/api/v1/opportunities/universes';
+const stamp=()=>Date.now()+'-'+Math.floor(Math.random()*100000);
+const local=(delta:number)=>{const d=new Date(Date.now()+delta);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,19);};
+async function checked(response:Awaited<ReturnType<APIRequestContext['post']>>){expect(response.ok(),await response.text()).toBe(true);return response.json();}
+async function register(request:APIRequestContext,n:number,tag=stamp()) {return checked(await request.post('/api/v1/instruments',{headers,data:{market:'SSE',symbol:`SYNU${tag}-${n}`,name:'合成来源成员-'+n,asset_type:'EQUITY',currency:'CNY',sector:'Synthetic'}}));}
+async function facts(request:APIRequestContext,item:{instrument_id:string},quoteName:string,factName:string,profit='20'){
+ const past=new Date(Date.now()-7200000).toISOString(),older=new Date(Date.now()-86400000).toISOString(),future=new Date(Date.now()+30*86400000).toISOString();
+ const quote=await checked(await request.post('/api/v1/market-data/manual-quotes',{headers,data:{request_id:crypto.randomUUID(),instrument_id:item.instrument_id,source_name:quoteName,source_locator:'synthetic://universe/quote',currency:'CNY',price:'10',observed_at:past,effective_at:past,available_at:past,expires_at:future}}));
+ await checked(await request.post('/api/v1/opportunities/facts',{headers,data:{request_id:crypto.randomUUID(),instrument_id:item.instrument_id,source_name:factName,source_locator:'synthetic://universe/annual',currency:'CNY',observed_at:past,effective_at:past,available_at:past,expires_at:future,revenue_current:'100',revenue_previous:'80',net_income:profit,annual_diluted_eps:profit==='20'?'0.2':'0.01',previous_close:'8',previous_close_at:older,fiscal_year:2025,financial_basis:'CALENDAR_YEAR_CONSOLIDATED_CNY',net_income_basis:'ATTRIBUTABLE_TO_ORDINARY_SHAREHOLDERS',same_share_basis:true,suspended:false,industry:'Synthetic',quote_evidence_id:quote.evidence_id}}));
+}
+async function fill(page:Page,name:string,count:number,csv:string){
+ await page.getByLabel('来源集合名称').fill(name);await page.getByLabel('来源集合版本').fill('synthetic-v1');await page.getByLabel('来源集合出处').fill('synthetic://universe/members.csv');await page.getByLabel('覆盖定义（来源声明）').fill('独立合成来源的明确成员集合，不声称真实市场覆盖');await page.getByLabel('来源市场').selectOption('SSE');await page.getByLabel('来源声明总数').fill(String(count));await page.getByLabel('完整性声明').selectOption('DECLARED_COMPLETE');for(const label of ['来源观察时点','来源生效时点','来源可获取时点'])await page.getByLabel(label).fill(local(-3600000));await page.getByLabel('集合CSV内容').fill(csv);
+}
+async function previewAndSave(page:Page){
+ await page.getByRole('button',{name:'预览来源集合（不保存）'}).click();await expect(page.getByRole('heading',{name:/待确认预览/})).toBeVisible();const save=page.getByRole('button',{name:'确认保存来源快照'});await expect(save).toBeDisabled();await page.getByLabel(/我有权在本机/).check();await expect(save).toBeDisabled();await page.getByLabel(/我已核对来源、版本/).check();await save.click();await expect(page.getByText(/来源快照已保存/)).toBeVisible();await expect(page.getByText(/来源快照已保存/)).toBeInViewport();
+}
+async function filters(page:Page,q:string,f:string){await page.getByLabel('报价来源名称').fill(q);await page.getByLabel('基础事实来源名称').fill(f);await page.getByLabel('最低年度归属利润率').fill('0.1');await page.getByLabel('最低营收同比增幅').fill('0.1');await page.getByLabel('最高年报稀释PE（非TTM）').fill('60');await page.getByLabel('最低相对前收盘变化').fill('0');await page.getByLabel('最多研究候选（1至20）').fill('1');}
+
+test('real full-member weekly config, Worker result, failure and persistent history',async({page,request},info)=>{
+ test.skip(process.env.E2E_BASE_URL!=='http://127.0.0.1:18133','专属本地零出站周筛选合成栈');
+ test.setTimeout(180000);await page.addInitScript(t=>sessionStorage.setItem('investment_os_write_token',t),token);
+ const tag=stamp(),items=[];for(let offset=0;offset<201;offset+=20)items.push(...await Promise.all(Array.from({length:Math.min(20,201-offset)},(_,i)=>register(request,offset+i,tag))));
+ const name='完整周来源-'+tag,q='合成周报价-'+tag,f='合成周年报-'+tag;await facts(request,items[0],q,f);
+ const external:string[]=[];page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:18133/'))external.push(r.url());});
+ await page.goto('/opportunities');await fill(page,name,201,'market,symbol\n'+items.map(item=>'SSE,'+item.symbol).join('\n'));await previewAndSave(page);await filters(page,q,f);
+ await page.getByRole('button',{name:'完整筛选所选快照（v2）'}).click();await expect(page.getByRole('heading',{name:'完整筛选结果 · 201 项 / 候选 1'})).toBeVisible({timeout:90000});
+ const history=await (await request.get(root+'/complete-runs')).json();const template=history.find((r:{source_name:string})=>r.source_name===name);
+ const calendar=await checked(await request.post('/api/v1/calendar/imports',{headers,data:{request_id:crypto.randomUUID(),expected_version:0,venue:'SSE',source_name:'合成完整周日历',source_version:'v1',csv_text:'business_date,close_at\n2026-11-13,15:00\n2026-11-16,15:00\n',confirmed_source:true}}));
+ const endpoint='/api/v2/opportunities/weekly',configName='完整本地周-'+tag;
+ const invalid=await request.post(endpoint,{headers,data:{schema_version:'2.0',request_id:crypto.randomUUID(),schedule_id:crypto.randomUUID(),expected_version:0,name:configName,venue:'SSE',funnel_run_id:template.run_id,calendar_import_id:calendar.import_id,coverage_start:'2026-11-10',coverage_end:'2026-11-15',complete_calendar_acknowledgement:true,local_only_acknowledgement:true}});expect(invalid.status()).toBe(422);expect((await (await request.get(endpoint)).json()).configurations).toHaveLength(0);
+ const panel=page.locator('.weekly-funnel').filter({has:page.getByRole('heading',{name:'完整来源 · 每周本地确定性筛选 v2',exact:true})});await panel.getByRole('button',{name:'刷新周筛选与日历'}).click();
+ await panel.getByLabel('周配置名称').fill(configName);await panel.getByLabel('周筛选市场').selectOption('SSE');await panel.getByLabel('完整覆盖开始（周一）').fill('2026-11-09');await panel.getByLabel('完整覆盖结束（周日）').fill('2026-11-15');await panel.getByLabel(/我已核对来源/).check();await panel.getByLabel(/仅授权读取/).check();await panel.getByRole('button',{name:'保存周配置（暂停）'}).click();await expect(panel.getByText(/周筛选新版本已保存/)).toBeVisible();
+ let overview=await (await request.get(endpoint)).json();const config=overview.configurations.find((c:{name:string})=>c.name===configName);expect(config.enabled).toBe(false);expect(config.template.instrument_ids).toHaveLength(201);expect(config.schema_version).toBe('2.0');expect(overview.recent_runs).toHaveLength(0);
+ await panel.getByLabel(/我已核对下方保存版本/).check();await panel.getByRole('button',{name:'启用本地周筛选 '+configName,exact:true}).click();
+ await expect.poll(async()=>{overview=await (await request.get(endpoint)).json();return overview.recent_runs[0]?.status;},{timeout:90000}).toBe('DEGRADED');
+ const result=overview.recent_runs[0];expect(result.candidate_count).toBe(1);const product=await (await request.get(root+'/complete-runs/'+result.funnel_run_id)).json();expect(product.rows).toHaveLength(201);expect(product.candidate_ids).toEqual([items[0].instrument_id]);expect(product.model_calls).toBe(0);expect(product.paid_calls).toBe(0);expect(product.auto_trade).toBe(false);
+ await panel.getByRole('button',{name:'暂停 '+configName,exact:true}).click();await expect(panel.getByText(/暂停已确认/)).toBeVisible();await page.reload();await expect(panel.getByRole('heading',{name:configName+' · v3 · 已暂停'})).toBeVisible();await panel.getByRole('link',{name:'查看本周候选与各层缺项'}).click();await expect(page.getByRole('heading',{name:'完整筛选结果 · 201 项 / 候选 1'})).toBeVisible({timeout:30000});expect(new URL(page.url()).searchParams.get('complete_run_id')).toBe(result.funnel_run_id);
+ expect((await (await request.get(endpoint)).json()).recent_runs).toHaveLength(1);await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath('complete-weekly-390.png'),fullPage:true});expect(external).toEqual([]);
+});
