@@ -16,7 +16,9 @@ from investment_os.application.universe_snapshots import UniverseError
 
 
 def complete_weekly_router(service: CompleteWeeklyService | None) -> APIRouter:
-    router = APIRouter(prefix="/api/v1/opportunities/complete-weekly", tags=["opportunities-weekly"])
+    router = APIRouter(
+        prefix="/api/v1/opportunities/complete-weekly", tags=["opportunities-weekly"]
+    )
 
     def ready() -> CompleteWeeklyService:
         if service is None:
