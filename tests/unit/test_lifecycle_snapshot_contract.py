@@ -39,3 +39,44 @@ def test_recorded_snapshot_rejects_future_and_hash_tampering():
         LifecycleSnapshot.model_validate({**raw, "state": "BUYABLE"})
     with pytest.raises(ValidationError):
         LifecycleSnapshot.model_validate({**raw, "source_version": 2})
+
+
+def test_legacy_event_without_lifecycle_snapshot_keeps_original_payload_hash():
+    from test_opportunities import NOW, inputs
+
+    from investment_os.application.opportunities import (
+        FunnelRun,
+        bound_global_candidates,
+        evaluate,
+        query_rule_hash,
+    )
+    from investment_os.infrastructure.opportunities import SqlOpportunityStore, digest
+    from investment_os.infrastructure.persistence.models import EventLogRecord
+
+    entry, quote, facts, query = inputs()
+    rows, candidates = bound_global_candidates([evaluate(entry, quote, facts, query)], 2)
+    run = FunnelRun(
+        run_id=query.request_id,
+        query=query,
+        ingested_at=NOW,
+        query_rule_hash=query_rule_hash(query),
+        status="COMPLETE",
+        rows=rows,
+        candidate_ids=candidates,
+    )
+    raw = run.model_dump(mode="json")
+    raw["rows"][0].pop("lifecycle_snapshot")
+    original_hash = digest(raw)
+    event = EventLogRecord(
+        aggregate_type="opportunity_funnel_run",
+        aggregate_id=run.run_id,
+        payload_json={
+            "run": raw,
+            "snapshot_hash": original_hash,
+            "request_hash": digest(query.model_dump(mode="json")),
+        },
+    )
+    replay = SqlOpportunityStore._read_run(event)
+    assert replay.rows[0].lifecycle_snapshot is None
+    assert event.payload_json["snapshot_hash"] == original_hash
+    assert "lifecycle_snapshot" not in event.payload_json["run"]["rows"][0]
