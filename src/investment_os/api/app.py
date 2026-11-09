@@ -28,6 +28,7 @@ from investment_os.application.analysis_decision_bridge import (
 from investment_os.application.analysis_risk_sizing import NumericSourcePort
 from investment_os.application.analysis_runs import AnalysisStorePort
 from investment_os.application.calendar_product import CalendarProductService
+from investment_os.application.complete_scope import CompleteScopeService
 from investment_os.application.daily_runtime import DailyRuntimeService
 from investment_os.application.decision_center import DecisionCenterPort
 from investment_os.application.health import AsyncClosable, ReadinessProbe
@@ -381,6 +382,7 @@ def create_app(
     daily_runtime_service: DailyRuntimeService | None = None,
     monthly_review_service: MonthlyReviewPort | None = None,
     universe_snapshot_service: UniverseSnapshotService | None = None,
+    complete_scope_service: CompleteScopeService | None = None,
     analysis_start: AnalysisStartService | None = None,
     analysis_store: AnalysisStorePort | None = None,
     analysis_choices: AnalysisChoicesService | None = None,
@@ -491,7 +493,7 @@ def create_app(
     application.include_router(weekly_router(weekly_funnel_service))
     application.include_router(daily_router(daily_runtime_service))
     application.include_router(monthly_router(monthly_review_service))
-    application.include_router(universe_router(universe_snapshot_service))
+    application.include_router(universe_router(universe_snapshot_service, complete_scope_service))
     application.include_router(decision_center_router(decision_center))
     application.include_router(
         analysis_decision_router(analysis_decision_bridge, decision_qualifications)
@@ -602,6 +604,7 @@ def create_app(
             opportunity_research=opportunity_research_service is not None,
             weekly_funnel=weekly_funnel_service is not None,
             universe_snapshots=universe_snapshot_service is not None,
+            complete_scope=complete_scope_service is not None,
             analysis=analysis_start is not None
             and analysis_store is not None
             and analysis_choices is not None,

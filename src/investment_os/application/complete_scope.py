@@ -38,6 +38,9 @@ class CompleteScopeRun(MarketDto):
     rule_hash: str
     rows: tuple[FunnelRow, ...]
     candidate_ids: tuple[UUID, ...]
+    formula_version: Literal["manual-screen-v1"] = "manual-screen-v1"
+    ranking_version: Literal["global-price-change-v2"] = "global-price-change-v2"
+    deep_research: Literal["NOT_PROVIDED"] = "NOT_PROVIDED"
     market_universe: Literal["NOT_PROVIDED"] = "NOT_PROVIDED"
     external_calls: Literal[0] = 0
     model_calls: Literal[0] = 0
@@ -64,6 +67,15 @@ class CompleteScopeRun(MarketDto):
             or {r.instrument_id for r in self.rows if r.candidate} != set(self.candidate_ids)
         ):
             raise ValueError("complete scope result mismatch")
+        predicate = FunnelQuery(
+            **self.command.model_dump(exclude={"snapshot_hash", "as_of", "protocol_version"}),
+            instrument_ids=(),
+            scope_name=self.source.source.source_name,
+            scope_locator=f"universe_snapshot:{self.source.snapshot_id}:{self.source.content_hash}",
+            as_of=self.effective_as_of,
+        )
+        if self.rule_hash != query_rule_hash(predicate):
+            raise ValueError("rule hash mismatch")
         eligible = []
         for row in self.rows:
             stages = row.stages
@@ -125,8 +137,21 @@ def validate_complete_snapshot(snapshot: UniverseSnapshot, run: CompleteScopeRun
         raise UniverseError("UNIVERSE_IDENTITY_MISMATCH")
 
 
+class CompleteScopeSummary(MarketDto):
+    run_id: UUID
+    snapshot_id: UUID
+    source_name: str
+    source_version: str
+    member_count: int
+    candidate_count: int
+    as_of: AwareDatetime
+    ingested_at: AwareDatetime
+
+
 class CompleteScopeStore(Protocol):
     async def get(self, snapshot_id: UUID) -> UniverseSnapshot: ...
+    async def get_complete(self, run_id: UUID) -> CompleteScopeRun | None: ...
+    async def list_complete(self) -> tuple[CompleteScopeRun, ...]: ...
     async def replay_complete(
         self, snapshot_id: UUID, command: CompleteScopeCommand
     ) -> CompleteScopeRun | None: ...
@@ -145,6 +170,25 @@ class CompleteScopeService:
     ):
         self.store, self.funnel = store, funnel
         self.now = now or (lambda: datetime.now(UTC))
+
+    async def get(self, run_id: UUID) -> CompleteScopeRun | None:
+        return await self.store.get_complete(run_id)
+
+    async def list(self) -> tuple[CompleteScopeSummary, ...]:
+        runs = await self.store.list_complete()
+        return tuple(
+            CompleteScopeSummary(
+                run_id=run.command.request_id,
+                snapshot_id=run.source.snapshot_id,
+                source_name=run.source.source.source_name,
+                source_version=run.source.source.source_version,
+                member_count=len(run.rows),
+                candidate_count=len(run.candidate_ids),
+                as_of=run.effective_as_of,
+                ingested_at=run.ingested_at,
+            )
+            for run in runs
+        )
 
     async def run(self, snapshot_id: UUID, command: CompleteScopeCommand) -> CompleteScopeRun:
         replay = await self.store.replay_complete(snapshot_id, command)

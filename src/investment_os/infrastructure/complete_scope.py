@@ -63,6 +63,19 @@ class SqlCompleteScope(SqlUniverseSnapshots):
                 return None
             return await self._read_complete(session, record)
 
+    async def list_complete(self) -> tuple[CompleteScopeRun, ...]:
+        async with self.sessions() as session:
+            records = (
+                await session.scalars(
+                    select(UniverseRunRecord)
+                    .join(EventLogRecord, UniverseRunRecord.run_event_id == EventLogRecord.id)
+                    .where(EventLogRecord.aggregate_type == KIND)
+                    .order_by(EventLogRecord.occurred_at.desc(), EventLogRecord.id.desc())
+                    .limit(20)
+                )
+            ).all()
+            return tuple([await self._read_complete(session, record) for record in records])
+
     async def replay_complete(
         self, snapshot_id: UUID, command: CompleteScopeCommand
     ) -> CompleteScopeRun | None:

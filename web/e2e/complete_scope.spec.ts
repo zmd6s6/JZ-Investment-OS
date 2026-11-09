@@ -1,0 +1,34 @@
+import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { createHash } from 'node:crypto';
+const token=process.env.INVESTMENT_OS_API_WRITE_TOKEN??'synthetic-mvp402-only';
+const headers={Authorization:`Bearer ${token}`};
+const root='/api/v1/opportunities/universes';
+const stamp=()=>Date.now()+'-'+Math.floor(Math.random()*100000);
+const local=(delta:number)=>{const d=new Date(Date.now()+delta);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,19);};
+async function checked(response:Awaited<ReturnType<APIRequestContext['post']>>){expect(response.ok(),await response.text()).toBe(true);return response.json();}
+async function register(request:APIRequestContext,n:number,tag=stamp()) {return checked(await request.post('/api/v1/instruments',{headers,data:{market:'SSE',symbol:`SYNU${tag}-${n}`,name:'合成来源成员-'+n,asset_type:'EQUITY',currency:'CNY',sector:'Synthetic'}}));}
+async function facts(request:APIRequestContext,item:{instrument_id:string},quoteName:string,factName:string,profit='20'){
+ const past=new Date(Date.now()-7200000).toISOString(),older=new Date(Date.now()-86400000).toISOString(),future=new Date(Date.now()+86400000).toISOString();
+ const quote=await checked(await request.post('/api/v1/market-data/manual-quotes',{headers,data:{request_id:crypto.randomUUID(),instrument_id:item.instrument_id,source_name:quoteName,source_locator:'synthetic://universe/quote',currency:'CNY',price:'10',observed_at:past,effective_at:past,available_at:past,expires_at:future}}));
+ await checked(await request.post('/api/v1/opportunities/facts',{headers,data:{request_id:crypto.randomUUID(),instrument_id:item.instrument_id,source_name:factName,source_locator:'synthetic://universe/annual',currency:'CNY',observed_at:past,effective_at:past,available_at:past,expires_at:future,revenue_current:'100',revenue_previous:'80',net_income:profit,annual_diluted_eps:profit==='20'?'0.2':'0.01',previous_close:'8',previous_close_at:older,fiscal_year:2025,financial_basis:'CALENDAR_YEAR_CONSOLIDATED_CNY',net_income_basis:'ATTRIBUTABLE_TO_ORDINARY_SHAREHOLDERS',same_share_basis:true,suspended:false,industry:'Synthetic',quote_evidence_id:quote.evidence_id}}));
+}
+async function fill(page:Page,name:string,count:number,csv:string){
+ await page.getByLabel('来源集合名称').fill(name);await page.getByLabel('来源集合版本').fill('synthetic-v1');await page.getByLabel('来源集合出处').fill('synthetic://universe/members.csv');await page.getByLabel('覆盖定义（来源声明）').fill('独立合成来源的明确成员集合，不声称真实市场覆盖');await page.getByLabel('来源市场').selectOption('SSE');await page.getByLabel('来源声明总数').fill(String(count));await page.getByLabel('完整性声明').selectOption('DECLARED_COMPLETE');for(const label of ['来源观察时点','来源生效时点','来源可获取时点'])await page.getByLabel(label).fill(local(-3600000));await page.getByLabel('集合CSV内容').fill(csv);
+}
+async function previewAndSave(page:Page){
+ await page.getByRole('button',{name:'预览来源集合（不保存）'}).click();await expect(page.getByRole('heading',{name:/待确认预览/})).toBeVisible();const save=page.getByRole('button',{name:'确认保存来源快照'});await expect(save).toBeDisabled();await page.getByLabel(/我有权在本机/).check();await expect(save).toBeDisabled();await page.getByLabel(/我已核对来源、版本/).check();await save.click();await expect(page.getByText(/来源快照已保存/)).toBeVisible();await expect(page.getByText(/来源快照已保存/)).toBeInViewport();
+}
+async function filters(page:Page,q:string,f:string){await page.getByLabel('报价来源名称').fill(q);await page.getByLabel('基础事实来源名称').fill(f);await page.getByLabel('最低年度归属利润率').fill('0.1');await page.getByLabel('最低营收同比增幅').fill('0.1');await page.getByLabel('最高年报稀释PE（非TTM）').fill('60');await page.getByLabel('最低相对前收盘变化').fill('0');await page.getByLabel('最多研究候选（1至20）').fill('1');}
+test.beforeEach(async({page})=>{test.skip(process.env.E2E_BASE_URL!=='http://127.0.0.1:18124','只允许MVP402独占universe_synthetic栈，禁止Owner实例');await page.addInitScript(t=>sessionStorage.setItem('investment_os_write_token',t),token);});
+
+
+test('201 members use v2 full screen, preserve failure and reload immutable history',async({page,request},info)=>{
+ test.setTimeout(180000);const tag=stamp(),items=[];for(let offset=0;offset<201;offset+=20)items.push(...await Promise.all(Array.from({length:Math.min(20,201-offset)},(_,i)=>register(request,offset+i,tag))));
+ const name='合成完整筛选-'+tag,q='合成完整行情-'+tag,f='合成完整年报-'+tag;await facts(request,items[0],q,f);const csv='market,symbol\n'+items.map(item=>'SSE,'+item.symbol).join('\n');const external:string[]=[];page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:18124/'))external.push(r.url());});
+ await page.goto('/opportunities');await fill(page,name,201,csv);await previewAndSave(page);await filters(page,q,f);await expect(page.getByRole('button',{name:'按此快照全部成员筛选'})).toBeDisabled();await page.getByRole('button',{name:'完整筛选所选快照（v2）'}).click();await expect(page.getByRole('heading',{name:'完整筛选结果 · 201 项 / 候选 1'})).toBeVisible({timeout:100000});await expect(page.getByText(/已完整筛选并保存/)).toBeVisible();
+ const histories=await (await request.get(root+'/complete-runs')).json();const item=histories.find((v:{source_name:string})=>v.source_name===name);expect(item.member_count).toBe(201);expect(item.candidate_count).toBe(1);const saved=await (await request.get(root+'/complete-runs/'+item.run_id)).json();expect(saved.rows).toHaveLength(201);expect(saved.candidate_ids).toEqual([items[0].instrument_id]);expect(saved.source.verification).toBe('UNVERIFIED');expect(saved.market_universe).toBe('NOT_PROVIDED');expect(saved.external_calls).toBe(0);expect(saved.model_calls).toBe(0);expect(saved.auto_trade).toBe(false);expect(saved.rows.every((r:{evidence_ids:string[]})=>!r.evidence_ids.includes(saved.source.evidence_id))).toBe(true);
+ await page.reload();await page.getByRole('button',{name:'刷新完整筛选历史'}).click();await page.getByRole('button',{name:new RegExp('读取 '+name)}).click();await expect(page.getByRole('heading',{name:'完整筛选结果 · 201 项 / 候选 1'})).toBeVisible();await expect(page.getByText('已读取冻结历史，没有重跑或改写。')).toBeVisible();
+ const original=await (await request.get(root+'/'+saved.source.snapshot_id)).json();const failed=await request.post(root+'/'+original.snapshot_id+'/complete-runs',{headers,data:{...saved.command,request_id:crypto.randomUUID(),as_of:'2020-01-01T00:00:00Z'}});expect(failed.status()).toBe(422);expect((await failed.json()).detail.code).toBe('UNIVERSE_NOT_YET_AVAILABLE');
+ await page.getByRole('button',{name:new RegExp('读取来源 '+name)}).click();await filters(page,q,f);await page.getByLabel('读取时点（留空为本次当前UTC）').fill('2020-01-01T00:00');await page.getByRole('button',{name:'完整筛选所选快照（v2）'}).click();await expect(page.getByText('筛选时点早于来源或本次入库时间, 禁止前视读取。')).toBeVisible();
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath('complete-scope-failure-390.png'),fullPage:true});expect(external).toEqual([]);
+});

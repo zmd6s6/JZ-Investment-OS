@@ -4,6 +4,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 
+from investment_os.application.complete_scope import (
+    CompleteScopeCommand,
+    CompleteScopeRun,
+    CompleteScopeService,
+    CompleteScopeSummary,
+)
 from investment_os.application.market_data import MarketDataError
 from investment_os.application.opportunities import OpportunityError
 from investment_os.application.universe_snapshots import (
@@ -40,7 +46,9 @@ MESSAGES = {
 }
 
 
-def universe_router(service: UniverseSnapshotService | None) -> APIRouter:
+def universe_router(
+    service: UniverseSnapshotService | None, complete: CompleteScopeService | None = None
+) -> APIRouter:
     router = APIRouter(prefix="/api/v1/opportunities/universes", tags=["universe-snapshots"])
 
     def ready() -> UniverseSnapshotService:
@@ -92,6 +100,38 @@ def universe_router(service: UniverseSnapshotService | None) -> APIRouter:
         try:
             return await ready().origin(run_id)
         except UniverseError as exc:
+            raise failure(exc) from None
+
+    def complete_ready() -> CompleteScopeService:
+        if complete is None:
+            raise HTTPException(
+                503,
+                detail={
+                    "code": "COMPLETE_SCOPE_UNAVAILABLE",
+                    "message": "全成员筛选服务尚未装配。",
+                },
+            )
+        return complete
+
+    @router.get("/complete-runs", response_model=tuple[CompleteScopeSummary, ...])
+    async def complete_history() -> tuple[CompleteScopeSummary, ...]:
+        try:
+            return await complete_ready().list()
+        except (UniverseError, OpportunityError, MarketDataError) as exc:
+            raise failure(exc) from None
+
+    @router.get("/complete-runs/{run_id}", response_model=CompleteScopeRun | None)
+    async def complete_detail(run_id: UUID) -> CompleteScopeRun | None:
+        try:
+            return await complete_ready().get(run_id)
+        except (UniverseError, OpportunityError, MarketDataError) as exc:
+            raise failure(exc) from None
+
+    @router.post("/{snapshot_id}/complete-runs", response_model=CompleteScopeRun)
+    async def complete_run(snapshot_id: UUID, command: CompleteScopeCommand) -> CompleteScopeRun:
+        try:
+            return await complete_ready().run(snapshot_id, command)
+        except (UniverseError, OpportunityError, MarketDataError) as exc:
             raise failure(exc) from None
 
     @router.get("/{snapshot_id}", response_model=UniverseSnapshot)
