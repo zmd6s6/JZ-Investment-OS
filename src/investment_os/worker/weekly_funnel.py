@@ -57,6 +57,8 @@ def weekly_worker(
 class WeeklyLocalRunners:
     def __init__(self, legacy: WeeklyFunnelRunner, complete: CompleteWeeklyRunner):
         self.legacy, self.complete = legacy, complete
+        # Keep the existing factory's typed local-input service available to callers.
+        self.service = legacy.service
 
     async def dispatch_due(self, *, now: datetime) -> tuple[UUID, ...]:
         return await self.legacy.dispatch_due(now=now) + await self.complete.dispatch_due(now=now)
