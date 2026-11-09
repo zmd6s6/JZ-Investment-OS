@@ -5439,6 +5439,16 @@
             "title": "Instrument Id",
             "type": "string"
           },
+          "lifecycle_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LifecycleSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "lifecycle_state": {
             "anyOf": [
               {
@@ -5941,6 +5951,22 @@
         "title": "InstrumentIdentityRequest",
         "type": "object"
       },
+      "InstrumentLifecycleState": {
+        "enum": [
+          "DISCOVER",
+          "WATCH",
+          "SETUP",
+          "BUYABLE",
+          "HOLD",
+          "ADD",
+          "REDUCE",
+          "EXIT",
+          "COOLDOWN",
+          "ARCHIVED"
+        ],
+        "title": "InstrumentLifecycleState",
+        "type": "string"
+      },
       "InvalidationConditionResponse": {
         "additionalProperties": false,
         "properties": {
@@ -6185,6 +6211,149 @@
           "remaining_cost"
         ],
         "title": "LLMBudgetUsageResponse",
+        "type": "object"
+      },
+      "LifecycleSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective At"
+          },
+          "instrument_id": {
+            "format": "uuid",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "RECORDED_INITIAL_STATE",
+              "STATE_NOT_PROVIDED",
+              "STATE_NOT_YET_AVAILABLE",
+              "STATE_HISTORY_UNAVAILABLE",
+              "STATE_INVALID",
+              "LIFECYCLE_PORT_NOT_PROVIDED"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Hash"
+          },
+          "source_record_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Record Id"
+          },
+          "source_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InstrumentLifecycleState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "UNKNOWN"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "thesis_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Version Id"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "as_of",
+          "status",
+          "reason"
+        ],
+        "title": "LifecycleSnapshot",
         "type": "object"
       },
       "LivenessResponse": {

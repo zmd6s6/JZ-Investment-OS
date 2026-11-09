@@ -78,6 +78,8 @@ class CompleteScopeRun(MarketDto):
             raise ValueError("rule hash mismatch")
         eligible = []
         for row in self.rows:
+            if row.lifecycle_snapshot and row.lifecycle_snapshot.as_of != self.effective_as_of:
+                raise ValueError("lifecycle as-of mismatch")
             stages = row.stages
             if tuple(s.stage for s in stages[:4]) != (
                 "BASIC",

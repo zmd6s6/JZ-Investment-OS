@@ -19,6 +19,7 @@ from investment_os.infrastructure.complete_scope import SqlCompleteScope
 from investment_os.infrastructure.complete_weekly import CompleteWeeklyRunner
 from investment_os.infrastructure.manual_market_data import SqlManualMarketData
 from investment_os.infrastructure.opportunities import LocalExplicitUniverse, SqlOpportunityStore
+from investment_os.infrastructure.opportunity_lifecycle import SqlOpportunityLifecycle
 from investment_os.infrastructure.opportunity_schedule import WeeklyFunnelRunner
 from investment_os.infrastructure.universe_snapshots import SqlUniverseSnapshots
 
@@ -45,6 +46,7 @@ def weekly_worker(
         store,
         now=clock,
         scope_validator=SqlUniverseSnapshots(sessions),
+        lifecycle=SqlOpportunityLifecycle(sessions),
     )
     return WeeklyLocalRunners(
         WeeklyFunnelRunner(sessions, service),
