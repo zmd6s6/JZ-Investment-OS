@@ -9,6 +9,7 @@ from investment_os.application.analysis_runs import (
     AnalysisStart,
     analysis_command_payload,
 )
+from investment_os.application.complete_scope import CompleteScopeRun
 from investment_os.application.opportunities import FunnelRun, OpportunityError
 from investment_os.application.portfolio_valuation import fingerprint
 
@@ -19,8 +20,21 @@ class CandidateResearchStart(AnalysisDto):
     analysis: AnalysisStart
 
 
+class CompleteCandidateResearchStart(AnalysisDto):
+    schema_version: Literal["2.0"] = "2.0"
+    funnel_run_id: UUID
+    analysis: AnalysisStart
+
+
+CandidateResearchCommand = CandidateResearchStart | CompleteCandidateResearchStart
+
+
+class CompleteResearchReader(Protocol):
+    async def get_complete(self, run_id: UUID) -> CompleteScopeRun | None: ...
+
+
 class CandidateResearchView(AnalysisDto):
-    command: CandidateResearchStart
+    command: CandidateResearchCommand
     analysis_run: AnalysisRunView | None
     status: Literal["AWAITING_EXPLICIT_RETRY", "ANALYSIS_RECORDED"]
     auto_trade: Literal[False] = False
@@ -31,8 +45,8 @@ class FunnelReader(Protocol):
 
 
 class CandidateResearchStore(Protocol):
-    async def record(self, command: CandidateResearchStart) -> CandidateResearchStart: ...
-    async def list_for(self, funnel_run_id: UUID) -> tuple[CandidateResearchStart, ...]: ...
+    async def record(self, command: CandidateResearchCommand) -> CandidateResearchCommand: ...
+    async def list_for(self, funnel_run_id: UUID) -> tuple[CandidateResearchCommand, ...]: ...
 
 
 class CandidateAnalysisStarter(Protocol):
@@ -50,25 +64,38 @@ class OpportunityResearchService:
         intents: CandidateResearchStore,
         start: CandidateAnalysisStarter,
         analyses: CandidateAnalysisReader,
+        complete: CompleteResearchReader | None = None,
     ):
         self._funnels = funnels
         self._intents = intents
         self._start = start
         self._analyses = analyses
+        self._complete = complete
 
-    async def start(self, command: CandidateResearchStart) -> CandidateResearchView:
-        funnel = await self._funnels.get_run(command.funnel_run_id)
+    @property
+    def complete_available(self) -> bool:
+        return self._complete is not None
+
+    async def start(self, command: CandidateResearchCommand) -> CandidateResearchView:
+        funnel: FunnelRun | CompleteScopeRun | None
+        if command.schema_version == "2.0":
+            if self._complete is None:
+                raise OpportunityError("CANDIDATE_RESEARCH_UNAVAILABLE")
+            funnel = await self._complete.get_complete(command.funnel_run_id)
+        else:
+            funnel = await self._funnels.get_run(command.funnel_run_id)
         if funnel is None:
             raise OpportunityError("FUNNEL_RUN_NOT_FOUND")
         target = command.analysis.instrument_id
         if target not in funnel.candidate_ids:
             raise OpportunityError("NOT_A_BOUNDED_CANDIDATE")
         row = next(row for row in funnel.rows if row.instrument_id == target)
+        query = funnel.command if isinstance(funnel, CompleteScopeRun) else funnel.query
         if (
             not row.candidate
-            or len(funnel.candidate_ids) > min(20, funnel.query.candidate_limit)
+            or len(funnel.candidate_ids) > min(20, query.candidate_limit)
             or not set(row.evidence_ids) <= set(command.analysis.evidence_ids)
-            or command.analysis.market_source_name != funnel.query.quote_source_name
+            or command.analysis.market_source_name != query.quote_source_name
         ):
             raise OpportunityError("CANDIDATE_INPUT_MISMATCH")
         # A caller cannot attach this origin to an unrelated pre-existing request.
@@ -87,7 +114,7 @@ class OpportunityResearchService:
 
     @staticmethod
     def _view(
-        command: CandidateResearchStart, run: AnalysisRunView | None
+        command: CandidateResearchCommand, run: AnalysisRunView | None
     ) -> CandidateResearchView:
         if run is not None and (
             run.request_id != command.analysis.request_id

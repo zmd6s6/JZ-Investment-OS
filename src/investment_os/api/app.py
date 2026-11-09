@@ -605,6 +605,10 @@ def create_app(
             weekly_funnel=weekly_funnel_service is not None,
             universe_snapshots=universe_snapshot_service is not None,
             complete_scope=complete_scope_service is not None,
+            complete_research=(
+                opportunity_research_service is not None
+                and opportunity_research_service.complete_available
+            ),
             analysis=analysis_start is not None
             and analysis_store is not None
             and analysis_choices is not None,

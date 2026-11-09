@@ -45,6 +45,7 @@ def acceptance_snapshot(
     weekly_funnel: bool = False,
     universe_snapshots: bool = False,
     complete_scope: bool = False,
+    complete_research: bool = False,
     analysis: bool = False,
     decisions: bool = False,
     daily_runtime: bool = False,
@@ -191,7 +192,8 @@ def acceptance_snapshot(
                 )
                 + (
                     "旧版201拒绝保留; v2可完整筛选最多1000声明成员并全局排序, "
-                    "候选最多20、无模型/网络/费用, v2深研未提供。"
+                    "筛选候选最多20、无模型/网络/费用; "
+                    + ("v2逐候选研究须另行明确授权。" if complete_research else "v2深研未提供。")
                     if complete_scope and universe_snapshots
                     else ""
                 )

@@ -16,7 +16,7 @@ from investment_os.application.opportunities import (
     OpportunityService,
 )
 from investment_os.application.opportunity_research import (
-    CandidateResearchStart,
+    CandidateResearchCommand,
     CandidateResearchView,
     OpportunityResearchService,
 )
@@ -71,7 +71,7 @@ def opportunity_router(
         )
 
     @router.post("/research", response_model=CandidateResearchView, status_code=202)
-    async def start_research(command: CandidateResearchStart) -> CandidateResearchView:
+    async def start_research(command: CandidateResearchCommand) -> CandidateResearchView:
         if research is None:
             raise HTTPException(
                 503,

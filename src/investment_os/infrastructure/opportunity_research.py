@@ -7,7 +7,11 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.opportunities import OpportunityError
-from investment_os.application.opportunity_research import CandidateResearchStart
+from investment_os.application.opportunity_research import (
+    CandidateResearchCommand,
+    CandidateResearchStart,
+    CompleteCandidateResearchStart,
+)
 from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.infrastructure.persistence.locks import advisory_lock_key
 from investment_os.infrastructure.persistence.models import (
@@ -24,10 +28,15 @@ class SqlCandidateResearchStore:
         self._sessions = sessions
 
     @staticmethod
-    def _read(record: EventLogRecord) -> CandidateResearchStart:
+    def _read(record: EventLogRecord) -> CandidateResearchCommand:
         try:
             raw = record.payload_json["command"]
-            command = CandidateResearchStart.model_validate(raw)
+            model = (
+                CompleteCandidateResearchStart
+                if isinstance(raw, dict) and raw.get("schema_version") == "2.0"
+                else CandidateResearchStart
+            )
+            command = model.model_validate(raw)
             if (
                 fingerprint(raw) != record.payload_json["command_hash"]
                 or command.analysis.request_id != record.aggregate_id
@@ -37,7 +46,7 @@ class SqlCandidateResearchStore:
         except (ValueError, KeyError, TypeError):
             raise OpportunityError("CANDIDATE_INTENT_INVALID") from None
 
-    async def record(self, command: CandidateResearchStart) -> CandidateResearchStart:
+    async def record(self, command: CandidateResearchCommand) -> CandidateResearchCommand:
         identifier = command.analysis.request_id
         raw = command.model_dump(mode="json")
         digest = fingerprint(raw)
@@ -95,7 +104,7 @@ class SqlCandidateResearchStore:
             )
         return command
 
-    async def list_for(self, funnel_run_id: UUID) -> tuple[CandidateResearchStart, ...]:
+    async def list_for(self, funnel_run_id: UUID) -> tuple[CandidateResearchCommand, ...]:
         async with self._sessions() as session:
             records = (
                 await session.scalars(

@@ -16,6 +16,69 @@ from investment_os.infrastructure.universe_models import UniverseRunRecord
 pytestmark = pytest.mark.integration
 
 
+@pytest.mark.parametrize("failure", [None, "target", "source", "evidence", "version"])
+async def test_complete_scope_research_reuses_frozen_bounded_candidate(database_engine, failure):
+    from investment_os.application.analysis_runs import ANALYSIS_ROLES, AnalysisStart
+    from investment_os.application.opportunities import OpportunityError
+    from investment_os.application.opportunity_research import (
+        CandidateResearchStart,
+        CompleteCandidateResearchStart,
+        OpportunityResearchService,
+    )
+    from investment_os.infrastructure.opportunity_research import SqlCandidateResearchStore
+
+    sessions, old, snapshot, command, store, service = await prepare(database_engine, 201)
+    run = await service.run(snapshot.snapshot_id, command)
+    row = next(r for r in run.rows if r.candidate)
+    analysis = AnalysisStart(
+        request_id=uuid4(),
+        portfolio_id=uuid4(),
+        instrument_id=row.instrument_id,
+        model_profiles={role: uuid4() for role in ANALYSIS_ROLES},
+        evidence_ids=row.evidence_ids,
+        market_source_name=command.quote_source_name,
+        allow_model_calls=True,
+    )
+    if failure in {"target", "source", "evidence"}:
+        analysis = analysis.model_copy(
+            update={
+                "target": {"instrument_id": uuid4()},
+                "source": {"market_source_name": "wrong"},
+                "evidence": {"evidence_ids": ()},
+            }[failure]
+        )
+    request_model = (
+        CandidateResearchStart if failure == "version" else CompleteCandidateResearchStart
+    )
+    request = request_model(funnel_run_id=command.request_id, analysis=analysis)
+
+    class AnalysisPort:
+        calls = 0
+
+        async def find_request(self, _identifier):
+            return None
+
+        async def start(self, _command):
+            self.calls += 1
+            raise ValueError("synthetic queue unavailable")
+
+    port = AnalysisPort()
+    intents = SqlCandidateResearchStore(sessions)
+    research = OpportunityResearchService(old.funnel, intents, port, port, complete=store)
+    if failure:
+        with pytest.raises((OpportunityError, UniverseError)):
+            await research.start(request)
+        assert port.calls == 0
+        assert await intents.list_for(command.request_id) == ()
+    else:
+        # Intent survives a failed queue attempt and reads back with its v2 identity.
+        with pytest.raises(ValueError, match="synthetic queue unavailable"):
+            await research.start(request)
+        assert port.calls == 1
+        assert await intents.list_for(command.request_id) == (request,)
+        assert (await research.list_for(command.request_id))[0].status == "AWAITING_EXPLICIT_RETRY"
+
+
 async def prepare(engine, count, qualified=2):
     sessions, _store, old_service, command, query = await fixture.setup(
         engine, count=qualified, facts=True

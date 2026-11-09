@@ -151,6 +151,7 @@ def create_production_app() -> FastAPI:
             SqlCandidateResearchStore(session_factory),
             analysis_start,
             analysis_store,
+            complete=SqlCompleteScope(session_factory),
         ),
         calendar_product_service=CalendarProductService(SqlCalendarProduct(session_factory)),
         market_data_service=market_data,

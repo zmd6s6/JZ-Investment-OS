@@ -1454,7 +1454,15 @@
             "type": "boolean"
           },
           "command": {
-            "$ref": "#/components/schemas/CandidateResearchStart"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CandidateResearchStart"
+              },
+              {
+                "$ref": "#/components/schemas/CompleteCandidateResearchStart"
+              }
+            ],
+            "title": "Command"
           },
           "status": {
             "enum": [
@@ -1685,6 +1693,31 @@
           "allowed_actions"
         ],
         "title": "CenterDetail",
+        "type": "object"
+      },
+      "CompleteCandidateResearchStart": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisStart"
+          },
+          "funnel_run_id": {
+            "format": "uuid",
+            "title": "Funnel Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "2.0",
+            "default": "2.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "funnel_run_id",
+          "analysis"
+        ],
+        "title": "CompleteCandidateResearchStart",
         "type": "object"
       },
       "CompleteScopeCommand": {
@@ -12374,7 +12407,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CandidateResearchStart"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CandidateResearchStart"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CompleteCandidateResearchStart"
+                  }
+                ],
+                "title": "Command"
               }
             }
           },

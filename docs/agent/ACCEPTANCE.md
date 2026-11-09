@@ -168,8 +168,12 @@ MVP-404独立Review发现并修复超过50项配置导致后续任务饥饿：00
 
 仅在本 PR 实际经独立 Gate 合入后生效：在 `/opportunities` 保存或读取声明来源快照，填写本地报价/年报来源与本次研究条件，点击「完整筛选所选快照（v2）」。所有冻结成员均经确定性规则检查并一次全局排序，最多20个候选；页面列出全部成员的通过/排除/缺项、Evidence、来源四时间与 hash。刷新历史再读取原运行，不重新计算。未知响应保留相同请求，先刷新历史再明确重试；时点早于来源入库、身份漂移或数据异常失败关闭。旧v1仍拒绝201项；v2不改变旧运行。
 
-来源仍 SOURCE_DECLARED/UNVERIFIED，真实 market universe 及真实财务/Timing 来源未提供；不是全市场已验证或投资建议。筛选零网络/模型/费用、不启用交易；v2候选当前不能直接发起深研。合成 API/DB/UI 工程验证不代表 Owner 部署或验收，402与完整P8仍 PARTIAL、501 BLOCKED、Owner PENDING。完整证据以本项工作记录及最终PR/CI为准。
+来源仍 SOURCE_DECLARED/UNVERIFIED，真实 market universe 及真实财务/Timing 来源未提供；不是全市场已验证或投资建议。筛选零网络/模型/费用、不启用交易；v2候选原版本不能直接深研；下述逐候选接线须本次PR实际合入后生效。合成 API/DB/UI 工程验证不代表 Owner 部署或验收，402与完整P8仍 PARTIAL、501 BLOCKED、Owner PENDING。完整证据以本项工作记录及最终PR/CI为准。
 
 ### MVP-404 实际合并事实澄清
 
 此前fixed-awaiting-review仅描述历史修复状态；PR #40 最终 [独立 Gate](https://github.com/zmd6s6/JZ-Investment-OS/pull/40#issuecomment-6665931499) 后已实际合入 Release 1cd5801bdfeca69a9e7c3f540e6b0ef74ad41c7c。Owner部署与产品接受仍 PENDING。
+
+## MVP-402 完整来源候选显式研究（候选）
+
+本次PR独立Gate并实际合入后，/opportunities完整v2结果中每个有界候选可点击“明确研究此完整筛选候选”，页面定位到单候选研究面板。明确选择组合与模型、核原Evidence及费用/资料出站说明后单独同意再发起；未同意时按钮禁用，不会因筛选或展开面板调用模型。研究以新当前时点经原Analysis证据、模型、预算与Risk/Sizing闸门，完整来源声明不是金融资格证据。正常显示真实Worker进度及Shadow/缺项；无效角色失败仍保留原关联，刷新不重试。未知回执先只读刷新，原请求需要重新同意后明确重试。schema_version2.0固定原v2 run及候选，v1保持原读取。真实来源/费用未授权，Owner部署/接受PENDING、402/P8 PARTIAL、501BLOCKED；工程证据见工作项。
