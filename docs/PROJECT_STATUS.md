@@ -157,3 +157,7 @@ PR39源ff9d5eb经root独立Gate6647991606已于2026-11-05实际合入Release4b39
 ## MVP-402 完整声明范围筛选 v2（候选）
 
 本项仅在当前PR独立Gate并实际合入Release后生效：来源声明快照最多1000成员完整筛选、一次全局排序及最多20候选，逐行保留来源/Evidence/缺项、版本化请求和不可变历史。旧v1 200/201边界不变，SOURCE_DECLARED/UNVERIFIED、market_universe=NOT_PROVIDED；仅本地资料，无模型/外联/费用、交易或直接v2深研。实际工程与产品可见验证见MVP-402工作项；不等于真实来源许可、Owner部署/接受或完整402/P8，501保持BLOCKED。
+
+## MVP-402 完整来源候选→显式研究（本次候选）
+
+PR41已实际合入Release fe4ac1f；本次续接仅在独立Gate和实际合入后生效。v2完整来源有界候选经明确版本请求固定原run/Evidence与行情来源，复用现有逐次组合/模型/资料授权、预算、幂等intent与生产AnalysisWorker；不自动研究，不扩大真实来源/Policy授权。正常/失败/边界及合成API/PG/UI证据以MVP402工作项为准。旧v1/weekly兼容，v2周筛选未提供，完整402/P8及Owner接受仍未完成，501BLOCKED。
