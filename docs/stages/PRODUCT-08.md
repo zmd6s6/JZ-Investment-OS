@@ -20,6 +20,8 @@ ADR-0037与 `docs/agent/work-items/MVP-401.md` 记录边界和证据。MVP-401�
 
 ## 目标
 
+MVP402下一受限候选纵切补齐Beta§13生命周期可见性：从typed只读来源冻结可证明的初始状态及来源/时间/hash；当前底表不能证明版本历史时明确UNKNOWN，旧机会运行不回填，候选筛选不产生状态转换。v1/v2与周产物共用该只读接线，来源/未知和后续条件在页面可见。最终独立Gate与实际合入前不作为Release交付，Owner部署/Checkpoint与完整P8未接受；边界见ADR0055及工作项。
+
 在已有显式市场日历、TaskRun、咨询锁、幂等键和 Outbox 基础上，交付用户可见、可诊断的日常 AI 团队运行：数据同步、
 Portfolio/Watchlist Evidence diff、自动分析触发、每日报告、每周机会筛选和每月 Portfolio 复核。每次运行都必须保留
 输入、as-of、实际 provider/model、状态、失败/降级原因和可重放关联。

@@ -1,0 +1,23 @@
+import {test,expect} from '@playwright/test';
+import {readFileSync} from 'node:fs';
+const headers={Authorization:'Bearer synthetic-mvp402-only'};
+test('real frozen lifecycle in legacy and complete scope stays read-only with future/history unknown',async({page,request},info)=>{
+ test.skip(process.env.E2E_BASE_URL!=='http://127.0.0.1:18136','Only dedicated synthetic lifecycle stack');
+ await page.addInitScript(()=>sessionStorage.setItem('investment_os_write_token','synthetic-mvp402-only'));
+ const {ids}=JSON.parse(readFileSync(new URL('../../.runtime/lifecycle-fixture.json',import.meta.url),'utf8'));
+ const conditions={quote_source_name:'synthetic-none',fact_source_name:'synthetic-none',candidate_limit:1,min_profit_margin:'0.1',min_revenue_growth:'0.1',max_pe:'60',min_price_change:'0',industry_filter:null};
+ const response=await request.post('/api/v1/opportunities/runs',{headers,data:{...conditions,request_id:crypto.randomUUID(),instrument_ids:ids,scope_name:'合成状态来源',scope_locator:'synthetic://lifecycle',as_of:new Date().toISOString()}});
+ expect(response.ok(),await response.text()).toBe(true);const run=await response.json();
+ expect(run.rows[0].lifecycle_snapshot.status).toBe('AVAILABLE');expect(run.rows[0].lifecycle_state).toBe('WATCH');
+ expect(run.rows[1].lifecycle_snapshot.reason).toBe('STATE_HISTORY_UNAVAILABLE');expect(run.rows[2].lifecycle_snapshot.reason).toBe('STATE_NOT_YET_AVAILABLE');expect(run.candidate_ids).toEqual([]);
+ await page.goto('/opportunities');await page.getByRole('button',{name:'刷新运行历史'}).click();await page.getByRole('button',{name:new RegExp('合成状态来源')}).click();
+ await expect(page.getByText(/生命周期：WATCH/)).toBeVisible();await expect(page.getByText(/当前记录已修订/)).toBeVisible();await expect(page.getByText(/该时点尚不可用/)).toBeVisible();
+ const time=new Date(Date.now()-3600000).toISOString();
+ const command={source:{source_name:'合成生命周期集合',source_version:'v1',source_locator:'synthetic://lifecycle.csv',market:'SSE',coverage_definition:'synthetic explicit three members',observed_at:time,effective_at:time,available_at:time,declared_total:3,completeness:'DECLARED_COMPLETE'},csv_text:'market,symbol\nSSE,SYNLC0\nSSE,SYNLC1\nSSE,SYNLC2'};
+ const preview=await(await request.post('/api/v1/opportunities/universes/preview',{headers,data:command})).json();
+ const save=await request.post('/api/v1/opportunities/universes/imports',{headers,data:{...command,request_id:crypto.randomUUID(),preview_hash:preview.preview_hash,legal_use_acknowledgement:true,declaration_acknowledgement:true}});expect(save.ok(),await save.text()).toBe(true);const snapshot=await save.json();
+ const full=await request.post(`/api/v1/opportunities/universes/${snapshot.snapshot_id}/complete-runs`,{headers,data:{...conditions,request_id:crypto.randomUUID(),snapshot_hash:snapshot.content_hash,as_of:null}});expect(full.ok(),await full.text()).toBe(true);const frozen=await full.json();
+ await page.goto('/opportunities?complete_run_id='+frozen.command.request_id);await expect(page.getByRole('heading',{name:'完整筛选结果 · 3 项 / 候选 0'})).toBeVisible();await expect(page.getByText(/生命周期：WATCH/)).toBeVisible();await expect(page.getByText(/当前记录已修订/)).toBeVisible();
+ await page.reload();await expect(page.getByText(/生命周期：WATCH/)).toBeVisible();expect(await(await request.get(`/api/v1/opportunities/universes/complete-runs/${frozen.command.request_id}`)).json()).toEqual(frozen);
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath('lifecycle-390.png'),fullPage:true});
+});

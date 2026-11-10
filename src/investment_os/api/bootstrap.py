@@ -108,6 +108,8 @@ def create_production_app() -> FastAPI:
             {"BOCHA_WEB_SEARCH": data_connection_tester.provider_for}
         ),
     )
+    from investment_os.infrastructure.opportunity_lifecycle import SqlOpportunityLifecycle
+
     funnel_store = SqlOpportunityStore(session_factory)
     universe_store = SqlUniverseSnapshots(session_factory)
     opportunities = OpportunityService(
@@ -116,6 +118,7 @@ def create_production_app() -> FastAPI:
         market_data,
         funnel_store,
         scope_validator=universe_store,
+        lifecycle=SqlOpportunityLifecycle(session_factory),
     )
     valuation = PortfolioValuationService(SqlValuationInputs(session_factory), market_data)
     analysis_store = SqlAnalysisRuns(session_factory)

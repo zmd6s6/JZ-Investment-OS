@@ -17,6 +17,10 @@ from investment_os.application.market_data import (
     MarketDto,
     Text,
 )
+from investment_os.application.opportunity_lifecycle import (
+    LifecycleSnapshot,
+    OpportunityLifecyclePort,
+)
 
 Exact = Annotated[
     str, StringConstraints(strict=True, pattern=r"^-?(0|[1-9][0-9]{0,19})(\.[0-9]{1,18})?$")
@@ -166,6 +170,7 @@ class FunnelRow(MarketDto):
     name: str
     sector: str
     lifecycle_state: str | None = None
+    lifecycle_snapshot: LifecycleSnapshot | None = None
     stages: tuple[StageResult, ...]
     features: dict[str, str]
     evidence_ids: tuple[UUID, ...]
@@ -174,6 +179,16 @@ class FunnelRow(MarketDto):
     facts: FactSnapshot | None = None
     candidate: bool = False
     next_condition: str
+
+    @model_validator(mode="after")
+    def lifecycle_provenance(self) -> Self:
+        snapshot = self.lifecycle_snapshot
+        if snapshot is not None and (
+            snapshot.instrument_id != self.instrument_id
+            or self.lifecycle_state != (snapshot.state.value if snapshot.state else None)
+        ):
+            raise ValueError("lifecycle row provenance mismatch")
+        return self
 
 
 class FunnelRun(MarketDto):
@@ -211,6 +226,8 @@ class FunnelRun(MarketDto):
         if {r.instrument_id for r in self.rows if r.candidate} != set(self.candidate_ids):
             raise ValueError("candidate membership mismatch")
         for row in self.rows:
+            if row.lifecycle_snapshot and row.lifecycle_snapshot.as_of != self.query.as_of:
+                raise ValueError("lifecycle as-of mismatch")
             if row.candidate and (
                 len(set(row.evidence_ids)) < 2
                 or {stage.stage for stage in row.stages if stage.status == "PASSED"}
@@ -435,7 +452,7 @@ def bound_global_candidates(
                             reason="WITHIN_LIMIT" if selected else "CANDIDATE_LIMIT_REACHED",
                         ),
                     ),
-                    "next_condition": "DEEP_RESEARCH_NOT_PROVIDED"
+                    "next_condition": "EXPLICIT_RESEARCH_CONSENT_REQUIRED"
                     if selected
                     else "OUTSIDE_CURRENT_RESEARCH_LIMIT",
                 }
@@ -454,6 +471,7 @@ class OpportunityService:
         *,
         now: Callable[[], datetime] | None = None,
         scope_validator: OpportunityScopeValidator | None = None,
+        lifecycle: OpportunityLifecyclePort | None = None,
     ):
         self._universe = universe
         self._facts = facts
@@ -461,6 +479,7 @@ class OpportunityService:
         self._runs = runs
         self._now = now or (lambda: datetime.now(UTC))
         self._scope_validator = scope_validator
+        self._lifecycle = lifecycle
 
     async def save_facts(self, command: ManualScreenFacts) -> FactReceipt:
         await self._universe.resolve((command.instrument_id,))
@@ -564,7 +583,26 @@ class OpportunityService:
                     or f.expires_at <= query.as_of
                 ):
                     facts = FactSnapshot(status="INVALID")
-            rows.append(evaluate(entry, quote, facts, query))
+            lifecycle = (
+                await self._lifecycle.read_lifecycle(entry.instrument_id, query.as_of)
+                if self._lifecycle is not None
+                else LifecycleSnapshot(
+                    instrument_id=entry.instrument_id,
+                    as_of=query.as_of,
+                    status="UNKNOWN",
+                    reason="LIFECYCLE_PORT_NOT_PROVIDED",
+                )
+            )
+            if lifecycle.instrument_id != entry.instrument_id or lifecycle.as_of != query.as_of:
+                raise OpportunityError("LIFECYCLE_RESPONSE_MISMATCH")
+            rows.append(
+                evaluate(entry, quote, facts, query).model_copy(
+                    update={
+                        "lifecycle_state": lifecycle.state.value if lifecycle.state else None,
+                        "lifecycle_snapshot": lifecycle,
+                    }
+                )
+            )
         return rows
 
     async def get_run(self, run_id: UUID) -> FunnelRun | None:
