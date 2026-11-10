@@ -253,10 +253,11 @@ work_items:
   - id: MVP-402
     title: Deterministic opportunity funnel and Opportunities UI
     priority: 2
-    status: REVIEW
+    status: INTEGRATED
     claim_branch: agent/MVP-402
-    claim_owner: pr-02-review-and-next-stage-monitor / mvp402_lifecycle_continue
-    # PR25/29/30/32/34/41/42/43切片已合入；生命周期只读快照仅随本PR实际合入生效，整体仍PARTIAL。
+    claim_owner: pr-02-review-and-next-stage-monitor / root
+    # 仅当前已实现的本地SOURCE_DECLARED范围：PR41–44均经独立Gate实际合入，最新a3a0d04。
+    # INTEGRATED不是DONE/Owner接受；真实market universe NOT_PROVIDED、完整402/P8仍PARTIAL。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:
@@ -274,6 +275,7 @@ work_items:
     title: Full Beta E2E and checkpoint D
     priority: 3
     status: BLOCKED
+    # PRODUCT-09要求P5–P8 Owner接受；402本地工程INTEGRATED不满足该人工前提或完整Beta矩阵。
     stage: PRODUCT-09
     checkpoint: D
     depends_on:

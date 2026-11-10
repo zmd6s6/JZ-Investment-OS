@@ -4,9 +4,9 @@
 
 ## 当前快照
 
-MVP402生命周期只读来源快照续接候选：新手动v1/v2及本地周结果通过typed端口冻结可证实的初始状态与来源ID/version/时间/hash，明确缺失/未来/当前行已修订但无法恢复历史时UNKNOWN，不从候选推断WATCH/BUYABLE、不写状态。旧历史不回填；新候选后续条件提示逐次明确研究同意。真实独立合成API/PG/Edge已演示v1/v2状态/未知/刷新与390宽，完整Python及最终CI/Gate待核；仅随本功能PR实际合入生效，Owner部署/产品接受和完整402/P8仍未完成。
+MVP-402当前已实现的本地声明范围为 **INTEGRATED / ACCEPTANCE_READY**：PR41完整成员筛选、PR42逐候选显式研究、PR43本地周筛选、PR44生命周期来源快照均经独立Gate实际合入Release，最新 `a3a0d04`。`/opportunities`可操作入口、正常/失败/边界及真实API/DB/Worker/浏览器证据已逐项核对，当前受限范围没有待重复实现的安全工程项。精确PR/HEAD/Gate与操作见 `docs/agent/work-items/MVP-402.md` 和 `docs/agent/ACCEPTANCE.md` 当前表。
 
-MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42）上增加独立schema2.0配置/API与完整成员Worker路径；默认暂停、显式完整周/日历/本地零费用授权，201–1000成员使用原全局排序与最多20候选。旧v1读写/Worker仍200边界。真实隔离API/PG/生产Worker/Edge已演示201行、周产物/暂停/刷新/历史和不完整周拒绝；新旧PG29通过。源码fb257225的完整1006及六CI已通过，最后证据提交与独立Gate另核；本项仅实际合入后生效，完整402/P8、501与Owner状态不提前完成。
+本地工程集成不等于完整产品或Owner接受：来源SOURCE_DECLARED/UNVERIFIED、真实market universe及真实财务/Timing提供方NOT_PROVIDED，实际真实调用另需有效许可/成本/隐私授权，Owner部署未执行。完整402/P8仍PARTIAL，MVP-402不标DONE；P8/Checkpoint PENDING。MVP-501依PRODUCT-09的P5–P8 Owner接受前提及完整Beta矩阵仍BLOCKED。
 
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
@@ -17,7 +17,7 @@ MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 自治控制面：`docs/agent/RELEASE.md` + `docs/agent/WORK_QUEUE.yaml`
-- 上次状态更新：`2026-11-05`
+- 上次状态更新：`2026-11-10`
 
 ## 已建立
 
@@ -165,3 +165,11 @@ PR39源ff9d5eb经root独立Gate6647991606已于2026-11-05实际合入Release4b39
 ## MVP-402 完整来源候选→显式研究（本次候选）
 
 PR41已实际合入Release fe4ac1f；本次续接仅在独立Gate和实际合入后生效。v2完整来源有界候选经明确版本请求固定原run/Evidence与行情来源，复用现有逐次组合/模型/资料授权、预算、幂等intent与生产AnalysisWorker；不自动研究，不扩大真实来源/Policy授权。正常/失败/边界及合成API/PG/UI证据以MVP402工作项为准。旧v1/weekly兼容，v2周筛选未提供，完整402/P8及Owner接受仍未完成，501BLOCKED。
+
+## MVP-402交付前候选记录（历史保留）
+
+以下是PR43/44实现时的待核口径，保留用于审计；当前集成状态以上方当前快照与有链接的收口表为准，不据此重复开发。
+
+MVP402生命周期只读来源快照续接候选：新手动v1/v2及本地周结果通过typed端口冻结可证实的初始状态与来源ID/version/时间/hash，明确缺失/未来/当前行已修订但无法恢复历史时UNKNOWN，不从候选推断WATCH/BUYABLE、不写状态。旧历史不回填；新候选后续条件提示逐次明确研究同意。真实独立合成API/PG/Edge已演示v1/v2状态/未知/刷新与390宽，完整Python及最终CI/Gate待核；仅随本功能PR实际合入生效，Owner部署/产品接受和完整402/P8仍未完成。
+
+MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42）上增加独立schema2.0配置/API与完整成员Worker路径；默认暂停、显式完整周/日历/本地零费用授权，201–1000成员使用原全局排序与最多20候选。旧v1读写/Worker仍200边界。真实隔离API/PG/生产Worker/Edge已演示201行、周产物/暂停/刷新/历史和不完整周拒绝；新旧PG29通过。源码fb257225的完整1006及六CI已通过，最后证据提交与独立Gate另核；本项仅实际合入后生效，完整402/P8、501与Owner状态不提前完成。

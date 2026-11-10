@@ -6,6 +6,12 @@
 - 相关 ADR：`ADR-0003`、`ADR-0005`、`ADR-0008`、`ADR-0010`、`ADR-0012`、`ADR-0015`、`ADR-0016`
 - 安全基线：`auto_trade=false`；调度只产生研究、分析和报告工件，不产生订单
 
+## MVP-402 当前受限范围集成记录（2026-11-10）
+
+实际Release `a3a0d04`已包含PR41完整来源声明最多1000成员/全局最多20候选、PR42逐候选显式授权研究、PR43默认暂停的本地周筛选/真实Worker产物、PR44生命周期只读来源快照。四项分别经独立Gate [41](https://github.com/zmd6s6/JZ-Investment-OS/pull/41#issuecomment-6738456782)、[42](https://github.com/zmd6s6/JZ-Investment-OS/pull/42#issuecomment-6743489395)、[43](https://github.com/zmd6s6/JZ-Investment-OS/pull/43#issuecomment-6751583318)、[44](https://github.com/zmd6s6/JZ-Investment-OS/pull/44#issuecomment-6757832502)后实际合入，本地声明范围INTEGRATED且具可见验收入口，不再是等待实现/集成的重复任务。后文旧候选章节保留当时记录，不覆盖本当前事实。
+
+该受限范围不替代本阶段完整market universe/真实数据/人工接受契约：SOURCE_DECLARED/UNVERIFIED、真实全集及真实财务/Timing提供方NOT_PROVIDED，Owner部署与Checkpoint PENDING；不标MVP402 DONE或本阶段ACCEPTED。MVP501依PRODUCT09的P5–P8 Owner接受前提仍BLOCKED。具体可操作步骤与失败表现见 `docs/agent/ACCEPTANCE.md` 当前表，无自动模型扇出、Strategy激活或交易。
+
 ## MVP-401 独立纵切进展（2026-10-27）
 
 MVP-401=INTEGRATED，此记录随PR #23通过最终独立Gate合入Release生效。交付可审计UI日历导入、固定市场时区 / UTC、只追加来源与会话、版本冲突保护、默认暂停、独立STATUS_ONLY启停和Worker运行记录。

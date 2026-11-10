@@ -26,7 +26,7 @@
 | Decision Center（MVP-301条件式组件切片） | `/decisions` | 组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效；真实列表/完整合法Decision链审阅/具名批准拒绝撤销/手工facts已合成验证。整体PARTIAL：现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批；完整P7/Checkpoint B仍PENDING，MVP-501继续BLOCKED | PENDING |
 | Daily Runtime（团队分析 / 周月复核） | product UI | ENGINEERING baseline only；MVP-401仅交付下列日历状态报告，完整团队运行仍未接通 | PENDING |
 | 日历状态报告（MVP-401独立切片） | `/calendar`，设置页提供入口 | MVP-401=INTEGRATED / ACCEPTANCE_READY，此记录随PR #23通过最终独立Gate合入Release生效。91801d0已获独立28项SQL / 1项恢复浏览器复验；仅STATUS_ONLY，不含团队分析或完整Daily Runtime | PENDING |
-| Opportunities | `/opportunities` | PARTIAL — PR25有限范围/人工年报/确定性漏斗已集成；后续单候选显式研究已真实接线验证，集成记录仅随后续PR独立Gate并合入生效；全市场未提供；本地周筛选续接待独立Gate/合入 | PENDING |
+| Opportunities（本地声明范围） | `/opportunities` | INTEGRATED / ACCEPTANCE_READY — PR41–44已独立Gate后实际合入，完整声明范围筛选、逐候选显式研究、本地周筛选及只读生命周期可按下述步骤验收。仅Release构建；Owner部署未执行，真实全集NOT_PROVIDED、整体402/P8仍PARTIAL | PENDING |
 
 ## Checkpoint A 验收步骤
 
@@ -87,7 +87,20 @@ MVP-201已完成隔离合成环境UI / API / DB接线验证，并由PR #22合入
 依次在资产组合录入现金和分仓、人工行情记录同一来源名称有效CNY报价，再到估值对账选择组合/来源并读取。现金100、Core10/Tactical2、价19.25应得到NAV331和分仓192.5/38.5；刷新明确重读可复验。检查Evidence与UTC时间，以及政策/历史波动/流动性/预占容量等缺口；不能生成建议数量或投资动作。缺价/过期不给完整NAV/权重，非CNY整组缺FX阻断。Owner未接受Checkpoint，完整分析仍属203/204。证据见docs/agent/work-items/MVP-202.md。
 
 
-## 有限范围机会漏斗（MVP-402，PARTIAL）
+## MVP-402 当前本地声明范围（INTEGRATED / ACCEPTANCE_READY）
+
+截至实际Release `a3a0d04`：Engineering、Integrated及User Visible工程层均有独立合成证据，当前受限范围已集成；这不是Owner部署/产品接受或完整全市场承诺。来源始终SOURCE_DECLARED/UNVERIFIED，真实market universe与真实财务/Timing提供方仍NOT_PROVIDED，真实调用仍需具体有效许可与成本/隐私授权。MVP-402不标DONE，完整P8/Checkpoint PENDING；MVP-501依PRODUCT-09的P5–P8 Owner接受前提继续BLOCKED。
+
+| 已合入能力 | 可执行入口与预期可见结果 | 失败与安全边界 | 独立Gate |
+|---|---|---|---|
+| 完整来源筛选（PR41） | `/opportunities`来源集合导入/确认后填写本地报价、事实来源及条件，点“完整筛选所选快照（v2）”；显示全部成员、逐层原因/缺项、一次全局最多20候选及来源hash，刷新读取原历史 | 最多1000，早于来源/入库时点失败；不截断，不把声明当真实全集，零模型扇出 | [Gate6738456782](https://github.com/zmd6s6/JZ-Investment-OS/pull/41#issuecomment-6738456782) |
+| 显式候选研究（PR42） | 原有界候选点“明确研究此完整筛选候选”，核对组合、模型、资料及费用并逐次同意；显示真实Worker进度/终态，刷新保持原运行关联 | 非候选/错版本/缺Evidence或同意拒绝；失败/未知先只读核对，再明确同内容重试，不自动付费重播 | [Gate6743489395](https://github.com/zmd6s6/JZ-Investment-OS/pull/42#issuecomment-6743489395) |
+| 本地周筛选（PR43） | 同页周面板从完整结果选模板，确认完整自然周/日历/仅本地零费用后保存暂停；核对版本后明确启用，到期由Worker写真实周产物；暂停/刷新后历史可读 | 不完整周、未授权写入、前视/换日历/暂停竞态失败关闭；零外网/模型/费用，不自动研究或交易 | [Gate6751583318](https://github.com/zmd6s6/JZ-Investment-OS/pull/43#issuecomment-6751583318) |
+| 生命周期来源（PR44） | 新查询展开每行，显示可核初始状态、来源ID/version/UTC时间/hash或具名UNKNOWN；重读旧运行保持原快照 | 未来/修订后无法恢复历史/无效引用不推断状态；旧运行不回填，候选和BUYABLE展示均不是当前买入或批准资格 | [Gate6757832502](https://github.com/zmd6s6/JZ-Investment-OS/pull/44#issuecomment-6757832502) |
+
+独立真实API/PG/Worker及浏览器证据的精确HEAD、命令与适用边界见上述Gate和 `work-items/MVP-402.md` 当前收口表。已停止的合成栈不是Owner可访问部署；所有者验收需在其明确指定环境进行。以下候选/待核措辞保留当次工程历史，当前集成事实以上述表为准。
+
+## 有限范围机会漏斗（历史工程记录，完整产品仍PARTIAL）
 
 生命周期只读快照候选（仅本功能PR实际合入后生效）：`/opportunities`新建有限范围或完整来源查询，展开每行。已存在且可核对初始记录应显示实际状态、instrument_state行ID/版本、生效与记录UTC时间、筛选时点和来源摘要；Thesis/Decision引用仅当同标的且当时存在才保留。无状态、未来状态、来源引用损坏或当前行已修订但无完整可恢复历史分别明确UNKNOWN及原因。候选身份和状态展示分开，显示BUYABLE也不代表当前可买、Risk/Policy或批准通过。刷新/读取历史仍显示原冻结状态，不以当前状态回填；旧运行明确“历史运行未冻结生命周期”。本地周产物按原as-of冻结相同内容，点击原完整结果可读。
 
