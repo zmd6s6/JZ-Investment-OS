@@ -4,9 +4,9 @@
 
 ## 当前快照
 
-MVP402生命周期只读来源快照续接候选：新手动v1/v2及本地周结果通过typed端口冻结可证实的初始状态与来源ID/version/时间/hash，明确缺失/未来/当前行已修订但无法恢复历史时UNKNOWN，不从候选推断WATCH/BUYABLE、不写状态。旧历史不回填；新候选后续条件提示逐次明确研究同意。真实独立合成API/PG/Edge已演示v1/v2状态/未知/刷新与390宽，完整Python及最终CI/Gate待核；仅随本功能PR实际合入生效，Owner部署/产品接受和完整402/P8仍未完成。
+MVP-402当前已实现的本地声明范围为 **INTEGRATED / ACCEPTANCE_READY**：PR41完整成员筛选、PR42逐候选显式研究、PR43本地周筛选、PR44生命周期来源快照均经独立Gate实际合入Release，最新 `a3a0d04`。`/opportunities`可操作入口、正常/失败/边界及真实API/DB/Worker/浏览器证据已逐项核对，当前受限范围没有待重复实现的安全工程项。精确PR/HEAD/Gate与操作见 `docs/agent/work-items/MVP-402.md` 和 `docs/agent/ACCEPTANCE.md` 当前表。
 
-MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42）上增加独立schema2.0配置/API与完整成员Worker路径；默认暂停、显式完整周/日历/本地零费用授权，201–1000成员使用原全局排序与最多20候选。旧v1读写/Worker仍200边界。真实隔离API/PG/生产Worker/Edge已演示201行、周产物/暂停/刷新/历史和不完整周拒绝；新旧PG29通过。源码fb257225的完整1006及六CI已通过，最后证据提交与独立Gate另核；本项仅实际合入后生效，完整402/P8、501与Owner状态不提前完成。
+本地工程集成不等于完整产品或Owner接受：来源SOURCE_DECLARED/UNVERIFIED、真实market universe及真实财务/Timing提供方NOT_PROVIDED，实际真实调用另需有效许可/成本/隐私授权，Owner部署未执行。Queue整个MVP-402依自主协议§11保持REVIEW/PARTIAL，不标DONE；REVIEW表示完整项尚未闭合，不意味着有开放功能PR或要重复已集成本地切片。完整P8/Checkpoint PENDING。MVP-501依PRODUCT-09的P5–P8 Owner接受前提及完整Beta矩阵仍BLOCKED。
 
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`
@@ -17,7 +17,7 @@ MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42
 - 实盘交易：`FORBIDDEN`
 - 权威规范：`INVESTMENT_OS_MASTER_SPEC.md`
 - 自治控制面：`docs/agent/RELEASE.md` + `docs/agent/WORK_QUEUE.yaml`
-- 上次状态更新：`2026-11-05`
+- 上次状态更新：`2026-11-10`
 
 ## 已建立
 
@@ -27,9 +27,9 @@ MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42
 
 - PR #26已于2026-10-28外部合入Release 9c8b8cb；root随后对最终46385a4独立复跑64项及真实API/DB/Worker/UI 4/4，合入后审查见[6466069735](https://github.com/zmd6s6/JZ-Investment-OS/pull/26#issuecomment-6466069735)。三P1、模型最后出站和台账反馈在最终源码已关闭，不冒充root合并前Gate。未部署Owner。
 
-- MVP-402来源声明快照本轮受限续接已实现，独立Gate/Release合入待核：CSV全行预览与合法使用/声明确认、不可变来源/成员/四时间/hash与Evidence、精确全成员绑定及运行来源可见。固定SOURCE_DECLARED/UNVERIFIED、market_universe=NOT_PROVIDED；201可导入查看但拒绝筛选，200/20原边界不变。生产API和weekly factory共同拒绝早于成员导入的历史业务时点，失败不产周结果。只用合成来源，零外网/模型/费用；不是全市场覆盖证明，402仍REVIEW/PARTIAL、501BLOCKED、OwnerPENDING。本轮实际验证见MVP-402最新来源快照记录，不借用旧切片或外部PR31/33状态。
-- MVP-402本地周筛选续接已实现（本PR独立Gate/合入仍待）：`/opportunities` 第6区提供版本化冻结范围/来源/条件/完整日历覆盖、默认暂停与独立启停；生产Worker只读本地行情/事实，固定零外网/模型/费用，以完整周边界与日历会话生成幂等有界候选及运行历史。此为有限范围工程纵切，非全市场universe或完整P8；402仍REVIEW/PARTIAL，501仍BLOCKED，Owner部署/接受PENDING。当前验证以工作项最新周筛选记录为准，不借用PR29旧证据。
-- MVP-402后续切片在已合入203/204之上接通 `/opportunities` 单候选显式研究：先校验原漏斗有界候选/Evidence/来源，持久记录明确请求，再经真实AnalysisRun/Worker排队；页面保留来源、进度、失败与不可执行影子结论。真实API/DB/Worker/loopback模型Chrome三场景3/3（21.5秒），原筛选历史不变；排队失败/未知响应只能只读查询或明确同请求恢复，不自动重播付费调用。已由PR #29通过独立Gate合入Release39f5738，完整402/P8仍PARTIAL，全市场未提供；本地周筛选续接见上一条，Owner PENDING。证据见MVP-402工作项。
+- 【历史实现记录；当前以首节收口状态为准】MVP-402来源声明快照本轮受限续接已实现，独立Gate/Release合入待核：CSV全行预览与合法使用/声明确认、不可变来源/成员/四时间/hash与Evidence、精确全成员绑定及运行来源可见。固定SOURCE_DECLARED/UNVERIFIED、market_universe=NOT_PROVIDED；201可导入查看但拒绝筛选，200/20原边界不变。生产API和weekly factory共同拒绝早于成员导入的历史业务时点，失败不产周结果。只用合成来源，零外网/模型/费用；不是全市场覆盖证明，402仍REVIEW/PARTIAL、501BLOCKED、OwnerPENDING。本轮实际验证见MVP-402最新来源快照记录，不借用旧切片或外部PR31/33状态。
+- 【历史实现记录；当前以首节收口状态为准】MVP-402本地周筛选续接已实现（本PR独立Gate/合入仍待）：`/opportunities` 第6区提供版本化冻结范围/来源/条件/完整日历覆盖、默认暂停与独立启停；生产Worker只读本地行情/事实，固定零外网/模型/费用，以完整周边界与日历会话生成幂等有界候选及运行历史。此为有限范围工程纵切，非全市场universe或完整P8；402仍REVIEW/PARTIAL，501仍BLOCKED，Owner部署/接受PENDING。当前验证以工作项最新周筛选记录为准，不借用PR29旧证据。
+- 【历史实现记录；当前以首节收口状态为准】MVP-402后续切片在已合入203/204之上接通 `/opportunities` 单候选显式研究：先校验原漏斗有界候选/Evidence/来源，持久记录明确请求，再经真实AnalysisRun/Worker排队；页面保留来源、进度、失败与不可执行影子结论。真实API/DB/Worker/loopback模型Chrome三场景3/3（21.5秒），原筛选历史不变；排队失败/未知响应只能只读查询或明确同请求恢复，不自动重播付费调用。已由PR #29通过独立Gate合入Release39f5738，完整402/P8仍PARTIAL，全市场未提供；本地周筛选续接见上一条，Owner PENDING。证据见MVP-402工作项。
 
 - MVP-204已由PR27实际合入Release 36aed8d：`/analysis`只读历史追溯定位当次冻结Evidence，来源、四业务时间、expiry/hash、Thesis、分仓/政策/特征、两轮角色与闸门缺项可读。读取不重取资料或调用模型，失败清空旧运行展示；完整Risk/Sizing/可审批Decision与Owner接受未完成。实际验证保留其源码归属，见 `docs/agent/work-items/MVP-204.md`。
 
@@ -37,7 +37,7 @@ MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42
 
 - MVP-301条件式组件INTEGRATED仅随PR #28通过最终独立Gate并实际合入Release生效：`/decisions`真实列表/完整合法Decision链审阅、具名确认批准/拒绝/撤销与完整手工事实已接通，同事务追加审计及Outbox。独立Review发现旧源码有效期竞态、引用链准入与跨Decision幂等问题后已同批修复；实际合并Release39f5738的最终候选实测674后端/87.56%、147集成、95前端和新源码中心3条真实合成浏览器。旧8cf/root旧34/3仅保留历史；新HEAD CI与独立Gate另核。现Analysis仍仅Shadow、Risk UNKNOWN/Sizing BLOCKED，不可审批，不补真实Policy或默认数量；完整P7/Checkpoint B、Owner部署与接受仍PENDING，MVP-501继续BLOCKED。细节见MVP-301工作项。
 
-- MVP-402的PR25历史切片已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；当时真实UI / API / DB合成验证21场景通过，整体PARTIAL：全市场、深研、周定时当时未提供。候选研究续接见上条，不把历史数字当新实现验证，详见 `docs/agent/work-items/MVP-402.md`。
+- 【历史实现记录；当前以首节收口状态为准】MVP-402的PR25历史切片已接通有限本地范围、人工自然年年报事实、确定性四指标与有界候选 / 历史页面；当时真实UI / API / DB合成验证21场景通过，整体PARTIAL：全市场、深研、周定时当时未提供。候选研究续接见上条，不把历史数字当新实现验证，详见 `docs/agent/work-items/MVP-402.md`。
 
 - MVP-202已实现并验证只读 `/valuation` 参考估值与对账：冻结P5现金/分仓，追溯人工报价Evidence，缺价/FX阻断完整NAV；Sizing缺项可见且不生成建议数量。实现时Windows后端458/85.42%、集成45、前端53与完整浏览器21项通过；主代理独立复验32项unit/PG与3项真实浏览器通过。已安全同步PR #23后的Release，合并代码重跑486/85.94%、集成58、前端62、真实浏览器22项通过；INTEGRATED及MVP-203 READY仅随PR #24合入Release生效，最终CI/Gate由独立方核对；未完成P6或Owner验收，实际证据见 `docs/agent/work-items/MVP-202.md`。
 
@@ -165,3 +165,11 @@ PR39源ff9d5eb经root独立Gate6647991606已于2026-11-05实际合入Release4b39
 ## MVP-402 完整来源候选→显式研究（本次候选）
 
 PR41已实际合入Release fe4ac1f；本次续接仅在独立Gate和实际合入后生效。v2完整来源有界候选经明确版本请求固定原run/Evidence与行情来源，复用现有逐次组合/模型/资料授权、预算、幂等intent与生产AnalysisWorker；不自动研究，不扩大真实来源/Policy授权。正常/失败/边界及合成API/PG/UI证据以MVP402工作项为准。旧v1/weekly兼容，v2周筛选未提供，完整402/P8及Owner接受仍未完成，501BLOCKED。
+
+## MVP-402交付前候选记录（历史保留）
+
+以下是PR43/44实现时的待核口径，保留用于审计；当前集成状态以上方当前快照与有链接的收口表为准，不据此重复开发。
+
+MVP402生命周期只读来源快照续接候选：新手动v1/v2及本地周结果通过typed端口冻结可证实的初始状态与来源ID/version/时间/hash，明确缺失/未来/当前行已修订但无法恢复历史时UNKNOWN，不从候选推断WATCH/BUYABLE、不写状态。旧历史不回填；新候选后续条件提示逐次明确研究同意。真实独立合成API/PG/Edge已演示v1/v2状态/未知/刷新与390宽，完整Python及最终CI/Gate待核；仅随本功能PR实际合入生效，Owner部署/产品接受和完整402/P8仍未完成。
+
+MVP402完整来源v2本地周筛选续接候选：在实际Release0dce23b（PR42）上增加独立schema2.0配置/API与完整成员Worker路径；默认暂停、显式完整周/日历/本地零费用授权，201–1000成员使用原全局排序与最多20候选。旧v1读写/Worker仍200边界。真实隔离API/PG/生产Worker/Edge已演示201行、周产物/暂停/刷新/历史和不完整周拒绝；新旧PG29通过。源码fb257225的完整1006及六CI已通过，最后证据提交与独立Gate另核；本项仅实际合入后生效，完整402/P8、501与Owner状态不提前完成。
