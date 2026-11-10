@@ -6,7 +6,7 @@
 
 MVP-402当前已实现的本地声明范围为 **INTEGRATED / ACCEPTANCE_READY**：PR41完整成员筛选、PR42逐候选显式研究、PR43本地周筛选、PR44生命周期来源快照均经独立Gate实际合入Release，最新 `a3a0d04`。`/opportunities`可操作入口、正常/失败/边界及真实API/DB/Worker/浏览器证据已逐项核对，当前受限范围没有待重复实现的安全工程项。精确PR/HEAD/Gate与操作见 `docs/agent/work-items/MVP-402.md` 和 `docs/agent/ACCEPTANCE.md` 当前表。
 
-本地工程集成不等于完整产品或Owner接受：来源SOURCE_DECLARED/UNVERIFIED、真实market universe及真实财务/Timing提供方NOT_PROVIDED，实际真实调用另需有效许可/成本/隐私授权，Owner部署未执行。完整402/P8仍PARTIAL，MVP-402不标DONE；P8/Checkpoint PENDING。MVP-501依PRODUCT-09的P5–P8 Owner接受前提及完整Beta矩阵仍BLOCKED。
+本地工程集成不等于完整产品或Owner接受：来源SOURCE_DECLARED/UNVERIFIED、真实market universe及真实财务/Timing提供方NOT_PROVIDED，实际真实调用另需有效许可/成本/隐私授权，Owner部署未执行。Queue整个MVP-402依自主协议§11保持REVIEW/PARTIAL，不标DONE；REVIEW表示完整项尚未闭合，不意味着有开放功能PR或要重复已集成本地切片。完整P8/Checkpoint PENDING。MVP-501依PRODUCT-09的P5–P8 Owner接受前提及完整Beta矩阵仍BLOCKED。
 
 - 项目：Personal AI Investment OS
 - 当前模式：`DEVELOPMENT`

@@ -10,7 +10,7 @@
 
 实际Release `a3a0d04`已包含PR41完整来源声明最多1000成员/全局最多20候选、PR42逐候选显式授权研究、PR43默认暂停的本地周筛选/真实Worker产物、PR44生命周期只读来源快照。四项分别经独立Gate [41](https://github.com/zmd6s6/JZ-Investment-OS/pull/41#issuecomment-6738456782)、[42](https://github.com/zmd6s6/JZ-Investment-OS/pull/42#issuecomment-6743489395)、[43](https://github.com/zmd6s6/JZ-Investment-OS/pull/43#issuecomment-6751583318)、[44](https://github.com/zmd6s6/JZ-Investment-OS/pull/44#issuecomment-6757832502)后实际合入，本地声明范围INTEGRATED且具可见验收入口，不再是等待实现/集成的重复任务。后文旧候选章节保留当时记录，不覆盖本当前事实。
 
-该受限范围不替代本阶段完整market universe/真实数据/人工接受契约：SOURCE_DECLARED/UNVERIFIED、真实全集及真实财务/Timing提供方NOT_PROVIDED，Owner部署与Checkpoint PENDING；不标MVP402 DONE或本阶段ACCEPTED。MVP501依PRODUCT09的P5–P8 Owner接受前提仍BLOCKED。具体可操作步骤与失败表现见 `docs/agent/ACCEPTANCE.md` 当前表，无自动模型扇出、Strategy激活或交易。
+该受限范围不替代本阶段完整market universe/真实数据/人工接受契约：SOURCE_DECLARED/UNVERIFIED、真实全集及真实财务/Timing提供方NOT_PROVIDED，Owner部署与Checkpoint PENDING；Queue整个MVP402依协议§11仍REVIEW/PARTIAL，不标DONE或本阶段ACCEPTED。REVIEW不是要求重复已集成本地切片或虚构新功能。MVP501依PRODUCT09的P5–P8 Owner接受前提仍BLOCKED。具体可操作步骤与失败表现见 `docs/agent/ACCEPTANCE.md` 当前表，无自动模型扇出、Strategy激活或交易。
 
 ## MVP-401 独立纵切进展（2026-10-27）
 

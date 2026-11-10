@@ -89,7 +89,7 @@ MVP-201已完成隔离合成环境UI / API / DB接线验证，并由PR #22合入
 
 ## MVP-402 当前本地声明范围（INTEGRATED / ACCEPTANCE_READY）
 
-截至实际Release `a3a0d04`：Engineering、Integrated及User Visible工程层均有独立合成证据，当前受限范围已集成；这不是Owner部署/产品接受或完整全市场承诺。来源始终SOURCE_DECLARED/UNVERIFIED，真实market universe与真实财务/Timing提供方仍NOT_PROVIDED，真实调用仍需具体有效许可与成本/隐私授权。MVP-402不标DONE，完整P8/Checkpoint PENDING；MVP-501依PRODUCT-09的P5–P8 Owner接受前提继续BLOCKED。
+截至实际Release `a3a0d04`：Engineering、Integrated及User Visible工程层均有独立合成证据，当前受限范围已集成；这不是Owner部署/产品接受或完整全市场承诺。来源始终SOURCE_DECLARED/UNVERIFIED，真实market universe与真实财务/Timing提供方仍NOT_PROVIDED，真实调用仍需具体有效许可与成本/隐私授权。Queue整个MVP-402依协议§11保持REVIEW/PARTIAL，不标DONE；该REVIEW不表示开放功能PR或应重复上述已集成切片。完整P8/Checkpoint PENDING；MVP-501依PRODUCT-09的P5–P8 Owner接受前提继续BLOCKED。
 
 | 已合入能力 | 可执行入口与预期可见结果 | 失败与安全边界 | 独立Gate |
 |---|---|---|---|
