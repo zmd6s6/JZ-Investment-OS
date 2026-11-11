@@ -336,9 +336,9 @@ work_items:
   - id: MVP-407
     title: Reachable complete Decision Center history and exact human-review navigation
     priority: 0
-    status: IN_PROGRESS
+    status: REVIEW
     claim_branch: agent/MVP-407
-    claim_owner: pr-02-review-and-next-stage-monitor / stagnation_planner
+    claim_owner: pr-02-review-and-next-stage-monitor / root
     stage: PRODUCT-07
     checkpoint: B
     depends_on:

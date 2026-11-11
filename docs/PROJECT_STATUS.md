@@ -1,8 +1,12 @@
 # 项目状态
 
-## MVP-406 每日公平扫描与历史候选
+## MVP-407 完整 Decision 历史候选
 
-Planner48已实际合入Release f3d30318后由独立agent/MVP-406 Claim开发，唯一功能PR49提供两个持久有界Daily扫描、真实分页/单ID历史、过期审计摘要和旧授权明确暂停/撤销。新库106配置/历史、51并发、真实Shadow收口及坏源隔离、迁移升降升和独立生产API/PG/Worker/Edge可见路径已有实际证据，完整检查与最终新HEAD独立Gate仍待完成，不能提前当Release集成或Owner接受。范围、实测/失败及恢复见`docs/agent/work-items/MVP-406.md`，MVP402/501和投资治理保持原边界。
+既有Draft PR51已在root持久交接后接续恢复，业务源码a5e4296提供真实分页、独立精确ID和刷新原详情、失败清空动作及当前资格门禁。真实PG相关70项、零写入补测1项、前端141项和生产API/PG/Edge110记录4场景通过，候选全量Python1050通过，最终新HEAD CI/独立Gate仍待完成，Owner部署与接受PENDING。实际限制、复现和失败恢复见 `docs/agent/work-items/MVP-407.md`。
+
+## MVP-406 每日公平扫描与历史已集成
+
+PR49已由外部执行者于2026-11-11T16:09Z实际合入Release `e7b8ac5a5a14b4ee8570d8712c3b87a456141029`，MVP406工程链为INTEGRATED / ACCEPTANCE_READY。两个持久有界Daily扫描、真实分页/单ID历史、过期审计摘要和旧授权明确暂停/撤销已接通。root随后核对最终46e6的六CI绿色，并独立复验47项PG、两项真实Worker/Edge及迁移保留52报告hash通过，记录[6802776134](https://github.com/zmd6s6/JZ-Investment-OS/pull/49#issuecomment-6802776134)。该核验发生于外部合入之后，不追认为合入前Gate。Owner部署与产品接受仍PENDING。原实现验证及历史记录保留于 `docs/agent/work-items/MVP-406.md`，MVP402/501和投资治理保持原边界。
 
 ## MVP-405 首页运营待办已集成
 
