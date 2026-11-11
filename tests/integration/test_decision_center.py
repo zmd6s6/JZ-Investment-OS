@@ -601,7 +601,7 @@ async def test_decision_history_pagination_reaches_older_101st_record(database_e
 
 
 async def test_decision_history_pagination_empty_boundary_and_no_write(database_engine):
-    await seed_center(database_engine, decision_count=3)
+    ids = await seed_center(database_engine, decision_count=3)
     center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
     writes = []
 
@@ -614,6 +614,7 @@ async def test_decision_history_pagination_empty_boundary_and_no_write(database_
         assert len(await center.list(limit=2, offset=0)) == 2
         assert len(await center.list(limit=2, offset=2)) == 1
         assert await center.list(limit=2, offset=3) == ()
+        assert (await center.get(ids["decision"])).decision.decision_id == ids["decision"]
     finally:
         event.remove(database_engine.sync_engine, "before_cursor_execute", observed)
     assert not writes

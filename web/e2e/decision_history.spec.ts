@@ -14,11 +14,14 @@ test("110 persisted Decisions expose older pages, exact URL, explicit manual fac
   const before = await (await request.get(`/api/v1/decision-center/${older}`)).json();
   const first = await (await request.get("/api/v1/decision-center")).json();
   const newestMatching = first.filter((item: { symbol: string }) => item.symbol === "SYNTH301").length;
+  const tail = await (await request.get("/api/v1/decision-center?offset=100")).json();
+  const tailIndex = tail.findIndex((item: { decision_id: string }) => item.decision_id === older);
+  expect(tailIndex).toBeGreaterThanOrEqual(0);
   await page.goto("/decisions");
   await expect(page.getByText(/前 100 条，去重显示 100 条/)).toBeVisible();
   await page.getByRole("button", { name: "加载更早决策" }).click();
   await expect(page.getByText(/前 110 条，去重显示 110 条/)).toBeVisible();
-  await page.getByRole("button", { name: /SYNTH301 · BUY/ }).nth(newestMatching).click();
+  await page.getByRole("button", { name: /SYNTH301 · BUY/ }).nth(newestMatching + tailIndex).click();
   await expect(page.getByText(`Decision ${older}`, { exact: false })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("decision_id")).toBe(older);
   // Reload the exact original tail even though the new list contains only the first page.
@@ -81,4 +84,17 @@ test("failed older-page read clears actionable detail and explicit refresh recov
   await page.getByRole("button", { name: "刷新决策列表" }).click();
   await expect(page.getByText(`Decision ${older}`, { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "批准", exact: true })).toBeDisabled();
+});
+
+test("an independent exact-ID read survives failure of the newest-list source", async ({ page }) => {
+  const older = fixture.older[3];
+  await page.route("**/api/v1/decision-center", route => route.abort("failed"));
+  await page.goto(`/decisions?decision_id=${older}`);
+  await expect(page.getByText(`Decision ${older}`, { exact: false })).toBeVisible();
+  await expect(page.getByText(/决策列表读取失败/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "批准", exact: true })).toBeDisabled();
+  await page.unroute("**/api/v1/decision-center");
+  await page.getByRole("button", { name: "刷新决策列表" }).click();
+  await expect(page.getByText(/决策列表读取失败/)).toHaveCount(0);
+  await expect(page.getByText(`Decision ${older}`, { exact: false })).toBeVisible();
 });

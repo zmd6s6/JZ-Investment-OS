@@ -197,3 +197,18 @@ it("an uppercase exact UUID is normalized to the API identity before comparison"
   expect(fetch.mock.calls.some(([url]) => String(url).endsWith(id))).toBe(true);
   expect(new URL(window.location.href).searchParams.get("decision_id")).toBe(id);
 });
+
+it("an exact current detail is read independently when the newest-list source fails", async () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  window.history.replaceState({}, "", `/decisions?decision_id=${id}`);
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async input => {
+    if (String(input) === "/api/v1/decision-center") throw new Error("private list failure");
+    return response({ ...view, decision: { ...card, decision_id: id } });
+  });
+  render(<DecisionCenterPage />);
+  await screen.findByText(`Decision ${id}`, { exact: false });
+  await screen.findByText(/决策列表读取失败/);
+  expect(screen.queryByText(/private list failure/)).toBeNull();
+  expect(screen.getByRole("button", { name: "批准" })).toBeDisabled();
+  expect(fetch.mock.calls.every(([, init]) => !init?.method)).toBe(true);
+});
