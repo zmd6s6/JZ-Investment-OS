@@ -332,6 +332,34 @@ work_items:
         - Full required checks, generated OpenAPI compatibility and reversible cursor migration or tested forward-fix evidence, followed by an independent final-HEAD Review Gate.
     owner_decision: NONE
 
+  # Planner补货，只有本PR真正合入Release后可Claim；既有16项对象保持原值。
+  - id: MVP-407
+    title: Reachable complete Decision Center history and exact human-review navigation
+    priority: 0
+    status: READY
+    stage: PRODUCT-07
+    checkpoint: B
+    depends_on:
+      - MVP-301
+      - MVP-206
+    scope:
+      - Extend the existing typed DecisionCenterPort and real persisted list adapter with bounded stable pagination, preserving the current default response and existing callers.
+      - Let the Decision Center UI browse older Decisions and open an exact decision_id independently of membership in the newest list page, retaining original immutable Journal, evidence and human-action history.
+      - Disclose page or loaded-range limits and filtering semantics, preserve current identity and stale-response guards, and show explicit empty, missing, malformed and read-failure states without enabling stale human controls.
+      - Reuse existing exact-detail eligibility and all server-side human-action gates for an older eligible Decision. Reaching a historical record never grants approval, extends TTL, retries research, activates rules or submits an order.
+    acceptance:
+      route: /decisions
+      expected: Owner can browse beyond the newest 100 Decisions, open an older original record from the list or its exact URL, read its frozen chain and history, and perform only currently legal explicitly confirmed human actions. Refresh preserves the actual appended action and original Decision hash.
+      failure_conditions:
+        - A valid older decision_id must not be rejected solely because it is absent from the current page. A truly missing or malformed ID displays a Chinese error and no stale actionable detail.
+        - Pagination or detail-read failure and late responses after selection changes cannot expose another Decision as current or keep prior approval or manual-record controls enabled.
+        - Expired, revoked, vetoed, incomplete, TEST_DEFAULT or legacy records retain their existing fail-closed or read-only behavior; list summaries and page filters never authorize a mutation.
+      required_evidence:
+        - Named normal, failure and boundary tests for 100 and 101-plus persisted Decisions, stable page ordering, exact-ID reads outside the page, legacy history, read-only GET side effects and current eligibility.
+        - Synthetic production API and PostgreSQL plus browser demonstration of older-record navigation, refresh, explicit legal human action and immutable history, alongside expired or veto refusal, network recovery and narrow layout.
+        - Reuse upstream real Worker-produced Analysis-to-Decision evidence where applicable, verify generated OpenAPI compatibility and complete required checks, then obtain an independent final-HEAD Review Gate.
+    owner_decision: NONE
+
   - id: MVP-501
     title: Full Beta E2E and checkpoint D
     priority: 3
