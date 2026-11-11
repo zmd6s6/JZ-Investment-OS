@@ -33,6 +33,7 @@ from investment_os.infrastructure.daily_runtime_models import (
 )
 from investment_os.infrastructure.daily_runtime_setup import capture_calendar
 from investment_os.infrastructure.daily_runtime_store import common, configuration, emit
+from investment_os.infrastructure.daily_scan import advance_scan, scan_ids
 from investment_os.infrastructure.persistence.jobs import ReliableJobExecutor
 from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 
@@ -51,19 +52,21 @@ class DailyRuntimeRunner:
         if now.utcoffset() is None:
             raise DailyError("DAILY_CLOCK_TIMEZONE_REQUIRED")
         plans = []
-        async with self.sessions() as session:
-            pointers = (
-                await session.scalars(
-                    select(DailyConfigurationRecord)
-                    .where(
-                        DailyConfigurationRecord.enabled.is_(True),
-                        DailyConfigurationRecord.revoked.is_(False),
-                    )
-                    .order_by(DailyConfigurationRecord.id)
-                    .limit(50)
-                )
-            ).all()
-            for pointer in pointers:
+        async with self.sessions() as session, session.begin():
+            identifiers = await scan_ids(
+                session,
+                "CONFIGURATION",
+                select(DailyConfigurationRecord.id).where(
+                    DailyConfigurationRecord.enabled.is_(True),
+                    DailyConfigurationRecord.revoked.is_(False),
+                ),
+            )
+            last_examined = None
+            for identifier in identifiers:
+                last_examined = identifier
+                pointer = await session.get(DailyConfigurationRecord, identifier)
+                if pointer is None:
+                    continue
                 config = await configuration(session, pointer)
                 if config.blocker:
                     continue
@@ -92,6 +95,7 @@ class DailyRuntimeRunner:
                         break
                 if len(plans) >= 8:
                     break
+            await advance_scan(session, "CONFIGURATION", last_examined)
         completed = []
         for config, day in plans:
             key = f"daily:{config.schedule_id}:{day.business_date}"
@@ -318,16 +322,9 @@ class DailyRuntimeRunner:
         return tuple(completed)
 
     async def refresh_reports(self, *, now: datetime) -> None:
-        async with self.sessions() as session:
-            identifiers = tuple(
-                (
-                    await session.scalars(
-                        select(DailyExecutionRecord.id)
-                        .order_by(DailyExecutionRecord.as_of.desc())
-                        .limit(50)
-                    )
-                ).all()
-            )
+        async with self.sessions() as session, session.begin():
+            identifiers = await scan_ids(session, "REPORT", select(DailyExecutionRecord.id))
+            await advance_scan(session, "REPORT", identifiers[-1] if identifiers else None)
         for identifier in identifiers:
             async with self.sessions() as session, session.begin():
                 execution = await session.get(

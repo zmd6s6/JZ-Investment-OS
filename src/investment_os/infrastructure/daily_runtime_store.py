@@ -13,6 +13,7 @@ from investment_os.application.daily_runtime import (
     DailyMode,
     DailyPrepared,
     DailyReport,
+    DailyReportAudit,
     DailySave,
     DailyTask,
 )
@@ -357,7 +358,10 @@ class SqlDailyRuntimeStore:
             )
             return result
 
-    async def configurations(self) -> tuple[DailyConfiguration, ...]:
+    async def configurations(
+        self, *, offset: int = 0, limit: int = 50
+    ) -> tuple[DailyConfiguration, ...]:
+        page_bounds(offset, limit, 50)
         async with self.sessions() as session:
             records = (
                 await session.scalars(
@@ -365,7 +369,8 @@ class SqlDailyRuntimeStore:
                     .order_by(
                         DailyConfigurationRecord.created_at.desc(), DailyConfigurationRecord.id
                     )
-                    .limit(50)
+                    .offset(offset)
+                    .limit(limit)
                 )
             ).all()
             result = []
@@ -387,7 +392,17 @@ class SqlDailyRuntimeStore:
                 result.append(config)
             return tuple(result)
 
-    async def reports(self, schedule_id: UUID | None = None) -> tuple[DailyReport, ...]:
+    async def configuration(self, schedule_id: UUID) -> DailyConfiguration:
+        async with self.sessions() as session:
+            record = await session.get(DailyConfigurationRecord, schedule_id)
+            if record is None:
+                raise DailyError("DAILY_CONFIGURATION_NOT_FOUND")
+            return await configuration(session, record)
+
+    async def reports(
+        self, schedule_id: UUID | None = None, *, offset: int = 0, limit: int = 100
+    ) -> tuple[DailyReport, ...]:
+        page_bounds(offset, limit, 100)
         async with self.sessions() as session:
             query = select(DailyReportRecord).join(
                 DailyExecutionRecord, DailyReportRecord.execution_id == DailyExecutionRecord.id
@@ -400,7 +415,9 @@ class SqlDailyRuntimeStore:
                         DailyReportRecord.recorded_at.desc(),
                         DailyReportRecord.sequence.desc(),
                         DailyReportRecord.id,
-                    ).limit(100)
+                    )
+                    .offset(offset)
+                    .limit(limit)
                 )
             ).all()
             output = []
@@ -408,22 +425,82 @@ class SqlDailyRuntimeStore:
                 if record.usable_until <= datetime.now(UTC):
                     # Preserve audit history, but do not display/reuse expired bodies.
                     continue
-                if fingerprint(record.report_json) != record.content_hash:
-                    raise DailyError("DAILY_REPORT_HASH_INVALID")
-                report = DailyReport.model_validate(record.report_json)
-                if report.report_id != record.id or report.phase != record.phase:
-                    raise DailyError("DAILY_REPORT_REFERENCE_INVALID")
-                output.append(report)
+                output.append(verify_report(record))
             return tuple(output)
 
-    async def runs(self) -> tuple[DailyTask, ...]:
+    async def report_history(
+        self, *, offset: int = 0, limit: int = 100
+    ) -> tuple[DailyReportAudit, ...]:
+        page_bounds(offset, limit, 100)
+        async with self.sessions() as session:
+            rows = (
+                await session.execute(
+                    select(DailyReportRecord, DailyExecutionRecord)
+                    .join(
+                        DailyExecutionRecord,
+                        DailyReportRecord.execution_id == DailyExecutionRecord.id,
+                    )
+                    .order_by(
+                        DailyReportRecord.recorded_at.desc(),
+                        DailyReportRecord.sequence.desc(),
+                        DailyReportRecord.id,
+                    )
+                    .offset(offset)
+                    .limit(limit)
+                )
+            ).all()
+            output = []
+            for record, execution in rows:
+                availability = "AVAILABLE"
+                if record.usable_until <= datetime.now(UTC):
+                    availability = "EXPIRED"
+                else:
+                    try:
+                        verify_report(record)
+                    except DailyError:
+                        availability = "INVALID"
+                output.append(
+                    DailyReportAudit(
+                        report_id=record.id,
+                        task_run_id=execution.task_run_id,
+                        schedule_id=execution.schedule_id,
+                        revision_id=execution.revision_id,
+                        recorded_at=record.recorded_at,
+                        usable_until=record.usable_until,
+                        phase=record.phase,
+                        content_hash=record.content_hash,
+                        availability=availability,
+                    )
+                )
+            return tuple(output)
+
+    async def report(self, report_id: UUID) -> DailyReport:
+        async with self.sessions() as session:
+            record = await session.get(DailyReportRecord, report_id)
+            if record is None:
+                raise DailyError("DAILY_REPORT_NOT_FOUND")
+            if record.usable_until <= datetime.now(UTC):
+                raise DailyError("DAILY_REPORT_EXPIRED_HISTORY_PRESERVED")
+            report = verify_report(record)
+            execution = await session.get(DailyExecutionRecord, record.execution_id)
+            if execution is None or (
+                report.task_run_id,
+                report.schedule_id,
+                report.revision_id,
+            ) != (execution.task_run_id, execution.schedule_id, execution.revision_id):
+                raise DailyError("DAILY_REPORT_REFERENCE_INVALID")
+            return report
+
+    async def runs(self, *, offset: int = 0, limit: int = 100) -> tuple[DailyTask, ...]:
+        page_bounds(offset, limit, 100)
         async with self.sessions() as session:
             rows = (
                 await session.scalars(
                     select(TaskRunRecord)
                     .where(TaskRunRecord.task_name.like("daily:%"))
-                    .order_by(TaskRunRecord.started_at.desc())
-                    .limit(100)
+                    .order_by(TaskRunRecord.started_at.desc(), TaskRunRecord.id)
+                    .offset(offset)
+                    .limit(limit)
                 )
             ).all()
             return tuple(
@@ -438,3 +515,37 @@ class SqlDailyRuntimeStore:
                 )
                 for row in rows
             )
+
+    async def task(self, task_id: UUID) -> DailyTask:
+        async with self.sessions() as session:
+            row = await session.get(TaskRunRecord, task_id)
+            if row is None or not row.task_name.startswith("daily:"):
+                raise DailyError("DAILY_TASK_NOT_FOUND")
+            return DailyTask(
+                task_run_id=row.id,
+                schedule_id=UUID(row.task_name.split(":", 1)[1]),
+                status=row.status,
+                attempt=row.attempt,
+                started_at=row.started_at,
+                finished_at=row.finished_at,
+                error_code=(row.error_json or {}).get("code"),
+            )
+
+
+def page_bounds(offset: int, limit: int, maximum: int) -> None:
+    if offset < 0 or not 1 <= limit <= maximum:
+        raise DailyError("DAILY_PAGINATION_INVALID")
+
+
+def verify_report(record: DailyReportRecord) -> DailyReport:
+    from pydantic import ValidationError
+
+    if fingerprint(record.report_json) != record.content_hash:
+        raise DailyError("DAILY_REPORT_HASH_INVALID")
+    try:
+        report = DailyReport.model_validate(record.report_json)
+    except ValidationError:
+        raise DailyError("DAILY_REPORT_SCHEMA_INVALID") from None
+    if report.report_id != record.id or report.phase != record.phase:
+        raise DailyError("DAILY_REPORT_REFERENCE_INVALID")
+    return report
