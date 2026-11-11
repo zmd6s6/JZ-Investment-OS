@@ -5,6 +5,7 @@ import asyncio
 import base64
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -29,7 +30,7 @@ if (
     url.scheme != "postgresql+asyncpg"
     or url.hostname != "127.0.0.1"
     or url.port != 15449
-    or url.path != "/investment_os_mvp406_browser_20261111"
+    or re.fullmatch(r"/investment_os_mvp406_browser_[a-z0-9_]+", url.path) is None
 ):
     raise SystemExit("Only dedicated MVP406 synthetic database permitted")
 root = Path(__file__).resolve().parents[1]

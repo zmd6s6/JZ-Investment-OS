@@ -82,3 +82,13 @@ test("StrictMode remount keeps the current initial read and ignores its stale pr
   await waitFor(() => expect(screen.queryByText(/合成每日1 ·/)).toBeNull());
   expect(screen.getByRole("button", { name: "刷新完整每日历史" })).toBeEnabled();
 });
+
+test("a direct historical authorization URL reads its exact ID beyond the first page", async () => {
+  window.location.hash = `#daily_configuration-${id(21)}`;
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async url => String(url).includes("/configurations/") ? response(config(21)) : response([config(1)]));
+  render(<DailyHistoryBrowser />);
+  const detail = await screen.findByRole("article", { name: "所选每日授权" });
+  expect(detail).toHaveTextContent(id(21));
+  expect(fetch.mock.calls.some(([url]) => String(url).endsWith(`/configurations/${id(21)}`))).toBe(true);
+  expect(fetch.mock.calls.every(([, init]) => !init?.method)).toBe(true);
+});
