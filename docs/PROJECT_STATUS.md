@@ -4,9 +4,9 @@
 
 Planner48已实际合入Release f3d30318后由独立agent/MVP-406 Claim开发，唯一功能PR49提供两个持久有界Daily扫描、真实分页/单ID历史、过期审计摘要和旧授权明确暂停/撤销。新库106配置/历史、51并发、真实Shadow收口及坏源隔离、迁移升降升和独立生产API/PG/Worker/Edge可见路径已有实际证据，完整检查与最终新HEAD独立Gate仍待完成，不能提前当Release集成或Owner接受。范围、实测/失败及恢复见`docs/agent/work-items/MVP-406.md`，MVP402/501和投资治理保持原边界。
 
-## MVP-405 首页运营待办候选
+## MVP-405 首页运营待办已集成
 
-Planner46实际合入后，沿原Claim/PR47恢复本地实现。首页新增真实DecisionCenter eligibility、每日/月度TaskRun和DEGRADED日报的只读聚合，固定原记录详情入口及扫描窗口，单源故障保留可读记录。当前候选正常/失败/边界及合成API/PG/生产Worker/Edge结果见`docs/agent/work-items/MVP-405.md`；完整基线/最终CI与独立Gate待核，尚未标记集成或Owner接受。不存在新的批准、模型调用或任务写入。
+PR47已于2026-11-11T08:29:34Z由外部执行者实际合入Release `0f2a3d17df28ae2508c504881a21269bab72f076`，MVP405工程链为INTEGRATED / ACCEPTANCE_READY。首页提供真实DecisionCenter eligibility、每日/月度TaskRun和DEGRADED日报只读聚合、精确详情与扫描窗口，单源故障保留可读记录。root随后独立复验原source8a66d2e，确认六CI绿、16项PG/API、3项前端和两项真实API/PG/Worker/Edge流程通过；该复验发生在外部合入之后，不能追认为合入前Gate。Owner部署/产品接受仍PENDING。原实现证据保留于MVP405工作项，独立复验见[6794511101](https://github.com/zmd6s6/JZ-Investment-OS/pull/47#issuecomment-6794511101)。本功能读取不产生批准、模型调用或任务写入。
 
 > 这是唯一的当前状态记录。推进阶段时必须在同一变更中更新它。
 
