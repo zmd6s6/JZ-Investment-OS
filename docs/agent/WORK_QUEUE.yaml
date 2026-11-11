@@ -307,7 +307,9 @@ work_items:
   - id: MVP-406
     title: Fair daily runtime scanning and reachable authorization and report history
     priority: 1
-    status: READY
+    status: REVIEW
+    claim_branch: agent/MVP-406
+    claim_owner: pr-02-review-and-next-stage-monitor / root
     stage: PRODUCT-08
     checkpoint: C
     depends_on:

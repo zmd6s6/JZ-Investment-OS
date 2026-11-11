@@ -15,7 +15,8 @@
 
 | Capability | Route | Current truth | Human acceptance |
 |---|---|---|---|
-| 运营待办（MVP405候选） | `/` | ENGINEERING候选 — 原PR47恢复实现只读待审批/运行异常/日报降级、精确详情与刷新；正常和故障合成验证见工作项，最终CI/独立Gate及实际合入待核 | PENDING |
+| 每日完整历史与公平扫描（MVP406候选） | `/calendar` | ENGINEERING候选 — 真实分页/旧授权暂停撤销/过期审计及有界扫描接线已有合成PG/真实Worker/Edge证据，最终CI/独立Gate和实际合入待核；具体步骤见MVP406工作项 | PENDING |
+| 运营待办（MVP405） | `/` | INTEGRATED / ACCEPTANCE_READY — PR47已由外部执行者合入Release0f2a3d17；只读待审批/运行异常/日报降级、精确详情与刷新已接通。root对原source8a66d2e合入后独立复验16项PG/API、3项前端及两项真实Worker/Edge通过，记录[6794511101](https://github.com/zmd6s6/JZ-Investment-OS/pull/47#issuecomment-6794511101)；该证据不能追认为合入前Gate，Owner部署/接受仍待完成 | PENDING |
 | Portfolio / CSV import | `/portfolio` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；手工 / 分仓 / 现金 / CSV预览及冲突 / 对账 / 刷新已有隔离可见验证 | PENDING |
 | Watchlist | `/watchlist` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；目录搜索 / 幂等添加 / 刷新 / 删除 / 四项缺失状态已有验证 | PENDING |
 | Investment Policy review | `/#policy` | ACCEPTANCE_READY — MVP-101已核对实际API版本与无写入审阅；真实参数仍由Owner治理 | PENDING |
