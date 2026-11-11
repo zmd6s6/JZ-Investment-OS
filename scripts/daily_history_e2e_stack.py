@@ -18,6 +18,11 @@ from zoneinfo import ZoneInfo
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--database-url", required=True)
 parser.add_argument("--port", type=int, default=18143)
+parser.add_argument(
+    "--resume",
+    action="store_true",
+    help="Restart this exact seeded synthetic stack without reseeding",
+)
 args = parser.parse_args()
 url = urlparse(args.database_url)
 if (
@@ -49,6 +54,7 @@ os.environ.update(
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from analysis_numeric_fixture import seed_numeric  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 
 from investment_os.application.calendar_product import (  # noqa: E402
@@ -71,6 +77,25 @@ command.upgrade(Config("alembic.ini"), "head")
 async def seed():
     engine = create_async_engine(args.database_url)
     try:
+        if args.resume:
+            async with engine.connect() as connection:
+                count = await connection.scalar(text("SELECT count(*) FROM daily_configuration"))
+                modes = (
+                    (
+                        await connection.execute(
+                            text("SELECT DISTINCT mode FROM daily_authorization_revision")
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                if (
+                    count != 52
+                    or modes != ["LOCAL_STATUS_ONLY"]
+                    or not (root / ".runtime/mvp406-browser-fixture.json").is_file()
+                ):
+                    raise SystemExit("Resume requires this exact local-only synthetic fixture")
+            return
         ids, _ = await seed_numeric(engine)
         sessions = async_sessionmaker(engine, expire_on_commit=False)
         close = (datetime.now(UTC) + timedelta(seconds=100)).replace(second=0, microsecond=0)

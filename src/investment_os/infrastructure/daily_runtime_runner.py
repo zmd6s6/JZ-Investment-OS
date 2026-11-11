@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4, uuid5
 
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -67,7 +68,11 @@ class DailyRuntimeRunner:
                 pointer = await session.get(DailyConfigurationRecord, identifier)
                 if pointer is None:
                     continue
-                config = await configuration(session, pointer)
+                try:
+                    config = await configuration(session, pointer)
+                except (DailyError, ValidationError):
+                    # Invalid source history must not pin traversal ahead of valid configurations.
+                    continue
                 if config.blocker:
                     continue
                 try:
@@ -326,128 +331,134 @@ class DailyRuntimeRunner:
             identifiers = await scan_ids(session, "REPORT", select(DailyExecutionRecord.id))
             await advance_scan(session, "REPORT", identifiers[-1] if identifiers else None)
         for identifier in identifiers:
-            async with self.sessions() as session, session.begin():
-                execution = await session.get(
-                    DailyExecutionRecord, identifier, with_for_update=True
+            try:
+                await self._refresh_report(identifier, now=now)
+            except (DailyError, ValidationError):
+                # Retain invalid source history for the explicit audit/read failure path.
+                # One corrupt execution must not starve the rest of this bounded batch.
+                continue
+
+    async def _refresh_report(self, identifier: UUID, *, now: datetime) -> None:
+        async with self.sessions() as session, session.begin():
+            execution = await session.get(DailyExecutionRecord, identifier, with_for_update=True)
+            if execution is None:
+                return
+            prior = await session.scalar(
+                select(DailyReportRecord)
+                .where(DailyReportRecord.execution_id == identifier)
+                .order_by(DailyReportRecord.sequence.desc())
+                .limit(1)
+            )
+            if prior is None or prior.usable_until <= now:
+                return
+            if fingerprint(prior.report_json) != prior.content_hash:
+                raise DailyError("DAILY_REPORT_HASH_INVALID")
+            old = DailyReport.model_validate(prior.report_json)
+            intents = (
+                await session.scalars(
+                    select(DailyAnalysisIntentRecord).where(
+                        DailyAnalysisIntentRecord.execution_id == identifier
+                    )
                 )
-                if execution is None:
+            ).all()
+            if not intents:
+                return
+            runs = []
+            missing = []
+            for intent in intents:
+                run = await self.analyses.find_request(intent.id)
+                if run is None:
+                    missing.append(str(intent.id))
                     continue
-                prior = await session.scalar(
-                    select(DailyReportRecord)
-                    .where(DailyReportRecord.execution_id == identifier)
-                    .order_by(DailyReportRecord.sequence.desc())
-                    .limit(1)
-                )
-                if prior is None or prior.usable_until <= now:
-                    continue
-                if fingerprint(prior.report_json) != prior.content_hash:
-                    raise DailyError("DAILY_REPORT_HASH_INVALID")
-                old = DailyReport.model_validate(prior.report_json)
-                intents = (
-                    await session.scalars(
-                        select(DailyAnalysisIntentRecord).where(
-                            DailyAnalysisIntentRecord.execution_id == identifier
+                if run.request_hash != intent.request_hash:
+                    raise DailyError("DAILY_ANALYSIS_BINDING_HASH_MISMATCH")
+                binding = await session.get(DailyAnalysisBindingRecord, intent.id)
+                if binding is None:
+                    session.add(
+                        DailyAnalysisBindingRecord(
+                            id=intent.id, analysis_run_id=run.run_id, **common(intent.id)
                         )
                     )
-                ).all()
-                if not intents:
-                    continue
-                runs = []
-                missing = []
-                for intent in intents:
-                    run = await self.analyses.find_request(intent.id)
-                    if run is None:
-                        missing.append(str(intent.id))
-                        continue
-                    if run.request_hash != intent.request_hash:
-                        raise DailyError("DAILY_ANALYSIS_BINDING_HASH_MISMATCH")
-                    binding = await session.get(DailyAnalysisBindingRecord, intent.id)
-                    if binding is None:
-                        session.add(
-                            DailyAnalysisBindingRecord(
-                                id=intent.id, analysis_run_id=run.run_id, **common(intent.id)
-                            )
-                        )
-                    elif binding.analysis_run_id != run.run_id:
-                        raise DailyError("DAILY_ANALYSIS_BINDING_HASH_MISMATCH")
-                    runs.append(run)
-                # Reuse this execution's frozen authorization, even if current config changes.
-                from investment_os.application.daily_runtime import DailyConfiguration
+                elif binding.analysis_run_id != run.run_id:
+                    raise DailyError("DAILY_ANALYSIS_BINDING_HASH_MISMATCH")
+                runs.append(run)
+            # Reuse this execution's frozen authorization, even if current config changes.
+            from investment_os.application.daily_runtime import DailyConfiguration
 
-                frozen = DailyConfiguration(
-                    schedule_id=old.schedule_id,
-                    revision_id=old.revision_id,
-                    version=old.authorization_version,
-                    enabled=True,
-                    revoked=False,
-                    enabled_since=execution.as_of,
-                    prepared=old.authorization,
-                )
-                report = build_daily_report(
-                    report_id=uuid4(),
-                    task_run_id=execution.task_run_id,
-                    config=frozen,
-                    business_date=execution.business_date,
-                    business_as_of=execution.business_as_of,
-                    as_of=execution.as_of,
-                    recorded_at=now,
-                    local=old.local_inputs,
-                    diff=old.evidence_diff,
-                    planned_count=len(intents),
-                    analyses=tuple(runs),
-                )
-                if missing:
-                    from investment_os.application.daily_runtime import DailySection
+            frozen = DailyConfiguration(
+                schedule_id=old.schedule_id,
+                revision_id=old.revision_id,
+                version=old.authorization_version,
+                enabled=True,
+                revoked=False,
+                enabled_since=execution.as_of,
+                prepared=old.authorization,
+            )
+            report = build_daily_report(
+                report_id=uuid4(),
+                task_run_id=execution.task_run_id,
+                config=frozen,
+                business_date=execution.business_date,
+                business_as_of=execution.business_as_of,
+                as_of=execution.as_of,
+                recorded_at=now,
+                local=old.local_inputs,
+                diff=old.evidence_diff,
+                planned_count=len(intents),
+                analyses=tuple(runs),
+            )
+            if missing:
+                from investment_os.application.daily_runtime import DailySection
 
-                    report = report.model_copy(
-                        update={
-                            "phase": "DEGRADED",
-                            "data_job_degraded": DailySection(
-                                availability="DEGRADED",
-                                messages=(
-                                    "研究意图无队列结果; 未自动重提, 请核对未知费用。",
-                                    *missing,
-                                ),
+                report = report.model_copy(
+                    update={
+                        "phase": "DEGRADED",
+                        "data_job_degraded": DailySection(
+                            availability="DEGRADED",
+                            messages=(
+                                "研究意图无队列结果; 未自动重提, 请核对未知费用。",
+                                *missing,
                             ),
-                        }
-                    )
-                if report.model_dump(
-                    mode="json", exclude={"report_id", "recorded_at"}
-                ) == old.model_dump(mode="json", exclude={"report_id", "recorded_at"}):
-                    continue
-                payload = report.model_dump(mode="json")
+                        ),
+                    }
+                )
+            if report.model_dump(
+                mode="json", exclude={"report_id", "recorded_at"}
+            ) == old.model_dump(mode="json", exclude={"report_id", "recorded_at"}):
+                return
+            payload = report.model_dump(mode="json")
+            session.add(
+                DailyReportRecord(
+                    id=report.report_id,
+                    execution_id=identifier,
+                    sequence=prior.sequence + 1,
+                    phase=report.phase,
+                    recorded_at=now,
+                    usable_until=prior.usable_until,
+                    report_json=payload,
+                    content_hash=fingerprint(payload),
+                    **common(execution.id),
+                )
+            )
+            await session.flush()
+            for run in runs:
                 session.add(
-                    DailyReportRecord(
-                        id=report.report_id,
-                        execution_id=identifier,
-                        sequence=prior.sequence + 1,
-                        phase=report.phase,
-                        recorded_at=now,
-                        usable_until=prior.usable_until,
-                        report_json=payload,
-                        content_hash=fingerprint(payload),
-                        **common(execution.id),
+                    DailyReportAnalysisRecord(
+                        report_id=report.report_id, analysis_run_id=run.run_id
                     )
                 )
-                await session.flush()
-                for run in runs:
-                    session.add(
-                        DailyReportAnalysisRecord(
-                            report_id=report.report_id, analysis_run_id=run.run_id
-                        )
+            for evidence_id in report.evidence_diff.visible_ids:
+                session.add(
+                    DailyReportEvidenceRecord(
+                        report_id=report.report_id,
+                        evidence_id=evidence_id,
+                        purpose="LOCAL_VISIBLE",
                     )
-                for evidence_id in report.evidence_diff.visible_ids:
-                    session.add(
-                        DailyReportEvidenceRecord(
-                            report_id=report.report_id,
-                            evidence_id=evidence_id,
-                            purpose="LOCAL_VISIBLE",
-                        )
-                    )
-                await emit(
-                    session,
-                    "daily.report.updated",
-                    identifier,
-                    {"report_id": str(report.report_id), "phase": report.phase},
-                    now,
                 )
+            await emit(
+                session,
+                "daily.report.updated",
+                identifier,
+                {"report_id": str(report.report_id), "phase": report.phase},
+                now,
+            )

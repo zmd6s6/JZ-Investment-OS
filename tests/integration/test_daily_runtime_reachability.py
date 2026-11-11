@@ -200,6 +200,35 @@ async def test_daily_old_pending_execution_is_eventually_finalized_and_original_
         clock["now"] = datetime.now(UTC) + timedelta(seconds=1)
         for index in range(7):
             await daily.dispatch_due(now=clock["now"] + timedelta(seconds=index))
+        from investment_os.infrastructure.daily_runtime_store import common
+
+        # Explicit corrupt synthetic history must not pin any bounded batch before
+        # the one valid, older pending execution. Original rows remain immutable.
+        async with sessions() as session, session.begin():
+            local_reports = (
+                await session.scalars(
+                    select(DailyReportRecord)
+                    .join(
+                        DailyExecutionRecord,
+                        DailyReportRecord.execution_id == DailyExecutionRecord.id,
+                    )
+                    .where(DailyExecutionRecord.schedule_id != command.schedule_id)
+                )
+            ).all()
+            for local_report in local_reports:
+                session.add(
+                    DailyReportRecord(
+                        id=uuid4(),
+                        execution_id=local_report.execution_id,
+                        sequence=local_report.sequence + 1,
+                        phase=local_report.phase,
+                        recorded_at=clock["now"] + timedelta(seconds=8),
+                        usable_until=local_report.usable_until,
+                        report_json=local_report.report_json,
+                        content_hash="0" * 64,
+                        **common(uuid4()),
+                    )
+                )
         await analysis_worker.dispatch_due()
         for _ in range(3):
             await daily.refresh_reports(now=clock["now"] + timedelta(seconds=30))
@@ -209,6 +238,8 @@ async def test_daily_old_pending_execution_is_eventually_finalized_and_original_
             await daily.refresh_reports(now=clock["now"] + timedelta(seconds=31))
         assert len(await store.reports(command.schedule_id)) == len(reports)
         assert len(calls) >= 9
+        history = await store.report_history()
+        assert sum(item.availability == "INVALID" for item in history) == 51
         async with sessions() as session:
             assert (
                 await session.get(DailyReportRecord, prior.report_id)

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { DailyHistoryBrowser } from "./DailyHistoryBrowser";
+import { StrictMode } from "react";
 
 const id = (value: number) => `00000000-0000-0000-0000-${String(value).padStart(12, "0")}`;
 const config = (value: number) => ({ schedule_id: id(value), revision_id: id(500), version: 2, enabled: true, revoked: false, blocker: null, prepared: { command: { name: `合成每日${value}` }, members: [{ name: "合成标的", symbol: "SYNTH" }], calendar_source: "合成日历", calendar_version: "v1" } });
@@ -65,4 +66,19 @@ test("empty and malformed pages have different visible outcomes and never write"
   fireEvent.click(screen.getByRole("button", { name: "刷新完整每日历史" }));
   await screen.findByRole("alert");
   await waitFor(() => expect(fetch.mock.calls.every(([, init]) => !init?.method)).toBe(true));
+});
+
+test("StrictMode remount keeps the current initial read and ignores its stale predecessor", async () => {
+  let finishFirst: ((value: Response) => void) | undefined;
+  let calls = 0;
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    calls++;
+    if (calls === 1) return await new Promise<Response>(resolve => { finishFirst = resolve; });
+    return response([config(21)]);
+  });
+  render(<StrictMode><DailyHistoryBrowser /></StrictMode>);
+  await screen.findByText(/合成每日21 ·/);
+  finishFirst?.(response([config(1)]));
+  await waitFor(() => expect(screen.queryByText(/合成每日1 ·/)).toBeNull());
+  expect(screen.getByRole("button", { name: "刷新完整每日历史" })).toBeEnabled();
 });

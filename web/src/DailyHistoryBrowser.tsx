@@ -73,12 +73,16 @@ export function DailyHistoryBrowser() {
     setId(identifier);
   }
   useEffect(() => {
-    void operation(async () => {
-      await page("configurations", 0);
+    let active = true;
+    setWorking(true);
+    void page("configurations", 0).then(async () => {
+      if (!active) return;
       const match = /^#daily_(report|task|configuration)-([a-f0-9-]{36})$/i.exec(window.location.hash);
       if (match) await detail(match[1] === "report" ? "history" : match[1] === "task" ? "runs" : "configurations", match[2]);
-    });
-    return () => { generation.current++; };
+    }).catch(() => {
+      if (active) setError("每日历史读取未确认，请明确刷新重试。");
+    }).finally(() => { if (active) setWorking(false); });
+    return () => { active = false; generation.current++; };
   }, []);
 
   async function mode(action: "PAUSE" | "REVOKE") {
@@ -114,7 +118,7 @@ export function DailyHistoryBrowser() {
       if ("report_id" in row) return <li key={row.report_id}>{row.phase} · {row.recorded_at} · {row.availability === "EXPIRED" ? "正文已过期，审计保留" : row.availability === "INVALID" ? "正文校验失败" : "正文可读取"}<br />报告{row.report_id} · 任务{row.task_run_id} · 授权{row.schedule_id} · hash {row.content_hash}<button disabled={working || row.availability !== "AVAILABLE"} onClick={() => void operation(() => detail("history", row.report_id))}>查看此日报</button><button disabled={working} onClick={() => void operation(() => detail("configurations", row.schedule_id))}>查看关联授权</button></li>;
       return <li key={row.task_run_id}>{row.status} · {row.started_at} · {row.task_run_id}<button disabled={working} onClick={() => void operation(() => detail("runs", row.task_run_id))}>查看此任务</button></li>;
     })}</ul>
-    <label>精确每日记录编号<input value={id} onChange={event => setId(event.target.value)} /></label>
+    <label>精确每日记录编号<input disabled={working} value={id} onChange={event => setId(event.target.value)} /></label>
     <button disabled={working || !uuid(id)} onClick={() => void operation(() => detail(kind, id))}>按编号读取每日记录</button>
     {config && <article aria-label="所选每日授权"><h4>{String(config.prepared.command.name)}</h4><p>授权{config.schedule_id} · 版本{config.version} · {config.revoked ? "已永久撤销" : config.enabled ? "已启用" : "已暂停"} · {config.blocker ?? "当前无已知阻断"}</p><p>范围{config.prepared.members.map(member => `${member.name} ${member.symbol}`).join("、")} · 日历{config.prepared.calendar_source}/{config.prepared.calendar_version}</p><label><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />我已核对这一历史授权与版本，明确确认暂停或永久撤销</label><button disabled={working || !confirmed || config.revoked} onClick={() => void mode("PAUSE")}>暂停所选每日授权</button><button disabled={working || !confirmed || config.revoked} onClick={() => void mode("REVOKE")}>永久撤销所选每日授权</button></article>}
     {task && <article><h4>所选每日任务</h4><p>{task.task_run_id} · {task.status} · 尝试{task.attempt} · {task.started_at} · {task.error_code ?? "无记录错误"}</p><button disabled={working} onClick={() => void operation(() => detail("configurations", task.schedule_id))}>查看任务授权</button></article>}

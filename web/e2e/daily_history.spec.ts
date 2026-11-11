@@ -30,13 +30,15 @@ test("real Worker reaches the 52nd configuration and UI pages older authorizatio
   await history.getByLabel("精确每日记录编号").fill(fixture.oldest);
   await history.getByRole("button", { name: "按编号读取每日记录" }).click();
   await expect(history.getByRole("article", { name: "所选每日授权" })).toContainText("已暂停");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await history.getByRole("article", { name: "所选每日授权" }).screenshot({ path: "../.runtime/mvp406-authorization.png" });
   await history.getByLabel("每日历史类别").selectOption("history");
   const first = history.getByRole("listitem").first();
   await first.getByRole("button", { name: "查看此日报" }).click();
   await expect(history.getByRole("article", { name: "所选每日正文" })).toContainText("知识时点");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: "../.runtime/mvp406-history.png", fullPage: true });
+  await history.getByRole("article", { name: "所选每日正文" }).screenshot({ path: "../.runtime/mvp406-history.png" });
 });
 
 test("daily history read failure clears old controls and explicit refresh recovers", async ({ page }) => {
