@@ -15,7 +15,7 @@
 
 | Capability | Route | Current truth | Human acceptance |
 |---|---|---|---|
-| 完整Decision历史（MVP407候选） | `/decisions` | ENGINEERING候选 — 真实PG70项及零写入1项、前端141项、110记录生产API/PG/Edge4场景通过。分页尾部与精确ID刷新、明确人工动作及失败清空控制已有证据，候选全量Python1050通过，最终CI和独立Gate待完成；步骤及限制见MVP407工作项 | PENDING |
+| 完整Decision历史（MVP407候选） | `/decisions` | ENGINEERING候选 — 真实PG70项及零写入1项、前端141项、110记录生产API/PG/Edge4场景通过。分页尾部与精确ID刷新、明确人工动作及失败清空控制已有证据，原证据HEAD1ac54b5六CI已SUCCESS，CI43093575334完整Python1050项/集成329项通过，PR已Ready。当前文档修正后新HEAD的CI及独立最终Gate仍须核验，PRODUCT-07/Checkpoint和Owner部署/接受PENDING；步骤及限制见MVP407工作项 | PENDING |
 | 每日完整历史与公平扫描（MVP406） | `/calendar` | INTEGRATED / ACCEPTANCE_READY — PR49已外部合入Release e7b8ac5；root合入后独立复验47项PG、两项真实Worker/Edge及迁移保留52报告hash，最终46e6六CI绿，记录[6802776134](https://github.com/zmd6s6/JZ-Investment-OS/pull/49#issuecomment-6802776134)。不追认为合入前Gate，Owner部署/接受仍待完成 | PENDING |
 | 运营待办（MVP405） | `/` | INTEGRATED / ACCEPTANCE_READY — PR47已由外部执行者合入Release0f2a3d17；只读待审批/运行异常/日报降级、精确详情与刷新已接通。root对原source8a66d2e合入后独立复验16项PG/API、3项前端及两项真实Worker/Edge通过，记录[6794511101](https://github.com/zmd6s6/JZ-Investment-OS/pull/47#issuecomment-6794511101)；该证据不能追认为合入前Gate，Owner部署/接受仍待完成 | PENDING |
 | Portfolio / CSV import | `/portfolio` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；手工 / 分仓 / 现金 / CSV预览及冲突 / 对账 / 刷新已有隔离可见验证 | PENDING |

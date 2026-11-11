@@ -2,7 +2,7 @@
 
 ## MVP-407 完整 Decision 历史候选
 
-既有Draft PR51已在root持久交接后接续恢复，业务源码a5e4296提供真实分页、独立精确ID和刷新原详情、失败清空动作及当前资格门禁。真实PG相关70项、零写入补测1项、前端141项和生产API/PG/Edge110记录4场景通过，候选全量Python1050通过，最终新HEAD CI/独立Gate仍待完成，Owner部署与接受PENDING。实际限制、复现和失败恢复见 `docs/agent/work-items/MVP-407.md`。
+既有PR51已在root持久交接后接续恢复并转为Ready，业务源码a5e4296提供真实分页、独立精确ID和刷新原详情、失败清空动作及当前资格门禁。真实PG相关70项、零写入补测1项、前端141项和生产API/PG/Edge110记录4场景通过，原证据HEAD `1ac54b520b294bca5e2d0eeb2d7dc07e74174cd3` 六项CI已全部SUCCESS，[CI43093575334](https://github.com/zmd6s6/JZ-Investment-OS/actions/runs/43093575334)实测完整Python1050项、集成329项通过。当前文档状态修正后的新HEAD仍须独立核CI和最终Gate，407继续工程候选，Owner部署、PRODUCT-07与Checkpoint接受PENDING。实际限制、复现和失败恢复见 `docs/agent/work-items/MVP-407.md`。
 
 ## MVP-406 每日公平扫描与历史已集成
 
