@@ -65,7 +65,7 @@ export function DecisionCenterPage() {
     sequence.current++; setDetail(null); setSelected(""); currentId.current = ""; setConfirmed(false);
     setLoading(true); setError(null);
     try {
-      const value = await read<Card[]>("/api/v1/decision-center?limit=100&offset=0");
+      const value = await read<Card[]>("/api/v1/decision-center");
       if (!Array.isArray(value) || value.some(card => !card.decision_id || !Array.isArray(card.blockers) || !Number.isInteger(card.revision))) throw new Error("决策列表协议不符");
       if (seq === listSequence.current) {
         setCards(value);
