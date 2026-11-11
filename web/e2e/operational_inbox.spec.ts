@@ -46,7 +46,7 @@ test("operational inbox reads actual Worker-produced report and exact detail nav
         const saved = await savedResponse;
         expect(saved.ok()).toBeTruthy();
         const savedConfig = await saved.json();
-        const card = page.locator("article").filter({ has: daily.getByRole("heading", { name: new RegExp(name) }) });
+        const card = daily.locator("article").filter({ has: page.getByRole("heading", { name: new RegExp(name) }) });
         await expect(card).toContainText("已暂停");
         await card.getByLabel(/我已核对此保存授权/).check();
         await card.getByRole("button", { name: "启用每日任务" }).click();
@@ -105,7 +105,7 @@ test("operational inbox reads actual Worker-produced report and exact detail nav
     expect(run.shadow_decision.execution_allowed).toBe(false);
     await page.reload();
     await expect(daily.getByRole("heading", { name: new RegExp(localName) })).toBeVisible();
-    const card = page.locator("article").filter({ has: daily.getByRole("heading", { name: new RegExp(localName) }) });
+    const card = daily.locator("article").filter({ has: page.getByRole("heading", { name: new RegExp(localName) }) });
     await card.getByLabel(/我已核对此保存授权/).check();
     await card.getByRole("button", { name: "永久撤销授权" }).click();
     await expect(card).toContainText("已永久撤销");
@@ -130,4 +130,29 @@ test("operational inbox reads actual Worker-produced report and exact detail nav
     await expect(page.getByRole("heading", {name:"运营待办"})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({path:"../.runtime/mvp405-inbox.png"});
+});
+
+
+test("refresh removes rejected pending record and transport failure stays explicit", async ({ page, request }) => {
+    await page.goto("/");
+    const result = await (await request.get("/api/v1/operational-inbox")).json();
+    for (const item of result.pending_approvals.items) {
+        const detail = await (await request.get(`/api/v1/decision-center/${item.source_id}`)).json();
+        const rejected = await request.post(`/api/v1/decision-center/${item.source_id}/reject`, {headers, data:{request_id:crypto.randomUUID(), expected_revision:detail.decision.revision, actor_id:"synthetic-inbox-reviewer", comment:"合成刷新测试明确拒绝", confirmed:true}});
+        expect(rejected.ok(), await rejected.text()).toBeTruthy();
+    }
+    await page.getByRole("button", {name:"刷新运营状态"}).click();
+    await expect(page.locator("section[aria-label='待处理人工审批']")).toContainText("暂无记录");
+    await page.route("**/api/v1/operational-inbox", route => route.abort());
+    await page.getByRole("button", {name:"刷新运营状态"}).click();
+    await expect(page.getByRole("alert")).toContainText("无法确认当前运营状态");
+    await page.unroute("**/api/v1/operational-inbox");
+    await page.getByRole("button", {name:"刷新运营状态"}).click();
+    await expect(page.locator("section[aria-label='待处理人工审批']")).toContainText("暂无记录");
+    for (const config of await (await request.get("/api/v1/runtime/daily")).json()) {
+        if (config.enabled && !config.revoked) {
+            const paused = await request.post(`/api/v1/runtime/daily/${config.schedule_id}/mode`, {headers, data:{request_id:crypto.randomUUID(), expected_version:config.version, action:"PAUSE", confirmed:true}});
+            expect(paused.ok(),await paused.text()).toBeTruthy();
+        }
+    }
 });

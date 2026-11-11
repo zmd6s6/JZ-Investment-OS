@@ -80,7 +80,7 @@ export function OperationalInbox() {
     </button>}>
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">正在读取运营状态…</p>}
-    {data && <p>读取时间 {data.as_of}</p>}
+    {data && <p>读取时间 {data.as_of}。扫描窗口为最近100条决策、100条日报、100条每日任务和60条月度任务。</p>}
     {data && <div className="capability-grid">
       {sections.map(({ key, label }) => {
         const section = data[key];

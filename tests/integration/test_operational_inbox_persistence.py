@@ -15,7 +15,7 @@ from investment_os.infrastructure.decision_center import SqlDecisionCenter
 pytestmark = pytest.mark.integration
 
 
-@pytest.mark.parametrize("mode", ["valid", "veto", "policy", "expired", "unknown"])
+@pytest.mark.parametrize("mode", ["valid", "veto", "policy", "expired", "unknown", "empty"])
 async def test_inbox_reads_real_eligibility_without_writes(database_engine, mode):
     options = {
         "veto": mode == "veto",
@@ -23,7 +23,7 @@ async def test_inbox_reads_real_eligibility_without_writes(database_engine, mode
         "risk_unknown": mode == "unknown",
         "review_lifetime": timedelta(seconds=-1) if mode == "expired" else timedelta(days=1),
     }
-    ids = await seed_center(database_engine, **options)
+    ids = await seed_center(database_engine, **options) if mode != "empty" else {}
     center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
     app = FastAPI()
     app.include_router(operational_inbox_router(center, None, None))

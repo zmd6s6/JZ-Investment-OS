@@ -124,3 +124,35 @@ async def test_degraded_bounded_and_empty():
     assert result.limited
     empty = await degraded(SimpleNamespace(store=Store(())), None)
     assert empty.state == "ERROR"  # partial availability, not fabricated global zero
+
+
+@pytest.mark.asyncio
+async def test_successful_task_does_not_hide_degraded_report():
+    report_id = uuid4()
+
+    class Store:
+        async def runs(self):
+            return ()
+
+        async def reports(self):
+            return (SimpleNamespace(report_id=report_id, phase="DEGRADED", recorded_at=NOW),)
+
+    class Monthly:
+        async def runs(self):
+            return ()
+
+    result = await degraded(SimpleNamespace(store=Store()), Monthly())
+    assert result.state == "AVAILABLE"
+    assert result.items[0].source == "DAILY_REPORT"
+    assert result.items[0].detail_url == f"/calendar#daily_report-{report_id}"
+
+
+@pytest.mark.asyncio
+async def test_full_scan_window_discloses_uncounted_records():
+    class CenterWindow:
+        async def list(self):
+            return tuple(SimpleNamespace(state="REJECTED") for _ in range(100))
+
+    result = await pending(CenterWindow(), NOW)
+    assert result.state == "EMPTY" and result.limited
+    assert "窗口外" in result.message
