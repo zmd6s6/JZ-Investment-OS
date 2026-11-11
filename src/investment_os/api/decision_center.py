@@ -27,7 +27,7 @@ def decision_center_router(center: DecisionCenterPort | None) -> APIRouter:
     async def list_decisions(
         portfolio_id: UUID | None = None,
         limit: int = Query(default=100, ge=1, le=100),
-        offset: int = Query(default=0, ge=0, le=1000000),
+        offset: int = Query(default=0, ge=0, le=2**63 - 1),
     ) -> tuple[DecisionCard, ...]:
         if limit == 100 and offset == 0:
             return await available().list(portfolio_id=portfolio_id)
