@@ -123,7 +123,7 @@ async def degraded(
             failures.append(label)
             continue
         try:
-            runs = await read_runs()
+            runs = await asyncio.wait_for(read_runs(), timeout=2)
             window_limited = window_limited or len(runs) >= (100 if label == "DAILY_TASK" else 60)
             for run in runs[: 100 if label == "DAILY_TASK" else 60]:
                 if (
@@ -146,7 +146,7 @@ async def degraded(
             failures.append(label)
     if daily is not None:
         try:
-            reports = await daily.store.reports()
+            reports = await asyncio.wait_for(daily.store.reports(), timeout=2)
             window_limited = window_limited or len(reports) >= 100
             for report in reports[:100]:
                 if (
@@ -205,6 +205,6 @@ class OperationalInboxService:
 
     async def _degraded(self) -> InboxSection:
         try:
-            return await asyncio.wait_for(degraded(self.daily, self.monthly), timeout=5)
+            return await asyncio.wait_for(degraded(self.daily, self.monthly), timeout=8)
         except TimeoutError:
             return InboxSection(state="ERROR", message="读取运行历史超时, 请刷新核对。")

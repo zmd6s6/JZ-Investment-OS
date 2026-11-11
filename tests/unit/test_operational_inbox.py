@@ -1,5 +1,6 @@
 """MVP-405: normal, failure, and boundary cases for the read-only inbox."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -156,3 +157,30 @@ async def test_full_scan_window_discloses_uncounted_records():
     result = await pending(CenterWindow(), NOW)
     assert result.state == "EMPTY" and result.limited
     assert "窗口外" in result.message
+
+
+@pytest.mark.asyncio
+async def test_stalled_daily_source_preserves_monthly_records():
+    class Store:
+        async def runs(self):
+            await asyncio.sleep(10)
+            return ()
+
+        async def reports(self):
+            return ()
+
+    class Monthly:
+        async def runs(self):
+            return (
+                SimpleNamespace(
+                    task_run_id=uuid4(),
+                    status="FAILED",
+                    error_code="LOCAL_FAILURE",
+                    started_at=NOW,
+                    finished_at=None,
+                ),
+            )
+
+    result = await degraded(SimpleNamespace(store=Store()), Monthly())
+    assert result.state == "ERROR"
+    assert len(result.items) == 1 and result.items[0].source == "MONTHLY_TASK"
