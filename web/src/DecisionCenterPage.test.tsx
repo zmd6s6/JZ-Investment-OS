@@ -85,3 +85,31 @@ it("opens an Analysis-linked decision only after finding its ID in the actual re
     expect(fetch.mock.calls.every(([, init]) => !init?.method)).toBe(true);
   } finally { window.history.replaceState({}, "", prior); }
 });
+
+
+it("loads older decisions without granting an approval action from the list", async () => {
+  const older = { ...card, decision_id: "older-decision", symbol: "OLDER" };
+  const first = Array.from({ length: 100 }, (_, i) => ({ ...card, decision_id: `recent-${i}`, symbol: `RECENT${i}` }));
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(input => {
+    const path = String(input);
+    if (path.includes("offset=100")) return Promise.resolve(response([older]));
+    if (path.startsWith("/api/v1/decision-center/")) return Promise.resolve(response({ ...view, decision: older, allowed_actions: [] }));
+    return Promise.resolve(response(first));
+  });
+  render(<DecisionCenterPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "加载更早决策" }));
+  fireEvent.click(await screen.findByRole("button", { name: /OLDER · BUY/ }));
+  await screen.findByText("合成理由");
+  expect(fetch.mock.calls.some(([url]) => String(url).includes("offset=100"))).toBe(true);
+  expect(screen.getByRole("button", { name: "批准" })).toBeDisabled();
+});
+
+it("preserves loaded records and disables pagination after a history read failure", async () => {
+  const first = Array.from({ length: 100 }, (_, i) => ({ ...card, decision_id: `recent-${i}`, symbol: `RECENT${i}` }));
+  vi.spyOn(globalThis, "fetch").mockImplementation(input => String(input).includes("offset=100") ? Promise.reject(new Error("network")) : Promise.resolve(response(first)));
+  render(<DecisionCenterPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "加载更早决策" }));
+  await screen.findByText(/加载历史失败/);
+  expect(screen.getByRole("button", { name: /RECENT0 · BUY/ })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "加载更早决策" })).toBeNull();
+});
