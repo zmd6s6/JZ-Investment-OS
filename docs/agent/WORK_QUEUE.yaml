@@ -272,6 +272,34 @@ work_items:
       route: /opportunities
       expected: Owner can see why candidates entered the funnel, missing evidence, and next conditions.
 
+  # Planner补货，仅本PR实际合入Release后可Claim；既有项状态保持原值。
+  - id: MVP-405
+    title: Read-only operational inbox on the product dashboard
+    priority: 1
+    status: READY
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on:
+      - MVP-206
+      - MVP-403
+      - MVP-404
+    scope:
+      - Add a bounded read-only operational inbox to the home dashboard using a typed application read port and real persisted Decision, DailyReport and TaskRun sources.
+      - Show action-required, hold/watch, new-opportunity, Risk Veto, pending approvals and data/job-degraded sections with source IDs, observation time and supported detail links.
+      - Derive operational attention only from recorded status, not investment judgement; unsupported investment sections remain explicitly NOT_PROVIDED or UNKNOWN. An empty successful read differs from source failure.
+      - Refresh rereads actual local persisted state; paginated or bounded results disclose limits and do not present partial counts as totals. Reading must not enqueue, retry, approve, activate or call providers.
+    acceptance:
+      route: /
+      expected: Owner can refresh the dashboard, identify persisted pending approvals and failed/degraded runs, and open the original decision/report detail. Missing sections and source failure show Chinese explanations while readable sections remain usable.
+      failure_conditions:
+        - Source timeout, unavailable or malformed references show an explicit section error without fabricated zero/success or sensitive payload.
+        - Expired, revoked or completed approval history must not appear as currently eligible pending approval; never offer approval directly from the inbox.
+        - Empty database shows an honest empty state; unsupported investment interpretation shows NOT_PROVIDED rather than inferred HOLD/WATCH/BUY.
+      required_evidence:
+        - Named normal, failure and boundary tests with actual PostgreSQL/API reads, bounded results and no side effects.
+        - Synthetic production API and browser flow proving refresh, detail navigation, empty/degraded states and narrow layout; real Worker-produced run history where used.
+    owner_decision: NONE
+
   - id: MVP-501
     title: Full Beta E2E and checkpoint D
     priority: 3
