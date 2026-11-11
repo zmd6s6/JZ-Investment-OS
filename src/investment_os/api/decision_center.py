@@ -29,6 +29,8 @@ def decision_center_router(center: DecisionCenterPort | None) -> APIRouter:
         limit: int = Query(default=100, ge=1, le=100),
         offset: int = Query(default=0, ge=0, le=1000000),
     ) -> tuple[DecisionCard, ...]:
+        if limit == 100 and offset == 0:
+            return await available().list(portfolio_id=portfolio_id)
         return await available().list(portfolio_id=portfolio_id, limit=limit, offset=offset)
 
     @router.get("/{decision_id}", response_model=CenterDetail)
