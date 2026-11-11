@@ -587,3 +587,22 @@ async def test_action_time_rechecks_policy_start_after_clock_change(
                     )
                     == 0
                 )
+
+
+async def test_decision_history_pagination_reaches_older_101st_record(database_engine):
+    await seed_center(database_engine, decision_count=101)
+    center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
+    first = await center.list(limit=100, offset=0)
+    tail = await center.list(limit=100, offset=100)
+    assert len(first) == 100
+    assert len(tail) == 1
+    assert tail[0].decision_id not in {card.decision_id for card in first}
+    assert (await center.get(tail[0].decision_id)).decision.decision_id == tail[0].decision_id
+
+
+async def test_decision_history_pagination_empty_boundary_and_no_write(database_engine):
+    await seed_center(database_engine, decision_count=3)
+    center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
+    assert len(await center.list(limit=2, offset=0)) == 2
+    assert len(await center.list(limit=2, offset=2)) == 1
+    assert await center.list(limit=2, offset=3) == ()
