@@ -303,6 +303,33 @@ work_items:
         - Synthetic production API and browser flow proving refresh, detail navigation, empty/degraded states and narrow layout; real Worker-produced run history where used.
     owner_decision: NONE
 
+  # Planner补货，仅本PR实际合入Release后可Claim；既有15项保持原值。
+  - id: MVP-406
+    title: Fair daily runtime scanning and reachable authorization and report history
+    priority: 1
+    status: READY
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on:
+      - MVP-403
+    scope:
+      - Close the persisted daily runtime starvation gap for enabled configurations beyond the fixed first 50 and pending report finalization beyond the newest 50 executions, retaining bounded work per poll and existing authorization and idempotency fences.
+      - Add typed bounded pagination and exact-record reads for daily configurations, TaskRun history and report audit history, preserving existing callers and immutable records. Expired report bodies remain unavailable while permitted audit metadata remains reachable.
+      - Connect the daily calendar UI to load more records, locate the original configuration or report and explicitly pause or revoke a selected older authorization using its current version and existing confirmation gate.
+      - Document scheduling cursor and recovery semantics in a new ADR and verify any migration against the actual merged single-head chain. No changed investment policy, provider scope, budget, automatic retries of uncertain paid work or real external calls.
+    acceptance:
+      route: /calendar
+      expected: Owner can reach an older daily authorization and its actual task/report history, explicitly pause or revoke it, and refresh to verify the persisted result. Real Worker eventually checks every eligible configuration and finalizes reachable pending reports within bounded polling, including records outside the original first page.
+      failure_conditions:
+        - Source failure, invalid pagination or missing exact ID shows a Chinese error and never a fabricated empty or successful result; failed reads cannot enable state-changing controls from stale records.
+        - Expired or malformed reports retain permitted audit provenance but their business bodies cannot be displayed or reused. Original hashes and append-only history remain unchanged.
+        - Pause, revoke, authorization expiry, scope or calendar changes and concurrent Workers retain the existing final authorization checks, bounded retry and unique business effect. A cursor never grants authorization or replays uncertain model calls.
+      required_evidence:
+        - Named PostgreSQL tests for more than 50 configurations and pending executions, stable bounded pagination, restart and concurrent Worker fairness, terminal report uniqueness, expiry and zero side effects on reads.
+        - Synthetic production API, database, real Worker and browser demonstration of a tail configuration producing a real report, older-history navigation, explicit pause or revoke, refresh persistence, read failure recovery and narrow layout.
+        - Full required checks, generated OpenAPI compatibility and reversible cursor migration or tested forward-fix evidence, followed by an independent final-HEAD Review Gate.
+    owner_decision: NONE
+
   - id: MVP-501
     title: Full Beta E2E and checkpoint D
     priority: 3
