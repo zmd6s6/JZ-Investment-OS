@@ -15,6 +15,7 @@
 
 | Capability | Route | Current truth | Human acceptance |
 |---|---|---|---|
+| 运营待办（MVP405候选） | `/` | ENGINEERING候选 — 原PR47恢复实现只读待审批/运行异常/日报降级、精确详情与刷新；正常和故障合成验证见工作项，最终CI/独立Gate及实际合入待核 | PENDING |
 | Portfolio / CSV import | `/portfolio` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；手工 / 分仓 / 现金 / CSV预览及冲突 / 对账 / 刷新已有隔离可见验证 | PENDING |
 | Watchlist | `/watchlist` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；目录搜索 / 幂等添加 / 刷新 / 删除 / 四项缺失状态已有验证 | PENDING |
 | Investment Policy review | `/#policy` | ACCEPTANCE_READY — MVP-101已核对实际API版本与无写入审阅；真实参数仍由Owner治理 | PENDING |

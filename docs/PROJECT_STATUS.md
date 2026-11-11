@@ -1,5 +1,9 @@
 # 项目状态
 
+## MVP-405 首页运营待办候选
+
+Planner46实际合入后，沿原Claim/PR47恢复本地实现。首页新增真实DecisionCenter eligibility、每日/月度TaskRun和DEGRADED日报的只读聚合，固定原记录详情入口及扫描窗口，单源故障保留可读记录。当前候选正常/失败/边界及合成API/PG/生产Worker/Edge结果见`docs/agent/work-items/MVP-405.md`；完整基线/最终CI与独立Gate待核，尚未标记集成或Owner接受。不存在新的批准、模型调用或任务写入。
+
 > 这是唯一的当前状态记录。推进阶段时必须在同一变更中更新它。
 
 ## 当前快照
