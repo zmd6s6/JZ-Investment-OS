@@ -77,7 +77,7 @@ export function DecisionCenterPage() {
         setLoadedCount(value.length);
         setHasMore(value.length === 100);
         const linked = new URLSearchParams(window.location.search).get("decision_id");
-        if (linked && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(linked)) void open(linked);
+        if (linked && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(linked)) void open(linked.toLowerCase());
         else if (linked) setError("链接中的决策编号格式无效，不能进行操作。");
       }
     } catch (e) { if (seq === listSequence.current) { setCards([]); setLoadedCount(0); setHasMore(false); setError(e instanceof Error ? e.message : "读取失败，请刷新"); } }

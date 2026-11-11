@@ -30,7 +30,7 @@ test("110 persisted Decisions expose older pages, exact URL, explicit manual fac
   await page.getByLabel("本次成交数量").fill("1");
   await page.getByLabel("本次成交价格").fill("10");
   await page.getByLabel("本次费用").fill("0.25");
-  const time = await page.evaluate(() => { const now = new Date(); return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 23); });
+  const time = await page.evaluate(() => { const now = new Date(); return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 23).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, ""); });
   await page.getByLabel("实际成交时间", { exact: true }).fill(time);
   await page.getByLabel("外部成交引用").fill("synthetic-407-manual-reference");
   await page.getByLabel("成交备注").fill("合成已完成事实，不提交真实订单");

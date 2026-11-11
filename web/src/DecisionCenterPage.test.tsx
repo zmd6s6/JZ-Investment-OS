@@ -187,3 +187,13 @@ it("exact historical UUID syntax follows the API without imposing a new UUID-ver
   await screen.findByText(`Decision ${id}`, { exact: false });
   expect(screen.queryByRole("button", { name: "批准" })).toBeNull();
 });
+
+it("an uppercase exact UUID is normalized to the API identity before comparison", async () => {
+  const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  window.history.replaceState({}, "", `/decisions?decision_id=${id.toUpperCase()}`);
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async input => response(String(input) === "/api/v1/decision-center" ? [] : { ...view, decision: { ...card, decision_id: id } }));
+  render(<DecisionCenterPage />);
+  await screen.findByText(`Decision ${id}`, { exact: false });
+  expect(fetch.mock.calls.some(([url]) => String(url).endsWith(id))).toBe(true);
+  expect(new URL(window.location.href).searchParams.get("decision_id")).toBe(id);
+});
