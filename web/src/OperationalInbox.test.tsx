@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OperationalInbox } from "./OperationalInbox";
 
@@ -14,18 +14,18 @@ const inbox = (overrides: Record<string, unknown> = {}) => ({
   risk_veto: empty("NOT_PROVIDED", "尚无独立来源"),
   ...overrides,
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("MVP-405 operational inbox", () => {
   it("reads persisted pending and failed sections and refreshes without writes", async () => {
     const mock = vi.fn().mockResolvedValue({ ok: true, json: async () => inbox({
       pending_approvals: empty("AVAILABLE", "来自持久化记录", [{
         source_id: "id-1", source: "DECISION", status: "PENDING_APPROVAL",
-        observed_at: "2026-11-11T00:00:00Z", detail_url: "/decisions", description: "TEST · BUY",
+        observed_at: "2026-11-11T00:00:00Z", detail_url: "/decisions?decision_id=id-1", description: "TEST · BUY",
       }]),
     }) });
     vi.stubGlobal("fetch", mock);
     render(<OperationalInbox />);
-    expect(await screen.findByRole("link", { name: "TEST · BUY" })).toHaveAttribute("href", "/decisions");
+    expect(await screen.findByRole("link", { name: "TEST · BUY" })).toHaveAttribute("href", "/decisions?decision_id=id-1");
     fireEvent.click(screen.getByRole("button", { name: "刷新运营状态" }));
     await waitFor(() => expect(mock).toHaveBeenCalledTimes(2));
     expect(mock.mock.calls.every(([url, options]) => url === "/api/v1/operational-inbox" && !options?.method)).toBe(true);

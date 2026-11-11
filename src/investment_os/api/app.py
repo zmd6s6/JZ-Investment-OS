@@ -500,7 +500,9 @@ def create_app(
     application.include_router(monthly_router(monthly_review_service))
     application.include_router(universe_router(universe_snapshot_service, complete_scope_service))
     application.include_router(decision_center_router(decision_center))
-    application.include_router(operational_inbox_router(decision_center, daily_runtime_service, monthly_review_service))
+    application.include_router(
+        operational_inbox_router(decision_center, daily_runtime_service, monthly_review_service)
+    )
     application.include_router(
         analysis_decision_router(analysis_decision_bridge, decision_qualifications)
     )

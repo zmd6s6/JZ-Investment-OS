@@ -46,8 +46,8 @@ function valid(value: unknown): value is Inbox {
         typeof s.limited === "boolean" &&
         s.items.every((item) => typeof item.source_id === "string" &&
           typeof item.description === "string" && typeof item.observed_at === "string" &&
-          ((item.source === "DECISION" && item.detail_url === "/decisions") ||
-            (["DAILY_TASK", "MONTHLY_TASK"].includes(item.source) && item.detail_url === "/calendar")));
+          ((item.source === "DECISION" && item.detail_url === `/decisions?decision_id=${item.source_id}`) ||
+            (["DAILY_TASK", "MONTHLY_TASK"].includes(item.source) && item.detail_url === `/calendar#${item.source.toLowerCase()}-${item.source_id}`)));
     });
 }
 export function OperationalInbox() {
@@ -80,6 +80,7 @@ export function OperationalInbox() {
     </button>}>
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">正在读取运营状态…</p>}
+    {data && <p>读取时间 {data.as_of}</p>}
     {data && <div className="capability-grid">
       {sections.map(({ key, label }) => {
         const section = data[key];
@@ -91,7 +92,7 @@ export function OperationalInbox() {
           <p>{section.message}</p>
           {section.items.map((item) => <p key={item.source + item.source_id}>
             <a href={item.detail_url}>{item.description}</a>
-            <small> · {item.observed_at}</small>
+            <small> · {item.observed_at} · 来源 {item.source_id}</small>
           </p>)}
           {section.limited && <p>仅展示前20条，非完整总数。</p>}
         </section>;

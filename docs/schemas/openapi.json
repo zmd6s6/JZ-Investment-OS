@@ -5856,6 +5856,90 @@
         "title": "HumanCommand",
         "type": "object"
       },
+      "InboxItem": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "detail_url": {
+            "title": "Detail Url",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "DECISION",
+              "DAILY_TASK",
+              "MONTHLY_TASK"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source",
+          "status",
+          "observed_at",
+          "detail_url",
+          "description"
+        ],
+        "title": "InboxItem",
+        "type": "object"
+      },
+      "InboxSection": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/InboxItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limited": {
+            "default": false,
+            "title": "Limited",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "AVAILABLE",
+              "EMPTY",
+              "ERROR",
+              "NOT_PROVIDED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "message"
+        ],
+        "title": "InboxSection",
+        "type": "object"
+      },
       "InstrumentCatalogResponse": {
         "additionalProperties": false,
         "properties": {
@@ -8380,6 +8464,56 @@
           "started_at"
         ],
         "title": "OnboardingStateResponse",
+        "type": "object"
+      },
+      "OperationalInbox": {
+        "properties": {
+          "action_required": {
+            "$ref": "#/components/schemas/InboxSection"
+          },
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "degraded_runs": {
+            "$ref": "#/components/schemas/InboxSection"
+          },
+          "hold_watch": {
+            "$ref": "#/components/schemas/InboxSection"
+          },
+          "new_opportunity": {
+            "$ref": "#/components/schemas/InboxSection"
+          },
+          "pending_approvals": {
+            "$ref": "#/components/schemas/InboxSection"
+          },
+          "risk_veto": {
+            "$ref": "#/components/schemas/InboxSection"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of",
+          "pending_approvals",
+          "degraded_runs",
+          "action_required",
+          "hold_watch",
+          "new_opportunity",
+          "risk_veto"
+        ],
+        "title": "OperationalInbox",
         "type": "object"
       },
       "OpportunityCapabilities": {
@@ -12994,6 +13128,27 @@
         "summary": "Start Onboarding",
         "tags": [
           "onboarding"
+        ]
+      }
+    },
+    "/api/v1/operational-inbox": {
+      "get": {
+        "operationId": "read_inbox_api_v1_operational_inbox_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalInbox"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Inbox",
+        "tags": [
+          "operational-inbox"
         ]
       }
     },
