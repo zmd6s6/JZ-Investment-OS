@@ -73,8 +73,7 @@ async def pending(center: DecisionCenterPort | None, now: datetime) -> InboxSect
             if (
                 detail.decision.state != "PENDING_APPROVAL"
                 or "APPROVE" not in detail.allowed_actions
-                or detail.approval_expires_at is None
-                or detail.approval_expires_at <= now
+                or (detail.approval_expires_at is not None and detail.approval_expires_at <= now)
                 or detail.lineage.get("risk_veto") is not False
             ):
                 continue
