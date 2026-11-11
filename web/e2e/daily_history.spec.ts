@@ -9,8 +9,12 @@ test("real Worker reaches the 52nd configuration and UI pages older authorizatio
     const response = await request.get(`/api/v1/runtime/daily/reports?schedule_id=${fixture.tail}`);
     return (await response.json()).length;
   }, { timeout: 150000, intervals: [1000, 2000] }).toBe(1);
-  const reports = await (await request.get("/api/v1/runtime/daily/history")).json();
-  expect(reports.length).toBe(52);
+  // The cursor also advances before a close is due. A tail configuration can
+  // therefore complete before the next wrap reaches all earlier UUIDs.
+  await expect.poll(async () => {
+    const reports = await (await request.get("/api/v1/runtime/daily/history")).json();
+    return reports.length;
+  }, { timeout: 150000, intervals: [1000, 2000] }).toBe(52);
   await page.goto("/calendar");
   const history = page.getByRole("region", { name: "完整每日历史" });
   await expect(history.getByText(/当前第1条起，本页20条/)).toBeVisible();

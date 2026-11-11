@@ -15,6 +15,7 @@
 
 | Capability | Route | Current truth | Human acceptance |
 |---|---|---|---|
+| 每日完整历史与公平扫描（MVP406候选） | `/calendar` | ENGINEERING候选 — 真实分页/旧授权暂停撤销/过期审计及有界扫描接线已有合成PG/真实Worker/Edge证据，最终CI/独立Gate和实际合入待核；具体步骤见MVP406工作项 | PENDING |
 | 运营待办（MVP405候选） | `/` | ENGINEERING候选 — 原PR47恢复实现只读待审批/运行异常/日报降级、精确详情与刷新；正常和故障合成验证见工作项，最终CI/独立Gate及实际合入待核 | PENDING |
 | Portfolio / CSV import | `/portfolio` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；手工 / 分仓 / 现金 / CSV预览及冲突 / 对账 / 刷新已有隔离可见验证 | PENDING |
 | Watchlist | `/watchlist` | ACCEPTANCE_READY — MVP-101已由PR #21合入Release；目录搜索 / 幂等添加 / 刷新 / 删除 / 四项缺失状态已有验证 | PENDING |
