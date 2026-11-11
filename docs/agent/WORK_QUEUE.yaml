@@ -276,9 +276,9 @@ work_items:
   - id: MVP-405
     title: Read-only operational inbox on the product dashboard
     priority: 1
-    status: IN_PROGRESS
+    status: REVIEW
     claim_branch: agent/MVP-405
-    claim_owner: pr-02-review-and-next-stage-monitor / stagnation_planner
+    claim_owner: pr-02-review-and-next-stage-monitor / root
     # 原create-only Claim及PR47由已结束connector开发者建立，恢复唯一执行权见Handoff。
     stage: PRODUCT-08
     checkpoint: C
