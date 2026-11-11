@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { AnalysisPage } from "./AnalysisPage";
+import { OperationalInbox } from "./OperationalInbox";
 import { DecisionCenterPage } from "./DecisionCenterPage";
 import { SettingsPage } from "./SettingsPage";
 import { AcceptancePage } from "./AcceptancePage";
@@ -211,6 +212,8 @@ function HomePage() {
           </ol>
         </Panel>
       </div>
+
+      <OperationalInbox />
 
       <div id="policy">
         <PolicyReviewPanel />

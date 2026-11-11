@@ -17,6 +17,7 @@ from investment_os.api.analysis_decision_routes import analysis_decision_router
 from investment_os.api.analysis_routes import analysis_router
 from investment_os.api.decision_center import decision_center_router
 from investment_os.api.monthly_routes import monthly_router
+from investment_os.api.operational_inbox import operational_inbox_router
 from investment_os.api.valuation_routes import valuation_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
 from investment_os.application.analysis_choices import AnalysisChoicesService
@@ -499,6 +500,9 @@ def create_app(
     application.include_router(monthly_router(monthly_review_service))
     application.include_router(universe_router(universe_snapshot_service, complete_scope_service))
     application.include_router(decision_center_router(decision_center))
+    application.include_router(
+        operational_inbox_router(decision_center, daily_runtime_service, monthly_review_service)
+    )
     application.include_router(
         analysis_decision_router(analysis_decision_bridge, decision_qualifications)
     )
