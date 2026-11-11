@@ -16,8 +16,8 @@ from sqlalchemy import select
 from investment_os.api.analysis_decision_routes import analysis_decision_router
 from investment_os.api.analysis_routes import analysis_router
 from investment_os.api.decision_center import decision_center_router
-from investment_os.api.operational_inbox import operational_inbox_router
 from investment_os.api.monthly_routes import monthly_router
+from investment_os.api.operational_inbox import operational_inbox_router
 from investment_os.api.valuation_routes import valuation_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
 from investment_os.application.analysis_choices import AnalysisChoicesService

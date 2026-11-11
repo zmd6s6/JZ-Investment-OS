@@ -16,7 +16,7 @@ from investment_os.application.monthly_review import MonthlyReviewPort
 class InboxItem(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     source_id: UUID
-    source: Literal["DECISION", "DAILY_TASK", "MONTHLY_TASK"]
+    source: Literal["DECISION", "DAILY_TASK", "MONTHLY_TASK", "DAILY_REPORT"]
     status: str
     observed_at: datetime
     detail_url: str
@@ -56,7 +56,7 @@ def _section(items: list[InboxItem], *, limited: bool) -> InboxSection:
         items=tuple(items[:LIMIT]),
         limited=limited,
         message=(
-            "仅读取最近决策100条、每日任务100条和月度任务60条. "
+            "仅读取最近决策100条、日报100条、每日任务100条和月度任务60条. "
             "最多展示20条匹配记录, 窗口外尚未核对。"
         )
         if limited
@@ -72,7 +72,7 @@ async def pending(center: DecisionCenterPort | None, now: datetime) -> InboxSect
         # Card state alone cannot prove eligibility: require current detail, expiry and
         # allowed actions. Fail closed on any malformed/inaccessible candidate.
         items: list[InboxItem] = []
-        for card in cards:
+        for card in cards[:100]:
             if card.state != "PENDING_APPROVAL":
                 continue
             detail = await center.get(card.decision_id)
@@ -125,7 +125,7 @@ async def degraded(
         try:
             runs = await read_runs()
             window_limited = window_limited or len(runs) >= (100 if label == "DAILY_TASK" else 60)
-            for run in runs:
+            for run in runs[: 100 if label == "DAILY_TASK" else 60]:
                 if (
                     run.status.upper() in {"FAILED", "DEGRADED", "ERROR", "CANCELLED"}
                     or run.error_code
@@ -144,6 +144,27 @@ async def degraded(
                     )
         except Exception:
             failures.append(label)
+    if daily is not None:
+        try:
+            reports = await daily.store.reports()
+            window_limited = window_limited or len(reports) >= 100
+            for report in reports[:100]:
+                if (
+                    report.phase == "DEGRADED"
+                    or report.data_job_degraded.availability == "DEGRADED"
+                ):
+                    items.append(
+                        InboxItem(
+                            source_id=report.report_id,
+                            source="DAILY_REPORT",
+                            status=report.phase,
+                            observed_at=report.recorded_at,
+                            detail_url=f"/calendar#daily_report-{report.report_id}",
+                            description="日报记录了降级状态, 请核对原报告。",
+                        )
+                    )
+        except Exception:
+            failures.append("DAILY_REPORT")
     items.sort(key=lambda x: (x.observed_at, str(x.source_id)), reverse=True)
     if failures:
         return InboxSection(

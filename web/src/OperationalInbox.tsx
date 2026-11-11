@@ -3,7 +3,7 @@ import { Panel } from "./ProductChrome";
 
 type Item = {
   source_id: string;
-  source: "DECISION" | "DAILY_TASK" | "MONTHLY_TASK";
+  source: "DECISION" | "DAILY_TASK" | "MONTHLY_TASK" | "DAILY_REPORT";
   status: string;
   observed_at: string;
   detail_url: string;
@@ -47,7 +47,7 @@ function valid(value: unknown): value is Inbox {
         s.items.every((item) => typeof item.source_id === "string" &&
           typeof item.description === "string" && typeof item.observed_at === "string" &&
           ((item.source === "DECISION" && item.detail_url === `/decisions?decision_id=${item.source_id}`) ||
-            (["DAILY_TASK", "MONTHLY_TASK"].includes(item.source) && item.detail_url === `/calendar#${item.source.toLowerCase()}-${item.source_id}`)));
+            (["DAILY_TASK", "MONTHLY_TASK", "DAILY_REPORT"].includes(item.source) && item.detail_url === `/calendar#${item.source.toLowerCase()}-${item.source_id}`)));
     });
 }
 export function OperationalInbox() {

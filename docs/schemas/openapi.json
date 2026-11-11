@@ -5876,7 +5876,8 @@
             "enum": [
               "DECISION",
               "DAILY_TASK",
-              "MONTHLY_TASK"
+              "MONTHLY_TASK",
+              "DAILY_REPORT"
             ],
             "title": "Source",
             "type": "string"
