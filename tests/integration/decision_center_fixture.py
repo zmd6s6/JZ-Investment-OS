@@ -55,6 +55,8 @@ async def seed_center(
     veto: bool = False,
     policy_active: bool = True,
     decision_count: int = 1,
+    symbol: str = "SYNTH301",
+    strategy_version: int = 1,
     risk_unknown: bool = False,
     sizing_action_mismatch: bool = False,
     risk_lifetime: timedelta = timedelta(hours=12),
@@ -164,7 +166,7 @@ async def seed_center(
         await put(
             "instrument",
             id=ids["instrument"],
-            symbol="SYNTH301",
+            symbol=symbol,
             exchange="TEST",
             asset_type="EQUITY",
             currency="CNY",
@@ -204,7 +206,7 @@ async def seed_center(
         await put(
             "strategy_version",
             id=ids["strategy"],
-            version=1,
+            version=strategy_version,
             status="ACTIVE",
             rules_json={"synthetic": True},
             prompt_bundle_hash="a" * 64,
@@ -267,7 +269,9 @@ async def seed_center(
             instrument_id=ids["instrument"],
             evidence_type="EVENT",
             source_name="合成审计来源",
-            source_locator="synthetic://301/primary",
+            source_locator="synthetic://301/primary"
+            if symbol == "SYNTH301"
+            else f"synthetic://301/primary/{symbol}",
             source_tier="PRIMARY",
             observed_at=now - timedelta(minutes=2),
             effective_at=now - timedelta(minutes=2),
@@ -291,7 +295,9 @@ async def seed_center(
                 instrument_id=ids["instrument"],
                 evidence_type="EVENT",
                 source_name="合成旧来源",
-                source_locator="synthetic://301/expired",
+                source_locator="synthetic://301/expired"
+                if symbol == "SYNTH301"
+                else f"synthetic://301/expired/{symbol}",
                 source_tier="PRIMARY",
                 observed_at=now - timedelta(minutes=3),
                 effective_at=now - timedelta(minutes=3),

@@ -587,3 +587,129 @@ async def test_action_time_rechecks_policy_start_after_clock_change(
                     )
                     == 0
                 )
+
+
+async def test_decision_history_pagination_reaches_older_101st_record(database_engine):
+    await seed_center(database_engine, decision_count=101)
+    center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
+    first = await center.list(limit=100, offset=0)
+    tail = await center.list(limit=100, offset=100)
+    assert len(first) == 100
+    assert len(tail) == 1
+    assert tail[0].decision_id not in {card.decision_id for card in first}
+    assert (await center.get(tail[0].decision_id)).decision.decision_id == tail[0].decision_id
+
+
+async def test_decision_history_pagination_empty_boundary_and_no_write(database_engine):
+    ids = await seed_center(database_engine, decision_count=3)
+    center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
+    writes = []
+
+    def observed(_connection, _cursor, statement, _parameters, _context, _many):
+        if statement.lstrip().split()[0].upper() in {"INSERT", "UPDATE", "DELETE"}:
+            writes.append(statement)
+
+    event.listen(database_engine.sync_engine, "before_cursor_execute", observed)
+    try:
+        assert len(await center.list(limit=2, offset=0)) == 2
+        assert len(await center.list(limit=2, offset=2)) == 1
+        assert await center.list(limit=2, offset=3) == ()
+        assert (await center.get(ids["decision"])).decision.decision_id == ids["decision"]
+    finally:
+        event.remove(database_engine.sync_engine, "before_cursor_execute", observed)
+    assert not writes
+
+
+@pytest.mark.parametrize(
+    "options", [dict(limit=0), dict(limit=101), dict(offset=-1), dict(offset=2**63)]
+)
+async def test_decision_history_direct_port_rejects_invalid_page_bounds(database_engine, options):
+    center = SqlDecisionCenter(async_sessionmaker(database_engine, expire_on_commit=False))
+    with pytest.raises(ValueError, match="DECISION_PAGE_INVALID"):
+        await center.list(**options)
+
+
+async def test_decision_history_api_pages_106_original_records_and_exact_old_human_actions(
+    database_engine,
+):
+    from investment_os.infrastructure.persistence.models import InvestmentDecisionRecord
+
+    ids = await seed_center(database_engine, decision_count=106)
+    sessions = async_sessionmaker(database_engine, expire_on_commit=False)
+    center = SqlDecisionCenter(sessions)
+    app = FastAPI()
+    app.include_router(decision_center_router(center))
+    app.add_middleware(WriteApiAuthMiddleware, token="synthetic-407-only")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = (await client.get("/api/v1/decision-center")).json()
+        tail = (await client.get("/api/v1/decision-center?offset=100&limit=100")).json()
+        assert len(first) == 100 and len(tail) == 6
+        assert len({item["decision_id"] for item in first + tail}) == 106
+        assert (await client.get("/api/v1/decision-center?offset=106")).json() == []
+        for query in ("?limit=101", "?limit=0", "?offset=-1", f"?offset={2**63}"):
+            assert (await client.get("/api/v1/decision-center" + query)).status_code == 422
+        identifier = tail[0]["decision_id"]
+        detail = (await client.get(f"/api/v1/decision-center/{identifier}")).json()
+        original_hash = detail["journal"]["content_hash"]
+        assert detail["allowed_actions"] == ["REJECT", "APPROVE"]
+        assert (await client.get(f"/api/v1/decision-center/{uuid4()}")).status_code == 404
+        headers = {"Authorization": "Bearer synthetic-407-only"}
+        approval = await client.post(
+            f"/api/v1/decision-center/{identifier}/approve",
+            headers=headers,
+            json=human().model_dump(mode="json"),
+        )
+        assert approval.status_code == 200
+        assert approval.json()["decision"]["revision"] == 2
+        revoked = await client.post(
+            f"/api/v1/decision-center/{identifier}/revoke",
+            headers=headers,
+            json=human(2).model_dump(mode="json"),
+        )
+        assert revoked.status_code == 200
+        result = (await client.get(f"/api/v1/decision-center/{identifier}")).json()
+        assert result["journal"]["content_hash"] == original_hash
+        assert [item["action"] for item in result["history"]] == ["APPROVE", "REVOKE"]
+        assert result["allowed_actions"] == []
+        assert (
+            len(
+                (
+                    await client.get(
+                        f"/api/v1/decision-center?portfolio_id={ids['portfolio']}&offset=100"
+                    )
+                ).json()
+            )
+            == 6
+        )
+    async with sessions() as session:
+        assert await session.get(InvestmentDecisionRecord, tail[0]["decision_id"]) is not None
+
+
+@pytest.mark.parametrize("mode", ["veto", "expired", "policy", "legacy"])
+async def test_old_decision_page_never_grants_approval_to_ineligible_history(database_engine, mode):
+    ids = await seed_center(
+        database_engine,
+        decision_count=101,
+        veto=mode == "veto",
+        policy_active=mode != "policy",
+        review_lifetime=-timedelta(seconds=1) if mode == "expired" else timedelta(days=1),
+    )
+    sessions = async_sessionmaker(database_engine, expire_on_commit=False)
+    center = SqlDecisionCenter(sessions)
+    older = (await center.list(offset=100))[0]
+    if mode == "legacy":
+        approval = DecisionApproval(
+            decision_id=older.decision_id,
+            actor_id="synthetic-old-human",
+            action=ApprovalAction.APPROVE,
+            occurred_at=UtcTimestamp(ids["now"]),
+            expires_at=UtcTimestamp(ids["now"] + timedelta(hours=1)),
+            comment="原始合成人工理由",
+        )
+        await SqlAlchemyDecisionJournalWriter(sessions).append_approval(approval)
+    detail = await center.get(older.decision_id)
+    assert "APPROVE" not in detail.allowed_actions
+    if mode == "legacy":
+        assert detail.decision.state == "LEGACY_REVIEW_REQUIRED" and detail.history[0]["legacy"]
+    with pytest.raises(ValueError):
+        await center.act(older.decision_id, "APPROVE", human())

@@ -3,7 +3,7 @@
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from investment_os.application.decision_center import (
     CenterDetail,
@@ -24,8 +24,14 @@ def decision_center_router(center: DecisionCenterPort | None) -> APIRouter:
         return center
 
     @router.get("", response_model=tuple[DecisionCard, ...])
-    async def list_decisions(portfolio_id: UUID | None = None) -> tuple[DecisionCard, ...]:
-        return await available().list(portfolio_id=portfolio_id)
+    async def list_decisions(
+        portfolio_id: UUID | None = None,
+        limit: int = Query(default=100, ge=1, le=100),
+        offset: int = Query(default=0, ge=0, le=2**63 - 1),
+    ) -> tuple[DecisionCard, ...]:
+        if limit == 100 and offset == 0:
+            return await available().list(portfolio_id=portfolio_id)
+        return await available().list(portfolio_id=portfolio_id, limit=limit, offset=offset)
 
     @router.get("/{decision_id}", response_model=CenterDetail)
     async def detail(decision_id: UUID) -> CenterDetail:

@@ -115,7 +115,11 @@ class SqlDecisionCenter:
         self._sessions = sessions
         self._now = now or (lambda: datetime.now(UTC))
 
-    async def list(self, *, portfolio_id: UUID | None = None) -> tuple[DecisionCard, ...]:
+    async def list(
+        self, *, portfolio_id: UUID | None = None, limit: int = 100, offset: int = 0
+    ) -> tuple[DecisionCard, ...]:
+        if not 1 <= limit <= 100 or not 0 <= offset <= 2**63 - 1:
+            raise ValueError("DECISION_PAGE_INVALID")
         async with self._sessions() as session:
             query = (
                 select(InvestmentDecisionRecord, InstrumentRecord.symbol)
@@ -123,7 +127,8 @@ class SqlDecisionCenter:
                     InstrumentRecord, InstrumentRecord.id == InvestmentDecisionRecord.instrument_id
                 )
                 .order_by(InvestmentDecisionRecord.created_at.desc(), InvestmentDecisionRecord.id)
-                .limit(100)
+                .limit(limit)
+                .offset(offset)
             )
             if portfolio_id is not None:
                 query = query.where(InvestmentDecisionRecord.portfolio_id == portfolio_id)
