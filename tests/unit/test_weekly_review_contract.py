@@ -71,3 +71,13 @@ def test_weekly_multiple_weeks_and_invalid_naive_time():
         completed_weeks(start, end, datetime(2026, 11, 23), "SSE")
     with pytest.raises(WeeklyReviewError, match="WEEKLY_COMPLETE_PERIOD_REQUIRED"):
         completed_weeks(start, date(2026, 11, 21), datetime(2026, 11, 23, tzinfo=UTC), "SSE")
+
+
+def test_weekly_standalone_enumeration_rejects_unbounded_range():
+    # The Worker helper must enforce the same limit as the save DTO, even if
+    # invoked without passing through API validation.
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_COMPLETE_PERIOD_REQUIRED"):
+        completed_weeks(
+            date(2026, 11, 9), date(2028, 11, 12),
+            datetime(2028, 11, 13, tzinfo=UTC), "SSE",
+        )
