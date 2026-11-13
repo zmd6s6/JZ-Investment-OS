@@ -85,7 +85,12 @@ def completed_weeks(
     """Only fully closed Monday-Sunday weeks in the selected market timezone."""
     if now.utcoffset() is None:
         raise WeeklyReviewError("WEEKLY_TIMEZONE_REQUIRED")
-    if start.weekday() != 0 or end.weekday() != 6 or end < start:
+    if (
+        start.weekday() != 0
+        or end.weekday() != 6
+        or end < start
+        or (end - start).days > 370
+    ):
         raise WeeklyReviewError("WEEKLY_COMPLETE_PERIOD_REQUIRED")
     local_today = now.astimezone(MarketVenue(market).timezone).date()
     periods = []
