@@ -92,3 +92,56 @@ def test_weekly_standalone_worker_rejects_unsupported_market(market):
             date(2026, 11, 9), date(2026, 11, 15),
             datetime(2026, 11, 16, tzinfo=UTC), market,
         )
+
+
+def test_weekly_worker_preflight_allows_only_enabled_current_authorization():
+    from investment_os.application.weekly_review import eligible_weekly_periods
+    consent = command()
+    now = datetime(2026, 11, 16, tzinfo=UTC)
+    params = dict(
+        persisted_calendar_import_id=consent.calendar_import_id,
+        persisted_members=consent.portfolio_instrument_ids,
+        calendar_sessions=(date(2026, 11, 9), date(2026, 11, 10)),
+    )
+    assert eligible_weekly_periods(consent, now, enabled=True, revoked=False, **params) == (
+        (date(2026, 11, 9), date(2026, 11, 15)),
+    )
+    assert eligible_weekly_periods(consent, now, enabled=False, revoked=False, **params) == ()
+    assert eligible_weekly_periods(consent, now, enabled=True, revoked=True, **params) == ()
+
+
+def test_weekly_worker_preflight_rejects_calendar_and_membership_drift():
+    from investment_os.application.weekly_review import eligible_weekly_periods
+    consent = command()
+    base = dict(
+        authorization=consent, now=datetime(2026, 11, 16, tzinfo=UTC),
+        enabled=True, revoked=False, calendar_sessions=(date(2026, 11, 9),),
+    )
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_CALENDAR_CHANGED"):
+        eligible_weekly_periods(
+            **base, persisted_calendar_import_id=uuid4(),
+            persisted_members=consent.portfolio_instrument_ids,
+        )
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_PORTFOLIO_MEMBERSHIP_CHANGED"):
+        eligible_weekly_periods(
+            **base, persisted_calendar_import_id=consent.calendar_import_id,
+            persisted_members=(uuid4(),),
+        )
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_DUPLICATE_CALENDAR_SESSION"):
+        eligible_weekly_periods(
+            **(base | {"calendar_sessions": (date(2026, 11, 9),) * 2}),
+            persisted_calendar_import_id=consent.calendar_import_id,
+            persisted_members=consent.portfolio_instrument_ids,
+        )
+
+
+def test_weekly_worker_preflight_expires_at_exact_boundary():
+    from investment_os.application.weekly_review import eligible_weekly_periods
+    consent = command()
+    assert eligible_weekly_periods(
+        consent, datetime(2026, 12, 1, tzinfo=UTC),
+        enabled=True, revoked=False,
+        persisted_calendar_import_id=consent.calendar_import_id,
+        persisted_members=consent.portfolio_instrument_ids,
+        calendar_sessions=(),
+    ) == ()
