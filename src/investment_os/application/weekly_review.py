@@ -109,3 +109,50 @@ def completed_weeks(
             periods.append((current, last))
         current = last + timedelta(days=1)
     return tuple(periods)
+
+
+def eligible_weekly_periods(
+    authorization: WeeklyReviewSave,
+    now: datetime,
+    *,
+    enabled: bool,
+    revoked: bool,
+    persisted_calendar_import_id: UUID,
+    persisted_members: tuple[UUID, ...],
+    calendar_sessions: tuple[date, ...],
+) -> tuple[tuple[date, date], ...]:
+    """Fail-closed, local-only Worker preflight; never starts external work.
+
+    A weekly report must not be scheduled from a stale consent, changed
+    membership, or a partial calendar. The caller must verify the imported
+    calendar's source/version and persist the report idempotently.
+    """
+    if now.utcoffset() is None:
+        raise WeeklyReviewError("WEEKLY_TIMEZONE_REQUIRED")
+    if revoked or not enabled:
+        return ()
+    if not (authorization.valid_from <= now < authorization.valid_until):
+        return ()
+    if persisted_calendar_import_id != authorization.calendar_import_id:
+        raise WeeklyReviewError("WEEKLY_CALENDAR_CHANGED")
+    if (
+        len(set(persisted_members)) != len(persisted_members)
+        or set(persisted_members) != set(authorization.portfolio_instrument_ids)
+    ):
+        raise WeeklyReviewError("WEEKLY_PORTFOLIO_MEMBERSHIP_CHANGED")
+    if len(set(calendar_sessions)) != len(calendar_sessions):
+        raise WeeklyReviewError("WEEKLY_DUPLICATE_CALENDAR_SESSION")
+    if any(
+        session < authorization.coverage_start or session > authorization.coverage_end
+        for session in calendar_sessions
+    ):
+        raise WeeklyReviewError("WEEKLY_CALENDAR_SESSION_OUT_OF_RANGE")
+    # Calendar coverage must be independently attested by the persistence
+    # adapter. A list of sessions alone cannot prove that closed days are
+    # complete, so this helper intentionally does not infer coverage.
+    return completed_weeks(
+        authorization.coverage_start,
+        authorization.coverage_end,
+        now,
+        authorization.market,
+    )
