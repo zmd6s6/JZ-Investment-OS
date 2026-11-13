@@ -81,3 +81,13 @@ def test_weekly_standalone_enumeration_rejects_unbounded_range():
             date(2026, 11, 9), date(2028, 11, 12),
             datetime(2028, 11, 13, tzinfo=UTC), "SSE",
         )
+
+
+def test_weekly_standalone_worker_rejects_unsupported_market():
+    # Persisted/legacy task payloads must fail with a named weekly error even
+    # when they bypass the API DTO's SSE/SZSE validation.
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_UNSUPPORTED_MARKET"):
+        completed_weeks(
+            date(2026, 11, 9), date(2026, 11, 15),
+            datetime(2026, 11, 16, tzinfo=UTC), "NYSE",
+        )
