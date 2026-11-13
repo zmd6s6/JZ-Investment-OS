@@ -92,7 +92,11 @@ def completed_weeks(
         or (end - start).days > 370
     ):
         raise WeeklyReviewError("WEEKLY_COMPLETE_PERIOD_REQUIRED")
-    local_today = now.astimezone(MarketVenue(market).timezone).date()
+    try:
+        venue = MarketVenue(market)
+    except ValueError as exc:
+        raise WeeklyReviewError("WEEKLY_UNSUPPORTED_MARKET") from exc
+    local_today = now.astimezone(venue.timezone).date()
     periods = []
     current = start
     while current <= end:
