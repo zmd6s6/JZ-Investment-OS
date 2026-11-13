@@ -385,3 +385,36 @@ work_items:
     acceptance:
       route: /acceptance
       expected: Owner can complete the full Beta workflow without SQL, curl, Python, or raw JSON.
+
+  # Planner proposal only: NOT READY on release/mvp-beta until this PR is merged.
+  # Independent weekly portfolio/watchlist review, not MVP-402 weekly opportunities or MVP-404 monthly report.
+  - id: MVP-408
+    title: Owner-controlled weekly local portfolio and watchlist review
+    priority: 1
+    status: READY
+    claim_branch: agent/MVP-408
+    claim_owner: null
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on:
+      - MVP-401
+      - MVP-403
+      - MVP-404
+    scope:
+      - Add a separately authorized weekly portfolio/watchlist review to /calendar, using existing persisted portfolio, watchlist, market calendar, evidence freshness and historical read ports; do not duplicate MVP-402 opportunity screening or MVP-404 monthly review.
+      - Freeze the explicitly selected portfolio/watchlist membership, complete Monday-to-Sunday week, market/session calendar version, local input/source identifiers, retention and pause/revoke terms in a durable configuration. Save PAUSED by default; require a separate version-checked enable action.
+      - Dispatch due weekly work from the production Worker after the complete week closes. Produce an append-only, idempotent, source-linked local report covering actual holdings/watchlist membership, last known observations, evidence changes where provenance supports comparison, and explicit UNKNOWN/NOT_PROVIDED for historical values or unsupported comparisons.
+      - Provide /calendar UI configuration, preview, enable/pause/revoke, bounded run history and exact report detail/refresh; clearly distinguish weekly portfolio review from the existing monthly report and weekly opportunity funnel.
+      - Strictly zero external provider/model calls and zero automatic Analysis/Decision/Approval/Execution; a future paid research mode requires a separate explicit Owner authorization and work item.
+    acceptance:
+      route: /calendar
+      expected: Owner can save a weekly local review as paused, explicitly enable it, observe a real Worker-produced report after a fully covered closed week, inspect original source IDs and unknowns, refresh persisted history and revoke the schedule without changing prior reports.
+      failure_conditions:
+        - Incomplete week, missing or changed market calendar, unsupported historical snapshots, stale/absent provenance, scope drift, expired/revoked schedule or concurrent version conflict must fail closed or display explicit UNKNOWN; never fabricate historical holdings or returns.
+        - Two Workers, retries, restarts and duplicate polls cannot create duplicate weekly effects or replay uncertain paid work. Paused/revoked configurations cannot enqueue new work.
+        - Invalid report ID, pagination error or source outage must show a visible error without substituting a different report or exposing stale controls.
+      required_evidence:
+        - Named normal/failure/boundary tests using actual PostgreSQL and production Worker for closed-week scheduling, partial-week refusal, 2-worker idempotency, restart, pause/revoke races, history immutability and zero provider/model calls.
+        - Real synthetic API/PG/Worker/browser flow showing saved paused configuration, explicit enable, due report, refresh, exact history, failed input and narrow UI.
+        - Final-HEAD required CI, OpenAPI and migration checks, followed by independent Review Gate; Owner deployment and Checkpoint C remain PENDING.
+    owner_decision: NONE
