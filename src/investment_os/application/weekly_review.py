@@ -94,6 +94,8 @@ def completed_weeks(
         raise WeeklyReviewError("WEEKLY_COMPLETE_PERIOD_REQUIRED")
     try:
         venue = MarketVenue(market)
+        if venue not in (MarketVenue.SSE, MarketVenue.SZSE):
+            raise ValueError("unsupported weekly review market")
     except ValueError as exc:
         raise WeeklyReviewError("WEEKLY_UNSUPPORTED_MARKET") from exc
     local_today = now.astimezone(venue.timezone).date()
