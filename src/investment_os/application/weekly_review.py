@@ -181,6 +181,7 @@ class WeeklyLocalObservation:
     evidence_id: UUID | None
     observed_at: datetime | None
     price: Decimal | None
+    available_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -244,7 +245,15 @@ def build_weekly_local_report(
             not item.price.is_finite() or item.price <= 0
         ):
             raise WeeklyReviewError("WEEKLY_REPORT_INVALID_PRICE")
+        if item.available_at is not None and (
+            item.available_at.utcoffset() is None
+            or item.available_at > knowledge_as_of
+        ):
+            raise WeeklyReviewError("WEEKLY_REPORT_INVALID_AVAILABILITY_TIME")
         seen[item.instrument_id] = item
+    # A report cannot claim source-linked pricing without a usable, available
+    # evidence reference. A future availability time is a look-ahead leak.
+    # The adapter must still validate the evidence ID and source ownership.
     rows = []
     for instrument_id in sorted(allowed, key=str):
         item = seen.get(instrument_id)
@@ -253,6 +262,7 @@ def build_weekly_local_report(
             and item.evidence_id is not None
             and item.observed_at is not None
             and item.price is not None
+            and item.available_at is not None
         )
         rows.append(WeeklyLocalReportRow(
             instrument_id=instrument_id,
