@@ -60,3 +60,24 @@ async def test_weekly_local_report_has_db_immutability_and_idempotency_constrain
               AND tgname LIKE 'trg_weekly_local_%_immutable'
         """))).scalars().all()
         assert len(triggers) == 4
+
+
+async def test_weekly_report_revision_is_scoped_to_its_schedule(database_engine):
+    """A report cannot reference an authorization from a different schedule."""
+    async with database_engine.connect() as conn:
+        row = (await conn.execute(text("""
+            SELECT con.confkey, con.conkey,
+                   (SELECT array_agg(att.attname ORDER BY ord)
+                    FROM unnest(con.conkey) WITH ORDINALITY AS keys(attnum, ord)
+                    JOIN pg_attribute att ON att.attrelid = con.conrelid
+                                         AND att.attnum = keys.attnum) AS local_columns,
+                   (SELECT array_agg(att.attname ORDER BY ord)
+                    FROM unnest(con.confkey) WITH ORDINALITY AS keys(attnum, ord)
+                    JOIN pg_attribute att ON att.attrelid = con.confrelid
+                                         AND att.attnum = keys.attnum) AS remote_columns
+            FROM pg_constraint con
+            WHERE con.conname = 'fk_weekly_local_report_authorized_revision'
+              AND con.contype = 'f'
+        """))).one()
+        assert row.local_columns == ["schedule_id", "revision_id"]
+        assert row.remote_columns == ["schedule_id", "id"]
