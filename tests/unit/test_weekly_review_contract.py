@@ -181,3 +181,92 @@ def test_weekly_worker_preflight_rejects_watchlist_drift_and_duplicates():
     for members in ((uuid4(),), consent.watchlist_instrument_ids * 2):
         with pytest.raises(WeeklyReviewError, match="WEEKLY_WATCHLIST_MEMBERSHIP_CHANGED"):
             eligible_weekly_periods(**base, persisted_watchlist_members=members)
+
+
+def test_weekly_report_freezes_source_linked_current_facts_and_explicit_unknowns():
+    from decimal import Decimal
+    from investment_os.application.weekly_review import (
+        WeeklyLocalObservation, build_weekly_local_report,
+    )
+    shared = uuid4()
+    missing = uuid4()
+    consent = command(
+        portfolio_instrument_ids=[shared],
+        watchlist_instrument_ids=[shared, missing],
+    )
+    evidence = uuid4()
+    report = build_weekly_local_report(
+        consent, week_start=date(2026, 11, 9), week_end=date(2026, 11, 15),
+        knowledge_as_of=datetime(2026, 11, 16, tzinfo=UTC),
+        observations=(WeeklyLocalObservation(
+            shared, evidence, datetime(2026, 11, 13, tzinfo=UTC),
+            Decimal("12.34"),
+        ),),
+    )
+    assert report.historical_holdings_status == "NOT_PROVIDED"
+    assert len(report.rows) == 2
+    rows = {row.instrument_id: row for row in report.rows}
+    assert rows[shared].membership == ("PORTFOLIO", "WATCHLIST")
+    assert rows[shared].last_known_price == Decimal("12.34")
+    assert rows[shared].evidence_id == evidence
+    assert rows[shared].historical_return_status == "NOT_PROVIDED"
+    assert rows[missing].price_status == "UNKNOWN"
+    assert rows[missing].last_known_price is None
+    assert rows[missing].evidence_id is None
+
+
+def test_weekly_report_missing_provenance_never_exposes_unverified_price():
+    from decimal import Decimal
+    from investment_os.application.weekly_review import (
+        WeeklyLocalObservation, build_weekly_local_report,
+    )
+    consent = command()
+    report = build_weekly_local_report(
+        consent, week_start=date(2026, 11, 9), week_end=date(2026, 11, 15),
+        knowledge_as_of=datetime(2026, 11, 16, tzinfo=UTC),
+        observations=(WeeklyLocalObservation(
+            consent.portfolio_instrument_ids[0], None,
+            datetime(2026, 11, 13, tzinfo=UTC), Decimal("10"),
+        ),),
+    )
+    row = next(row for row in report.rows if row.instrument_id == consent.portfolio_instrument_ids[0])
+    assert row.price_status == "UNKNOWN"
+    assert row.last_known_price is None
+
+
+@pytest.mark.parametrize("case", [
+    "not_closed", "outside_scope", "unauthorized", "duplicate",
+    "future", "naive", "zero", "nan",
+])
+def test_weekly_report_rejects_invalid_period_sources_and_prices(case):
+    from decimal import Decimal
+    from investment_os.application.weekly_review import (
+        WeeklyLocalObservation, build_weekly_local_report,
+    )
+    consent = command()
+    now = datetime(2026, 11, 16, tzinfo=UTC)
+    instrument = consent.portfolio_instrument_ids[0]
+    item = WeeklyLocalObservation(instrument, uuid4(), now, Decimal("10"))
+    observations = (item,)
+    week_start, week_end = date(2026, 11, 9), date(2026, 11, 15)
+    if case == "not_closed":
+        now = datetime(2026, 11, 15, 15, tzinfo=UTC)
+    elif case == "outside_scope":
+        week_start, week_end = date(2026, 11, 2), date(2026, 11, 8)
+    elif case == "unauthorized":
+        observations = (WeeklyLocalObservation(uuid4(), uuid4(), now, Decimal("10")),)
+    elif case == "duplicate":
+        observations = (item, item)
+    elif case == "future":
+        observations = (WeeklyLocalObservation(instrument, uuid4(), datetime(2026, 11, 17, tzinfo=UTC), Decimal("10")),)
+    elif case == "naive":
+        observations = (WeeklyLocalObservation(instrument, uuid4(), datetime(2026, 11, 13), Decimal("10")),)
+    elif case == "zero":
+        observations = (WeeklyLocalObservation(instrument, uuid4(), now, Decimal("0")),)
+    elif case == "nan":
+        observations = (WeeklyLocalObservation(instrument, uuid4(), now, Decimal("NaN")),)
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_REPORT_"):
+        build_weekly_local_report(
+            consent, week_start=week_start, week_end=week_end,
+            knowledge_as_of=now, observations=observations,
+        )
