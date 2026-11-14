@@ -101,6 +101,8 @@ def test_weekly_worker_preflight_allows_only_enabled_current_authorization():
     params = dict(
         persisted_calendar_import_id=consent.calendar_import_id,
         persisted_members=consent.portfolio_instrument_ids,
+        persisted_watchlist_members=consent.watchlist_instrument_ids,
+        calendar_coverage_attested=True,
         calendar_sessions=(date(2026, 11, 9), date(2026, 11, 10)),
     )
     assert eligible_weekly_periods(consent, now, enabled=True, revoked=False, **params) == (
@@ -115,7 +117,9 @@ def test_weekly_worker_preflight_rejects_calendar_and_membership_drift():
     consent = command()
     base = dict(
         authorization=consent, now=datetime(2026, 11, 16, tzinfo=UTC),
-        enabled=True, revoked=False, calendar_sessions=(date(2026, 11, 9),),
+        enabled=True, revoked=False,
+        persisted_watchlist_members=consent.watchlist_instrument_ids,
+        calendar_coverage_attested=True, calendar_sessions=(date(2026, 11, 9),),
     )
     with pytest.raises(WeeklyReviewError, match="WEEKLY_CALENDAR_CHANGED"):
         eligible_weekly_periods(
@@ -143,5 +147,37 @@ def test_weekly_worker_preflight_expires_at_exact_boundary():
         enabled=True, revoked=False,
         persisted_calendar_import_id=consent.calendar_import_id,
         persisted_members=consent.portfolio_instrument_ids,
+        persisted_watchlist_members=consent.watchlist_instrument_ids,
+        calendar_coverage_attested=True,
         calendar_sessions=(),
     ) == ()
+
+
+def test_weekly_worker_preflight_requires_attested_complete_calendar():
+    from investment_os.application.weekly_review import eligible_weekly_periods
+    consent = command()
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_CALENDAR_COVERAGE_NOT_ATTESTED"):
+        eligible_weekly_periods(
+            consent, datetime(2026, 11, 16, tzinfo=UTC), enabled=True, revoked=False,
+            persisted_calendar_import_id=consent.calendar_import_id,
+            persisted_members=consent.portfolio_instrument_ids,
+            persisted_watchlist_members=consent.watchlist_instrument_ids,
+            calendar_sessions=(date(2026, 11, 9),),
+            calendar_coverage_attested=False,
+        )
+
+
+def test_weekly_worker_preflight_rejects_watchlist_drift_and_duplicates():
+    from investment_os.application.weekly_review import eligible_weekly_periods
+    consent = command()
+    base = dict(
+        authorization=consent, now=datetime(2026, 11, 16, tzinfo=UTC),
+        enabled=True, revoked=False,
+        persisted_calendar_import_id=consent.calendar_import_id,
+        persisted_members=consent.portfolio_instrument_ids,
+        calendar_sessions=(date(2026, 11, 9),),
+        calendar_coverage_attested=True,
+    )
+    for members in ((uuid4(),), consent.watchlist_instrument_ids * 2):
+        with pytest.raises(WeeklyReviewError, match="WEEKLY_WATCHLIST_MEMBERSHIP_CHANGED"):
+            eligible_weekly_periods(**base, persisted_watchlist_members=members)
