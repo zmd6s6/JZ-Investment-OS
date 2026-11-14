@@ -200,7 +200,7 @@ def test_weekly_report_freezes_source_linked_current_facts_and_explicit_unknowns
         knowledge_as_of=datetime(2026, 11, 16, tzinfo=UTC),
         observations=(WeeklyLocalObservation(
             shared, evidence, datetime(2026, 11, 13, tzinfo=UTC),
-            Decimal("12.34"),
+            Decimal("12.34"), datetime(2026, 11, 13, tzinfo=UTC),
         ),),
     )
     assert report.historical_holdings_status == "NOT_PROVIDED"
@@ -213,6 +213,7 @@ def test_weekly_report_freezes_source_linked_current_facts_and_explicit_unknowns
     assert rows[missing].price_status == "UNKNOWN"
     assert rows[missing].last_known_price is None
     assert rows[missing].evidence_id is None
+    assert rows[shared].observed_at == datetime(2026, 11, 13, tzinfo=UTC)
 
 
 def test_weekly_report_missing_provenance_never_exposes_unverified_price():
@@ -269,4 +270,40 @@ def test_weekly_report_rejects_invalid_period_sources_and_prices(case):
         build_weekly_local_report(
             consent, week_start=week_start, week_end=week_end,
             knowledge_as_of=now, observations=observations,
+        )
+
+
+def test_weekly_report_evidence_without_available_at_is_not_source_linked():
+    from decimal import Decimal
+    from investment_os.application.weekly_review import WeeklyLocalObservation, build_weekly_local_report
+    consent = command()
+    report = build_weekly_local_report(
+        consent, week_start=date(2026, 11, 9), week_end=date(2026, 11, 15),
+        knowledge_as_of=datetime(2026, 11, 16, tzinfo=UTC),
+        observations=(WeeklyLocalObservation(
+            consent.portfolio_instrument_ids[0], uuid4(),
+            datetime(2026, 11, 13, tzinfo=UTC), Decimal("10"),
+        ),),
+    )
+    row = next(row for row in report.rows if row.instrument_id == consent.portfolio_instrument_ids[0])
+    assert row.price_status == "UNKNOWN"
+    assert row.last_known_price is None
+    assert row.evidence_id is None
+
+
+@pytest.mark.parametrize("availability", [
+    datetime(2026, 11, 17, tzinfo=UTC), datetime(2026, 11, 13),
+])
+def test_weekly_report_rejects_future_or_naive_evidence_availability(availability):
+    from decimal import Decimal
+    from investment_os.application.weekly_review import WeeklyLocalObservation, build_weekly_local_report
+    consent = command()
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_REPORT_INVALID_AVAILABILITY_TIME"):
+        build_weekly_local_report(
+            consent, week_start=date(2026, 11, 9), week_end=date(2026, 11, 15),
+            knowledge_as_of=datetime(2026, 11, 16, tzinfo=UTC),
+            observations=(WeeklyLocalObservation(
+                consent.portfolio_instrument_ids[0], uuid4(),
+                datetime(2026, 11, 13, tzinfo=UTC), Decimal("10"), availability,
+            ),),
         )
