@@ -307,3 +307,21 @@ def test_weekly_report_rejects_future_or_naive_evidence_availability(availabilit
                 datetime(2026, 11, 13, tzinfo=UTC), Decimal("10"), availability,
             ),),
         )
+
+
+def test_weekly_report_rejects_availability_before_observation():
+    from decimal import Decimal
+    from investment_os.application.weekly_review import (
+        WeeklyLocalObservation, build_weekly_local_report,
+    )
+    consent = command()
+    with pytest.raises(WeeklyReviewError, match="WEEKLY_REPORT_AVAILABILITY_BEFORE_OBSERVATION"):
+        build_weekly_local_report(
+            consent, week_start=date(2026, 11, 9), week_end=date(2026, 11, 15),
+            knowledge_as_of=datetime(2026, 11, 16, tzinfo=UTC),
+            observations=(WeeklyLocalObservation(
+                consent.portfolio_instrument_ids[0], uuid4(),
+                datetime(2026, 11, 14, tzinfo=UTC), Decimal("10"),
+                datetime(2026, 11, 13, tzinfo=UTC),
+            ),),
+        )
