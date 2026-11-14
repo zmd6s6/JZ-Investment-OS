@@ -62,7 +62,12 @@ def upgrade():
         "weekly_local_report",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("schedule_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("weekly_local_configuration.id"), nullable=False),
-        sa.Column("revision_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("weekly_local_authorization.id"), nullable=False),
+        sa.Column("revision_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["schedule_id", "revision_id"],
+            ["weekly_local_authorization.schedule_id", "weekly_local_authorization.id"],
+            name="fk_weekly_local_report_authorized_revision",
+        ),
         sa.Column("task_run_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("task_run.id"), nullable=False, unique=True),
         sa.Column("week_start", sa.Date(), nullable=False),
         sa.Column("week_end", sa.Date(), nullable=False),
