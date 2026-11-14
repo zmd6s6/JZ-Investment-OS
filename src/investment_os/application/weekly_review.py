@@ -250,6 +250,12 @@ def build_weekly_local_report(
             or item.available_at > knowledge_as_of
         ):
             raise WeeklyReviewError("WEEKLY_REPORT_INVALID_AVAILABILITY_TIME")
+        if (
+            item.observed_at is not None
+            and item.available_at is not None
+            and item.available_at < item.observed_at
+        ):
+            raise WeeklyReviewError("WEEKLY_REPORT_AVAILABILITY_BEFORE_OBSERVATION")
         seen[item.instrument_id] = item
     # A report cannot claim source-linked pricing without a usable, available
     # evidence reference. A future availability time is a look-ahead leak.
