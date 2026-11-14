@@ -165,3 +165,111 @@ def eligible_weekly_periods(
         now,
         authorization.market,
     )
+
+
+# A deterministic, immutable local report payload. This is NOT a Worker or
+# historical valuation: source observations are accepted only as caller-supplied
+# persisted facts and no missing historical price is inferred.
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Literal
+
+
+@dataclass(frozen=True)
+class WeeklyLocalObservation:
+    instrument_id: UUID
+    evidence_id: UUID | None
+    observed_at: datetime | None
+    price: Decimal | None
+
+
+@dataclass(frozen=True)
+class WeeklyLocalReportRow:
+    instrument_id: UUID
+    membership: tuple[Literal["PORTFOLIO", "WATCHLIST"], ...]
+    evidence_id: UUID | None
+    observed_at: datetime | None
+    last_known_price: Decimal | None
+    price_status: Literal["SOURCE_LINKED", "UNKNOWN"]
+    historical_return_status: Literal["NOT_PROVIDED"] = "NOT_PROVIDED"
+
+
+@dataclass(frozen=True)
+class WeeklyLocalReport:
+    week_start: date
+    week_end: date
+    knowledge_as_of: datetime
+    calendar_import_id: UUID
+    rows: tuple[WeeklyLocalReportRow, ...]
+    historical_holdings_status: Literal["NOT_PROVIDED"] = "NOT_PROVIDED"
+
+
+def build_weekly_local_report(
+    authorization: WeeklyReviewSave,
+    *,
+    week_start: date,
+    week_end: date,
+    knowledge_as_of: datetime,
+    observations: tuple[WeeklyLocalObservation, ...],
+) -> WeeklyLocalReport:
+    """Freeze source-linked current observations; never invent week-end history.
+
+    The production adapter must separately prove persisted calendar coverage,
+    authorization and source ownership before calling this pure builder.
+    """
+    if knowledge_as_of.utcoffset() is None:
+        raise WeeklyReviewError("WEEKLY_TIMEZONE_REQUIRED")
+    if (week_start, week_end) not in completed_weeks(
+        authorization.coverage_start,
+        authorization.coverage_end,
+        knowledge_as_of,
+        authorization.market,
+    ):
+        raise WeeklyReviewError("WEEKLY_REPORT_WEEK_NOT_CLOSED_OR_OUT_OF_SCOPE")
+    portfolio = set(authorization.portfolio_instrument_ids)
+    watchlist = set(authorization.watchlist_instrument_ids)
+    allowed = portfolio | watchlist
+    seen: dict[UUID, WeeklyLocalObservation] = {}
+    for item in observations:
+        if item.instrument_id not in allowed:
+            raise WeeklyReviewError("WEEKLY_REPORT_UNAUTHORIZED_INSTRUMENT")
+        if item.instrument_id in seen:
+            raise WeeklyReviewError("WEEKLY_REPORT_DUPLICATE_OBSERVATION")
+        if item.observed_at is not None and (
+            item.observed_at.utcoffset() is None
+            or item.observed_at > knowledge_as_of
+        ):
+            raise WeeklyReviewError("WEEKLY_REPORT_INVALID_OBSERVATION_TIME")
+        if item.price is not None and (
+            not item.price.is_finite() or item.price <= 0
+        ):
+            raise WeeklyReviewError("WEEKLY_REPORT_INVALID_PRICE")
+        seen[item.instrument_id] = item
+    rows = []
+    for instrument_id in sorted(allowed, key=str):
+        item = seen.get(instrument_id)
+        source_linked = bool(
+            item is not None
+            and item.evidence_id is not None
+            and item.observed_at is not None
+            and item.price is not None
+        )
+        rows.append(WeeklyLocalReportRow(
+            instrument_id=instrument_id,
+            membership=tuple(
+                role for role, members in (
+                    ("PORTFOLIO", portfolio), ("WATCHLIST", watchlist)
+                ) if instrument_id in members
+            ),
+            evidence_id=item.evidence_id if source_linked and item else None,
+            observed_at=item.observed_at if source_linked and item else None,
+            last_known_price=item.price if source_linked and item else None,
+            price_status="SOURCE_LINKED" if source_linked else "UNKNOWN",
+        ))
+    return WeeklyLocalReport(
+        week_start=week_start,
+        week_end=week_end,
+        knowledge_as_of=knowledge_as_of,
+        calendar_import_id=authorization.calendar_import_id,
+        rows=tuple(rows),
+    )
