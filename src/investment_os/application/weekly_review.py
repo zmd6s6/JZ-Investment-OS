@@ -120,6 +120,8 @@ def eligible_weekly_periods(
     persisted_calendar_import_id: UUID,
     persisted_members: tuple[UUID, ...],
     calendar_sessions: tuple[date, ...],
+    persisted_watchlist_members: tuple[UUID, ...],
+    calendar_coverage_attested: bool,
 ) -> tuple[tuple[date, date], ...]:
     """Fail-closed, local-only Worker preflight; never starts external work.
 
@@ -140,6 +142,13 @@ def eligible_weekly_periods(
         or set(persisted_members) != set(authorization.portfolio_instrument_ids)
     ):
         raise WeeklyReviewError("WEEKLY_PORTFOLIO_MEMBERSHIP_CHANGED")
+    if (
+        len(set(persisted_watchlist_members)) != len(persisted_watchlist_members)
+        or set(persisted_watchlist_members) != set(authorization.watchlist_instrument_ids)
+    ):
+        raise WeeklyReviewError("WEEKLY_WATCHLIST_MEMBERSHIP_CHANGED")
+    if not calendar_coverage_attested:
+        raise WeeklyReviewError("WEEKLY_CALENDAR_COVERAGE_NOT_ATTESTED")
     if len(set(calendar_sessions)) != len(calendar_sessions):
         raise WeeklyReviewError("WEEKLY_DUPLICATE_CALENDAR_SESSION")
     if any(
@@ -147,9 +156,9 @@ def eligible_weekly_periods(
         for session in calendar_sessions
     ):
         raise WeeklyReviewError("WEEKLY_CALENDAR_SESSION_OUT_OF_RANGE")
-    # Calendar coverage must be independently attested by the persistence
-    # adapter. A list of sessions alone cannot prove that closed days are
-    # complete, so this helper intentionally does not infer coverage.
+    # The caller must independently attest the complete imported calendar
+    # (including closed days) against its frozen version. Session dates alone
+    # are insufficient. This preflight never self-attests completeness.
     return completed_weeks(
         authorization.coverage_start,
         authorization.coverage_end,
