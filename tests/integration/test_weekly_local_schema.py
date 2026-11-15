@@ -81,3 +81,27 @@ async def test_weekly_report_revision_is_scoped_to_its_schedule(database_engine)
         """))).one()
         assert row.local_columns == ["schedule_id", "revision_id"]
         assert row.remote_columns == ["schedule_id", "id"]
+
+
+async def test_weekly_authorization_calendar_coverage_requires_monday_and_sunday(database_engine):
+    """The persisted contract rejects partial calendar coverage independently of the DTO."""
+    async with database_engine.connect() as conn:
+        names = set((await conn.execute(text("""
+            SELECT conname FROM pg_constraint
+            WHERE conname IN ('weekly_local_coverage_starts_monday',
+                              'weekly_local_coverage_ends_sunday')
+        """))).scalars().all())
+        assert names == {'weekly_local_coverage_starts_monday',
+                         'weekly_local_coverage_ends_sunday'}
+
+
+async def test_weekly_report_period_must_start_monday(database_engine):
+    """A six-day shifted week must not pass solely because it spans seven dates."""
+    async with database_engine.connect() as conn:
+        names = set((await conn.execute(text("""
+            SELECT conname FROM pg_constraint
+            WHERE conname IN ('weekly_local_complete_week',
+                              'weekly_local_report_starts_monday')
+        """))).scalars().all())
+        assert names == {'weekly_local_complete_week',
+                         'weekly_local_report_starts_monday'}
