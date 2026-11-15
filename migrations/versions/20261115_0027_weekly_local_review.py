@@ -41,6 +41,8 @@ def upgrade():
         sa.CheckConstraint("version > 0", name="weekly_local_revision_positive"),
         sa.CheckConstraint("valid_until > valid_from", name="weekly_local_valid_window"),
         sa.CheckConstraint("coverage_end >= coverage_start", name="weekly_local_coverage_window"),
+        sa.CheckConstraint("EXTRACT(ISODOW FROM coverage_start) = 1", name="weekly_local_coverage_starts_monday"),
+        sa.CheckConstraint("EXTRACT(ISODOW FROM coverage_end) = 7", name="weekly_local_coverage_ends_sunday"),
     )
     op.create_foreign_key(
         "fk_weekly_local_current_revision",
@@ -77,6 +79,7 @@ def upgrade():
         sa.Column("content_hash", sa.String(64), nullable=False),
         sa.UniqueConstraint("schedule_id", "week_start", name="uq_weekly_local_report_week"),
         sa.CheckConstraint("week_end = week_start + 6", name="weekly_local_complete_week"),
+        sa.CheckConstraint("EXTRACT(ISODOW FROM week_start) = 1", name="weekly_local_report_starts_monday"),
     )
     op.create_index("ix_weekly_local_report_schedule_history", "weekly_local_report", ["schedule_id", "week_start"])
     op.create_table(
