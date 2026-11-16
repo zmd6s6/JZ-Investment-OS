@@ -63,3 +63,24 @@ async def test_weekly_mode_pause_is_not_silent_success(database_engine):
             assert await session.scalar(text(
                 "SELECT version FROM weekly_local_configuration WHERE id=:id"
             ), {"id": schedule_id}) == 0
+
+
+async def test_weekly_mode_outer_join_without_authorization_allows_row_lock(database_engine):
+    """PostgreSQL must lock the configuration, not the nullable authorization side."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    schedule_id = uuid4()
+    async with AsyncSession(database_engine) as session:
+        async with session.begin():
+            await session.execute(
+                text("INSERT INTO weekly_local_configuration (id) VALUES (:id)"),
+                {"id": schedule_id},
+            )
+            state = await change_weekly_mode(
+                session, schedule_id=schedule_id, expected_version=0, action="REVOKE"
+            )
+            assert (state.version, state.revoked) == (1, True)
+            assert await session.scalar(
+                text("SELECT version FROM weekly_local_configuration WHERE id = :id"),
+                {"id": schedule_id},
+            ) == 1
