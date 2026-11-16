@@ -47,7 +47,7 @@ async def change_weekly_mode(
             LEFT JOIN weekly_local_authorization AS a
               ON a.schedule_id = c.id AND a.id = c.current_revision_id
             WHERE c.id = :schedule_id
-            FOR UPDATE
+            FOR UPDATE OF c
         """),
         {"schedule_id": schedule_id},
     )).mappings().one_or_none()
