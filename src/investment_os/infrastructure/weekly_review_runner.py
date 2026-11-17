@@ -172,13 +172,16 @@ class WeeklyReviewRunner:
                 if task is None:
                     raise WeeklyError("WEEKLY_TASK_REFERENCE_MISSING")
                 sessions_in_week = tuple(day for day in days if start <= day.business_date <= end)
+                # Baseline availability and local facts share the capture cutoff,
+                # which may be later than the poll after awaited locks/queries.
+                knowledge_as_of = self.clock()
                 prior_row = await uow.session.scalar(
                     select(WeeklyReportRecord)
                     .where(
                         WeeklyReportRecord.schedule_id == config.schedule_id,
                         WeeklyReportRecord.revision_id == config.revision_id,
                         WeeklyReportRecord.period_start < start,
-                        WeeklyReportRecord.usable_until > now,
+                        WeeklyReportRecord.usable_until > knowledge_as_of,
                         WeeklyReportRecord.phase != "CLOSED_WEEK_SKIPPED",
                         WeeklyReportRecord.report_json["local_inputs"].astext.is_not(None),
                     )
@@ -187,9 +190,8 @@ class WeeklyReviewRunner:
                     .order_by(WeeklyReportRecord.period_start.desc())
                     .limit(1)
                 )
-                prior = verify_report(prior_row, now) if prior_row else None
+                prior = verify_report(prior_row, knowledge_as_of) if prior_row else None
                 # Replays of historical weeks never claim to restore historical ledger state.
-                knowledge_as_of = self.clock()
                 local = numbers = None
                 holdings: tuple[WeeklyHoldingReview, ...] = ()
                 quotes: tuple[MarketDataSnapshot, ...] = ()

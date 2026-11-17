@@ -463,7 +463,7 @@ async def test_weekly_missing_quote_has_no_fabricated_zero_nav(database_engine):
     assert report.holdings[0].reentry_assessment == "NOT_PROVIDED"
 
 
-async def weekly_with_closed_gap(engine, *, earlier_capture):
+async def weekly_with_closed_gap(engine, *, earlier_capture, retention_days=7, validity_days=1):
     sessions, service, _, command, ids = await setup(engine)
     weeks = 3 if earlier_capture else 2
     start = command.coverage_start - timedelta(days=7 * (weeks - 1))
@@ -486,6 +486,8 @@ async def weekly_with_closed_gap(engine, *, earlier_capture):
         update={
             "calendar_import_id": calendar.import_id,
             "coverage_start": start,
+            "retention_days": retention_days,
+            "valid_until": datetime.now(UTC) + timedelta(days=validity_days),
             "calendar_days": {
                 start + timedelta(days=i): "OPEN"
                 if start + timedelta(days=i) in open_dates
@@ -794,3 +796,39 @@ async def test_weekly_nonempty_0027_upgrade_preserves_legacy_authorization_witho
             await session.execute(text("SELECT report_json FROM weekly_local_report"))
         ).scalar_one()
         assert original == {"legacy": "original report"}
+
+
+@pytest.mark.parametrize("expiry_offset_seconds", [-1, 0, 1])
+async def test_weekly_baseline_expiry_uses_capture_knowledge_time_not_dispatch_time(
+    database_engine, expiry_offset_seconds
+):
+    sessions, service, _, _, _ = await weekly_with_closed_gap(
+        database_engine, earlier_capture=True, retention_days=1, validity_days=4
+    )
+    clock = {"now": datetime.now(UTC)}
+    runner = WeeklyReviewRunner(
+        sessions,
+        SqlWeeklyReader(SqlManualMarketData(sessions)),
+        max_periods=1,
+        clock=lambda: clock["now"],
+    )
+    assert len(await runner.dispatch_due(now=clock["now"])) == 1
+    first = (await service.reports())[0]
+    assert first.local_inputs is not None
+    assert len(await runner.dispatch_due(now=clock["now"])) == 1
+    poll_time = first.usable_until - timedelta(seconds=2)
+    clock["now"] = first.usable_until + timedelta(seconds=expiry_offset_seconds)
+    assert len(await runner.dispatch_due(now=poll_time)) == 1
+    latest = (await service.reports())[0]
+    assert latest.knowledge_as_of == clock["now"]
+    if expiry_offset_seconds < 0:
+        assert latest.baseline_report_id == first.report_id
+        assert latest.baseline_status == "COMPARABLE_BASELINE"
+        assert Decimal(latest.holdings[0].core_change) == 0
+    else:
+        assert latest.baseline_report_id is None
+        assert latest.baseline_status == "FIRST_RUN_NO_BASELINE"
+        assert latest.evidence_diff.baseline_report_id is None
+        assert latest.holdings[0].core_change is None
+        assert "NO_COMPARABLE_POSITION_BASELINE" in latest.holdings[0].unknowns
+    assert await service.replay(first.report_id) == first
