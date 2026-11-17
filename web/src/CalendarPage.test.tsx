@@ -1,6 +1,7 @@
 // Calendar-only unit tests isolate the independently tested daily runtime panel.
 vi.mock("./DailyRuntimePanel",()=>({DailyRuntimePanel:()=>null}));
 vi.mock("./MonthlyReviewPanel",()=>({MonthlyReviewPanel:()=>null}));
+vi.mock("./WeeklyReviewPanel",()=>({WeeklyReviewPanel:()=>null}));
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { CalendarPage, parseCalendarOverview } from "./CalendarPage";

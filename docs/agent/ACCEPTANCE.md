@@ -204,3 +204,11 @@ MVP-404独立Review发现并修复超过50项配置导致后续任务饥饿：00
 入口 `/opportunities`：先在完整来源v2结果或冻结历史中核对全部成员/条件，进入“完整来源 · 每周本地确定性筛选 v2”，明确周配置名称、市场、完整周一至周日范围及已导入日历。分别声明全部会话完整与仅本地零外网/模型/费用后保存；应显示schema2.0新版本暂停。另行确认保存范围后启用，周结束由真实Worker以最后明确收盘时点完整扫描最多1000项、一次全局最多20候选；刷新可读TaskRun/缺项、原来源与本周不可变完整产物。原v1保持200边界，两个协议不互换模板或启停。
 
 失败：不完整周/未勾确认不保存；来源晚于业务时点、日历改变/暂停/版本冲突失败关闭，无部分产物；资料缺失显示DEGRADED与全部逐层缺项，明确闭市周SKIPPED_CLOSED。未知写回先刷新，以同内容同request_id明确核对；不自动外联或研究候选。历史链接可读取原v2完整运行，390宽可操作。新旧真实PG29通过、独立合成18134/API/PG/生产Worker/Edge1通过32.9秒（含实际未授权401）均属工程/接线证据；最终CI与独立Gate待核，实际合入后生效，Owner部署和本人验收PENDING，402/P8 PARTIAL及501BLOCKED不变。
+
+## MVP-408 周度本地复核（PR53真正合入后生效）
+
+入口 `/calendar` → “周度组合复核”：选择非空组合及明确观察清单成员、已导入日历、完整周一至周日范围、逐日OPEN/CLOSED声明、本地来源/授权期/保留期。先预览并核对，再确认保存暂停；独立确认启用后真实Worker产生周报。刷新打开原ID/hash冻结报告，核Evidence四时间、Core/Tactical、实际读取时点和UNKNOWN；显式暂停/永久撤销保留原历史。部分周、漏日/矛盾来源、scope漂移/版本冲突拒绝；错误ID或读失败清旧正文并显示可恢复中文提示。51+授权可翻页读取旧撤销项，390宽可操作。
+
+本项 `INTEGRATED / ACCEPTANCE_READY` 仅在PR53经最终独立Gate且真正合入Release后生效。业务HEAD `ffc54018fdb79cde0d9171e7d1bb21dbeb3ac921` 六CI已全部SUCCESS，完整Python1143项、integration375项通过，覆盖率88.20%。本地46项Weekly PG、47项unit、148项frontend及真实合成API18147/PG15450/生产Worker/Edge四场景通过，390宽实际document/body/viewport均390。独立审阅随后复现闭市跳过周的假可比基线。修复后首次OPEN捕获明确无基线，OPEN→CLOSED→OPEN定位更早真实捕获，实际knowledge_as_of同时用于基线可用期筛选和校验，恰等/超过到期时明确无基线。51项PG与重启修复源码后的五项真实API/Worker/Edge场景通过37.1s。新增业务HEAD须重新通过完整CI和独立Gate。
+
+闭市保持SOURCE_DECLARED人工来源声明，当前账本与历史周末快照分别展示，历史收益NOT_PROVIDED。报告采用本地资料与零模型/外部费用路径，auto_trade=false。完整步骤与失败恢复见 `docs/agent/work-items/MVP-408.md`。Owner部署、PRODUCT-08和Checkpoint C接受继续PENDING。

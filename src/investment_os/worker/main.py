@@ -23,6 +23,8 @@ from investment_os.infrastructure.runtime_scheduler import (
     load_synthetic_calendar,
 )
 from investment_os.infrastructure.settings import Settings, get_settings
+from investment_os.infrastructure.weekly_review_reader import SqlWeeklyReader
+from investment_os.infrastructure.weekly_review_runner import WeeklyReviewRunner
 from investment_os.worker.analysis_bootstrap import analysis_worker
 from investment_os.worker.daily_runtime import daily_worker
 from investment_os.worker.weekly_funnel import weekly_worker
@@ -65,6 +67,7 @@ class WorkerRuntime:
         weekly: CalendarScheduler | None = None,
         daily: CalendarScheduler | None = None,
         monthly: CalendarScheduler | None = None,
+        weekly_review: CalendarScheduler | None = None,
     ) -> None:
         self._probe = probe
         self._ready_file = ready_file
@@ -76,6 +79,7 @@ class WorkerRuntime:
         self._weekly = weekly
         self._daily = daily
         self._monthly = monthly
+        self._weekly_review = weekly_review
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "WorkerRuntime":
@@ -104,6 +108,10 @@ class WorkerRuntime:
             analysis_resources=resources,
             weekly=weekly_worker(create_session_factory(engine)),
             daily=daily_worker(create_session_factory(engine), settings),
+            weekly_review=WeeklyReviewRunner(
+                create_session_factory(engine),
+                SqlWeeklyReader(SqlManualMarketData(create_session_factory(engine))),
+            ),
             monthly=MonthlyReviewRunner(
                 create_session_factory(engine),
                 SqlMonthlyReader(SqlManualMarketData(create_session_factory(engine))),
@@ -124,6 +132,11 @@ class WorkerRuntime:
                 await self._daily.dispatch_due(now=now or datetime.now(UTC))
             except Exception:
                 LOGGER.error("daily_dispatch_failed")
+        if ready and self._weekly_review is not None:
+            try:
+                await self._weekly_review.dispatch_due(now=now or datetime.now(UTC))
+            except Exception:
+                LOGGER.error("weekly_local_dispatch_failed")
         if ready and self._monthly is not None:
             try:
                 await self._monthly.dispatch_due(now=now or datetime.now(UTC))

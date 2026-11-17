@@ -19,6 +19,7 @@ from investment_os.api.decision_center import decision_center_router
 from investment_os.api.monthly_routes import monthly_router
 from investment_os.api.operational_inbox import operational_inbox_router
 from investment_os.api.valuation_routes import valuation_router
+from investment_os.api.weekly_routes import weekly_review_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
 from investment_os.application.analysis_choices import AnalysisChoicesService
 from investment_os.application.analysis_configuration import AnalysisStartService
@@ -72,6 +73,7 @@ from investment_os.application.research import (
 from investment_os.application.research_runtime import ResearchProviderRuntime, ResearchRuntimeError
 from investment_os.application.universe_snapshots import UniverseSnapshotService
 from investment_os.application.watchlist import WatchlistService
+from investment_os.application.weekly_review import WeeklyReviewPort
 from investment_os.domain.values import UtcTimestamp
 from investment_os.infrastructure.catalog_portfolio import (
     SessionCatalogPort,
@@ -385,6 +387,7 @@ def create_app(
     complete_weekly_service: CompleteWeeklyService | None = None,
     daily_runtime_service: DailyRuntimeService | None = None,
     monthly_review_service: MonthlyReviewPort | None = None,
+    weekly_review_service: WeeklyReviewPort | None = None,
     universe_snapshot_service: UniverseSnapshotService | None = None,
     complete_scope_service: CompleteScopeService | None = None,
     analysis_start: AnalysisStartService | None = None,
@@ -498,6 +501,7 @@ def create_app(
     application.include_router(complete_weekly_router(complete_weekly_service))
     application.include_router(daily_router(daily_runtime_service))
     application.include_router(monthly_router(monthly_review_service))
+    application.include_router(weekly_review_router(weekly_review_service))
     application.include_router(universe_router(universe_snapshot_service, complete_scope_service))
     application.include_router(decision_center_router(decision_center))
     application.include_router(
