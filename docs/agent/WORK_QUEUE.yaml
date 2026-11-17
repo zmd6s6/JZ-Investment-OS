@@ -391,7 +391,8 @@ work_items:
   - id: MVP-408
     title: Owner-controlled weekly local portfolio and watchlist review
     priority: 1
-    status: IN_PROGRESS
+    status: INTEGRATED
+    # 仅随PR53通过最终独立Gate且真正合入release/mvp-beta生效。Owner、P8与Checkpoint C接受仍PENDING。
     claim_branch: agent/MVP-408
     claim_owner: pr-02-review-and-next-stage-monitor / mvp408_vertical_recovery
     stage: PRODUCT-08
