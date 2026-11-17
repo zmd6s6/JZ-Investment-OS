@@ -29,7 +29,7 @@ def upgrade():
     op.execute("""ALTER TABLE weekly_local_report
       ADD COLUMN authorization_version integer NOT NULL DEFAULT 0,
       ADD COLUMN business_as_of timestamptz,
-      ADD COLUMN usable_until timestamptz NOT NULL DEFAULT '-infinity',
+      ADD COLUMN usable_until timestamptz NOT NULL DEFAULT '1970-01-01T00:00:00+00:00',
       ADD COLUMN baseline_report_id uuid REFERENCES weekly_local_report(id),
       ADD COLUMN phase varchar(32) NOT NULL DEFAULT 'LEGACY_UNVERIFIED'""")
     op.execute(

@@ -62,7 +62,7 @@ async def test_weekly_local_report_has_db_immutability_and_idempotency_constrain
             SELECT conname FROM pg_constraint
             WHERE conname IN ('uq_weekly_local_report_week',
                               'uq_weekly_local_authorization_version',
-                              'weekly_local_complete_week')
+                              'ck_weekly_local_report_weekly_local_complete_week')
         """)
                 )
             )
@@ -72,7 +72,7 @@ async def test_weekly_local_report_has_db_immutability_and_idempotency_constrain
         assert set(constraints) == {
             "uq_weekly_local_report_week",
             "uq_weekly_local_authorization_version",
-            "weekly_local_complete_week",
+            "ck_weekly_local_report_weekly_local_complete_week",
         }
         triggers = (
             (
@@ -122,15 +122,18 @@ async def test_weekly_authorization_calendar_coverage_requires_monday_and_sunday
                 await conn.execute(
                     text("""
             SELECT conname FROM pg_constraint
-            WHERE conname IN ('weekly_local_coverage_starts_monday',
-                              'weekly_local_coverage_ends_sunday')
+            WHERE conname IN ('ck_weekly_local_authorization_weekly_local_coverage_sta_d279',
+                              'ck_weekly_local_authorization_weekly_local_coverage_ends_sunday')
         """)
                 )
             )
             .scalars()
             .all()
         )
-        assert names == {"weekly_local_coverage_starts_monday", "weekly_local_coverage_ends_sunday"}
+        assert names == {
+            "ck_weekly_local_authorization_weekly_local_coverage_sta_d279",
+            "ck_weekly_local_authorization_weekly_local_coverage_ends_sunday",
+        }
 
 
 async def test_weekly_report_period_must_start_monday(database_engine):
@@ -141,12 +144,15 @@ async def test_weekly_report_period_must_start_monday(database_engine):
                 await conn.execute(
                     text("""
             SELECT conname FROM pg_constraint
-            WHERE conname IN ('weekly_local_complete_week',
-                              'weekly_local_report_starts_monday')
+            WHERE conname IN ('ck_weekly_local_report_weekly_local_complete_week',
+                              'ck_weekly_local_report_weekly_local_report_starts_monday')
         """)
                 )
             )
             .scalars()
             .all()
         )
-        assert names == {"weekly_local_complete_week", "weekly_local_report_starts_monday"}
+        assert names == {
+            "ck_weekly_local_report_weekly_local_complete_week",
+            "ck_weekly_local_report_weekly_local_report_starts_monday",
+        }

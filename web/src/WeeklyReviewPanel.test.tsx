@@ -108,3 +108,15 @@ test("weekly pagination failure retains visible records and names a read failure
     expect(screen.getByRole("heading", { name: /已保留0/ })).toBeVisible();
     expect(screen.getByRole("button", { name: "加载更多周度授权" })).toBeEnabled();
 });
+
+test("legacy authorizations stay visible but cannot inherit weekly permission", async () => {
+    const fetch = mock(), original = fetch.getMockImplementation()!;
+    fetch.mockImplementation(async (url, init) => String(url) === "/api/v1/runtime/weekly" ? response([{schedule_id:"old-0027",revision_id:"old",version:1,enabled:false,revoked:false,prepared:null,blocker:"WEEKLY_LEGACY_UNVERIFIED_CREATE_NEW_AUTHORIZATION"}]) : original(url, init));
+    render(<WeeklyReviewPanel />);
+    await screen.findByRole("heading", {name:/旧格式授权 old-0027/});
+    expect(screen.getByText(/旧格式来源\/完整周许可未验证/)).toBeVisible();
+    fireEvent.click(screen.getByLabelText(/我已核对此保存周度授权/));
+    expect(screen.getByRole("button", {name:"启用周度复核"})).toBeDisabled();
+    expect(screen.getByRole("button", {name:"永久撤销周度授权"})).toBeEnabled();
+    expect(fetch.mock.calls.every(([,init]) => !init?.method)).toBe(true);
+});

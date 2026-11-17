@@ -33,7 +33,7 @@ type Config = {
     enabled: boolean;
     revoked: boolean;
     blocker: string | null;
-    prepared: Prepared;
+    prepared: Prepared | null;
 };
 type History = {
     report_id: string;
@@ -194,7 +194,7 @@ export function WeeklyReviewPanel() {
         ]);
         if (id !== reads.current || signal?.aborted)
             return;
-        if (![b, c.configurations, conf, h, t].every(Array.isArray))
+        if (![b, c.configurations, conf, h, t, w].every(Array.isArray))
             throw new Error("周度响应格式不符, 当前状态未确认。");
         setBooks(b); setWatches(w);
         setCalendars(c.configurations.filter(value => ["SSE", "SZSE"].includes(value.venue)));
@@ -321,7 +321,7 @@ export function WeeklyReviewPanel() {
       <button type="submit">预览完整周度授权（不保存）</button>
     </fieldset></form>
     {preview && <section aria-label="周度授权预览"><h3>完整周度授权预览</h3><p>组合全部: {preview.members.map(value => `${value.name} ${value.symbol}`).join("、")}</p><p>日历 {preview.calendar_source} / {preview.calendar_version} · {preview.calendar_hash}</p><p>{String(preview.command.coverage_start)} 至 {String(preview.command.coverage_end)} · 完整周结束后一次 · 报告使用{String(preview.command.retention_days)}天</p><p>本地报价 {String(preview.command.quote_source_name)} · 本地资料 {String(preview.command.evidence_source_names)} · 授权 {String(preview.command.valid_from)} 至 {String(preview.command.valid_until)}</p><p>固定LOCAL_WEEKLY_PORTFOLIO_WATCHLIST_REVIEW, 模型/资料档案为空, 费用与Token=0。暂停/永久撤销在此页面。</p><label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>已核对本次全部周度范围与零成本, 明确保存为暂停。</label><button disabled={working || !healthy || !confirmed} onClick={() => void save()}>保存周度授权为暂停</button></section>}
-    <h3>已保存周度任务</h3><p>每页最多50条；记录变化时请刷新后重新浏览。</p>{configs.map(value => <article key={value.schedule_id}><h4>{String(value.prepared.command.name)} · {value.revoked ? "已永久撤销" : value.enabled ? "已启用" : "已暂停"}</h4><p>版本{value.version} · {value.blocker ?? "等待完整自然周结束及Worker轮询"}</p><p>完整周范围{String(value.prepared.command.coverage_start)} 至{String(value.prepared.command.coverage_end)} · {value.prepared.calendar_source} / {value.prepared.calendar_version}</p><p>组合全部{value.prepared.members.map(member => `${member.name} ${member.symbol}`).join("、")} · {String(value.prepared.command.quote_source_name)} · 本地来源{String(value.prepared.command.evidence_source_names)}</p><label><input type="checkbox" checked={modeConfirm.includes(value.schedule_id)} onChange={e => setModeConfirm(old => e.target.checked ? [...old, value.schedule_id] : old.filter(id => id !== value.schedule_id))}/>我已核对此保存周度授权, 明确确认本次启停或永久撤销。</label>{["ENABLE", "PAUSE", "REVOKE"].map((action, index) => <button key={action} disabled={working || !healthy || value.revoked || !modeConfirm.includes(value.schedule_id)} onClick={() => void mode(value, action)}>{["启用周度复核", "暂停周度复核", "永久撤销周度授权"][index]}</button>)}</article>)}
+    <h3>已保存周度任务</h3><p>每页最多50条；记录变化时请刷新后重新浏览。</p>{configs.map(value => <article key={value.schedule_id}><h4>{String(value.prepared?.command.name ?? `旧格式授权 ${value.schedule_id}`)} · {value.revoked ? "已永久撤销" : value.enabled ? "已启用" : "已暂停"}</h4><p>版本{value.version} · {value.blocker ?? "等待完整自然周结束及Worker轮询"}</p>{value.prepared ? <><p>完整周范围{String(value.prepared.command.coverage_start)} 至{String(value.prepared.command.coverage_end)} · {value.prepared.calendar_source} / {value.prepared.calendar_version}</p><p>组合全部{value.prepared.members.map(member => `${member.name} ${member.symbol}`).join("、")} · {String(value.prepared.command.quote_source_name)} · 本地来源{String(value.prepared.command.evidence_source_names)}</p></> : <p>旧格式来源/完整周许可未验证，禁止启用或运行；保留原历史，可明确暂停或永久撤销。需要运行时请建立新授权。</p>}<label><input type="checkbox" checked={modeConfirm.includes(value.schedule_id)} onChange={e => setModeConfirm(old => e.target.checked ? [...old, value.schedule_id] : old.filter(id => id !== value.schedule_id))}/>我已核对此保存周度授权, 明确确认本次启停或永久撤销。</label>{["ENABLE", "PAUSE", "REVOKE"].map((action, index) => <button key={action} disabled={working || !healthy || value.revoked || (action === "ENABLE" && !value.prepared) || !modeConfirm.includes(value.schedule_id)} onClick={() => void mode(value, action)}>{["启用周度复核", "暂停周度复核", "永久撤销周度授权"][index]}</button>)}</article>)}
     {moreConfigs && <button disabled={working || !healthy} onClick={() => void loadMore("configs")}>加载更多周度授权</button>}
     <h3>真实周度任务记录</h3>{tasks.length ? tasks.map(task => <p key={task.task_run_id} id={`weekly_task-${task.task_run_id}`} ref={element => { if (element && window.location.hash === `#weekly_task-${task.task_run_id}`) element.scrollIntoView?.(); }}>任务{task.task_run_id} · {task.status} · 尝试{task.attempt} · {task.error_code ?? "无记录错误"}{task.status === "FAILED" && task.attempt >= 3 ? " · 本授权周次重试已耗尽, 修复后保存新暂停授权再确认启用" : ""}</p>) : <p>没有记录不代表Worker健康; 可能尚未到期、暂停或未运行。失败最多三次本地重试, 来源修复须新暂停版本再确认启用。</p>}
     {moreTasks && <button disabled={working || !healthy} onClick={() => void loadMore("tasks")}>加载更多周度任务记录</button>}

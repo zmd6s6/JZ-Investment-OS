@@ -341,7 +341,7 @@ async def test_weekly_save_enable_linearize_scope_and_calendar_changes(
     try:
         if writer_first:
             await write()
-            with pytest.raises(WeeklyError, match="MONTHLY_"):
+            with pytest.raises(WeeklyError, match="WEEKLY_"):
                 await perform()
         else:
             original = module.capture
@@ -377,7 +377,7 @@ async def test_weekly_save_enable_linearize_scope_and_calendar_changes(
         # A saved or enabled old snapshot cannot survive the committed identity/source change.
         if not writer_first and operation == "SAVE":
             config = (await service.configurations())[0]
-            with pytest.raises(WeeklyError, match="MONTHLY_"):
+            with pytest.raises(WeeklyError, match="WEEKLY_"):
                 await service.mode(
                     command.schedule_id,
                     DailyMode(

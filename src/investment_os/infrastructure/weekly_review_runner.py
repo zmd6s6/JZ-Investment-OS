@@ -100,7 +100,7 @@ class WeeklyReviewRunner:
                     # A corrupt source cannot pin the fair cursor forever. No authorization
                     # or task is invented; API reads expose the source failure.
                     continue
-                if config.blocker:
+                if config.blocker or config.prepared is None:
                     continue
                 command = config.prepared.command
                 for start, end in complete_weeks(
@@ -131,6 +131,8 @@ class WeeklyReviewRunner:
             )
         completed = []
         for config, start, end in plans:
+            if config.prepared is None:
+                continue
             key = f"weekly:{config.schedule_id}:{config.revision_id}:{start:%Y-%m-%d}"
 
             async def handler(
@@ -148,6 +150,7 @@ class WeeklyReviewRunner:
                 current = await configuration(uow.session, pointer, now)
                 if (
                     current.blocker
+                    or current.prepared is None
                     or current.version != config.version
                     or current.revision_id != config.revision_id
                 ):

@@ -382,11 +382,11 @@ class WeeklyConfirm(DailyDto):
 
 class WeeklyConfiguration(DailyDto):
     schedule_id: UUID
-    revision_id: UUID
+    revision_id: UUID | None
     version: int
     enabled: bool
     revoked: bool
-    prepared: WeeklyPrepared
+    prepared: WeeklyPrepared | None
     blocker: str | None
     auto_trade: Literal[False] = False
 

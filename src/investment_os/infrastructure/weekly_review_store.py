@@ -89,7 +89,26 @@ async def emit(
 async def configuration(
     session: AsyncSession, pointer: WeeklyConfigurationRecord, now: datetime
 ) -> WeeklyConfiguration:
-    record = await session.get(WeeklyAuthorizationRecord, pointer.revision_id)
+    record = (
+        await session.get(WeeklyAuthorizationRecord, pointer.revision_id)
+        if pointer.revision_id is not None
+        else None
+    )
+    # 0027 rows are retained, never reinterpreted as a new complete authorization.
+    # Their real pointer/CAS state remains visible and may be paused/revoked, but
+    # neither an old JSON shape nor a missing revision can authorize execution.
+    if pointer.created_by == "weekly_legacy" and (
+        record is None or record.created_by == "weekly_legacy"
+    ):
+        return WeeklyConfiguration(
+            schedule_id=pointer.id,
+            revision_id=pointer.revision_id,
+            version=pointer.version,
+            enabled=pointer.enabled,
+            revoked=pointer.revoked,
+            prepared=None,
+            blocker="WEEKLY_LEGACY_UNVERIFIED_CREATE_NEW_AUTHORIZATION",
+        )
     if record is None or record.schedule_id != pointer.id:
         raise WeeklyError("WEEKLY_AUTHORIZATION_REFERENCE_INVALID")
     try:
@@ -362,6 +381,8 @@ class SqlWeeklyReview:
                 raise WeeklyError("WEEKLY_VERSION_CONFLICT")
             current = await configuration(session, pointer, datetime.now(UTC))
             if command.action == "ENABLE":
+                if current.prepared is None:
+                    raise WeeklyError("WEEKLY_LEGACY_UNVERIFIED_CREATE_NEW_AUTHORIZATION")
                 prepared, _ = await capture(
                     session, current.prepared.command, datetime.now(UTC), lock=True
                 )
@@ -404,7 +425,7 @@ class SqlWeeklyReview:
             ).all()
             for pointer in rows:
                 config = await configuration(session, pointer, datetime.now(UTC))
-                if config.blocker is None:
+                if config.blocker is None and config.prepared is not None:
                     try:
                         prepared, _ = await capture(
                             session, config.prepared.command, datetime.now(UTC), lock=False

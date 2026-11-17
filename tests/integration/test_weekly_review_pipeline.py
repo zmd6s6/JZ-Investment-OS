@@ -543,3 +543,162 @@ async def test_weekly_empty_migration_downgrade_upgrade_retains_old_monthly_hist
     async with database_engine.connect() as conn:
         assert await conn.scalar(text("SELECT version_num FROM alembic_version")) == "20261117_0028"
         assert await conn.scalar(text("SELECT count(*) FROM weekly_local_report")) == 0
+
+
+async def test_weekly_watchlist_only_member_missing_quote_never_becomes_portfolio_or_zero(
+    database_engine,
+):
+    from investment_os.infrastructure.persistence.models import (
+        InstrumentRecord,
+        WatchlistItemRecord,
+    )
+    from investment_os.infrastructure.weekly_review_store import common
+
+    sessions, service, runner, command, ids = await setup(database_engine)
+    watch_id = uuid4()
+    async with sessions() as session, session.begin():
+        session.add(
+            InstrumentRecord(
+                id=watch_id,
+                symbol="629408",
+                exchange="SSE",
+                name="合成仅观察无报价",
+                asset_type="EQUITY",
+                currency="CNY",
+                **common(uuid4()),
+            )
+        )
+        await session.flush()
+        session.add(
+            WatchlistItemRecord(
+                instrument_id=watch_id, added_at=datetime.now(UTC), **common(uuid4())
+            )
+        )
+    command = command.model_copy(update={"watchlist_instrument_ids": (watch_id,)})
+    await enable(service, command)
+    assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
+    report = (await service.reports())[0]
+    watched = next(
+        member for member in report.local_inputs.members if member.instrument_id == watch_id
+    )
+    assert watched.in_watchlist and not watched.in_portfolio
+    assert len(report.holdings) == 1 and report.holdings[0].instrument_id == ids["instrument"]
+    quote = next(value for value in report.quotes if value.instrument_id == watch_id)
+    assert quote.status != "AVAILABLE" and quote.quote is None
+    assert watch_id not in report.local_inputs.quote_evidence_ids
+    assert (
+        report.valuation.nav is not None
+    )  # Missing watch price is not an invented position/value.
+    assert await service.replay(report.report_id) == report
+
+
+async def test_weekly_nonempty_0027_upgrade_preserves_legacy_authorization_without_reauthorizing(
+    database_engine,
+):
+    from investment_os.infrastructure.persistence.models import TaskRunRecord
+    from investment_os.infrastructure.weekly_review_store import common
+
+    sessions, service, runner, command, _ = await setup(database_engine)
+    await asyncio.to_thread(migration_command.downgrade, Config("alembic.ini"), "20261115_0027")
+    revision = uuid4()
+    async with sessions() as session, session.begin():
+        await session.execute(
+            text("INSERT INTO weekly_local_configuration(id) VALUES (:id)"),
+            {"id": command.schedule_id},
+        )
+        await session.execute(
+            text(
+                "INSERT INTO weekly_local_authorization "
+                "(id,schedule_id,version,portfolio_id,calendar_import_id,valid_from,valid_until,"
+                "coverage_start,coverage_end,authorization_json,content_hash) "
+                "VALUES (:id,:schedule,1,:portfolio,:calendar,:start,:end,:first,:last,"
+                '\'{"legacy":"preserve original without inventing permission"}\'::jsonb,:hash)'
+            ),
+            dict(
+                id=revision,
+                schedule=command.schedule_id,
+                portfolio=command.portfolio_id,
+                calendar=command.calendar_import_id,
+                start=command.valid_from,
+                end=command.valid_until,
+                first=command.coverage_start,
+                last=command.coverage_end,
+                hash="b" * 64,
+            ),
+        )
+        await session.execute(
+            text("UPDATE weekly_local_configuration SET current_revision_id=:id,version=1"),
+            {"id": revision},
+        )
+        task_id, report_id = uuid4(), uuid4()
+        session.add(
+            TaskRunRecord(
+                id=task_id,
+                task_name="weekly_portfolio_review",
+                scheduled_for=datetime.now(UTC),
+                status="SUCCEEDED",
+                attempt=1,
+                idempotency_key=f"weekly:{command.schedule_id}:{revision}:legacy",
+                input_hash="b" * 64,
+                started_at=datetime.now(UTC),
+                **common(uuid4()),
+            )
+        )
+        await session.flush()
+        await session.execute(
+            text(
+                "INSERT INTO weekly_local_report(id,schedule_id,revision_id,task_run_id,week_start,"
+                "week_end,knowledge_as_of,recorded_at,report_json,content_hash) "
+                "VALUES (:id,:schedule,:revision,:task,:first,:last,:now,:now,"
+                '\'{"legacy":"original report"}\'::jsonb,:hash)'
+            ),
+            dict(
+                id=report_id,
+                schedule=command.schedule_id,
+                revision=revision,
+                task=task_id,
+                first=command.coverage_start,
+                last=command.coverage_end,
+                now=datetime.now(UTC),
+                hash="c" * 64,
+            ),
+        )
+    await asyncio.to_thread(migration_command.upgrade, Config("alembic.ini"), "head")
+    old = (await service.configurations())[0]
+    assert old.prepared is None and not old.enabled
+    assert old.blocker == "WEEKLY_LEGACY_UNVERIFIED_CREATE_NEW_AUTHORIZATION"
+    assert await runner.dispatch_due(now=datetime.now(UTC)) == ()
+    with pytest.raises(WeeklyError, match="LEGACY_UNVERIFIED"):
+        await service.mode(
+            command.schedule_id,
+            DailyMode(request_id=uuid4(), expected_version=1, action="ENABLE", confirmed=True),
+        )
+    revoked = await service.mode(
+        command.schedule_id,
+        DailyMode(request_id=uuid4(), expected_version=1, action="REVOKE", confirmed=True),
+    )
+    assert revoked.revoked and revoked.prepared is None and revoked.version == 2
+    with pytest.raises(RuntimeError, match="weekly history exists"):
+        await asyncio.to_thread(migration_command.downgrade, Config("alembic.ini"), "20261115_0027")
+    await asyncio.to_thread(migration_command.upgrade, Config("alembic.ini"), "head")
+    async with sessions() as session:
+        row = (
+            await session.execute(
+                text("SELECT authorization_json,content_hash FROM weekly_local_authorization")
+            )
+        ).one()
+        assert row.authorization_json == {
+            "legacy": "preserve original without inventing permission"
+        }
+        assert row.content_hash == "b" * 64
+    assert len(await service.configurations()) == 1
+    history = await service.history()
+    assert len(history) == 1 and history[0].report_id == report_id
+    assert not history[0].usable and history[0].content_hash == "c" * 64
+    with pytest.raises(WeeklyError, match="SCHEMA_OR_HASH_INVALID"):
+        await service.replay(report_id)
+    async with sessions() as session:
+        original = (
+            await session.execute(text("SELECT report_json FROM weekly_local_report"))
+        ).scalar_one()
+        assert original == {"legacy": "original report"}

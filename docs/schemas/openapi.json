@@ -12612,12 +12612,26 @@
             "type": "boolean"
           },
           "prepared": {
-            "$ref": "#/components/schemas/WeeklyPrepared"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WeeklyPrepared"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "revision_id": {
-            "format": "uuid",
-            "title": "Revision Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
           },
           "revoked": {
             "title": "Revoked",
