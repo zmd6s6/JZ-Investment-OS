@@ -419,3 +419,32 @@ work_items:
         - Real synthetic API/PG/Worker/browser flow showing saved paused configuration, explicit enable, due report, refresh, exact history, failed input and narrow UI.
         - Final-HEAD required CI, OpenAPI and migration checks, followed by independent Review Gate; Owner deployment and Checkpoint C remain PENDING.
     owner_decision: NONE
+
+  # 唯一Planner补货提案；仅本规划PR真正合入Release后READY生效，此前禁止Claim。
+  - id: MVP-409
+    title: Reachable read-only weekly opportunity TaskRun history and exact provenance
+    priority: 1
+    status: READY
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on:
+      - MVP-401
+    scope:
+      - Close the actual newest-50 TaskRun visibility limit in both local weekly opportunity protocols at /opportunities using typed bounded stable pagination and exact task_run_id reads, preserving current overview callers and deterministic tie ordering.
+      - "Consume only already integrated local v1/v2 TaskRun, frozen revision, result and exact Funnel reads: PR43 merge 189207d596101849527292acde512bfee6ea7f68 and PR44 merge a3a0d04bdd1ce734a7ca6680beebbd3e95105fd0 are verified ancestors of Release baseline a37ec1a5abd84bbd5f996d365582488fcf06d608. MVP-401 supplies persisted calendar provenance. No unfinished full-market capability of MVP-402 is required; its REVIEW/PARTIAL facts remain unchanged."
+      - Let the owner browse older weekly tasks, navigate directly to an exact persisted TaskRun outside the loaded page, and refresh that selection. Display its original schedule/revision, period, as-of, source/calendar identifiers and hashes where actually persisted, current recorded status/attempt/reason, and original Funnel link only when a real artifact exists.
+      - Resolve provenance through the original frozen revision and original artifact, never the current mutable configuration/template. Reuse existing v1/v2 exact Funnel detail paths rather than recomputing results, candidates or missing history. Absent metadata or an unrecorded per-attempt timeline remains explicitly UNKNOWN/NOT_PROVIDED.
+      - Keep v1/v2 namespaces isolated and make old FAILED and SKIPPED tasks without a Funnel independently reachable. Preserve immutable records and hashes, the approved global 50-configuration capacity, all existing scheduling/authorization semantics and SOURCE_DECLARED/UNVERIFIED limitations.
+      - All new history/detail operations are authenticated GET reads with zero database mutations, dispatch, retry, Event/Outbox writes, provider/model requests or costs. No Analysis/Decision/Approval/Execution, Policy/Strategy, source permission or auto_trade=false changes; no Owner-instance operation.
+    acceptance:
+      route: /opportunities
+      expected: In either weekly panel the owner can load older persisted tasks beyond the newest 50, open an old successful, failed or skipped task by list or exact URL, inspect its original revision and supported provenance, and follow an existing original Funnel link when present. Refresh retains the selected original record; failed/skipped tasks honestly show no artifact. Loaded-range and next-page limits are explicit, and the flow works at 390px without SQL, curl or raw JSON.
+      failure_conditions:
+        - Malformed, missing or wrong-protocol task IDs and invalid pagination show Chinese errors without substituting another task, current revision or fabricated empty/success response. A valid older ID is not rejected solely for being outside the current page.
+        - Page-read failure preserves already loaded rows with a visible retry; detail failure clears stale selected content and artifact links. Late responses after selection or protocol changes cannot replace the current task or expose a stale link; recovery rereads persisted state without enqueueing work.
+        - FAILED, SKIPPED, legacy and missing-reference records expose only supported persisted metadata and concrete missing/unknown explanations. No backfill, new Funnel, rewritten hash, inferred official calendar verification or invented complete attempt history is permitted.
+      required_evidence:
+        - Named PostgreSQL and authenticated API normal/failure/boundary tests for 50 and 51-plus tasks per protocol, more than 100 mixed records, tied ordering, bounded page traversal without omissions or duplicates, exact IDs outside the page, protocol isolation, old revisions, FAILED/SKIPPED without artifacts and zero GET side effects.
+        - Synthetic real API/DB/UI demonstration of older-record pagination, exact URL, original Funnel navigation, refresh, read failure/recovery, late-response selection guards and 390px layout. Include a real production Worker-produced record for lineage; distinguish seeded older synthetic history from Worker-produced evidence.
+        - Verify existing response/OpenAPI compatibility, original record hashes and approved authorization/scheduling behavior, run complete required checks and obtain independent final-HEAD Review Gate. If implementation requires new database/time/public compatibility semantics, add a new ADR rather than rewriting an accepted one. Owner deployment, PRODUCT-08/Checkpoint acceptance, MVP-402 REVIEW/PARTIAL and MVP-501 BLOCKED remain unchanged.
+    owner_decision: NONE
