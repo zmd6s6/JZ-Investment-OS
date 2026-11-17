@@ -179,7 +179,11 @@ class WeeklyReviewRunner:
                         WeeklyReportRecord.revision_id == config.revision_id,
                         WeeklyReportRecord.period_start < start,
                         WeeklyReportRecord.usable_until > now,
+                        WeeklyReportRecord.phase != "CLOSED_WEEK_SKIPPED",
+                        WeeklyReportRecord.report_json["local_inputs"].astext.is_not(None),
                     )
+                    # A skipped closed week records no portfolio/evidence capture.
+                    # Filter before LIMIT so an earlier real capture remains reachable.
                     .order_by(WeeklyReportRecord.period_start.desc())
                     .limit(1)
                 )

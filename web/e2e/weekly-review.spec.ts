@@ -169,3 +169,54 @@ test("narrow real report replay and failed reads retain no stale body or write p
   expect(mutations).toBe(0);
   await page.screenshot({path:"../.runtime/mvp408-narrow-read-failure.png",fullPage:true});
 });
+
+test("closed weeks never claim an uncaptured baseline in the real weekly report UI", async ({page,request}) => {
+  test.setTimeout(180000);
+  const original=(await (await request.get("/api/v1/runtime/weekly")).json()).find((value:{prepared:unknown})=>value.prepared).prepared.command;
+  const endWeek=period();
+  for(const earlierCapture of [false,true]) {
+    const weeks=earlierCapture?3:2;
+    const first=new Date(new Date(endWeek.start+"T00:00:00Z").getTime()-(weeks-1)*7*86400000);
+    const start=first.toISOString().slice(0,10);
+    const day=(offset:number)=>new Date(first.getTime()+offset*86400000).toISOString().slice(0,10);
+    const opens=new Set([endWeek.start,endWeek.end,...(earlierCapture?[day(0),day(6)]:[])]);
+    const pointer=(await (await request.get("/api/v1/calendar")).json()).configurations.find((value:{venue:string})=>value.venue==="SSE");
+    const imported=await request.post("/api/v1/calendar/imports",{headers,data:{request_id:crypto.randomUUID(),expected_version:pointer.version,venue:"SSE",source_name:"Synthetic explicit closed gap",source_version:`closed-gap-${Date.now()}`,confirmed_source:true,csv_text:"business_date,close_at\n"+[...opens].sort().map(value=>`${value},15:00\n`).join("")}});
+    expect(imported.ok(),await imported.text()).toBeTruthy();
+    const calendar=await imported.json();
+    const command={...original,request_id:crypto.randomUUID(),schedule_id:crypto.randomUUID(),expected_version:0,name:`408闭市基线-${earlierCapture}-${Date.now()}`,calendar_import_id:calendar.import_id,coverage_start:start,coverage_end:endWeek.end,calendar_days:Object.fromEntries(Array.from({length:weeks*7},(_,i)=>[day(i),opens.has(day(i))?"OPEN":"CLOSED"])),valid_from:new Date(Date.now()-60000).toISOString(),valid_until:new Date(Date.now()+3600000).toISOString()};
+    const preview=await request.post("/api/v1/runtime/weekly/preview",{headers,data:command});
+    expect(preview.ok(),await preview.text()).toBeTruthy();
+    const saved=await request.post("/api/v1/runtime/weekly",{headers,data:{command,preview_hash:(await preview.json()).content_hash}});
+    expect(saved.ok(),await saved.text()).toBeTruthy();
+    const enabled=await request.post(`/api/v1/runtime/weekly/${command.schedule_id}/mode`,{headers,data:{request_id:crypto.randomUUID(),expected_version:(await saved.json()).version,action:"ENABLE",confirmed:true}});
+    expect(enabled.ok(),await enabled.text()).toBeTruthy();
+    await expect.poll(async()=> (await (await request.get(`/api/v1/runtime/weekly/reports?schedule_id=${command.schedule_id}`)).json()).length,{timeout:45000}).toBe(weeks);
+    const reports=await (await request.get(`/api/v1/runtime/weekly/reports?schedule_id=${command.schedule_id}`)).json();
+    const latest=reports.find((value:{period_start:string})=>value.period_start===endWeek.start);
+    const closed=reports.find((value:{phase:string})=>value.phase==="CLOSED_WEEK_SKIPPED");
+    expect(closed.local_inputs).toBeNull();
+    if(earlierCapture) {
+      const firstOpen=reports.find((value:{period_start:string})=>value.period_start===start);
+      expect(latest.baseline_report_id).toBe(firstOpen.report_id);
+      expect(latest.baseline_report_id).not.toBe(closed.report_id);
+      expect(latest.baseline_status).toBe("COMPARABLE_BASELINE");
+    } else {
+      expect(latest.baseline_report_id).toBeNull();
+      expect(latest.baseline_status).toBe("FIRST_RUN_NO_BASELINE");
+      expect(latest.holdings.every((value:{core_change:unknown,tactical_change:unknown})=>value.core_change===null&&value.tactical_change===null)).toBe(true);
+    }
+    await page.goto("/calendar");
+    const panel=page.getByRole("region",{name:"周度组合复核"});
+    await panel.locator("article").filter({hasText:latest.report_id}).getByRole("button",{name:"打开周报冻结快照"}).click();
+    const report=panel.getByRole("region",{name:"周报冻结快照"});
+    await expect(report).toContainText(earlierCapture?"同授权既往捕获快照":"首次运行, 无可比基线");
+    if(!earlierCapture) {
+      await expect(report).toContainText("Core变化未提供");
+      await expect(report).not.toContainText("同授权既往捕获快照");
+    }
+    await report.screenshot({path:`../.runtime/mvp408-closed-gap-${earlierCapture?"actual":"first"}-baseline.png`});
+    const revoked=await request.post(`/api/v1/runtime/weekly/${command.schedule_id}/mode`,{headers,data:{request_id:crypto.randomUUID(),expected_version:(await enabled.json()).version,action:"REVOKE",confirmed:true}});
+    expect(revoked.ok(),await revoked.text()).toBeTruthy();
+  }
+});

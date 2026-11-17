@@ -209,6 +209,6 @@ MVP-404独立Review发现并修复超过50项配置导致后续任务饥饿：00
 
 入口 `/calendar` → “周度组合复核”：选择非空组合及明确观察清单成员、已导入日历、完整周一至周日范围、逐日OPEN/CLOSED声明、本地来源/授权期/保留期。先预览并核对，再确认保存暂停；独立确认启用后真实Worker产生周报。刷新打开原ID/hash冻结报告，核Evidence四时间、Core/Tactical、实际读取时点和UNKNOWN；显式暂停/永久撤销保留原历史。部分周、漏日/矛盾来源、scope漂移/版本冲突拒绝；错误ID或读失败清旧正文并显示可恢复中文提示。51+授权可翻页读取旧撤销项，390宽可操作。
 
-本项 `INTEGRATED / ACCEPTANCE_READY` 仅在PR53经最终独立Gate且真正合入Release后生效。业务HEAD `ffc54018fdb79cde0d9171e7d1bb21dbeb3ac921` 六CI已全部SUCCESS，完整Python1143项、integration375项通过，覆盖率88.20%。本地46项Weekly PG、47项unit、148项frontend及真实合成API18147/PG15450/生产Worker/Edge四场景通过，390宽实际document/body/viewport均390。独立审阅已核ffc，当前状态同步后的新HEAD须重新通过CI和独立Gate。
+本项 `INTEGRATED / ACCEPTANCE_READY` 仅在PR53经最终独立Gate且真正合入Release后生效。业务HEAD `ffc54018fdb79cde0d9171e7d1bb21dbeb3ac921` 六CI已全部SUCCESS，完整Python1143项、integration375项通过，覆盖率88.20%。本地46项Weekly PG、47项unit、148项frontend及真实合成API18147/PG15450/生产Worker/Edge四场景通过，390宽实际document/body/viewport均390。独立审阅随后复现闭市跳过周的假可比基线。修复后首次OPEN捕获明确无基线，OPEN→CLOSED→OPEN定位更早真实捕获，48项PG及新增真实Worker/UI场景通过。新增业务HEAD须重新通过完整CI和独立Gate。
 
 闭市保持SOURCE_DECLARED人工来源声明，当前账本与历史周末快照分别展示，历史收益NOT_PROVIDED。报告采用本地资料与零模型/外部费用路径，auto_trade=false。完整步骤与失败恢复见 `docs/agent/work-items/MVP-408.md`。Owner部署、PRODUCT-08和Checkpoint C接受继续PENDING。

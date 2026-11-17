@@ -463,6 +463,98 @@ async def test_weekly_missing_quote_has_no_fabricated_zero_nav(database_engine):
     assert report.holdings[0].reentry_assessment == "NOT_PROVIDED"
 
 
+async def weekly_with_closed_gap(engine, *, earlier_capture):
+    sessions, service, _, command, ids = await setup(engine)
+    weeks = 3 if earlier_capture else 2
+    start = command.coverage_start - timedelta(days=7 * (weeks - 1))
+    open_dates = {command.coverage_start, command.coverage_end}
+    if earlier_capture:
+        open_dates.update((start, start + timedelta(days=6)))
+    calendar = await CalendarProductService(SqlCalendarProduct(sessions)).import_calendar(
+        CalendarImportCommand(
+            request_id=uuid4(),
+            expected_version=1,
+            venue="SSE",
+            source_name="synthetic explicit closed gap with actual capture weeks",
+            source_version="closed-gap-v2",
+            confirmed_source=True,
+            csv_text="business_date,close_at\n"
+            + "".join(f"{day},15:00\n" for day in sorted(open_dates)),
+        )
+    )
+    command = command.model_copy(
+        update={
+            "calendar_import_id": calendar.import_id,
+            "coverage_start": start,
+            "calendar_days": {
+                start + timedelta(days=i): "OPEN"
+                if start + timedelta(days=i) in open_dates
+                else "CLOSED"
+                for i in range(weeks * 7)
+            },
+        }
+    )
+    await enable(service, command)
+    runner = WeeklyReviewRunner(
+        sessions, SqlWeeklyReader(SqlManualMarketData(sessions)), max_periods=1
+    )
+    return sessions, service, runner, command, ids
+
+
+async def test_weekly_closed_then_first_open_has_no_comparable_capture_baseline(database_engine):
+    _, service, runner, _, _ = await weekly_with_closed_gap(database_engine, earlier_capture=False)
+    assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
+    closed = (await service.reports())[0]
+    assert closed.phase == "CLOSED_WEEK_SKIPPED" and closed.local_inputs is None
+    assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
+    first_open = (await service.reports())[0]
+    assert first_open.local_inputs is not None
+    assert first_open.baseline_report_id is None
+    assert first_open.baseline_status == "FIRST_RUN_NO_BASELINE"
+    assert first_open.evidence_diff.baseline_report_id is None
+    assert all(
+        holding.core_change is None
+        and holding.tactical_change is None
+        and "NO_COMPARABLE_POSITION_BASELINE" in holding.unknowns
+        for holding in first_open.holdings
+    )
+    assert await service.replay(closed.report_id) == closed
+    assert await service.replay(first_open.report_id) == first_open
+
+
+async def test_weekly_open_closed_open_uses_earlier_actual_capture_and_keeps_history(
+    database_engine,
+):
+    sessions, service, runner, command, ids = await weekly_with_closed_gap(
+        database_engine, earlier_capture=True
+    )
+    assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
+    first_open = (await service.reports())[0]
+    assert first_open.local_inputs is not None
+    assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
+    closed = (await service.reports())[0]
+    assert closed.phase == "CLOSED_WEEK_SKIPPED" and closed.local_inputs is None
+    async with sessions() as session, session.begin():
+        await session.execute(
+            text(
+                "UPDATE position SET core_quantity=core_quantity+5, "
+                "tactical_quantity=tactical_quantity-2, version=version+1 "
+                "WHERE portfolio_id=:portfolio AND instrument_id=:instrument"
+            ),
+            {"portfolio": command.portfolio_id, "instrument": ids["instrument"]},
+        )
+    assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
+    latest = (await service.reports())[0]
+    assert latest.baseline_report_id == first_open.report_id
+    assert latest.baseline_report_id != closed.report_id
+    assert latest.baseline_status == "COMPARABLE_BASELINE"
+    assert latest.evidence_diff.baseline_report_id == first_open.report_id
+    assert Decimal(latest.holdings[0].core_change) == 5
+    assert Decimal(latest.holdings[0].tactical_change) == -2
+    assert await service.replay(first_open.report_id) == first_open
+    assert await service.replay(closed.report_id) == closed
+
+
 async def test_weekly_explicit_no_session_month_skips_without_invented_market_close(
     database_engine,
 ):

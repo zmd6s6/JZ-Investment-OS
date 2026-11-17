@@ -2,7 +2,7 @@
 
 ## MVP-408 周度本地组合/观察清单复核
 
-MVP-408 的 `INTEGRATED / ACCEPTANCE_READY` 状态仅在原功能 PR53 通过最终独立 Gate 并真正合入 `release/mvp-beta` 后生效。当前原 Claim 已恢复并交付周度纵切，PR53 为 Ready。业务实现 `f5d529e5bf645f798426ca0ce04bfc39d8733cb8`、兼容修复 `080dbd56cffed009e11b78421f4995c517fca310`，最近业务 HEAD `ffc54018fdb79cde0d9171e7d1bb21dbeb3ac921` 已有六项 CI SUCCESS。完整 Python1143 项、integration375 项通过，覆盖率88.20%，本地46项Weekly PG、47项unit、148项frontend与最终4项真实API/PG/生产Worker/Edge流程通过。独立审阅已核ffc的代码、真实GET/精确重放、390宽图与门禁，本次状态同步产生的新HEAD仍需重新核六CI及独立Gate。
+MVP-408 的 `INTEGRATED / ACCEPTANCE_READY` 状态仅在原功能 PR53 通过最终独立 Gate 并真正合入 `release/mvp-beta` 后生效。当前原 Claim 已恢复并交付周度纵切，PR53 为 Ready。业务实现 `f5d529e5bf645f798426ca0ce04bfc39d8733cb8`、兼容修复 `080dbd56cffed009e11b78421f4995c517fca310`，最近业务 HEAD `ffc54018fdb79cde0d9171e7d1bb21dbeb3ac921` 已有六项 CI SUCCESS。完整 Python1143 项、integration375 项通过，覆盖率88.20%，本地46项Weekly PG、47项unit、148项frontend与最终4项真实API/PG/生产Worker/Edge流程通过。独立审阅已核ffc的代码、真实GET/精确重放、390宽图与门禁，独立审查随后发现全闭市跳过周被当作下一开放周的可比基线。当前修复在LIMIT前筛选实际捕获记录，48项Weekly PG与真实Worker/UI两种跨周基线场景通过。新增业务HEAD仍需重新核完整六CI及独立Gate。
 
 `/calendar` 已接通独立周频授权、暂停默认/CAS启停撤销、完整周逐日来源manifest、SQL冻结scope、生产有界公平Worker与原子报告/TaskRun/EventOutbox、历史与精确重放。闭市保持人工SOURCE_DECLARED来源声明，历史账本/收益UNKNOWN。Owner部署、PRODUCT-08与Checkpoint C接受继续PENDING。执行权、实际命令、失败/修复、Docker引擎启动自动恢复既有容器的披露及恢复路径见 `docs/agent/handoffs/MVP-408.md` 和 `docs/agent/work-items/MVP-408.md`。
 
