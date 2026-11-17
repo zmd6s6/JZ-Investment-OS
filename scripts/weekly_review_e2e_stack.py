@@ -40,6 +40,7 @@ os.environ.update(
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from analysis_numeric_fixture import seed_numeric  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
 command.upgrade(Config("alembic.ini"), "head")
@@ -49,8 +50,26 @@ command.upgrade(Config("alembic.ini"), "head")
 async def seed():
     engine = create_async_engine(args.database_url)
     try:
+        fixture = root / ".runtime" / "mvp408-browser-fixture.json"
+        if fixture.exists():
+            recorded = json.loads(fixture.read_text(encoding="utf-8"))
+            async with engine.connect() as connection:
+                existing = await connection.scalar(
+                    text(
+                        "SELECT EXISTS(SELECT 1 FROM portfolio WHERE id=:portfolio) AND "
+                        "EXISTS(SELECT 1 FROM instrument WHERE id=:instrument)"
+                    ),
+                    {
+                        "portfolio": recorded["ids"]["portfolio"],
+                        "instrument": recorded["ids"]["instrument"],
+                    },
+                )
+            if existing:
+                # Restart the same isolated product chain without replacing authorization
+                # or report history. A different/empty DB is freshly seeded below.
+                return
         ids, _ = await seed_numeric(engine)
-        (root / ".runtime" / "mvp408-browser-fixture.json").write_text(
+        fixture.write_text(
             json.dumps(
                 {
                     "ids": {key: str(value) for key, value in ids.items()},
