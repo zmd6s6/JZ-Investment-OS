@@ -1,5 +1,10 @@
 # 项目状态
 
+## 2026-11-17 月度可比基线修复候选
+
+原PR40月度能力已INTEGRATED，本次同Claim修复须独立Gate且真正合入后生效。/calendar月报首次实际捕获不再把闭市跳过报告当可比基线，跨闭市继续使用最近仍有效的实际快照，并以knowledge_as_of核保留期。新增5项先红4失败/1通过，修后月度33PG及真实API/PG/生产Worker/Edge1通过；完整1055Python/最终CI和独立Gate待完成。旧报告hash保持，Owner部署/产品接受PENDING，Queue404/501原状态保持。详细命令、失败与限制见 `docs/agent/work-items/MVP-404.md`。
+
+
 ## MVP-407 完整 Decision 历史候选
 
 既有PR51已在root持久交接后接续恢复并转为Ready，业务源码a5e4296提供真实分页、独立精确ID和刷新原详情、失败清空动作及当前资格门禁。真实PG相关70项、零写入补测1项、前端141项和生产API/PG/Edge110记录4场景通过，原证据HEAD `1ac54b520b294bca5e2d0eeb2d7dc07e74174cd3` 六项CI已全部SUCCESS，[CI43093575334](https://github.com/zmd6s6/JZ-Investment-OS/actions/runs/43093575334)实测完整Python1050项、集成329项通过。当前文档状态修正后的新HEAD仍须独立核CI和最终Gate，407继续工程候选，Owner部署、PRODUCT-07与Checkpoint接受PENDING。实际限制、复现和失败恢复见 `docs/agent/work-items/MVP-407.md`。
