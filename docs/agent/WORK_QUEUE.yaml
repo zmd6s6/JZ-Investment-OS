@@ -391,9 +391,9 @@ work_items:
   - id: MVP-408
     title: Owner-controlled weekly local portfolio and watchlist review
     priority: 1
-    status: READY
+    status: IN_PROGRESS
     claim_branch: agent/MVP-408
-    claim_owner: null
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp408_vertical_recovery
     stage: PRODUCT-08
     checkpoint: C
     depends_on:
