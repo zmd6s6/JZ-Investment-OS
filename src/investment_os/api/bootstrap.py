@@ -62,6 +62,7 @@ from investment_os.infrastructure.provider_settings import SqlAlchemyProviderSet
 from investment_os.infrastructure.secrets import EncryptedFileSecretStore
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.universe_snapshots import SqlUniverseSnapshots
+from investment_os.infrastructure.weekly_review_store import SqlWeeklyReview
 
 from .app import create_app
 
@@ -136,6 +137,7 @@ def create_production_app() -> FastAPI:
     return create_app(
         daily_runtime_service=daily_service,
         monthly_review_service=SqlMonthlyReview(session_factory),
+        weekly_review_service=SqlWeeklyReview(session_factory),
         numeric_sources=SqlNumericSources(session_factory),
         analysis_decision_bridge=SqlAnalysisDecisionBridge(session_factory),
         decision_qualifications=SqlDecisionQualifications(session_factory),

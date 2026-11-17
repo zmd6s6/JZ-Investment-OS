@@ -1,5 +1,9 @@
 # 项目状态
 
+## MVP-408 周度组合/观察清单复核恢复候选
+
+原Claim与唯一Draft PR53经root持久交接后恢复。现已实现独立周频授权、暂停默认/CAS启停撤销、完整周逐日来源manifest、SQL冻结scope、生产有界公平Worker与原子报告/TaskRun/EventOutbox、/calendar配置/历史/精确重放。真实独立合成PG26项、原单元47项、Weekly组件6项、Edge API/DB/生产Worker3场景及390宽失败读1场景已通过；完整测试、最终HEAD CI和独立Gate仍待核，不标Engineering/Product Done。闭市仍人工来源声明而非独立交易所核实，历史账本/收益UNKNOWN；Owner部署/产品接受及Checkpoint C均PENDING。具体实际命令、限制、审阅台账和恢复见 `docs/agent/work-items/MVP-408.md`、Handoff。
+
 ## MVP-407 完整 Decision 历史候选
 
 既有PR51已在root持久交接后接续恢复并转为Ready，业务源码a5e4296提供真实分页、独立精确ID和刷新原详情、失败清空动作及当前资格门禁。真实PG相关70项、零写入补测1项、前端141项和生产API/PG/Edge110记录4场景通过，原证据HEAD `1ac54b520b294bca5e2d0eeb2d7dc07e74174cd3` 六项CI已全部SUCCESS，[CI43093575334](https://github.com/zmd6s6/JZ-Investment-OS/actions/runs/43093575334)实测完整Python1050项、集成329项通过。当前文档状态修正后的新HEAD仍须独立核CI和最终Gate，407继续工程候选，Owner部署、PRODUCT-07与Checkpoint接受PENDING。实际限制、复现和失败恢复见 `docs/agent/work-items/MVP-407.md`。

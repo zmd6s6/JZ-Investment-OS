@@ -1,12 +1,15 @@
 """Read-only weekly history contract tests; no PostgreSQL integration claimed."""
-from datetime import date, datetime, timezone
+
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
 from investment_os.infrastructure.weekly_report_history import (
-    WeeklyHistoryError, get_weekly_report, list_weekly_reports,
+    WeeklyHistoryError,
+    get_weekly_report,
+    list_weekly_reports,
 )
 
 
@@ -34,10 +37,14 @@ class FakeSession:
 @pytest.mark.asyncio
 async def test_weekly_history_lists_scoped_stable_bounded_records():
     schedule = uuid4()
-    record = dict(id=uuid4(), schedule_id=schedule, week_start=date(2026, 11, 2),
-                  week_end=date(2026, 11, 8),
-                  recorded_at=datetime(2026, 11, 9, tzinfo=timezone.utc),
-                  content_hash="a" * 64)
+    record = dict(
+        id=uuid4(),
+        schedule_id=schedule,
+        week_start=date(2026, 11, 2),
+        week_end=date(2026, 11, 8),
+        recorded_at=datetime(2026, 11, 9, tzinfo=UTC),
+        content_hash="a" * 64,
+    )
     session = FakeSession([record])
     result = await list_weekly_reports(session, schedule_id=schedule, limit=5, offset=2)
     assert result[0].id == record["id"]
