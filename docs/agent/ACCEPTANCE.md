@@ -205,7 +205,14 @@ MVP-404独立Review发现并修复超过50项配置导致后续任务饥饿：00
 
 失败：不完整周/未勾确认不保存；来源晚于业务时点、日历改变/暂停/版本冲突失败关闭，无部分产物；资料缺失显示DEGRADED与全部逐层缺项，明确闭市周SKIPPED_CLOSED。未知写回先刷新，以同内容同request_id明确核对；不自动外联或研究候选。历史链接可读取原v2完整运行，390宽可操作。新旧真实PG29通过、独立合成18134/API/PG/生产Worker/Edge1通过32.9秒（含实际未授权401）均属工程/接线证据；最终CI与独立Gate待核，实际合入后生效，Owner部署和本人验收PENDING，402/P8 PARTIAL及501BLOCKED不变。
 
-## MVP-408 周度本地复核（PR53真正合入后生效）
+
+## 2026-11-17 月度可比基线修复候选
+
+原PR40月度能力已INTEGRATED，本次同Claim修复须独立Gate且真正合入后生效。/calendar月报首次实际捕获不再把闭市跳过报告当可比基线，跨闭市继续使用最近仍有效的实际快照，并以knowledge_as_of核保留期。新增5项先红4失败/1通过，修后月度33PG及真实API/PG/生产Worker/Edge1通过；源码36eb396实际完整1055Python通过（本机88.33%，CI88.11%）、六CI通过，root独立33PG和真实Edge已通过。当前普通merge已合入的PR53后形成新HEAD，必须重新核完整CI和独立Gate。旧报告hash保持，Owner部署/产品接受PENDING，Queue404/501原状态保持。详细命令、失败与限制见 `docs/agent/work-items/MVP-404.md`。
+
+## MVP-408 周度本地复核（PR53已实际合入）
+
+PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef021a6b905273607cdee43fef7ab99e7dc6a673`，INTEGRATED / ACCEPTANCE_READY已生效。下述验证时序保留，Owner部署和本人接受PENDING。
 
 入口 `/calendar` → “周度组合复核”：选择非空组合及明确观察清单成员、已导入日历、完整周一至周日范围、逐日OPEN/CLOSED声明、本地来源/授权期/保留期。先预览并核对，再确认保存暂停；独立确认启用后真实Worker产生周报。刷新打开原ID/hash冻结报告，核Evidence四时间、Core/Tactical、实际读取时点和UNKNOWN；显式暂停/永久撤销保留原历史。部分周、漏日/矛盾来源、scope漂移/版本冲突拒绝；错误ID或读失败清旧正文并显示可恢复中文提示。51+授权可翻页读取旧撤销项，390宽可操作。
 

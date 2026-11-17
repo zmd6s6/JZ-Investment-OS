@@ -164,20 +164,28 @@ class MonthlyReviewRunner:
                 if task is None:
                     raise MonthlyError("MONTHLY_TASK_REFERENCE_MISSING")
                 sessions_in_month = tuple(day for day in days if start <= day.business_date <= end)
+                # Retention and local inputs share this actual knowledge cutoff. The poll
+                # clock only plans due periods and may precede awaited scope capture.
+                knowledge_as_of = self.clock()
                 prior_row = await uow.session.scalar(
                     select(MonthlyReportRecord)
                     .where(
                         MonthlyReportRecord.schedule_id == config.schedule_id,
                         MonthlyReportRecord.revision_id == config.revision_id,
                         MonthlyReportRecord.period_start < start,
-                        MonthlyReportRecord.usable_until > now,
+                        MonthlyReportRecord.usable_until > knowledge_as_of,
+                        MonthlyReportRecord.phase != "CLOSED_MONTH_SKIPPED",
+                        MonthlyReportRecord.report_json["local_inputs"].astext.is_not(None),
                     )
                     .order_by(MonthlyReportRecord.period_start.desc())
                     .limit(1)
                 )
-                prior = verify_report(prior_row, now) if prior_row else None
+                prior = (
+                    verify_report(prior_row, knowledge_as_of)
+                    if prior_row and sessions_in_month
+                    else None
+                )
                 # Replays of historical months never claim to restore historical ledger state.
-                knowledge_as_of = self.clock()
                 local = numbers = None
                 holdings: tuple[MonthlyHoldingReview, ...] = ()
                 quotes: tuple[MarketDataSnapshot, ...] = ()

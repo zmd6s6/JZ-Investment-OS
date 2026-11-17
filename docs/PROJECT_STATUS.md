@@ -1,6 +1,12 @@
 # 项目状态
 
+## 2026-11-17 月度可比基线修复候选
+
+原PR40月度能力已INTEGRATED，本次同Claim修复须独立Gate且真正合入后生效。/calendar月报首次实际捕获不再把闭市跳过报告当可比基线，跨闭市继续使用最近仍有效的实际快照，并以knowledge_as_of核保留期。新增5项先红4失败/1通过，修后月度33PG及真实API/PG/生产Worker/Edge1通过；源码36eb396实际完整1055Python通过（本机88.33%，CI88.11%）、六CI通过，root独立33PG和真实Edge已通过。当前普通merge已合入的PR53后形成新HEAD，必须重新核完整CI和独立Gate。旧报告hash保持，Owner部署/产品接受PENDING，Queue404/501原状态保持。详细命令、失败与限制见 `docs/agent/work-items/MVP-404.md`。
+
 ## MVP-408 周度本地组合/观察清单复核
+
+PR53已于2026-11-17T19:59:29Z经root独立Gate6959326529实际合入Release `ef021a6b905273607cdee43fef7ab99e7dc6a673`，MVP408工程状态INTEGRATED / ACCEPTANCE_READY生效，Owner部署/接受仍PENDING。下段保留合入前的验证与修复时序，新提交不得借旧HEAD绿灯。
 
 MVP-408 的 `INTEGRATED / ACCEPTANCE_READY` 状态仅在原功能 PR53 通过最终独立 Gate 并真正合入 `release/mvp-beta` 后生效。当前原 Claim 已恢复并交付周度纵切，PR53 为 Ready。业务实现 `f5d529e5bf645f798426ca0ce04bfc39d8733cb8`、兼容修复 `080dbd56cffed009e11b78421f4995c517fca310`，最近业务 HEAD `ffc54018fdb79cde0d9171e7d1bb21dbeb3ac921` 已有六项 CI SUCCESS。完整 Python1143 项、integration375 项通过，覆盖率88.20%，本地46项Weekly PG、47项unit、148项frontend与最终4项真实API/PG/生产Worker/Edge流程通过。独立审阅已核ffc的代码、真实GET/精确重放、390宽图与门禁，独立审查随后发现全闭市跳过周被当作下一开放周的可比基线。当前修复在LIMIT前筛选实际捕获记录，并以实际knowledge_as_of统一基线有效期查询、校验和取数。51项Weekly PG包含到期前/恰等/之后边界通过，重启修复源码后的真实API/Worker/Edge五场景通过37.1s。新增业务HEAD仍需重新核完整六CI及独立Gate。
 
