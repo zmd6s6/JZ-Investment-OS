@@ -245,7 +245,7 @@ class WeeklyReviewRunner:
                     if sessions_in_week
                     else ("EXPLICIT_COMPLETE_CLOSED_WEEK_NO_RESEARCH",),
                     recovery=(
-                        "核对显式本地资料、行情来源和日期; 补充资料后下一个获准月重新复核。",
+                        "核对显式本地资料、行情来源和日期; 补充资料后下一个获准完整周重新复核。",
                         "失败最多三次本地重试; 修正来源须保存新暂停授权并重新确认启用。",
                         "到期停止使用正文并保留审计。原报告只读重放, 不重新取数或调用模型。",
                     ),
