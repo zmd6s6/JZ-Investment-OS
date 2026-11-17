@@ -424,7 +424,9 @@ work_items:
   - id: MVP-409
     title: Reachable read-only weekly opportunity TaskRun history and exact provenance
     priority: 1
-    status: READY
+    status: IN_PROGRESS
+    claim_branch: agent/MVP-409
+    claim_owner: pr-02-review-and-next-stage-monitor / opportunity_weekly_gap_audit
     stage: PRODUCT-08
     checkpoint: C
     depends_on:
