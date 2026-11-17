@@ -1,4 +1,5 @@
 import { DailyRuntimePanel } from "./DailyRuntimePanel";
+import { WeeklyReviewPanel } from "./WeeklyReviewPanel";
 import { MonthlyReviewPanel } from "./MonthlyReviewPanel";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Panel, ProductChrome, StatusBanner } from "./ProductChrome";
@@ -144,5 +145,6 @@ export function CalendarPage(){
     </Panel>
     <DailyRuntimePanel/>
     <MonthlyReviewPanel/>
+    <WeeklyReviewPanel/>
   </ProductChrome>;
 }
