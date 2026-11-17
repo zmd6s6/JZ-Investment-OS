@@ -42,6 +42,7 @@ from uuid import uuid4  # noqa: E402
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 from test_monthly_review_pipeline import setup  # noqa: E402
 
@@ -58,6 +59,23 @@ command.upgrade(Config("alembic.ini"), "head")
 async def seed():
     engine = create_async_engine(args.database_url)
     try:
+        fixture = root / ".runtime" / "mvp404-baseline-browser-fixture.json"
+        if fixture.exists():
+            recorded = json.loads(fixture.read_text(encoding="utf-8"))
+            async with engine.connect() as connection:
+                portfolio_exists = await connection.scalar(
+                    text("SELECT EXISTS(SELECT 1 FROM portfolio WHERE id=:id)"),
+                    {"id": recorded["ids"]["portfolio"]},
+                )
+                schedule_ids = set(
+                    str(identifier)
+                    for identifier in await connection.scalars(
+                        text("SELECT id FROM monthly_configuration")
+                    )
+                )
+            if portfolio_exists and set(recorded["schedules"].values()) <= schedule_ids:
+                return  # Restart the same synthetic chain with all immutable history intact.
+            raise RuntimeError("Existing fixture does not match this dedicated database")
         sessions, service, _, base, ids = await setup(engine)
         previous_end = base.coverage_start - timedelta(days=1)
         previous_start = previous_end.replace(day=1)

@@ -9,6 +9,7 @@ test.beforeEach(async ({ context }) => {
 test("real monthly Worker excludes closed captures and preserves the actual comparable report in the browser", async ({ page, request }) => {
   test.setTimeout(90000);
   await page.goto("/calendar");
+  await expect(page.getByRole("heading", { name: "周度组合复核", exact: true })).toBeVisible();
   const panel = page.getByRole("region", { name: "月度组合复核" });
   const frozen = panel.getByRole("region", { name: "月报冻结快照" });
   for (const [name, schedule] of Object.entries(fixture.schedules)) {
@@ -40,7 +41,7 @@ test("real monthly Worker excludes closed captures and preserves the actual comp
     if (latest.baseline_report_id) await expect(frozen).toContainText(latest.baseline_report_id);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(frozen).toContainText("SIMULATION / NO AUTO TRADE");
-    await page.screenshot({ path: `../.runtime/mvp404-baseline-${expectedCount}-reports.png`, fullPage: true });
+    await page.screenshot({ path: `.runtime/mvp404-baseline-${expectedCount}-reports.png`, fullPage: true });
     for (const original of reports) {
       const replay = await (await request.get(`/api/v1/runtime/monthly/reports/${original.report_id}/replay`)).json();
       expect(replay.content_hash).toBe(original.content_hash);
