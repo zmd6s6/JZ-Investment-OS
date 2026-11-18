@@ -12371,6 +12371,583 @@
         "title": "WeeklySave",
         "type": "object"
       },
+      "WeeklyTaskDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "attempt_history": {
+            "const": "NOT_PROVIDED_CURRENT_RECORDED_ATTEMPT_ONLY",
+            "default": "NOT_PROVIDED_CURRENT_RECORDED_ATTEMPT_ONLY",
+            "title": "Attempt History",
+            "type": "string"
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "candidate_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Count"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "funnel_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Funnel Hash"
+          },
+          "funnel_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Funnel Run Id"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "protocol": {
+            "enum": [
+              "1.0",
+              "2.0"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WeeklyTaskProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "result_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Status"
+          },
+          "revision_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
+          },
+          "schedule_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schedule Id"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "title": "Scheduled For",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          },
+          "task_status": {
+            "title": "Task Status",
+            "type": "string"
+          },
+          "unknowns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          },
+          "week_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week Start"
+          }
+        },
+        "required": [
+          "protocol",
+          "task_run_id",
+          "schedule_id",
+          "revision_id",
+          "week_start",
+          "scheduled_for",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "task_status",
+          "attempt",
+          "reason_code",
+          "input_hash"
+        ],
+        "title": "WeeklyTaskDetail",
+        "type": "object"
+      },
+      "WeeklyTaskPage": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WeeklyTaskSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "ordering": {
+            "const": "created_at_desc_task_id_desc",
+            "default": "created_at_desc_task_id_desc",
+            "title": "Ordering",
+            "type": "string"
+          },
+          "page_size": {
+            "const": 50,
+            "default": 50,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "protocol": {
+            "enum": [
+              "1.0",
+              "2.0"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "protocol",
+          "items",
+          "next_cursor"
+        ],
+        "title": "WeeklyTaskPage",
+        "type": "object"
+      },
+      "WeeklyTaskProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar_hash": {
+            "title": "Calendar Hash",
+            "type": "string"
+          },
+          "calendar_import_id": {
+            "format": "uuid",
+            "title": "Calendar Import Id",
+            "type": "string"
+          },
+          "calendar_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Source"
+          },
+          "calendar_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Version"
+          },
+          "coverage_end": {
+            "format": "date",
+            "title": "Coverage End",
+            "type": "string"
+          },
+          "coverage_start": {
+            "format": "date",
+            "title": "Coverage Start",
+            "type": "string"
+          },
+          "fact_source_name": {
+            "title": "Fact Source Name",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quote_source_name": {
+            "title": "Quote Source Name",
+            "type": "string"
+          },
+          "revision_hash": {
+            "title": "Revision Hash",
+            "type": "string"
+          },
+          "snapshot_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Hash"
+          },
+          "snapshot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Id"
+          },
+          "source_locator": {
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_verification": {
+            "const": "SOURCE_DECLARED_UNVERIFIED",
+            "default": "SOURCE_DECLARED_UNVERIFIED",
+            "title": "Source Verification",
+            "type": "string"
+          },
+          "template_run_id": {
+            "format": "uuid",
+            "title": "Template Run Id",
+            "type": "string"
+          },
+          "venue": {
+            "title": "Venue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "venue",
+          "revision_hash",
+          "calendar_import_id",
+          "calendar_hash",
+          "calendar_source",
+          "calendar_version",
+          "template_run_id",
+          "source_name",
+          "source_locator",
+          "quote_source_name",
+          "fact_source_name",
+          "coverage_start",
+          "coverage_end"
+        ],
+        "title": "WeeklyTaskProvenance",
+        "type": "object"
+      },
+      "WeeklyTaskSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "candidate_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Count"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "protocol": {
+            "enum": [
+              "1.0",
+              "2.0"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "result_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Status"
+          },
+          "revision_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
+          },
+          "schedule_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schedule Id"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "title": "Scheduled For",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          },
+          "task_status": {
+            "title": "Task Status",
+            "type": "string"
+          },
+          "unknowns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          },
+          "week_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week Start"
+          }
+        },
+        "required": [
+          "protocol",
+          "task_run_id",
+          "schedule_id",
+          "revision_id",
+          "week_start",
+          "scheduled_for",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "task_status",
+          "attempt",
+          "reason_code",
+          "input_hash"
+        ],
+        "title": "WeeklyTaskSummary",
+        "type": "object"
+      },
       "investment_os__application__opportunity_schedule__WeeklyConfiguration": {
         "additionalProperties": false,
         "properties": {
@@ -14309,6 +14886,98 @@
         ]
       }
     },
+    "/api/v1/opportunities/complete-weekly/tasks": {
+      "get": {
+        "operationId": "tasks_api_v1_opportunities_complete_weekly_tasks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1024,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyTaskPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tasks",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      }
+    },
+    "/api/v1/opportunities/complete-weekly/tasks/{task_run_id}": {
+      "get": {
+        "operationId": "task_api_v1_opportunities_complete_weekly_tasks__task_run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_run_id",
+            "required": true,
+            "schema": {
+              "title": "Task Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyTaskDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      }
+    },
     "/api/v1/opportunities/complete-weekly/{schedule_id}/mode": {
       "post": {
         "operationId": "mode_api_v1_opportunities_complete_weekly__schedule_id__mode_post",
@@ -15044,6 +15713,98 @@
           }
         },
         "summary": "Save",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      }
+    },
+    "/api/v1/opportunities/weekly/tasks": {
+      "get": {
+        "operationId": "tasks_api_v1_opportunities_weekly_tasks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1024,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyTaskPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tasks",
+        "tags": [
+          "opportunities-weekly"
+        ]
+      }
+    },
+    "/api/v1/opportunities/weekly/tasks/{task_run_id}": {
+      "get": {
+        "operationId": "task_api_v1_opportunities_weekly_tasks__task_run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_run_id",
+            "required": true,
+            "schema": {
+              "title": "Task Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyTaskDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task",
         "tags": [
           "opportunities-weekly"
         ]

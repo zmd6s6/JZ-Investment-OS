@@ -11,6 +11,11 @@ from investment_os.application.calendar_product import Confirmed
 from investment_os.application.complete_weekly_template import CompleteWeeklyTemplate
 from investment_os.application.market_data import MarketDto, Text
 from investment_os.application.opportunity_schedule import WeeklyMode
+from investment_os.application.weekly_task_history import (
+    WeeklyTaskDetail,
+    WeeklyTaskHistoryPort,
+    WeeklyTaskPage,
+)
 
 
 class CompleteWeeklyDto(MarketDto):
@@ -84,7 +89,7 @@ class CompleteWeeklyOverview(CompleteWeeklyDto):
     auto_trade: Literal[False] = False
 
 
-class CompleteWeeklyPort(Protocol):
+class CompleteWeeklyPort(WeeklyTaskHistoryPort, Protocol):
     async def save(self, command: CompleteWeeklySave) -> CompleteWeeklyConfiguration: ...
     async def mode(self, schedule_id: UUID, command: WeeklyMode) -> CompleteWeeklyConfiguration: ...
     async def overview(self) -> CompleteWeeklyOverview: ...
@@ -102,6 +107,12 @@ class CompleteWeeklyService:
 
     async def overview(self) -> CompleteWeeklyOverview:
         return await self._port.overview()
+
+    async def tasks(self, cursor: str | None = None) -> WeeklyTaskPage:
+        return await self._port.tasks(cursor)
+
+    async def task(self, task_run_id: UUID) -> WeeklyTaskDetail:
+        return await self._port.task(task_run_id)
 
 
 def covered_weeks(start: date, end: date) -> tuple[date, ...]:
