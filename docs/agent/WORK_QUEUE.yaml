@@ -451,3 +451,31 @@ work_items:
         - Synthetic real API/DB/UI demonstration of older-record pagination, exact URL, original Funnel navigation, refresh, read failure/recovery, late-response selection guards and 390px layout. Include a real production Worker-produced record for lineage; distinguish seeded older synthetic history from Worker-produced evidence.
         - Verify existing response/OpenAPI compatibility, original record hashes and approved authorization/scheduling behavior, run complete required checks and obtain independent final-HEAD Review Gate. If implementation requires new database/time/public compatibility semantics, add a new ADR rather than rewriting an accepted one. Owner deployment, PRODUCT-08/Checkpoint acceptance, MVP-402 REVIEW/PARTIAL and MVP-501 BLOCKED remain unchanged.
     owner_decision: NONE
+
+  # 唯一Planner补货提案；仅本规划PR真正合入Release后READY生效，此前禁止Claim。
+  - id: MVP-410
+    title: Reachable read-only calendar status TaskRun history and original sources
+    priority: 1
+    status: READY
+    stage: PRODUCT-08
+    checkpoint: C
+    depends_on:
+      - MVP-401
+    scope:
+      - Add authenticated typed read-only history and exact TaskRun detail for persisted calendar_status_* tasks, with fixed 50-record pages ordered descending by original created_at and UUID. Preserve the existing calendar overview and its explicitly recent 30-record summary; its bounded summary is not itself a defect.
+      - "Consume already integrated MVP-401 STATUS_ONLY runtime and original persisted TaskRun, calendar import/session and calendar.status.report Event fields. PR23 merge 3e805bac141239b0ae3c02d6aa73a16adefed8c0 is a verified ancestor of Release baseline c0dfa4ad5cd72a6d80117cf5abb2c332bf5a5e76. No dependency on unfinished full-market MVP-402, Owner stage acceptance or new source/cost permission is required."
+      - Extend /calendar with older-task pagination and exact task_run_id URL navigation independent of the loaded page, showing actual persisted status, current attempt/error and supported original market, business time, import/source/version/hash and status report references. A failed source A must remain inspectable after corrected source B succeeds, without substituting the current calendar pointer.
+      - Validate the task namespace, recorded key, original import/session and input/report associations before presenting provenance. Return original JSON and hashes only where persisted and verified; missing, legacy or mismatched references show explicit UNKNOWN/NOT_PROVIDED or a concrete read error. Do not invent a new SKIPPED state, an absent report or a complete per-attempt timeline.
+      - New history/detail reads require the existing local authentication boundary and have zero writes, dispatch, retry, source import, mode changes, provider/model requests or fees. Preserve existing API callers, STATUS_ONLY scope, scheduling, idempotency, source permissions and immutable history. Do not duplicate daily/monthly/weekly report histories, MVP-409 opportunity audit or MVP-405 inbox summaries.
+    acceptance:
+      route: /calendar
+      expected: Below the existing Worker status summary the owner can browse past the newest 30 calendar tasks, open an older failed or successful task through its original ID/URL, inspect supported original source A or B and its actual status report when present, and refresh without a new run. Loaded range and next-page boundaries are explicit; Chinese feedback and 390px navigation require no SQL, curl or raw JSON.
+      failure_conditions:
+        - Malformed or missing IDs, another task namespace, invalid cursor, malformed key, missing original import/session, inconsistent input hash or missing/mismatched report Event cannot produce a fabricated success, current-source substitute or stale selected report. Original metadata is displayed only to the extent it can actually be verified.
+        - Page-read failure preserves already loaded rows and offers retry; exact-detail failure clears stale detail/links. Late responses after selection changes cannot replace the selected task. Recovery and URL refresh reread original persisted state without retrying or dispatching any job.
+        - FAILED without a report remains a recorded failure; missing current-attempt timestamps/error fields or unsupported historical facts remain unknown. Successful old report JSON/hash and all prior source/task history remain unchanged after source correction, navigation and refresh.
+      required_evidence:
+        - Named real PostgreSQL and authenticated API normal/failure/boundary tests for 30/31 and 101-plus mixed TaskRuns, fixed bounded pagination, tied created_at/UUID ordering, retries changing started_at, exact reads outside the page, namespace isolation, old failed-source recovery, invalid references and zero GET side effects.
+        - Independent synthetic API/DB and actual python -m investment_os.worker CLI flow producing a real calendar status TaskRun/report, with older seeded audit rows clearly separated from Worker-produced evidence. Browser evidence covers old FAILED without report, original successful report/source/hash, exact URL, refresh, read failure/recovery, late responses and 390px layout.
+        - Verify additive OpenAPI compatibility, existing authentication/HEAD/OPTIONS behavior, no new runtime side effects or permission expansion, full required CI and independent final-HEAD Review Gate. Any new database/time/security or incompatible public semantics require a new ADR; never rewrite an accepted ADR. Owner deployment, PRODUCT-08/Checkpoint acceptance and all existing Work Item facts remain unchanged.
+    owner_decision: NONE
