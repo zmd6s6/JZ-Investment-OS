@@ -1,5 +1,11 @@
 # 项目状态
 
+## MVP-410 日历状态任务历史候选
+
+/calendar新增认证只读固定50项历史与精确calendar_task_id入口，保留最近30摘要；验证原任务键/导入/会话/input与Event/Audit，旧失败来源A及成功报告B不跟当前指针C。最终30项新增PG/API（含原子提交并发快照）、Calendar四文件58项、162前端与独立CLI Worker/API/PG/Edge2场景已通过；最终HEAD完整CI与独立Gate仍在推进，仅本功能PR真正合入后集成生效，Owner部署/接受PENDING。详见docs/agent/work-items/MVP-410.md。
+
+PR56已实际合入Release c0dfa4ad5cd72a6d80117cf5abb2c332bf5a5e76；下方409旧候选文字保留历史时序，不据此重复实现。
+
 ## MVP-409 周机会任务历史候选
 
 首轮CI的None令牌fixture环境继承错误已隔离，独立legacy原hash P2经v1/v2先红后绿回归修复，当前17PG/修复源码Edge2通过，状态fixed-awaiting-review，新HEAD完整CI与独立Gate待核。

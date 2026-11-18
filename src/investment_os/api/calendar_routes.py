@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -19,6 +20,7 @@ from investment_os.application.calendar_product import (
     CalendarProductService,
     preview_calendar,
 )
+from investment_os.application.calendar_task_history import CalendarTaskDetail, CalendarTaskPage
 from investment_os.application.schedule import MarketVenue
 
 
@@ -80,6 +82,14 @@ def create_calendar_router(service: CalendarProductService | None) -> APIRouter:
     @router.get("", response_model=CalendarOverview)
     async def overview() -> CalendarOverview:
         return await _call(available().overview())
+
+    @router.get("/tasks", response_model=CalendarTaskPage)
+    async def tasks(cursor: str | None = None) -> CalendarTaskPage:
+        return await _call(available().tasks(cursor))
+
+    @router.get("/tasks/{task_run_id}", response_model=CalendarTaskDetail)
+    async def task(task_run_id: UUID) -> CalendarTaskDetail:
+        return await _call(available().task(task_run_id))
 
     @router.post("/preview", response_model=CalendarPreview)
     async def preview(command: CalendarInput) -> CalendarPreview:

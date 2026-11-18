@@ -20,6 +20,7 @@ from investment_os.application.calendar_product import (
     CalendarStatusReport,
     calendar_hash,
 )
+from investment_os.application.calendar_task_history import CalendarTaskDetail, CalendarTaskPage
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
 from investment_os.application.schedule import MarketVenue
 from investment_os.infrastructure.persistence.calendar_models import (
@@ -175,6 +176,16 @@ def _append_event(
 class SqlCalendarProduct:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]):
         self.sessions = sessions
+
+    async def tasks(self, cursor: str | None = None) -> CalendarTaskPage:
+        from investment_os.infrastructure.calendar_task_history import SqlCalendarTaskHistory
+
+        return await SqlCalendarTaskHistory(self.sessions).tasks(cursor)
+
+    async def task(self, task_run_id: UUID) -> CalendarTaskDetail:
+        from investment_os.infrastructure.calendar_task_history import SqlCalendarTaskHistory
+
+        return await SqlCalendarTaskHistory(self.sessions).task(task_run_id)
 
     async def overview(self) -> CalendarOverview:
         now = datetime.now(UTC)

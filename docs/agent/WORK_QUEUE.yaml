@@ -456,7 +456,10 @@ work_items:
   - id: MVP-410
     title: Reachable read-only calendar status TaskRun history and original sources
     priority: 1
-    status: READY
+    status: INTEGRATED
+    claim_branch: agent/MVP-410
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp410_developer
+    # 仅PR58通过最终独立Gate且实际合入Release后INTEGRATED生效；当前候选非Owner接受。
     stage: PRODUCT-08
     checkpoint: C
     depends_on:

@@ -223,3 +223,7 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 ## MVP-409 周机会任务历史候选
 
 /opportunities两种周筛选协议已新增认证只读任务分页/精确任务入口，按原修订审计，FAILED/SKIPPED无产物也可达，保留原50配置容量与既有overview。新增15真实PG/API、前端153、独立CLI Worker/API/DB/Edge双协议2项通过；完整最终CI与独立Gate待核，仅在本功能PR真正合入后生效。来源仍SOURCE_DECLARED/UNVERIFIED，402 REVIEW/PARTIAL、501BLOCKED及Owner部署/接受PENDING保持。操作、实际命令与失败证据见docs/agent/work-items/MVP-409.md。
+
+## MVP-410 日历状态任务历史候选（Owner PENDING）
+
+/calendar最近30任务摘要下新增独立固定50历史，加载更早任务或填精确任务ID；calendar_task_id URL刷新保留原选择。旧失败A没有报告，真实CLI Worker成功B在当前指针C下仍展示原导入/会话/来源与报告hash。分页失败保留已加载行可重试；详情失败清旧正文/报告，迟到响应不能换选中记录；390px可读。最终30项新PG/API、Calendar四文件58项、162前端及独立合成API18155/PG15450/CLI Worker/Edge2项已有证据，完整最终验证和独立Gate待核，仅本功能PR真正合入后生效。未操作Owner实例，不表示PRODUCT08/Checkpoint接受；实际操作、限制与精确证据见MVP-410工作项。
