@@ -82,7 +82,9 @@ class SqlCalendarTaskHistory:
             if len(rows) > 50:
                 last = rows[49]
                 next_cursor = base64.urlsafe_b64encode(
-                    CalendarTaskCursor(created_at=last.created_at, task_run_id=last.id)
+                    CalendarTaskCursor(
+                        namespace="calendar_status", created_at=last.created_at, task_run_id=last.id
+                    )
                     .model_dump_json()
                     .encode()
                 ).decode()
@@ -148,28 +150,32 @@ class SqlCalendarTaskHistory:
 
     async def task(self, task_run_id: UUID) -> CalendarTaskDetail:
         async with self.sessions() as session:
-            task = await session.scalar(
-                select(TaskRunRecord).where(
-                    TaskRunRecord.id == task_run_id,
-                    TaskRunRecord.task_name.startswith("calendar_status_", autoescape=True),
+            # One SQL snapshot prevents an old RUNNING header being paired with a
+            # report that a Worker commits between two independent SELECTs.
+            rows = (
+                await session.execute(
+                    select(TaskRunRecord, EventLogRecord)
+                    .outerjoin(
+                        EventLogRecord,
+                        (EventLogRecord.aggregate_id == TaskRunRecord.id)
+                        & (EventLogRecord.event_type == REPORT_EVENT),
+                    )
+                    .where(
+                        TaskRunRecord.id == task_run_id,
+                        TaskRunRecord.task_name.startswith("calendar_status_", autoescape=True),
+                    )
                 )
-            )
-            if task is None:
+            ).all()
+            if not rows:
                 raise CalendarProductError(
                     "CALENDAR_TASK_NOT_FOUND", "原日历状态任务不存在或属于其他任务类型。"
                 )
+            task = rows[0][0]
+            reports = tuple(row[1] for row in rows if row[1] is not None)
             source = await self.source(session, task)
             unknowns = ["ATTEMPT_TIMELINE_NOT_RECORDED"]
             if source is None:
                 unknowns.append("ORIGINAL_SOURCE_MISSING_OR_UNVERIFIED")
-            reports = tuple(
-                await session.scalars(
-                    select(EventLogRecord).where(
-                        EventLogRecord.event_type == REPORT_EVENT,
-                        EventLogRecord.aggregate_id == task.id,
-                    )
-                )
-            )
             verified = None
             persisted_hash = None
             if len(reports) == 1 and source and task.status == "SUCCEEDED":

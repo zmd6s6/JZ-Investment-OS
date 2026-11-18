@@ -2,7 +2,7 @@
 
 ## MVP-410 日历状态任务历史候选
 
-/calendar新增认证只读固定50项历史与精确calendar_task_id入口，保留最近30摘要；验证原任务键/导入/会话/input与Event/Audit，旧失败来源A及成功报告B不跟当前指针C。20项新增PG/API、162前端与独立CLI Worker/API/PG/Edge2场景已通过；额外坏关联回归、完整检查/CI与独立Gate仍在推进，仅本功能PR真正合入后集成生效，Owner部署/接受PENDING。详见docs/agent/work-items/MVP-410.md。
+/calendar新增认证只读固定50项历史与精确calendar_task_id入口，保留最近30摘要；验证原任务键/导入/会话/input与Event/Audit，旧失败来源A及成功报告B不跟当前指针C。最终30项新增PG/API（含原子提交并发快照）、Calendar四文件58项、162前端与独立CLI Worker/API/PG/Edge2场景已通过；最终HEAD完整CI与独立Gate仍在推进，仅本功能PR真正合入后集成生效，Owner部署/接受PENDING。详见docs/agent/work-items/MVP-410.md。
 
 PR56已实际合入Release c0dfa4ad5cd72a6d80117cf5abb2c332bf5a5e76；下方409旧候选文字保留历史时序，不据此重复实现。
 

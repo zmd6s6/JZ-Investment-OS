@@ -390,3 +390,54 @@ async def test_calendar_valid_shaped_report_association_mismatch_is_unknown(data
         detail.report_json is None and detail.report_event_id is None and detail.report_hash is None
     )
     assert "REPORT_MISSING_OR_UNVERIFIED" in detail.unknowns
+
+
+async def test_calendar_task_and_report_share_snapshot_during_worker_commit(
+    database_engine, monkeypatch
+):
+    from investment_os.infrastructure.calendar_product import _append_event
+    from investment_os.infrastructure.calendar_task_history import SqlCalendarTaskHistory
+    from investment_os.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
+
+    sessions, service, config, ids = await history_setup(database_engine, 1)
+    async with sessions() as session, session.begin():
+        task = await session.get(TaskRunRecord, ids[0])
+        task.status = "RUNNING"
+        task.attempt = 1
+    reader = SqlCalendarTaskHistory(sessions)
+    original_source = reader.source
+
+    async def commit_worker_between_head_and_provenance(session, task):
+        async with SqlAlchemyUnitOfWork(sessions) as uow:
+            current = await uow.session.get(TaskRunRecord, ids[0])
+            current.status = "SUCCEEDED"
+            _append_event(
+                uow,
+                event_type=REPORT_EVENT,
+                aggregate_id=current.id,
+                payload={
+                    "report_kind": "CALENDAR_STATUS_ONLY",
+                    "venue": "SSE",
+                    "business_date": "2025-01-01",
+                    "as_of": "2025-01-01T07:00:00+00:00",
+                    "calendar_import_id": str(config.import_id),
+                    "calendar_hash": config.content_hash,
+                    "source_name": config.source_name,
+                    "source_version": config.source_version,
+                    "message": "SYNTHETIC_CONCURRENT_COMMIT",
+                    "auto_trade": False,
+                    "paid_calls": 0,
+                },
+                now=datetime.now(UTC),
+                request_id=uuid4(),
+            )
+            await uow.commit()
+        return await original_source(session, task)
+
+    monkeypatch.setattr(reader, "source", commit_worker_between_head_and_provenance)
+    before = await reader.task(ids[0])
+    assert before.task_status == "RUNNING" and before.report_json is None
+    assert "NO_COMMITTED_STATUS_REPORT" in before.unknowns
+    assert "REPORT_MISSING_OR_UNVERIFIED" not in before.unknowns
+    after = await service.task(ids[0])
+    assert after.task_status == "SUCCEEDED" and after.report_json is not None

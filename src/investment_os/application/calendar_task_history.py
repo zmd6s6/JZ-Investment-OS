@@ -11,7 +11,7 @@ from investment_os.application.schedule import MarketVenue
 
 
 class CalendarTaskCursor(CalendarDto):
-    namespace: Literal["calendar_status"] = "calendar_status"
+    namespace: Literal["calendar_status"]
     created_at: AwareDatetime
     task_run_id: UUID
 
