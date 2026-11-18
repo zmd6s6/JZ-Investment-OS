@@ -1,3 +1,4 @@
+import { CalendarTaskHistory } from "./CalendarTaskHistory";
 import { DailyRuntimePanel } from "./DailyRuntimePanel";
 import { WeeklyReviewPanel } from "./WeeklyReviewPanel";
 import { MonthlyReviewPanel } from "./MonthlyReviewPanel";
@@ -143,6 +144,7 @@ export function CalendarPage(){
         {run.error_code?<p>失败代码：{run.error_code}{run.attempt>=3?"（已达自动重试上限）":"；Worker可在上限内重试，暂停可停止后续调度。"}</p>:null}
       </article>)}
     </Panel>
+    <CalendarTaskHistory/>
     <DailyRuntimePanel/>
     <MonthlyReviewPanel/>
     <WeeklyReviewPanel/>

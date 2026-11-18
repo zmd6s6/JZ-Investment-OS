@@ -1,4 +1,4 @@
-"""Local single-user mutation and weekly task audit authentication."""
+"""Local single-user mutation and task audit authentication."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _extract_bearer(header_value: str | None) -> str | None:
 
 
 class WriteApiAuthMiddleware(BaseHTTPMiddleware):
-    """Authenticate API mutations and the new weekly opportunity task audit reads.
+    """Authenticate API mutations and the calendar and weekly opportunity task audit reads.
 
     An absent token fails closed for these operations. Other existing safe reads
     and OPTIONS retain their previous middleware behavior.
@@ -40,6 +40,7 @@ class WriteApiAuthMiddleware(BaseHTTPMiddleware):
         protected_history = request.method in {"GET", "HEAD"} and any(
             request.url.path == prefix or request.url.path.startswith(prefix + "/")
             for prefix in (
+                "/api/v1/calendar/tasks",
                 "/api/v1/opportunities/weekly/tasks",
                 "/api/v1/opportunities/complete-weekly/tasks",
             )

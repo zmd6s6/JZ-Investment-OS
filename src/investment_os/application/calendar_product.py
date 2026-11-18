@@ -5,7 +5,7 @@ import io
 import json
 from datetime import UTC, date, datetime, time
 from hashlib import sha256
-from typing import Annotated, Literal, Protocol
+from typing import TYPE_CHECKING, Annotated, Literal, Protocol
 from uuid import UUID
 
 from pydantic import (
@@ -19,6 +19,9 @@ from pydantic import (
 )
 
 from investment_os.application.schedule import MarketVenue
+
+if TYPE_CHECKING:
+    from investment_os.application.calendar_task_history import CalendarTaskDetail, CalendarTaskPage
 
 MAX_CALENDAR_SESSIONS = 1000
 CalendarText = Annotated[
@@ -204,6 +207,8 @@ def preview_calendar(command: CalendarInput) -> CalendarPreview:
 
 
 class CalendarProductPort(Protocol):
+    async def tasks(self, cursor: str | None = None) -> "CalendarTaskPage": ...
+    async def task(self, task_run_id: UUID) -> "CalendarTaskDetail": ...
     async def overview(self) -> CalendarOverview: ...
     async def import_calendar(
         self, command: CalendarImportCommand, preview: CalendarPreview
@@ -216,6 +221,12 @@ class CalendarProductPort(Protocol):
 class CalendarProductService:
     def __init__(self, port: CalendarProductPort):
         self._port = port
+
+    async def tasks(self, cursor: str | None = None) -> "CalendarTaskPage":
+        return await self._port.tasks(cursor)
+
+    async def task(self, task_run_id: UUID) -> "CalendarTaskDetail":
+        return await self._port.task(task_run_id)
 
     async def overview(self) -> CalendarOverview:
         return await self._port.overview()

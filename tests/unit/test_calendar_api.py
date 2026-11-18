@@ -82,3 +82,31 @@ async def test_calendar_unavailable_and_invalid_fields_are_sanitized():
             response.status_code == 503
             and response.json()["detail"]["code"] == "CALENDAR_SERVICE_UNAVAILABLE"
         )
+
+
+async def test_calendar_history_cors_preflight_and_unavailable_reads_are_sanitized():
+    from starlette.middleware.cors import CORSMiddleware
+
+    value = app(CalendarProductService(UnavailablePort()))
+    value.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:8100"],
+        allow_methods=["GET"],
+        allow_headers=["Authorization"],
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=value), base_url="http://test"
+    ) as client:
+        preflight = await client.options(
+            "/api/v1/calendar/tasks",
+            headers={
+                "Origin": "http://localhost:8100",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "Authorization",
+            },
+        )
+        assert preflight.status_code == 200
+        result = await client.get(
+            "/api/v1/calendar/tasks", headers={"Authorization": "Bearer synthetic-calendar-only"}
+        )
+        assert result.status_code == 503 and "synthetic-private-fragment" not in result.text

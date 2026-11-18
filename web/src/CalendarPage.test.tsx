@@ -1,3 +1,4 @@
+vi.mock("./CalendarTaskHistory",()=>({CalendarTaskHistory:()=>null}));
 // Calendar-only unit tests isolate the independently tested daily runtime panel.
 vi.mock("./DailyRuntimePanel",()=>({DailyRuntimePanel:()=>null}));
 vi.mock("./MonthlyReviewPanel",()=>({MonthlyReviewPanel:()=>null}));

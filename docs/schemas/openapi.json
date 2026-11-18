@@ -1409,6 +1409,400 @@
         "title": "CalendarStatusReport",
         "type": "object"
       },
+      "CalendarTaskDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "attempt_history": {
+            "const": "NOT_PROVIDED_CURRENT_RECORDED_ATTEMPT_ONLY",
+            "default": "NOT_PROVIDED_CURRENT_RECORDED_ATTEMPT_ONLY",
+            "title": "Attempt History",
+            "type": "string"
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "report_event_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Event Id"
+          },
+          "report_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Hash"
+          },
+          "report_json": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Json"
+          },
+          "report_recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Recorded At"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "title": "Scheduled For",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalendarTaskSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "task_name": {
+            "title": "Task Name",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          },
+          "task_status": {
+            "title": "Task Status",
+            "type": "string"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "task_run_id",
+          "task_name",
+          "task_status",
+          "attempt",
+          "created_at",
+          "scheduled_for",
+          "started_at",
+          "finished_at",
+          "reason_code",
+          "input_hash",
+          "idempotency_key",
+          "unknowns"
+        ],
+        "title": "CalendarTaskDetail",
+        "type": "object"
+      },
+      "CalendarTaskPage": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarTaskSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "ordering": {
+            "const": "created_at_desc_task_id_desc",
+            "default": "created_at_desc_task_id_desc",
+            "title": "Ordering",
+            "type": "string"
+          },
+          "page_size": {
+            "const": 50,
+            "default": 50,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "CalendarTaskPage",
+        "type": "object"
+      },
+      "CalendarTaskSource": {
+        "additionalProperties": false,
+        "properties": {
+          "business_date": {
+            "format": "date",
+            "title": "Business Date",
+            "type": "string"
+          },
+          "calendar_hash": {
+            "title": "Calendar Hash",
+            "type": "string"
+          },
+          "calendar_import_id": {
+            "format": "uuid",
+            "title": "Calendar Import Id",
+            "type": "string"
+          },
+          "calendar_session_id": {
+            "format": "uuid",
+            "title": "Calendar Session Id",
+            "type": "string"
+          },
+          "close_at_utc": {
+            "format": "date-time",
+            "title": "Close At Utc",
+            "type": "string"
+          },
+          "imported_at": {
+            "format": "date-time",
+            "title": "Imported At",
+            "type": "string"
+          },
+          "market_timezone": {
+            "title": "Market Timezone",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_verification": {
+            "const": "SOURCE_DECLARED_UNVERIFIED",
+            "default": "SOURCE_DECLARED_UNVERIFIED",
+            "title": "Source Verification",
+            "type": "string"
+          },
+          "source_version": {
+            "title": "Source Version",
+            "type": "string"
+          },
+          "venue": {
+            "$ref": "#/components/schemas/MarketVenue"
+          }
+        },
+        "required": [
+          "venue",
+          "market_timezone",
+          "business_date",
+          "close_at_utc",
+          "calendar_import_id",
+          "calendar_session_id",
+          "imported_at",
+          "source_name",
+          "source_version",
+          "calendar_hash"
+        ],
+        "title": "CalendarTaskSource",
+        "type": "object"
+      },
+      "CalendarTaskSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "auto_trade": {
+            "const": false,
+            "default": false,
+            "title": "Auto Trade",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "title": "Scheduled For",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "task_name": {
+            "title": "Task Name",
+            "type": "string"
+          },
+          "task_run_id": {
+            "format": "uuid",
+            "title": "Task Run Id",
+            "type": "string"
+          },
+          "task_status": {
+            "title": "Task Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_run_id",
+          "task_name",
+          "task_status",
+          "attempt",
+          "created_at",
+          "scheduled_for",
+          "started_at",
+          "finished_at",
+          "reason_code",
+          "input_hash"
+        ],
+        "title": "CalendarTaskSummary",
+        "type": "object"
+      },
       "CandidateResearchStart": {
         "additionalProperties": false,
         "properties": {
@@ -6147,6 +6541,7 @@
         "title": "InvalidationConditionResponse",
         "type": "object"
       },
+      "JsonValue": {},
       "LLMBudgetPolicyRequest": {
         "additionalProperties": false,
         "properties": {
@@ -13993,6 +14388,98 @@
           }
         },
         "summary": "Preview",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/tasks": {
+      "get": {
+        "operationId": "tasks_api_v1_calendar_tasks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarTaskPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tasks",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/tasks/{task_run_id}": {
+      "get": {
+        "operationId": "task_api_v1_calendar_tasks__task_run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarTaskDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task",
         "tags": [
           "calendar"
         ]
