@@ -482,3 +482,33 @@ work_items:
         - Independent synthetic API/DB and actual python -m investment_os.worker CLI flow producing a real calendar status TaskRun/report, with older seeded audit rows clearly separated from Worker-produced evidence. Browser evidence covers old FAILED without report, original successful report/source/hash, exact URL, refresh, read failure/recovery, late responses and 390px layout.
         - Verify additive OpenAPI compatibility, existing authentication/HEAD/OPTIONS behavior, no new runtime side effects or permission expansion, full required CI and independent final-HEAD Review Gate. Any new database/time/security or incompatible public semantics require a new ADR; never rewrite an accepted ADR. Owner deployment, PRODUCT-08/Checkpoint acceptance and all existing Work Item facts remain unchanged.
     owner_decision: NONE
+
+  # 唯一Planner补货提案；仅本规划PR真正合入Release后READY生效，此前禁止Claim。
+  - id: MVP-411
+    title: Reachable complete AnalysisRun history
+    priority: 0
+    status: READY
+    stage: PRODUCT-06
+    checkpoint: B
+    depends_on:
+      - MVP-203
+      - MVP-204
+    scope:
+      - Add typed bounded stable pagination for persisted AnalysisRun history, preserving the existing default newest-30 tuple response, exact GET and existing callers. Bind cursors to the selected portfolio and any query filters/order; use original queued_at and UUID ordering rather than mutable status or started_at.
+      - Extend /analysis with older-history loading, explicit loaded-range and next-page boundaries, and exact run_id input independent of membership in the loaded page.
+      - Reuse existing exact Run reads, frozen trace and the report deep-link navigation integrated by PR59 at Release 986529bf12f4d1c7ee4adeca188b1e4bf759abb8. Preserve its selection, URL refresh and late-response protections; do not reimplement that delivered capability.
+      - Keep original FAILED and CANCELLED runs reachable even without a Shadow or InvestmentDecision. Display only supported original status, errors, retry linkage, frozen references and hashes; never substitute current inputs, backfill history or reconstruct missing artifacts.
+      - Preserve portfolio isolation, current action eligibility and existing authorization boundaries. History reads cause zero database mutations, Event/Outbox writes, dispatch, retries, provider/model requests or costs; no Policy/Strategy, source permission, Risk Veto, Approval, deterministic sizing, immutable history or auto_trade=false changes.
+    acceptance:
+      route: /analysis
+      expected: Owner can browse beyond the newest 30 and 100 persisted runs, select an older run or enter its exact ID, inspect its saved status and supported original trace, and refresh the same selection without developer tools or new analysis. The flow remains usable at 390px.
+      failure_conditions:
+        - Malformed or missing IDs, invalid pagination and cursors reused with another portfolio or query show Chinese errors without substituting another run, exposing unrelated records or fabricating empty success. An exact valid ID is not rejected solely for being outside the loaded page.
+        - Page-read failure preserves loaded rows and offers retry; detail-read failure clears stale details, Bridge preparation and actions. Late responses after portfolio or selection changes cannot replace the current run or enable stale actions.
+        - FAILED, CANCELLED and incomplete historical runs retain their recorded errors and explicit missing data. Navigation grants no new cancellation, retry or Decision preparation permission and never changes their existing gates or model-call consent.
+      required_evidence:
+        - Named PostgreSQL and API normal, failure and boundary tests for 30/31 and 101-plus mixed runs, tied queued_at timestamps and UUID ordering, bounded stable traversal without omissions or duplicates, portfolio/query cursor isolation and exact reads outside the loaded page.
+        - Verify existing permission behavior, old list/exact GET and generated OpenAPI compatibility, zero GET writes and unchanged original hashes; cover page/detail failure recovery, stale-response guards and existing URL refresh behavior.
+        - Synthetic real API/PG/browser evidence for older-run discovery, exact ID input, refresh and 390px layout, including a real production AnalysisWorkerRunner-produced run distinguished from seeded historical rows. Do not use an API stub or seeded row as Worker or PostgreSQL product acceptance.
+        - Complete required checks and independent final-HEAD Review Gate. Any new database/time/security or incompatible public semantics require a new ADR rather than rewriting an accepted one. Owner deployment and Checkpoint acceptance remain PENDING; MVP-402 REVIEW/PARTIAL, MVP-501 BLOCKED and all existing Work Item facts remain unchanged.
+    owner_decision: NONE
