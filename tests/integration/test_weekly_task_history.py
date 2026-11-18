@@ -266,7 +266,9 @@ async def test_missing_revision_and_legacy_identity_are_explicit_read_only_unkno
 async def test_new_weekly_history_authentication_precedes_service_and_old_overview_remains_readable(
     token,
 ):
-    app = create_app(write_api_token=token)
+    # None means environment fallback in production. Explicit empty disables that
+    # fallback so ambient CI credentials cannot turn the no-token fixture into401.
+    app = create_app(write_api_token=token or "")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -360,3 +362,65 @@ async def test_mismatched_result_is_unknown_without_artifact_substitution(
     assert detail.result_status is None and detail.funnel_run_id is None
     assert "RESULT_REFERENCE_MISMATCH" in detail.unknowns
     assert await database_hashes(sessions) == before
+
+
+@pytest.mark.parametrize("protocol", ["1.0", "2.0"])
+async def test_legacy_artifact_raw_hash_survives_optional_default_expansion_on_audit_get(
+    database_engine, monkeypatch, protocol
+):
+    import copy
+
+    from sqlalchemy.orm import Session
+
+    from investment_os.infrastructure.opportunities import digest
+    from investment_os.infrastructure.persistence.models import EventLogRecord
+
+    def legacy_before_flush(session, *_args):
+        for record in session.new:
+            if isinstance(record, EventLogRecord) and record.aggregate_type in {
+                "opportunity_funnel_run",
+                "opportunity_complete_scope_v2",
+            }:
+                payload = copy.deepcopy(record.payload_json)
+                for row in payload["run"]["rows"]:
+                    row.pop("lifecycle_snapshot", None)
+                payload["snapshot_hash"] = digest(payload["run"])
+                record.payload_json = payload
+
+    event.listen(Session, "before_flush", legacy_before_flush)
+    try:
+        sessions, store, _, _ = await seed_history(database_engine, monkeypatch, protocol, count=1)
+    finally:
+        event.remove(Session, "before_flush", legacy_before_flush)
+    reader = SqlWeeklyTaskHistory(sessions, protocol)
+    real = (await reader.tasks()).items[0]
+    async with sessions() as session:
+        result = await session.scalar(
+            select(WeeklyResultRecord).where(WeeklyResultRecord.task_run_id == real.task_run_id)
+        )
+        original = await session.get(EventLogRecord, result.funnel_event_id)
+        raw = copy.deepcopy(original.payload_json)
+        original_hash = raw["snapshot_hash"]
+        assert original_hash == digest(raw["run"])
+        assert all("lifecycle_snapshot" not in row for row in raw["run"]["rows"])
+    app = create_app(
+        weekly_funnel_service=WeeklyService(store) if protocol == "1.0" else None,
+        complete_weekly_service=CompleteWeeklyService(store) if protocol == "2.0" else None,
+        write_api_token=TOKEN,
+    )
+    namespace = "weekly" if protocol == "1.0" else "complete-weekly"
+    before = await database_hashes(sessions)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            f"/api/v1/opportunities/{namespace}/tasks/{real.task_run_id}",
+            headers={"Authorization": f"Bearer {TOKEN}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["funnel_hash"] == original_hash
+        assert response.json()["funnel_run_id"] == str(result.funnel_run_id)
+    assert await database_hashes(sessions) == before
+    async with sessions() as session:
+        replayed = await session.get(EventLogRecord, result.funnel_event_id)
+        assert replayed.payload_json == raw

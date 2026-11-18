@@ -22,7 +22,7 @@ from investment_os.application.weekly_task_history import (
     WeeklyTaskSummary,
 )
 from investment_os.infrastructure.complete_scope import SqlCompleteScope
-from investment_os.infrastructure.opportunities import SqlOpportunityStore, digest
+from investment_os.infrastructure.opportunities import SqlOpportunityStore
 from investment_os.infrastructure.persistence.calendar_models import CalendarImportRecord
 from investment_os.infrastructure.persistence.models import EventLogRecord, TaskRunRecord
 from investment_os.infrastructure.weekly_funnel_models import (
@@ -257,8 +257,13 @@ class SqlWeeklyTaskHistory:
                     )
                     if run is None:
                         raise OpportunityError("WEEKLY_ARTIFACT_REFERENCE_INVALID")
+                    # Existing exact readers validate the original raw event snapshot hash.
+                    # Re-serializing a legacy DTO can add defaults and change that hash.
+                    original_hash = event.payload_json.get("snapshot_hash")
+                    if not isinstance(original_hash, str):
+                        raise OpportunityError("WEEKLY_ARTIFACT_REFERENCE_INVALID")
                     funnel_id = result.funnel_run_id
-                    funnel_hash = digest(run.model_dump(mode="json"))
+                    funnel_hash = original_hash
                 except (OpportunityError, UniverseError):
                     unknowns.append("ORIGINAL_ARTIFACT_MISSING_OR_UNVERIFIED")
             else:

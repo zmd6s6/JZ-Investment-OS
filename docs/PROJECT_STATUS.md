@@ -2,6 +2,8 @@
 
 ## MVP-409 周机会任务历史候选
 
+首轮CI的None令牌fixture环境继承错误已隔离，独立legacy原hash P2经v1/v2先红后绿回归修复，当前17PG/修复源码Edge2通过，状态fixed-awaiting-review，新HEAD完整CI与独立Gate待核。
+
 /opportunities两种周筛选协议已新增认证只读任务分页/精确任务入口，按原修订审计，FAILED/SKIPPED无产物也可达，保留原50配置容量与既有overview。新增15真实PG/API、前端153、独立CLI Worker/API/DB/Edge双协议2项通过；完整最终CI与独立Gate待核，仅在本功能PR真正合入后生效。来源仍SOURCE_DECLARED/UNVERIFIED，402 REVIEW/PARTIAL、501BLOCKED及Owner部署/接受PENDING保持。操作、实际命令与失败证据见docs/agent/work-items/MVP-409.md。
 
 
