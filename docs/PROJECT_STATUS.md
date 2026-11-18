@@ -1,5 +1,12 @@
 # 项目状态
 
+## MVP-409 周机会任务历史候选
+
+首轮CI的None令牌fixture环境继承错误已隔离，独立legacy原hash P2经v1/v2先红后绿回归修复，当前17PG/修复源码Edge2通过，状态fixed-awaiting-review，新HEAD完整CI与独立Gate待核。
+
+/opportunities两种周筛选协议已新增认证只读任务分页/精确任务入口，按原修订审计，FAILED/SKIPPED无产物也可达，保留原50配置容量与既有overview。新增15真实PG/API、前端153、独立CLI Worker/API/DB/Edge双协议2项通过；完整最终CI与独立Gate待核，仅在本功能PR真正合入后生效。来源仍SOURCE_DECLARED/UNVERIFIED，402 REVIEW/PARTIAL、501BLOCKED及Owner部署/接受PENDING保持。操作、实际命令与失败证据见docs/agent/work-items/MVP-409.md。
+
+
 ## 2026-11-17 月度可比基线修复候选
 
 原PR40月度能力已INTEGRATED，本次同Claim修复须独立Gate且真正合入后生效。/calendar月报首次实际捕获不再把闭市跳过报告当可比基线，跨闭市继续使用最近仍有效的实际快照，并以knowledge_as_of核保留期。新增5项先红4失败/1通过，修后月度33PG及真实API/PG/生产Worker/Edge1通过；源码36eb396实际完整1055Python通过（本机88.33%，CI88.11%）、六CI通过，root独立33PG和真实Edge已通过。当前普通merge已合入的PR53后形成新HEAD，必须重新核完整CI和独立Gate。旧报告hash保持，Owner部署/产品接受PENDING，Queue404/501原状态保持。详细命令、失败与限制见 `docs/agent/work-items/MVP-404.md`。

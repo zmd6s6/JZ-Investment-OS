@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Panel, StatusBanner } from './ProductChrome';
 import { apiFetch, readApiError } from './writeApi';
 import './weekly-funnel.css';
+import { WeeklyTaskHistory } from './WeeklyTaskHistory';
 
 type Template = {snapshot_id?:string;snapshot_hash?:string;instrument_ids:string[];scope_name:string;scope_locator:string;quote_source_name:string;fact_source_name:string;candidate_limit:number;min_profit_margin:string;min_revenue_growth:string;max_pe:string;min_price_change:string;industry_filter:string|null};
 type Configuration = {schema_version:string;schedule_id:string;revision_id:string;version:number;name:string;venue:string;enabled:boolean;calendar_import_id:string;calendar_source:string;calendar_version:string;calendar_hash:string;template_run_id:string;coverage_start:string;coverage_end:string;template:Template;blocker:string|null;scope:string;external_calls:0;model_calls:0;paid_calls:0;auto_trade:false};
@@ -72,8 +73,6 @@ export function WeeklyFunnelPanel({template,version="1.0"}:{template:WeeklyTempl
  <button className="btn primary" type="submit" disabled={!template||!calendar||!complete||!local||template.rows.length===0}>保存周配置（暂停）</button></fieldset></form>
  <label><input type="checkbox" checked={modeAck} disabled={working||!healthy} onChange={e=>setModeAck(e.target.checked)}/>我已核对下方保存版本的范围、来源、完整周和日历；确认仅启用本地周筛选</label>
  {overview?.configurations.map(c=><article className="evidence-card" key={c.schedule_id}><h3>{c.name} · v{c.version} · {c.enabled?'已启用本地筛选':'已暂停'}</h3><p>{c.venue}，{c.coverage_start} 至 {c.coverage_end}；版本 {c.revision_id}；固定零外网／零模型／零费用。</p><Scope template={c.template}/><a href={`/opportunities?${originKey}=${encodeURIComponent(c.template_run_id)}`}>核对冻结范围的原始漏斗与标的名称</a><p>冻结标的 {c.template.instrument_ids.length} 项：{c.template.instrument_ids.join('、')}</p><p>日历 {c.calendar_source} / {c.calendar_version}；{c.calendar_hash}</p>{c.blocker?<p>{reasons[c.blocker]??'配置状态需要重新核对'}</p>:null}<button className="btn" type="button" disabled={working||!healthy||(!c.enabled&&(!modeAck||Boolean(c.blocker&&c.blocker!=='WEEKLY_PAUSED')))} onClick={()=>void mode(c)}>{c.enabled?'暂停':'启用本地周筛选'} {c.name}</button></article>)}
- <h3>周筛选运行历史</h3><p>最近50个任务；每个版本、业务周唯一。失败最多重试3次；无产物时不伪造业务快照。暂停与修订保留旧历史。覆盖到期后需显式保存新覆盖版本，不自动延长。</p>
- {overview?.recent_runs.length===0?<p>尚无周筛选任务；默认暂停或完整业务周尚未结束时不会制造运行。</p>:null}
- {overview?.recent_runs.map(r=><article className="evidence-card" key={r.task_run_id}><h4>{r.week_start} 周 · {statuses[r.status]} · 第{r.attempt}次</h4><p>任务 {r.task_run_id}；版本 {r.revision_id}；到期 {r.scheduled_for}；业务快照 {r.as_of??'未提交'}；候选 {r.candidate_count??'未产生'}。</p>{r.reason_code?<p>{reasons[r.reason_code]??'任务未完成，请核对服务日志和本地资料；没有自动扩大范围。'}</p>:null}{r.funnel_run_id?<a href={`/opportunities?${originKey}=${encodeURIComponent(r.funnel_run_id)}`}>查看本周候选与各层缺项</a>:<p>本任务没有筛选产物。</p>}</article>)}
+ <WeeklyTaskHistory version={version}/>
  </Panel></div>;
 }

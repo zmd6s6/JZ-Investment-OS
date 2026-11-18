@@ -219,3 +219,7 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 本项 `INTEGRATED / ACCEPTANCE_READY` 仅在PR53经最终独立Gate且真正合入Release后生效。业务HEAD `ffc54018fdb79cde0d9171e7d1bb21dbeb3ac921` 六CI已全部SUCCESS，完整Python1143项、integration375项通过，覆盖率88.20%。本地46项Weekly PG、47项unit、148项frontend及真实合成API18147/PG15450/生产Worker/Edge四场景通过，390宽实际document/body/viewport均390。独立审阅随后复现闭市跳过周的假可比基线。修复后首次OPEN捕获明确无基线，OPEN→CLOSED→OPEN定位更早真实捕获，实际knowledge_as_of同时用于基线可用期筛选和校验，恰等/超过到期时明确无基线。51项PG与重启修复源码后的五项真实API/Worker/Edge场景通过37.1s。新增业务HEAD须重新通过完整CI和独立Gate。
 
 闭市保持SOURCE_DECLARED人工来源声明，当前账本与历史周末快照分别展示，历史收益NOT_PROVIDED。报告采用本地资料与零模型/外部费用路径，auto_trade=false。完整步骤与失败恢复见 `docs/agent/work-items/MVP-408.md`。Owner部署、PRODUCT-08和Checkpoint C接受继续PENDING。
+
+## MVP-409 周机会任务历史候选
+
+/opportunities两种周筛选协议已新增认证只读任务分页/精确任务入口，按原修订审计，FAILED/SKIPPED无产物也可达，保留原50配置容量与既有overview。新增15真实PG/API、前端153、独立CLI Worker/API/DB/Edge双协议2项通过；完整最终CI与独立Gate待核，仅在本功能PR真正合入后生效。来源仍SOURCE_DECLARED/UNVERIFIED，402 REVIEW/PARTIAL、501BLOCKED及Owner部署/接受PENDING保持。操作、实际命令与失败证据见docs/agent/work-items/MVP-409.md。

@@ -1,4 +1,4 @@
-"""Local single-user write API authentication (ADR-0017 aligned)."""
+"""Local single-user mutation and weekly task audit authentication."""
 
 from __future__ import annotations
 
@@ -24,10 +24,10 @@ def _extract_bearer(header_value: str | None) -> str | None:
 
 
 class WriteApiAuthMiddleware(BaseHTTPMiddleware):
-    """Require Bearer write token on non-safe /api/v1 methods.
+    """Authenticate API mutations and the new weekly opportunity task audit reads.
 
-    Fail closed: when no token is configured, all write API calls are rejected.
-    Health and read endpoints stay available.
+    An absent token fails closed for these operations. Other existing safe reads
+    and OPTIONS retain their previous middleware behavior.
     """
 
     def __init__(self, app: ASGIApp, token: str | None) -> None:
@@ -37,7 +37,16 @@ class WriteApiAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if request.method in SAFE_METHODS or not request.url.path.startswith("/api/v1/"):
+        protected_history = request.method in {"GET", "HEAD"} and any(
+            request.url.path == prefix or request.url.path.startswith(prefix + "/")
+            for prefix in (
+                "/api/v1/opportunities/weekly/tasks",
+                "/api/v1/opportunities/complete-weekly/tasks",
+            )
+        )
+        if (
+            request.method in SAFE_METHODS and not protected_history
+        ) or not request.url.path.startswith("/api/v1/"):
             return await call_next(request)
 
         if self._token is None:

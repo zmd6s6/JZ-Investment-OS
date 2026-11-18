@@ -24,6 +24,7 @@ from investment_os.application.opportunity_schedule import (
 )
 from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.application.schedule import MarketVenue
+from investment_os.application.weekly_task_history import WeeklyTaskDetail, WeeklyTaskPage
 from investment_os.infrastructure.opportunities import SqlOpportunityStore
 from investment_os.infrastructure.persistence.calendar_models import (
     CalendarConfigurationRecord,
@@ -46,6 +47,7 @@ from investment_os.infrastructure.weekly_funnel_models import (
     WeeklyResultRecord,
     WeeklyRevisionRecord,
 )
+from investment_os.infrastructure.weekly_task_history import SqlWeeklyTaskHistory
 
 _COMMAND = "weekly_funnel_command"
 
@@ -202,6 +204,12 @@ class SqlWeeklyFunnel:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]):
         self.sessions = sessions
         self.funnels = SqlOpportunityStore(sessions)
+
+    async def tasks(self, cursor: str | None = None) -> WeeklyTaskPage:
+        return await SqlWeeklyTaskHistory(self.sessions, "1.0").tasks(cursor)
+
+    async def task(self, task_run_id: UUID) -> WeeklyTaskDetail:
+        return await SqlWeeklyTaskHistory(self.sessions, "1.0").task(task_run_id)
 
     async def _receipt(
         self, session: AsyncSession, request_id: UUID, digest: str

@@ -10,6 +10,11 @@ from pydantic import Field, StrictBool, model_validator
 from investment_os.application.calendar_product import Confirmed
 from investment_os.application.market_data import MarketDto, Text
 from investment_os.application.opportunities import FunnelQuery
+from investment_os.application.weekly_task_history import (
+    WeeklyTaskDetail,
+    WeeklyTaskHistoryPort,
+    WeeklyTaskPage,
+)
 
 
 class WeeklyDto(MarketDto):
@@ -90,7 +95,7 @@ class WeeklyOverview(WeeklyDto):
     auto_trade: Literal[False] = False
 
 
-class WeeklyPort(Protocol):
+class WeeklyPort(WeeklyTaskHistoryPort, Protocol):
     async def save(self, command: WeeklySave) -> WeeklyConfiguration: ...
     async def mode(self, schedule_id: UUID, command: WeeklyMode) -> WeeklyConfiguration: ...
     async def overview(self) -> WeeklyOverview: ...
@@ -108,6 +113,12 @@ class WeeklyService:
 
     async def overview(self) -> WeeklyOverview:
         return await self._port.overview()
+
+    async def tasks(self, cursor: str | None = None) -> WeeklyTaskPage:
+        return await self._port.tasks(cursor)
+
+    async def task(self, task_run_id: UUID) -> WeeklyTaskDetail:
+        return await self._port.task(task_run_id)
 
 
 def covered_weeks(start: date, end: date) -> tuple[date, ...]:

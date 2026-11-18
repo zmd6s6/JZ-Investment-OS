@@ -22,6 +22,7 @@ from investment_os.application.opportunities import (
 from investment_os.application.opportunity_schedule import WeeklyMode, covered_weeks, week_due
 from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.application.schedule import MarketVenue
+from investment_os.application.weekly_task_history import WeeklyTaskDetail, WeeklyTaskPage
 from investment_os.infrastructure.complete_scope import KIND, SqlCompleteScope
 from investment_os.infrastructure.persistence.calendar_models import (
     CalendarConfigurationRecord,
@@ -44,6 +45,7 @@ from investment_os.infrastructure.weekly_funnel_models import (
     WeeklyResultRecord,
     WeeklyRevisionRecord,
 )
+from investment_os.infrastructure.weekly_task_history import SqlWeeklyTaskHistory
 
 _COMMAND = "weekly_complete_v2_command"
 
@@ -202,6 +204,12 @@ class SqlCompleteWeekly:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]):
         self.sessions = sessions
         self.funnels = SqlCompleteScope(sessions)
+
+    async def tasks(self, cursor: str | None = None) -> WeeklyTaskPage:
+        return await SqlWeeklyTaskHistory(self.sessions, "2.0").tasks(cursor)
+
+    async def task(self, task_run_id: UUID) -> WeeklyTaskDetail:
+        return await SqlWeeklyTaskHistory(self.sessions, "2.0").task(task_run_id)
 
     async def _receipt(
         self, session: AsyncSession, request_id: UUID, digest: str
