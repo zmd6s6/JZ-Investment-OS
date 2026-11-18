@@ -1,5 +1,14 @@
 # 项目状态
 
+## 2026-11-19 既有报告原分析链接修复候选
+
+`/analysis` 现在消费既有月报的 `?run_id=` 和日报的 `?portfolio_id=&run_id=`，从现有GET单Run确定真实组合并独立定位原记录，不受最近30列表限制。双ID错配、空/无效/重复编号、不存在或读取失败明确拒绝并清空原详情/Decision准备/取消重试；换组合/标的/运行及迟到响应不串记录，历史读取不授予新的模型许可。只改前端消费者，无后端/Schema/迁移/调度/授权变化，不新增历史分页。
+
+快速回归21项通过5.89s；真实专属API18159/PG15450新库/生产AnalysisWorkerRunner与MonthlyReviewRunner/Edge1项通过31.8s：真实模型loopback合成九次角色产物→真实月报原链接→31后续API运行使原Run离开30列表→实际月报点击/两种URL刷新/503清空与GET恢复/双ID拒绝/404/390px，页面读取阶段零写请求，原Run完整JSON与月报hash保持。故障注入503是显式browser route stub，其余成功读写和Worker产物均真实；测试模型为loopback合成，无真实费用。首次E2E仅错误定位使用不存在alert失败，修正实际中文定位后通过。
+
+完整1201 Python与最终CI/独立Gate进行中，Owner部署/接受PENDING。精确命令、首次失败及限制见 `docs/agent/work-items/MVP-404.md`。
+
+
 ## MVP-410 日历状态任务历史候选
 
 /calendar新增认证只读固定50项历史与精确calendar_task_id入口，保留最近30摘要；验证原任务键/导入/会话/input与Event/Audit，旧失败来源A及成功报告B不跟当前指针C。最终30项新增PG/API（含原子提交并发快照）、Calendar四文件58项、162前端与独立CLI Worker/API/PG/Edge2场景已通过；最终HEAD完整CI与独立Gate仍在推进，仅本功能PR真正合入后集成生效，Owner部署/接受PENDING。详见docs/agent/work-items/MVP-410.md。
