@@ -6,7 +6,7 @@ const books=[{portfolio_id:"book-a",name:"合成组合",positions:[target]},{por
 const choices={roles:["MACRO","INDUSTRY","FUNDAMENTAL","MARKET_QUANT","EVENT","DEVILS_ADVOCATE","PORTFOLIO","RISK","CIO"],models:[{profile_id:"model-a",name:"合成模型",model_name:"synthetic-only",pricing_configured:true}],data_profiles:[],evidence:[{evidence_id:"evidence-a",source_name:"合成来源",freshness:"FRESH",observed_at:"2026-10-28T00:00:00Z",excerpt:"合成资料"}],budget_configured:true,budget_version:"synthetic-v1",remaining_tokens:1000000,remaining_cost:"1",max_model_calls:42};
 const run={run_id:"run-a",portfolio_id:"book-a",instrument_id:"target-a",status:"QUEUED",queued_at:"2026-10-28T00:00:00Z",policy_version_id:null,input_hash:null,steps:[],shadow_decision:null,frozen_input:null,error_code:null};
 const response=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status});
-afterEach(()=>{cleanup();vi.restoreAllMocks();});
+afterEach(()=>{cleanup();vi.restoreAllMocks();history.replaceState(null,"","/");});
 function mock(extra?:(url:string,init?:RequestInit)=>Promise<Response>|undefined){return vi.spyOn(globalThis,"fetch").mockImplementation(async(input,init)=>{const url=String(input);const custom=extra?.(url,init);if(custom)return custom;if(url==="/api/v1/portfolios")return response(books);if(url==="/api/v1/watchlist")return response([]);if(url.includes("/choices?"))return response(choices);if(url.includes("/runs?"))return response([]);if(init?.method==="POST")return response(run,202);return response(run);});}
 async function start(){render(<AnalysisPage/>);await waitFor(()=>expect(screen.getByLabelText("分析组合")).toHaveValue("book-a"));fireEvent.change(screen.getByLabelText("分析标的"),{target:{value:"target-a"}});await screen.findByText(/预算版本 synthetic-v1/);fireEvent.change(screen.getByLabelText("统一模型选择"),{target:{value:"model-a"}});fireEvent.change(screen.getByLabelText("参考行情来源名称"),{target:{value:"合成参考价"}});fireEvent.click(screen.getByLabelText("选择证据 evidence-a"));}
 it("reading choices never calls models and explicit action pins all roles and evidence",async()=>{const fetch=mock();await start();expect(fetch.mock.calls.every(([,init])=>!init?.method)).toBe(true);expect(screen.getByRole("button",{name:"明确发起影子分析"})).toBeDisabled();fireEvent.click(screen.getByLabelText(/我同意将本次所选证据/));fireEvent.click(screen.getByRole("button",{name:"明确发起影子分析"}));await screen.findByText(/已保存排队请求/);const post=fetch.mock.calls.find(([,init])=>init?.method==="POST")!;const body=JSON.parse(String(post[1]?.body));expect(body.evidence_ids).toEqual(["evidence-a"]);expect(Object.keys(body.model_profiles)).toHaveLength(9);expect(body.allow_model_calls).toBe(true);expect(body.allow_data_calls).toBe(false);expect(screen.getByRole("heading",{name:"已排队，等待 Worker"})).toBeVisible();});
@@ -19,4 +19,43 @@ it("a failed detail read clears the former run trace and provides explicit retry
  mock(url=>url.includes("/runs?")?Promise.resolve(response([old,{...run,run_id:"run-b"}])):url.endsWith("/runs/run-a")?Promise.resolve(response(old)):url.endsWith("/runs/run-b")?Promise.resolve(response({detail:{message:"合成详情读取失败"}},503)):undefined);
  await start();fireEvent.click(await screen.findByRole("button",{name:/run-a$/}));await screen.findByLabelText("分析依据追溯");expect(screen.getAllByText(/OLD_FROZEN_MARKER/).length).toBeGreaterThan(0);
  fireEvent.click(screen.getByRole("button",{name:/run-b$/}));await screen.findByText(/合成详情读取失败/);expect(screen.queryByLabelText("分析依据追溯")).toBeNull();expect(screen.queryByText(/OLD_FROZEN_MARKER/)).toBeNull();
+});
+
+const linkedId="11111111-1111-4111-8111-111111111111";
+const linkedRun={...run,run_id:linkedId,portfolio_id:"book-b",status:"FAILED"};
+it("only run_id resolves its real portfolio and opens an old run outside the newest list without writes",async()=>{
+ history.replaceState(null,"",`/analysis?run_id=${linkedId}`);const fetch=mock(url=>url.endsWith(`/runs/${linkedId}`)?Promise.resolve(response(linkedRun)):undefined);
+ render(<AnalysisPage/>);await screen.findByLabelText("当前分析运行");expect(screen.getByLabelText("分析组合")).toHaveValue("book-b");expect(screen.getByText(new RegExp(`运行 ${linkedId}`))).toBeVisible();expect(fetch.mock.calls.every(([,init])=>!init?.method)).toBe(true);expect(fetch.mock.calls.some(([url])=>String(url).includes("runs?portfolio_id=book-b"))).toBe(true);
+});
+it("portfolio and run URL mismatch fails closed without substituting the first portfolio",async()=>{
+ history.replaceState(null,"",`/analysis?portfolio_id=book-a&run_id=${linkedId}`);mock(url=>url.endsWith(`/runs/${linkedId}`)?Promise.resolve(response(linkedRun)):undefined);render(<AnalysisPage/>);await screen.findByText(/分析响应与当前组合不一致/);expect(screen.queryByLabelText("当前分析运行")).toBeNull();expect(screen.queryByRole("button",{name:/准备重试|取消后续步骤/})).toBeNull();
+});
+it.each(["", "bad/path",`${linkedId}&run_id=${linkedId}`])("malformed empty or duplicate URL ID %s never reads an arbitrary run",async id=>{
+ history.replaceState(null,"",`/analysis?run_id=${id}`);const fetch=mock();render(<AnalysisPage/>);await screen.findByText(/编号格式无效|重复编号/);expect(screen.queryByLabelText("当前分析运行")).toBeNull();expect(fetch.mock.calls.some(([url])=>String(url).includes("/analysis/runs"))).toBe(false);
+});
+it.each([404,503])("exact URL failure %s shows explicit error with no stale actions",async status=>{
+ history.replaceState(null,"",`/analysis?run_id=${linkedId}`);mock(url=>url.endsWith(`/runs/${linkedId}`)?Promise.resolve(response({detail:{message:"原运行读取失败"}},status)):undefined);render(<AnalysisPage/>);await screen.findByText(/原运行读取失败|原分析运行不存在或不可读取/);expect(screen.queryByLabelText("当前分析运行")).toBeNull();expect(screen.queryByRole("button",{name:/准备重试|取消后续步骤/})).toBeNull();
+});
+it("selecting another run after an exact URL is not overridden by URL initialization",async()=>{
+ history.replaceState(null,"",`/analysis?portfolio_id=book-a&run_id=${linkedId}`);const old={...linkedRun,portfolio_id:"book-a"};mock(url=>url.includes("/runs?")?Promise.resolve(response([{...run,status:"FAILED"}])):url.endsWith(`/runs/${linkedId}`)?Promise.resolve(response(old)):undefined);render(<AnalysisPage/>);await screen.findByLabelText("当前分析运行");fireEvent.click(screen.getByRole("button",{name:/run-a$/}));await screen.findByText(/运行 run-a ·/);expect(screen.queryByText(new RegExp(`运行 ${linkedId}`))).toBeNull();
+});
+it("a late exact URL response cannot restore a record after changing portfolio",async()=>{
+ history.replaceState(null,"",`/analysis?run_id=${linkedId}`);let calls=0,release!:(r:Response)=>void;mock(url=>url.endsWith(`/runs/${linkedId}`)?++calls===1?Promise.resolve(response(linkedRun)):new Promise(resolve=>{release=resolve;}):undefined);render(<AnalysisPage/>);await waitFor(()=>expect(release).toBeDefined());fireEvent.change(screen.getByLabelText("分析组合"),{target:{value:"book-a"}});await act(async()=>release(response(linkedRun)));expect(screen.queryByLabelText("当前分析运行")).toBeNull();
+});
+it("wrong exact response identity is rejected even for the same portfolio",async()=>{
+ history.replaceState(null,"",`/analysis?run_id=${linkedId}`);mock(url=>url.endsWith(`/runs/${linkedId}`)?Promise.resolve(response({...linkedRun,run_id:"other"})):undefined);render(<AnalysisPage/>);await screen.findByText(/分析响应与所选运行不一致/);expect(screen.queryByLabelText("当前分析运行")).toBeNull();
+});
+
+it("new queued run polling failure recovers the same new ID by GET without another submit",async()=>{
+ let failed=false;const fetch=mock(url=>url.endsWith("/runs/run-a")?Promise.resolve(failed?response(run):response({detail:{message:"新运行进度读取失败"}},503)):undefined);await start();fireEvent.click(screen.getByLabelText(/我同意将本次所选证据/));fireEvent.click(screen.getByRole("button",{name:"明确发起影子分析"}));await screen.findByLabelText("当前分析运行");await screen.findByText(/新运行进度读取失败/,{},{timeout:4000});expect(screen.queryByLabelText("当前分析运行")).toBeNull();expect(screen.queryByLabelText("从分析准备人工审阅决策")).toBeNull();failed=true;fireEvent.click(screen.getByRole("button",{name:"重新读取所选运行"}));await screen.findByLabelText("当前分析运行");expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+it("uppercase UUID URL uses its canonical exact identity",async()=>{
+ const id="abcdef11-1111-4111-8111-111111111111";history.replaceState(null,"",`/analysis?run_id=${id.toUpperCase()}`);mock(url=>url.endsWith(`/runs/${id}`)?Promise.resolve(response({...linkedRun,run_id:id})):undefined);render(<AnalysisPage/>);await screen.findByLabelText("当前分析运行");expect(screen.getByLabelText("分析组合")).toHaveValue("book-b");
+});
+
+it.each([200,503])("search selection during delayed URL resolution retains catalogs and ignores the late result %s",async status=>{
+ history.replaceState(null,"",`/analysis?run_id=${linkedId}`);let release!:(r:Response)=>void;mock(url=>url.endsWith(`/runs/${linkedId}`)?new Promise(resolve=>{release=resolve;}):url.includes("/instruments/search?")?Promise.resolve(response([target])):undefined);render(<AnalysisPage/>);await waitFor(()=>expect(release).toBeDefined());fireEvent.change(screen.getByLabelText("标的搜索"),{target:{value:"SYN"}});fireEvent.click(await screen.findByRole("button",{name:/SSE SYN203/}));await screen.findByText(/预算版本 synthetic-v1/);await act(async()=>release(response(status===200?linkedRun:{detail:{message:"迟到原链接失败"}},status)));expect(screen.getByRole("option",{name:"合成组合"})).toBeInTheDocument();fireEvent.change(screen.getByLabelText("分析组合"),{target:{value:"book-a"}});expect(screen.getByLabelText("分析组合")).toHaveValue("book-a");expect(screen.queryByLabelText("当前分析运行")).toBeNull();expect(screen.queryByText(/迟到原链接失败/)).toBeNull();
+});
+it("context inputs stay disabled until the base catalogs finish and recover on initialization failure",async()=>{
+ let release!:(r:Response)=>void;mock(url=>url==="/api/v1/portfolios"?new Promise(resolve=>{release=resolve;}):undefined);render(<AnalysisPage/>);expect(screen.getByLabelText("标的搜索")).toBeDisabled();expect(screen.getByLabelText("分析组合")).toBeDisabled();await act(async()=>release(response({detail:{message:"组合目录读取失败"}},503)));await screen.findByText(/组合目录读取失败/);expect(screen.getByRole("link",{name:"重新读取页面与原链接"})).toBeVisible();
 });

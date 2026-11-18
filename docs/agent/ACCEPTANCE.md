@@ -227,3 +227,7 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 ## MVP-410 日历状态任务历史候选（Owner PENDING）
 
 /calendar最近30任务摘要下新增独立固定50历史，加载更早任务或填精确任务ID；calendar_task_id URL刷新保留原选择。旧失败A没有报告，真实CLI Worker成功B在当前指针C下仍展示原导入/会话/来源与报告hash。分页失败保留已加载行可重试；详情失败清旧正文/报告，迟到响应不能换选中记录；390px可读。最终30项新PG/API、Calendar四文件58项、162前端及独立合成API18155/PG15450/CLI Worker/Edge2项已有证据，完整最终验证和独立Gate待核，仅本功能PR真正合入后生效。未操作Owner实例，不表示PRODUCT08/Checkpoint接受；实际操作、限制与精确证据见MVP-410工作项。
+
+## MVP-404 原分析链接修复候选（Owner PENDING）
+
+从 `/calendar` 原月报点“查看分析依据”，即使该Run已离开最近30项，也应直接打开原Run和所属组合；日报含双ID链接同样定位。刷新重读同一原记录，无新排队/模型/Decision写入。错误编号、组合错配、网络故障清空旧详情和准备/取消/重试控制，中文提示可重读；换选择后的迟到响应不得恢复旧记录。合成真实API/PG/AnalysisWorkerRunner/MonthlyReviewRunner/Edge已演示真实月报链接、刷新、31后续Run、390px及失败恢复，原Run JSON和月报hash保持；503仅是显式网络故障stub。21前端聚焦项通过，完整最终验证/CI和独立Gate仍PENDING，只有followup PR真正合入才生效，Owner未部署/接受。
