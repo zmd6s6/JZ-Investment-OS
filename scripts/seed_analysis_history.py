@@ -16,6 +16,8 @@ from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from investment_os.application.analysis_runs import AnalysisStart, analysis_command_payload
+from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.infrastructure.analysis_runs import audit
 from investment_os.infrastructure.persistence.analysis_models import AnalysisRunRecord
 
@@ -85,7 +87,11 @@ async def main(config: dict[str, str]) -> None:
                         finished_at=now,
                         cancel_requested=False,
                         error_code="SYNTHETIC_SEEDED_HISTORY_NOT_WORKER",
-                        request_hash="a" * 64,
+                        request_hash=fingerprint(
+                            analysis_command_payload(
+                                AnalysisStart.model_validate(queued["command"])
+                            )
+                        ),
                         queued_input_json=queued,
                         version=1,
                         **audit(identifier),

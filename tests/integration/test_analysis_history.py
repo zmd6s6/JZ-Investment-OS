@@ -11,6 +11,8 @@ from sqlalchemy import text
 from test_analysis_runs_persistence import prepare
 
 from investment_os.api.analysis_routes import analysis_router
+from investment_os.application.analysis_runs import analysis_command_payload
+from investment_os.application.portfolio_valuation import fingerprint
 from investment_os.infrastructure.analysis_runs import audit
 from investment_os.infrastructure.persistence.analysis_models import AnalysisRunRecord
 
@@ -22,10 +24,12 @@ async def seed_history(engine, count):
     async with sessions() as session, session.begin():
         for i in range(count):
             identifier = UUID(int=i + 1)
+            command = snapshot.command.model_copy(update={"request_id": uuid4()})
+            queued = snapshot.model_copy(update={"command": command})
             session.add(
                 AnalysisRunRecord(
                     id=identifier,
-                    request_id=uuid4(),
+                    request_id=command.request_id,
                     portfolio_id=snapshot.command.portfolio_id,
                     instrument_id=snapshot.command.instrument_id,
                     status="FAILED" if i % 2 else "CANCELLED",
@@ -34,8 +38,8 @@ async def seed_history(engine, count):
                     finished_at=snapshot.queued_at + timedelta(minutes=1),
                     error_code="SYNTHETIC_SEEDED_HISTORY",
                     cancel_requested=False,
-                    request_hash="a" * 64,
-                    queued_input_json=snapshot.model_dump(mode="json"),
+                    request_hash=fingerprint(analysis_command_payload(command)),
+                    queued_input_json=queued.model_dump(mode="json"),
                     version=1,
                     **audit(identifier),
                 )
