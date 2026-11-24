@@ -226,6 +226,23 @@ class AnalysisRunView(AnalysisDto):
     risk_sizing: RiskSizingView | None = None
 
 
+class AnalysisHistoryCursor(AnalysisDto):
+    namespace: Literal["analysis_history_1"] = "analysis_history_1"
+    portfolio_id: UUID
+    instrument_id: UUID | None
+    ordering: Literal["queued_at_desc_run_id_asc"] = "queued_at_desc_run_id_asc"
+    queued_at: AwareDatetime
+    run_id: UUID
+
+
+class AnalysisHistoryPage(AnalysisDto):
+    schema_version: Literal["1.0"] = "1.0"
+    items: tuple[AnalysisRunView, ...]
+    next_cursor: str | None
+    page_size: Literal[30] = 30
+    ordering: Literal["queued_at_desc_run_id_asc"] = "queued_at_desc_run_id_asc"
+
+
 class AnalysisStorePort(Protocol):
     async def find_request(self, request_id: UUID) -> AnalysisRunView | None: ...
 
@@ -234,6 +251,9 @@ class AnalysisStorePort(Protocol):
     async def list_runs(
         self, *, portfolio_id: UUID | None = None, limit: int = 30
     ) -> tuple[AnalysisRunView, ...]: ...
+    async def history(
+        self, *, portfolio_id: UUID, instrument_id: UUID | None = None, cursor: str | None = None
+    ) -> AnalysisHistoryPage: ...
     async def cancel(self, run_id: UUID) -> AnalysisRunView: ...
     async def claim_next(self) -> tuple[UUID, UUID, AnalysisQueuedInput] | None: ...
     async def check_running(self, run_id: UUID, lease: UUID) -> None: ...

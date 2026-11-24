@@ -487,7 +487,9 @@ work_items:
   - id: MVP-411
     title: Reachable complete AnalysisRun history
     priority: 0
-    status: READY
+    status: IN_PROGRESS
+    claim_branch: agent/MVP-411
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp411_history_developer
     stage: PRODUCT-06
     checkpoint: B
     depends_on:

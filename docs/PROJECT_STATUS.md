@@ -1,5 +1,10 @@
 # 项目状态
 
+## MVP-411 Analysis完整历史开发中
+
+独立Claim已持久，typed稳定30页与中文加载更早/精确ID输入已实现，复用PR59原GET/Trace；原列表与权限保持。前端181项、纯unit750项、ruff/mypy/build/Schema检查通过；实际PG/Worker/browser及完整CI尚未完成，当前Docker/15450离线且未启动引擎，不以stub宣称成功。功能仍IN_PROGRESS，Owner部署/接受PENDING；详情及恢复路径见docs/agent/work-items/MVP-411.md。
+
+
 ## 2026-11-19 既有报告原分析链接修复候选
 
 `/analysis` 现在消费既有月报的 `?run_id=` 和日报的 `?portfolio_id=&run_id=`，从现有GET单Run确定真实组合并独立定位原记录，不受最近30列表限制。双ID错配、空/无效/重复编号、不存在或读取失败明确拒绝并清空原详情/Decision准备/取消重试；换组合/标的/运行及迟到响应不串记录，历史读取不授予新的模型许可。只改前端消费者，无后端/Schema/迁移/调度/授权变化，不新增历史分页。

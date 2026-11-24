@@ -231,3 +231,7 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 ## MVP-404 原分析链接修复候选（Owner PENDING）
 
 从 `/calendar` 原月报点“查看分析依据”，即使该Run已离开最近30项，也应直接打开原Run和所属组合；日报含双ID链接同样定位。刷新重读同一原记录，无新排队/模型/Decision写入。错误编号、组合错配、网络故障清空旧详情和准备/取消/重试控制，中文提示可重读；换选择后的迟到响应不得恢复旧记录。合成真实API/PG/AnalysisWorkerRunner/MonthlyReviewRunner/Edge已演示真实月报链接、刷新、31后续Run、390px及失败恢复，原Run JSON和月报hash保持；503仅是显式网络故障stub。21前端聚焦项通过，完整最终验证/CI和独立Gate仍PENDING，只有followup PR真正合入才生效，Owner未部署/接受。
+
+## MVP-411 Analysis历史（开发候选）
+
+/analysis新增“加载更早运行”及独立“精确运行编号”，选择后刷新原URL；失败/取消无产物不补造结论，分页失败保留行、详情失败清旧动作。当前前端181/纯unit750通过，真实PG/Worker/浏览器与最终CI/Gate NOT VERIFIED（运行环境离线）。尚非INTEGRATED或Owner接受；恢复步骤见MVP411工作项。Owner部署/Checkpoint PENDING，402 PARTIAL/501 BLOCKED保持。
