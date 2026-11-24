@@ -234,4 +234,4 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 
 ## MVP-411 Analysis历史（开发候选）
 
-/analysis新增“加载更早运行”及独立“精确运行编号”，选择后刷新原URL；失败/取消无产物不补造结论，分页失败保留行、详情失败清旧动作。当前前端181/纯unit750通过，真实PG/Worker/浏览器与最终CI/Gate NOT VERIFIED（运行环境离线）。尚非INTEGRATED或Owner接受；恢复步骤见MVP411工作项。Owner部署/Checkpoint PENDING，402 PARTIAL/501 BLOCKED保持。
+/analysis新增“加载更早运行”及独立“精确运行编号”，选择后刷新原URL；失败/取消无产物不补造结论，分页失败保留行、详情失败清旧动作。当前前端183/纯unit750通过，85efb01云端真PG/API/生产Worker/Chromium两项15.8s通过，390图已目视查看。最后URL失败刷新小修及新HEAD完整CI/Gate待核；本机离线未操作引擎。尚非INTEGRATED或Owner接受；恢复步骤见MVP411工作项。Owner部署/Checkpoint PENDING，402 PARTIAL/501 BLOCKED保持。

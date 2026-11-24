@@ -2,7 +2,7 @@
 
 ## MVP-411 Analysis完整历史开发中
 
-独立Claim已持久，typed稳定30页与中文加载更早/精确ID输入已实现，复用PR59原GET/Trace；原列表与权限保持。前端181项、纯unit750项、ruff/mypy/build/Schema检查通过；实际PG/Worker/browser及完整CI尚未完成，当前Docker/15450离线且未启动引擎，不以stub宣称成功。功能仍IN_PROGRESS，Owner部署/接受PENDING；详情及恢复路径见docs/agent/work-items/MVP-411.md。
+独立Claim已持久，typed稳定30页与中文加载更早/精确ID输入已实现，复用PR59原GET/Trace；原列表与权限保持。前端183项、纯unit750项、ruff/mypy/build/Schema检查通过；85efb01隔离云端真实PG/API/生产Worker/Chromium历史及原59链接2项通过15.8s，390图已目视查看，seed历史与真实九角色产物分开。后续URL失败刷新小修须核新HEAD完整CI/E2E，尚未自签Gate；本机Docker离线且未启动引擎。功能仍IN_PROGRESS，Owner部署/接受PENDING；详情及恢复路径见docs/agent/work-items/MVP-411.md。
 
 
 ## 2026-11-19 既有报告原分析链接修复候选

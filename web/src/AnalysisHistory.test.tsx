@@ -30,3 +30,7 @@ it("failed refresh retries the first page while retaining loaded rows, never ski
 it("malformed page refuses to replace rows with fabricated empty success",async()=>{
  let corrupt=false;transport(url=>url.includes("/runs/history?")?Promise.resolve(response(corrupt?{schema_version:"1.0",items:[],next_cursor:null,page_size:999,ordering:"wrong"}:page([run(1)],"next"))):undefined);render(<AnalysisPage/>);await screen.findByText(/已加载 1 条/);corrupt=true;fireEvent.click(screen.getByRole("button",{name:"加载更早运行"}));await screen.findByText(/分析历史分页响应无效/);expect(screen.getByText(/已加载 1 条/)).toBeVisible();expect(screen.getByRole("button",{name:"加载更早运行"})).toBeVisible();
 });
+
+it("missing exact UUID remains selected in URL for refresh and cannot fall back to an old successful selection",async()=>{
+ transport(url=>url.endsWith(`/runs/${id(999)}`)?Promise.resolve(response({detail:{message:"missing"}},404)):undefined);render(<AnalysisPage/>);await waitFor(()=>expect(screen.getByLabelText("分析组合")).toHaveValue("book-a"));fireEvent.change(screen.getByLabelText("精确运行编号"),{target:{value:id(101)}});fireEvent.click(screen.getByRole("button",{name:"读取指定运行"}));await screen.findByLabelText("当前分析运行");fireEvent.change(screen.getByLabelText("精确运行编号"),{target:{value:id(999)}});fireEvent.click(screen.getByRole("button",{name:"读取指定运行"}));await screen.findByText(/原分析运行不存在或不可读取/);expect(screen.queryByLabelText("当前分析运行")).toBeNull();expect(location.search).toContain(`run_id=${id(999)}`);
+});
