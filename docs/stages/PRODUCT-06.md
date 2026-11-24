@@ -103,3 +103,7 @@ PR #26提供显式选择/出站同意、持久排队/阶段与角色产物、真
 本项实现者真实浏览器4/4（23.3秒）及CI547/79属于09974bb及相同产品代码树；root另对09974bb独立复跑32/32（14.55秒）、原样真实浏览器4/4（22.9秒），未放宽断言。前文36e8c76的32/3与2081658后的复验均只归MVP-202，不能当作本项独立通过。随后独立源码审查实际复现三项P1；已统一收紧预算最终SQL预留/可选typed冻结hash、模型eligible正文及研究最终factory完整hash，并通过具名修前失败/修后回归。09974bb的32/4不能替代新实现独立复审；新验证见工作项，最终Gate仍由独立方对新HEAD核对。
 
 Queue203 INTEGRATED、204/301 READY仅随PR #26经实际独立Gate且合入Release生效；READY仅表示显式实现依赖满足，不是204深入追溯、可审批Decision或301批准已交付，不提前在未合入基线上领取。P6阶段接受、Checkpoint B与Owner仍PENDING，主规范与治理不变量不变。详细证据及限制见 `docs/agent/work-items/MVP-203.md`。
+
+## MVP-411 完整Analysis历史候选（2026-11-24）
+
+PR61增加原AnalysisRun typed稳定分页与`/analysis`加载更早/精确ID输入，保留旧tuple及PR59原GET/Trace消费者；所有新读取零写、不恢复模型许可、不扩展动作资格。业务516ec00专属PG/API6项及真实生产Worker/PG/API/Chromium两场景通过，原59月报链同步回归；明确105条seed历史不是Worker产物，原hash保持，390图已查看。最终HEAD完整CI与独立Gate待核，仅PR61实际合入后集成生效；完整P6、Owner部署及Checkpoint接受仍PENDING，证据/失败/恢复见docs/agent/work-items/MVP-411.md。无迁移/新生产依赖/治理变化，ADR0060说明只读兼容与分页权衡。

@@ -47,6 +47,7 @@ jobs:
       - run: uv python install 3.12
       - run: uv sync --frozen --group dev
       - run: npm ci --prefix web --no-audit --no-fund
+      - run: npm test --prefix web
       - run: npm run build --prefix web
       - run: npx --prefix web playwright install --with-deps chromium
       - name: Named real PostgreSQL and API history boundaries

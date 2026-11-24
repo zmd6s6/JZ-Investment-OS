@@ -1,9 +1,8 @@
 # 项目状态
 
-## MVP-411 Analysis完整历史开发中
+## MVP-411 Analysis完整历史候选
 
-独立Claim已持久，typed稳定30页与中文加载更早/精确ID输入已实现，复用PR59原GET/Trace；原列表与权限保持。前端183项、纯unit750项、ruff/mypy/build/Schema检查通过；85efb01隔离云端真实PG/API/生产Worker/Chromium历史及原59链接2项通过15.8s，390图已目视查看，seed历史与真实九角色产物分开。后续URL失败刷新小修须核新HEAD完整CI/E2E，尚未自签Gate；本机Docker离线且未启动引擎。功能仍IN_PROGRESS，Owner部署/接受PENDING；详情及恢复路径见docs/agent/work-items/MVP-411.md。
-
+`/analysis` 新增typed稳定30页、中文加载更早/边界与独立精确Run ID，复用PR59原GET/冻结Trace；旧tuple列表与权限保持。原FAILED/CANCELLED无产物可达，分页失败保留行，详情失败清Bridge/动作，有效ID失败也保持本次URL供刷新。前端184项、纯unit750项、ruff/mypy/build/Schema通过；业务516ec00云端真实PG/API6项与生产Worker/Chromium历史及原59月报链接2项通过，105seed历史与九角色真实产物分开、零历史GET写及原hash保持，390图已目视查看。当前最终HEAD完整CI与独立Gate仍待核，只在PR61实际经Gate合入Release后INTEGRATED生效；Owner部署/接受PENDING，402 PARTIAL/501 BLOCKED保持。详见docs/agent/work-items/MVP-411.md。
 
 ## 2026-11-19 既有报告原分析链接修复候选
 
