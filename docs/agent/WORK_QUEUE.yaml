@@ -487,7 +487,10 @@ work_items:
   - id: MVP-411
     title: Reachable complete AnalysisRun history
     priority: 0
-    status: READY
+    status: INTEGRATED
+    # 仅PR61经最终独立Gate且实际合入release/mvp-beta后生效；当前审查候选，Owner部署/接受PENDING。
+    claim_branch: agent/MVP-411
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp411_history_developer
     stage: PRODUCT-06
     checkpoint: B
     depends_on:

@@ -1,5 +1,9 @@
 # 项目状态
 
+## MVP-411 Analysis完整历史候选
+
+`/analysis` 新增typed稳定30页、中文加载更早/边界与独立精确Run ID，复用PR59原GET/冻结Trace；旧tuple列表与权限保持。原FAILED/CANCELLED无产物可达，分页失败保留行，详情失败清Bridge/动作，有效ID失败也保持本次URL供刷新。前端184项、纯unit750项、ruff/mypy/build/Schema通过；业务516ec00云端真实PG/API6项与生产Worker/Chromium历史及原59月报链接2项通过，105seed历史与九角色真实产物分开、零历史GET写及原hash保持，390图已目视查看。当前最终HEAD完整CI与独立Gate仍待核，只在PR61实际经Gate合入Release后INTEGRATED生效；Owner部署/接受PENDING，402 PARTIAL/501 BLOCKED保持。详见docs/agent/work-items/MVP-411.md。
+
 ## 2026-11-19 既有报告原分析链接修复候选
 
 `/analysis` 现在消费既有月报的 `?run_id=` 和日报的 `?portfolio_id=&run_id=`，从现有GET单Run确定真实组合并独立定位原记录，不受最近30列表限制。双ID错配、空/无效/重复编号、不存在或读取失败明确拒绝并清空原详情/Decision准备/取消重试；换组合/标的/运行及迟到响应不串记录，历史读取不授予新的模型许可。只改前端消费者，无后端/Schema/迁移/调度/授权变化，不新增历史分页。

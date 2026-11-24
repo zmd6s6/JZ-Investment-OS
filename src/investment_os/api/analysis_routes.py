@@ -8,6 +8,7 @@ from investment_os.application.analysis_choices import AnalysisChoices, Analysis
 from investment_os.application.analysis_configuration import AnalysisStartService
 from investment_os.application.analysis_risk_sizing import NumericSourcePort, NumericSourceSnapshot
 from investment_os.application.analysis_runs import (
+    AnalysisHistoryPage,
     AnalysisRunView,
     AnalysisStart,
     AnalysisStorePort,
@@ -81,6 +82,23 @@ def analysis_router(
     @router.get("/runs", response_model=tuple[AnalysisRunView, ...])
     async def list_runs(portfolio_id: UUID | None = None) -> tuple[AnalysisRunView, ...]:
         return await available().list_runs(portfolio_id=portfolio_id)
+
+    @router.get("/runs/history", response_model=AnalysisHistoryPage)
+    async def history(
+        portfolio_id: UUID, instrument_id: UUID | None = None, cursor: str | None = None
+    ) -> AnalysisHistoryPage:
+        try:
+            return await available().history(
+                portfolio_id=portfolio_id, instrument_id=instrument_id, cursor=cursor
+            )
+        except ValueError:
+            raise HTTPException(
+                422,
+                detail={
+                    "code": "ANALYSIS_HISTORY_CURSOR_INVALID",
+                    "message": "分析历史分页标识无效或不属于当前查询, 请刷新历史后重试。",
+                },
+            ) from None
 
     @router.get("/runs/{run_id}", response_model=AnalysisRunView)
     async def get(run_id: UUID) -> AnalysisRunView:

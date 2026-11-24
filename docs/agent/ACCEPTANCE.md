@@ -231,3 +231,9 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 ## MVP-404 原分析链接修复候选（Owner PENDING）
 
 从 `/calendar` 原月报点“查看分析依据”，即使该Run已离开最近30项，也应直接打开原Run和所属组合；日报含双ID链接同样定位。刷新重读同一原记录，无新排队/模型/Decision写入。错误编号、组合错配、网络故障清空旧详情和准备/取消/重试控制，中文提示可重读；换选择后的迟到响应不得恢复旧记录。合成真实API/PG/AnalysisWorkerRunner/MonthlyReviewRunner/Edge已演示真实月报链接、刷新、31后续Run、390px及失败恢复，原Run JSON和月报hash保持；503仅是显式网络故障stub。21前端聚焦项通过，完整最终验证/CI和独立Gate仍PENDING，只有followup PR真正合入才生效，Owner未部署/接受。
+
+## MVP-411 Analysis历史（PR61候选，Owner PENDING）
+
+/analysis运行历史 → “加载更早运行”到30/100之外，或输入完整“精确运行编号” → 查看原保存状态/冻结Trace → 刷新同一URL。已加载数量及还有无更早页明确可见。FAILED/CANCELLED无Shadow或Decision不补造，模型同意不会继承；分页503保留行可重试，详情503/404清旧正文/Bridge/取消重试，恢复只读GET。有效ID失败也保留本次URL，刷新不能回到旧成功选择。
+
+业务516ec00云端专属真实PG/API6项6.61s与生产AnalysisWorkerRunner/MonthlyReviewRunner/Chromium两场景19.4s已通过；先真实Worker九角色再105条显式合成seed，四页106项到旧原Run，精确失败/取消/刷新/390px及全表零写/hash保持有证据，前一85efb01截图已目视查看。184前端、750纯unit与build/静态检查通过。最后CI补完整前端门禁和404刷新断言，最终完整CI/独立Gate仍须核新HEAD，只有PR61实际通过Gate合入后INTEGRATED/ACCEPTANCE_READY生效。Owner部署/Checkpoint接受PENDING，402 PARTIAL/501 BLOCKED保持；详见MVP411工作项。

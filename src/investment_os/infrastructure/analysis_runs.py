@@ -1,17 +1,21 @@
 """Transactional lifecycle and append-only evidence-linked shadow-analysis persistence."""
 
+import base64
+import binascii
 import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select, text
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.analysis_risk_sizing import RiskSizingView
 from investment_os.application.analysis_runs import (
     AnalysisCancelled,
     AnalysisFrozenInput,
+    AnalysisHistoryCursor,
+    AnalysisHistoryPage,
     AnalysisLeaseLost,
     AnalysisQueuedInput,
     AnalysisRunView,
@@ -216,6 +220,58 @@ class SqlAnalysisRuns:
                 statement = statement.where(AnalysisRunRecord.portfolio_id == portfolio_id)
             records = (await session.scalars(statement)).all()
             return tuple([await self._view(session, record, details=False) for record in records])
+
+    async def history(
+        self, *, portfolio_id: UUID, instrument_id: UUID | None = None, cursor: str | None = None
+    ) -> AnalysisHistoryPage:
+        statement = select(AnalysisRunRecord).where(AnalysisRunRecord.portfolio_id == portfolio_id)
+        if instrument_id is not None:
+            statement = statement.where(AnalysisRunRecord.instrument_id == instrument_id)
+        if cursor is not None:
+            try:
+                if len(cursor) > 1024:
+                    raise ValueError("cursor too long")
+                boundary = AnalysisHistoryCursor.model_validate_json(
+                    base64.b64decode(cursor, altchars=b"-_", validate=True)
+                )
+                if boundary.portfolio_id != portfolio_id or boundary.instrument_id != instrument_id:
+                    raise ValueError("cursor query mismatch")
+            except (ValueError, binascii.Error):
+                raise ValueError("ANALYSIS_HISTORY_CURSOR_INVALID") from None
+            statement = statement.where(
+                or_(
+                    AnalysisRunRecord.queued_at < boundary.queued_at,
+                    and_(
+                        AnalysisRunRecord.queued_at == boundary.queued_at,
+                        AnalysisRunRecord.id > boundary.run_id,
+                    ),
+                )
+            )
+        async with self._sessions() as session:
+            rows = tuple(
+                await session.scalars(
+                    statement.order_by(
+                        AnalysisRunRecord.queued_at.desc(), AnalysisRunRecord.id.asc()
+                    ).limit(31)
+                )
+            )
+            next_cursor = None
+            if len(rows) > 30:
+                last = rows[29]
+                next_cursor = base64.urlsafe_b64encode(
+                    AnalysisHistoryCursor(
+                        portfolio_id=portfolio_id,
+                        instrument_id=instrument_id,
+                        queued_at=last.queued_at,
+                        run_id=last.id,
+                    )
+                    .model_dump_json()
+                    .encode()
+                ).decode()
+            return AnalysisHistoryPage(
+                items=tuple([await self._view(session, row, details=False) for row in rows[:30]]),
+                next_cursor=next_cursor,
+            )
 
     async def claim_next(self) -> tuple[UUID, UUID, AnalysisQueuedInput] | None:
         async with self._sessions() as session, session.begin():
