@@ -38,6 +38,7 @@ jobs:
     env:
       E2E_BASE_URL: http://127.0.0.1:18163
       E2E_WRITE_TOKEN: synthetic-mvp203-only
+      ANALYSIS_SYNTHETIC_DATABASE_URL: postgresql+asyncpg://investment_os:local-development-only@127.0.0.1:5432/mvp411_ci_analysis_synthetic # pragma: allowlist secret
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v6
@@ -55,9 +56,9 @@ jobs:
           INVESTMENT_OS_TEST_DATABASE_URL: postgresql+asyncpg://investment_os:local-development-only@127.0.0.1:5432/mvp411_ci_tests_analysis_synthetic # pragma: allowlist secret
         run: |
           uv run python - <<'PY'
-          import asyncio, asyncpg
+          import asyncio, os, asyncpg
           async def create_only():
-              connection = await asyncpg.connect('postgresql://investment_os:local-development-only@127.0.0.1:5432/mvp411_ci_analysis_synthetic')
+              connection = await asyncpg.connect(os.environ["ANALYSIS_SYNTHETIC_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://", 1))
               try:
                   await connection.execute('CREATE DATABASE mvp411_ci_tests_analysis_synthetic')
               finally:
@@ -70,12 +71,12 @@ jobs:
         run: |
           mkdir -p .runtime
           python - <<'PY'
-          import json
+          import json, os
           from pathlib import Path
-          url = 'postgresql+asyncpg://investment_os:local-development-only@127.0.0.1:5432/mvp411_ci_analysis_synthetic'
+          url = os.environ["ANALYSIS_SYNTHETIC_DATABASE_URL"]
           Path('.runtime/mvp411-databases.json').write_text(json.dumps({'browser_url': url}))
           PY
-          uv run python scripts/analysis_e2e_stack.py --port 18163 --database-url 'postgresql+asyncpg://investment_os:local-development-only@127.0.0.1:5432/mvp411_ci_analysis_synthetic' > .runtime/mvp411-api.log 2>&1 &
+          uv run python scripts/analysis_e2e_stack.py --port 18163 --database-url "$ANALYSIS_SYNTHETIC_DATABASE_URL" > .runtime/mvp411-api.log 2>&1 &
           echo $! > .runtime/mvp411-stack.pid
           python - <<'PY'
           import time, urllib.request
