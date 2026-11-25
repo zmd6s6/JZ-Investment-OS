@@ -9,7 +9,6 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.thesis import (
-    semantic_diff,
     thesis_content_hash,
     thesis_semantic_diff_payload,
 )
@@ -21,6 +20,7 @@ from investment_os.application.thesis_workspace import (
     ThesisPreview,
     ThesisReceipt,
     ThesisWorkspace,
+    workspace_semantic_diff,
 )
 from investment_os.domain.enums import ThesisState
 from investment_os.domain.thesis import ThesisVersion
@@ -206,7 +206,7 @@ class SqlThesisWorkspace:
             diff = (
                 None
                 if current is None
-                else semantic_diff(_content_from_record(current), command.draft.domain())
+                else workspace_semantic_diff(_content_from_record(current), command.draft.domain())
             )
             return ThesisPreview(
                 command_hash=command.canonical_hash(),
@@ -241,7 +241,9 @@ class SqlThesisWorkspace:
             now = self._validate(command, rows)
             content = command.draft.domain()
             diff = (
-                None if current is None else semantic_diff(_content_from_record(current), content)
+                None
+                if current is None
+                else workspace_semantic_diff(_content_from_record(current), content)
             )
             created = diff is None or diff.is_material
             correlation = command.request_id

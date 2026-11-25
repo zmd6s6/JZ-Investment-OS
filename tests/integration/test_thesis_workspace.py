@@ -537,3 +537,62 @@ async def test_missing_configured_write_token_rejects_preview_and_save(database_
                 )
             ).status_code == 503
     assert await database_snapshot(sessions) == before
+
+
+@pytest.mark.parametrize("field", ["pillars", "catalysts", "risks"])
+async def test_multi_reference_reorder_api_preview_noop_preserves_history_pointer_and_links(
+    database_engine, field
+):
+    sessions, store, command = await prepare(database_engine)
+    second = await _append_evidence(
+        sessions, instrument_id=command.instrument_id, available_at=NOW - timedelta(days=1)
+    )
+    ids = sorted([str(command.draft.domain().evidence_ids[0]), str(second)])
+    value = command.model_dump(mode="json")
+    claim = {"description": "Synthetic multi-reference claim", "evidence_ids": ids}
+    if field == "pillars":
+        value["draft"][field][0]["claim"] = claim
+    else:
+        value["draft"][field] = [claim]
+    app = FastAPI()
+    app.add_middleware(WriteApiAuthMiddleware, token="synthetic-thesis-only")
+    app.include_router(thesis_workspace_router(store))
+    headers = {"Authorization": "Bearer synthetic-thesis-only"}
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app), base_url="http://test"
+    ) as client:
+        initial = await client.post("/api/v1/thesis-workspace/save", json=value, headers=headers)
+        assert initial.status_code == 200
+        original = initial.json()["saved"]
+        loaded = (await client.get(f"/api/v1/thesis-workspace/{command.instrument_id}")).json()
+        # Construct the edited command from the actual persisted read-back, as the UI does.
+        reordered = {
+            **value,
+            "request_id": str(uuid4()),
+            "expected_version_id": original["version_id"],
+            "expected_content_hash": original["content_hash"],
+            "draft": loaded["current"]["draft"],
+        }
+        target = reordered["draft"][field][0]
+        if field == "pillars":
+            target = target["claim"]
+        target["evidence_ids"].reverse()
+        before = await database_snapshot(sessions)
+        checked = await client.post(
+            "/api/v1/thesis-workspace/preview", json=reordered, headers=headers
+        )
+        assert checked.status_code == 200
+        assert checked.json()["material"] is False
+        assert checked.json()["content_hash"] == original["content_hash"]
+        assert await database_snapshot(sessions) == before
+        result = await client.post("/api/v1/thesis-workspace/save", json=reordered, headers=headers)
+        assert result.status_code == 200
+        assert result.json()["created"] is False
+        assert result.json()["saved"] == original
+        after = await database_snapshot(sessions)
+        for table in ("investment_thesis", "thesis_version", "thesis_version_evidence"):
+            assert after[table] == before[table]
+        replay = await client.post("/api/v1/thesis-workspace/save", json=reordered, headers=headers)
+        assert replay.status_code == 200 and replay.json() == result.json()
+        assert await database_snapshot(sessions) == after
+        assert len((await store.read(command.instrument_id)).history) == 1

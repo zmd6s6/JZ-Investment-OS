@@ -157,3 +157,32 @@ async def test_new_workspace_validation_names_chinese_fields_without_affecting_l
         assert legacy_error.status_code == 422 and isinstance(legacy_error.json()["detail"], list)
         path = await client.get("/api/v1/thesis-workspace/malformed")
         assert path.status_code == 422 and "标的编号" in path.json()["detail"]["message"]
+
+
+@pytest.mark.parametrize("field", ["pillars", "catalysts", "risks"])
+def test_workspace_reference_order_is_semantic_noop_for_every_claim_kind(field):
+    from investment_os.application.thesis import thesis_content_hash, thesis_content_payload
+    from investment_os.application.thesis_workspace import ThesisDraft, workspace_semantic_diff
+
+    value = payload()
+    ids = sorted(value["draft"]["pillars"][0]["claim"]["evidence_ids"])
+    claim = {"description": "合成双引用事实", "evidence_ids": ids}
+    if field == "pillars":
+        value["draft"][field][0]["claim"] = claim
+    else:
+        value["draft"][field] = [claim]
+    previous = ThesisCommand.model_validate(value).draft.domain()
+    changed = deepcopy(value)
+    target = changed["draft"][field][0]
+    if field == "pillars":
+        target = target["claim"]
+    target["evidence_ids"].reverse()
+    current = ThesisCommand.model_validate(changed).draft.domain()
+    assert thesis_content_hash(previous) == thesis_content_hash(current)
+    assert not workspace_semantic_diff(previous, current).is_material
+    canonical = ThesisDraft.model_validate(thesis_content_payload(previous)).domain()
+    assert not workspace_semantic_diff(canonical, current).is_material
+    changed["draft"]["long_term_summary"] = "实质内容修订"
+    assert workspace_semantic_diff(
+        canonical, ThesisCommand.model_validate(changed).draft.domain()
+    ).is_material

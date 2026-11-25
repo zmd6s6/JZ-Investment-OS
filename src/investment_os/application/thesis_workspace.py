@@ -8,7 +8,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from investment_os.application.thesis import thesis_content_payload
+from investment_os.application.thesis import (
+    ThesisSemanticDiff,
+    semantic_diff,
+    thesis_content_payload,
+)
 from investment_os.domain.enums import ThesisState
 from investment_os.domain.errors import DomainError
 from investment_os.domain.thesis import (
@@ -156,3 +160,10 @@ class ThesisWorkspacePort(Protocol):
     async def read(self, instrument_id: UUID) -> ThesisWorkspace: ...
     async def preview(self, command: ThesisCommand) -> ThesisPreview: ...
     async def save(self, command: ThesisCommand) -> ThesisReceipt: ...
+
+
+def workspace_semantic_diff(previous: ThesisContent, current: ThesisContent) -> ThesisSemanticDiff:
+    """Compare human commands using the canonical persisted-content interpretation."""
+    canonical_previous = ThesisDraft.model_validate(thesis_content_payload(previous)).domain()
+    canonical_current = ThesisDraft.model_validate(thesis_content_payload(current)).domain()
+    return semantic_diff(canonical_previous, canonical_current)
