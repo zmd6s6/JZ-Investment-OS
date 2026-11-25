@@ -239,6 +239,8 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 业务516ec00云端专属真实PG/API6项6.61s与生产AnalysisWorkerRunner/MonthlyReviewRunner/Chromium两场景19.4s已通过；先真实Worker九角色再105条显式合成seed，四页106项到旧原Run，精确失败/取消/刷新/390px及全表零写/hash保持有证据，前一85efb01截图已目视查看。184前端、750纯unit与build/静态检查通过。最后CI补完整前端门禁和404刷新断言，最终完整CI/独立Gate仍须核新HEAD，只有PR61实际通过Gate合入后INTEGRATED/ACCEPTANCE_READY生效。Owner部署/Checkpoint接受PENDING，402 PARTIAL/501 BLOCKED保持；详见MVP411工作项。
 
 
-## MVP-412 人工投资逻辑（IN_PROGRESS候选）
+## MVP-412 人工投资逻辑候选（仅PR63实际合入后INTEGRATED生效）
 
-入口/analysis选择标的后进入/thesis，读取原来源及四时间，填写具名人工草稿、预览差异后明确保存。初建仅UNKNOWN，修订保持原状态；冲突保留草稿，未知结果仅明确同请求恢复，不自动分析/选证据/恢复模型同意。完整真实PG/API/Worker/UI与390px仍NOT VERIFIED，独立Gate、Release集成及Owner部署/接受PENDING。详见work-items/MVP-412.md。
+入口/analysis选标的→编写或修订人工投资逻辑→/thesis；也可主导航目录搜索。读原Evidence来源/四时间，具名填写结构化草稿、预览原/新完整内容及语义差异后明确保存；刷新显示原版本/hash/父链。初建仅UNKNOWN、修订精确原状态；全部状态转换/BROKEN恢复拒绝。
+
+冲突保留草稿并需明确重读基线；未知响应只明确同UUID同内容恢复，不自动写重播。读失败清基线/来源并禁保存，迟到响应不串标的。回Analysis不自动选证据或恢复模型同意；独立手选全部引用并重新同意后才冻结，缺引用保持UNKNOWN及具名blocker。source cb11802云37PG/API与2真实生产Worker/API/PG/Chromium场景通过，workspace0模型请求、独立Analysis共27次合成角色调用，A/B与旧Run/hash不变；390图已查看。前端201、纯测试769通过。完整最终HEAD CI/root独立Gate待核；Owner部署/Checkpoint接受PENDING，402PARTIAL/501BLOCKED保持。详见work-items/MVP-412.md。

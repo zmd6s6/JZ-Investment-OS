@@ -2,7 +2,7 @@
 
 ## MVP-412 人工投资逻辑工作台候选
 
-已合法create-only Claim于实际Release38c3fc27。正在接通人工UNKNOWN初建/同状态内容修订、零写预览与明确CAS幂等保存、中文/thesis及原Analysis入口。当前仅实现候选，真实PG/API/生产Worker/浏览器及完整CI/独立Gate尚待验证，不宣称集成或Owner接受；402PARTIAL/501BLOCKED保持。证据、失败与恢复见docs/agent/work-items/MVP-412.md。
+唯一功能PR63提供`/analysis`→`/thesis`人工UNKNOWN初建/精确同状态修订、零写差异预览、显式CAS/请求幂等保存与不可变版本/原来源/父链。source cb11802真实云PG/API37项及生产Worker/Chromium2场景通过，工作台0模型请求，三次独立同意Analysis共27次loopback合成调用，A/B及旧Run/hash不变；390图已目视查看。前端201、纯unit/contract/property/smoke769及ruff/mypy/build/Schema通过；完整最终HEAD CI与独立Gate待核，仅PR63实际合入后INTEGRATED生效。Owner部署/接受PENDING、402PARTIAL/501BLOCKED保持。命令、真实失败/修复与恢复见docs/agent/work-items/MVP-412.md。
 
 ## MVP-411 Analysis完整历史候选
 

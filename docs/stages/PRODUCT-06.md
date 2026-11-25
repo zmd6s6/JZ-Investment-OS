@@ -107,3 +107,9 @@ Queue203 INTEGRATED、204/301 READY仅随PR #26经实际独立Gate且合入Relea
 ## MVP-411 完整Analysis历史候选（2026-11-24）
 
 PR61增加原AnalysisRun typed稳定分页与`/analysis`加载更早/精确ID输入，保留旧tuple及PR59原GET/Trace消费者；所有新读取零写、不恢复模型许可、不扩展动作资格。业务516ec00专属PG/API6项及真实生产Worker/PG/API/Chromium两场景通过，原59月报链同步回归；明确105条seed历史不是Worker产物，原hash保持，390图已查看。最终HEAD完整CI与独立Gate待核，仅PR61实际合入后集成生效；完整P6、Owner部署及Checkpoint接受仍PENDING，证据/失败/恢复见docs/agent/work-items/MVP-411.md。无迁移/新生产依赖/治理变化，ADR0060说明只读兼容与分页权衡。
+
+## MVP-412 人工Thesis工作台候选（2026-11-25）
+
+PR63补人工UNKNOWN初建/同状态修订，/analysis→/thesis，原Evidence四时间、零写完整差异预览、显式CAS/请求UUID和同事务版本/Audit/EventOutbox/receipt。初建VALID与全部状态转换/BROKEN恢复拒绝；回Analysis需重新显式选全部引用并独立同意模型，旧Run不回填。
+
+source cb11802真实云37PG/API及2生产Worker/API/PG/Chromium场景通过，workspace0模型请求、独立Analysis共27次loopback合成角色调用，A/B与旧Run/hash不变；390图已目视核对。完整最终HEAD CI与root独立Gate待核，仅PR63实际合入后集成生效，完整P6/Owner/Checkpoint接受PENDING。命令、真实失败/修复及迁移恢复见docs/agent/work-items/MVP-412.md。
