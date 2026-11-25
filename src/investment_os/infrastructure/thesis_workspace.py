@@ -81,6 +81,7 @@ class SqlThesisWorkspace:
 
     async def read(self, instrument_id: UUID) -> ThesisWorkspace:
         async with self._sessions() as session:
+            await session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
             if await session.get(InstrumentRecord, instrument_id) is None:
                 raise ValueError("THESIS_INSTRUMENT_NOT_FOUND")
             thesis = await session.scalar(
@@ -101,8 +102,10 @@ class SqlThesisWorkspace:
                     ).all()
                 )
             )
-            # Keep linked original sources visible even when outside the bounded picker.
-            linked = set() if not versions else set(_content_from_record(versions[0]).evidence_ids)
+            # Original version sources remain inspectable outside the recent picker.
+            linked = {
+                identifier for v in versions for identifier in _content_from_record(v).evidence_ids
+            }
             newest = (
                 select(EvidenceRecord.id)
                 .where(

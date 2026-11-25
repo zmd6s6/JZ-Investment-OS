@@ -46,7 +46,8 @@ async def prepare(engine, **evidence_updates):
                     text(
                         "INSERT INTO instrument (id, symbol, exchange, asset_type, currency, "
                         "lot_size, status, created_by, correlation_id) VALUES "
-                        "(:id, :symbol, 'TEST', 'EQUITY', 'CNY', 1, 'ACTIVE', 'pytest', :correlation)"
+                        "(:id, :symbol, 'TEST', 'EQUITY', 'CNY', 1, "
+                        "'ACTIVE', 'pytest', :correlation)"
                     ),
                     {"id": wrong_instrument, "symbol": str(uuid4()), "correlation": uuid4()},
                 )
@@ -483,3 +484,55 @@ async def test_database_quality_over_one_rejected_before_command_can_use_it(data
 
     with pytest.raises(IntegrityError, match="quality_range"):
         await prepare(database_engine, quality_score=Decimal("1.01"))
+
+
+async def test_previous_revision_upgrade_retains_legacy_versions_and_receipt_recovery(
+    database_engine,
+):
+    from alembic import command as migration
+    from alembic.config import Config
+    from test_thesis_engine import _content
+
+    sessions, store, cmd = await prepare(database_engine)
+    await SqlAlchemyThesisWriter(sessions, now=lambda: NOW - timedelta(seconds=1)).write(
+        instrument_id=cmd.instrument_id,
+        content=_content(cmd.draft.domain().evidence_ids),
+        as_of=NOW,
+    )
+    original = (await store.read(cmd.instrument_id)).current
+    await database_engine.dispose()
+    await asyncio.to_thread(migration.downgrade, Config("alembic.ini"), "20261117_0028")
+    await asyncio.to_thread(migration.upgrade, Config("alembic.ini"), "head")
+    assert (await store.read(cmd.instrument_id)).current == original
+    updated = cmd.model_copy(
+        update={
+            "expected_version_id": original.version_id,
+            "expected_content_hash": original.content_hash,
+            "draft": original.draft.model_copy(update={"long_term_summary": "人工修订新迁移"}),
+        }
+    )
+    receipt = await store.save(updated)
+    assert receipt.saved.parent_version_id == original.version_id
+    before = await database_snapshot(sessions)
+    with pytest.raises(RuntimeError, match="Thesis receipts exist"):
+        await asyncio.to_thread(migration.downgrade, Config("alembic.ini"), "20261117_0028")
+    assert await database_snapshot(sessions) == before
+    assert await store.save(updated) == receipt
+
+
+async def test_missing_configured_write_token_rejects_preview_and_save(database_engine):
+    sessions, store, cmd = await prepare(database_engine)
+    before = await database_snapshot(sessions)
+    app = FastAPI()
+    app.add_middleware(WriteApiAuthMiddleware, token=None)
+    app.include_router(thesis_workspace_router(store))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app), base_url="http://test"
+    ) as client:
+        for action in ("preview", "save"):
+            assert (
+                await client.post(
+                    f"/api/v1/thesis-workspace/{action}", json=cmd.model_dump(mode="json")
+                )
+            ).status_code == 503
+    assert await database_snapshot(sessions) == before
