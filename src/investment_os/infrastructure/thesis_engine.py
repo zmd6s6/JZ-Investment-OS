@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from investment_os.application.errors import ApplicationError, ApplicationErrorCode
@@ -177,6 +177,10 @@ class SqlAlchemyThesisWriter:
         correlation = correlation_id or uuid4()
         evidence_ids = content.evidence_ids
         async with SqlAlchemyUnitOfWork(self._session_factory) as uow:
+            await uow.session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                {"key": f"thesis-instrument:{instrument_id}"},
+            )
             available_ids = await uow.evidence.available_ids(
                 evidence_ids,
                 instrument_id=instrument_id,

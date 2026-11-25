@@ -1,0 +1,10 @@
+.thesis-content {min-width:0; overflow-wrap:anywhere;}
+.thesis-content fieldset {border:0; padding:0; min-width:0;}
+.thesis-content label {display:block; margin:12px 0;}
+.thesis-content input,.thesis-content textarea,.thesis-content select {display:block; width:100%; max-width:100%; min-width:0; box-sizing:border-box;}
+.thesis-content textarea {min-height:90px;}
+.thesis-content select[multiple] {min-height:90px;}
+.thesis-content small {display:block;}
+.thesis-row {padding:12px; border:1px solid var(--line,#d9dfdf); border-radius:8px; margin:12px 0;}
+.thesis-content details {padding:8px 0;}
+.thesis-content button {margin:8px 8px 8px 0; white-space:normal;}

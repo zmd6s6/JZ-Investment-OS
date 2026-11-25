@@ -635,7 +635,10 @@ async def test_weekly_empty_migration_downgrade_upgrade_retains_old_monthly_hist
     await asyncio.to_thread(migration_command.downgrade, Config("alembic.ini"), "20261111_0026")
     await asyncio.to_thread(migration_command.upgrade, Config("alembic.ini"), "head")
     async with database_engine.connect() as conn:
-        assert await conn.scalar(text("SELECT version_num FROM alembic_version")) == "20261117_0028"
+        from alembic.script import ScriptDirectory
+
+        expected_head = ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+        assert await conn.scalar(text("SELECT version_num FROM alembic_version")) == expected_head
         assert await conn.scalar(text("SELECT count(*) FROM weekly_local_report")) == 0
 
 

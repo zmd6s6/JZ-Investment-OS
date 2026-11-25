@@ -18,6 +18,7 @@ from investment_os.api.analysis_routes import analysis_router
 from investment_os.api.decision_center import decision_center_router
 from investment_os.api.monthly_routes import monthly_router
 from investment_os.api.operational_inbox import operational_inbox_router
+from investment_os.api.thesis_workspace_routes import thesis_workspace_router
 from investment_os.api.valuation_routes import valuation_router
 from investment_os.api.weekly_routes import weekly_review_router
 from investment_os.application.acceptance import AcceptanceSnapshot, acceptance_snapshot
@@ -71,6 +72,7 @@ from investment_os.application.research import (
     ResearchRequest,
 )
 from investment_os.application.research_runtime import ResearchProviderRuntime, ResearchRuntimeError
+from investment_os.application.thesis_workspace import ThesisWorkspacePort
 from investment_os.application.universe_snapshots import UniverseSnapshotService
 from investment_os.application.watchlist import WatchlistService
 from investment_os.application.weekly_review import WeeklyReviewPort
@@ -94,6 +96,7 @@ from investment_os.infrastructure.report_delivery import SqlAlchemyDailyReportRe
 from investment_os.infrastructure.scheduler import SqlAlchemyTaskRunReader
 from investment_os.infrastructure.settings import get_settings
 from investment_os.infrastructure.thesis_engine import SqlAlchemyThesisReader, ThesisVersionRead
+from investment_os.infrastructure.thesis_workspace import SqlThesisWorkspace
 
 from .complete_weekly_routes import complete_weekly_router
 from .daily_routes import daily_router
@@ -363,6 +366,7 @@ def create_app(
     readiness_probe: ReadinessProbe | None = None,
     evidence_ingestor: SqlAlchemyEvidenceIngestor | None = None,
     thesis_reader: SqlAlchemyThesisReader | None = None,
+    thesis_workspace: ThesisWorkspacePort | None = None,
     decision_journal_reader: SqlAlchemyDecisionJournalReader | None = None,
     task_run_reader: SqlAlchemyTaskRunReader | None = None,
     daily_report_reader: SqlAlchemyDailyReportReader | None = None,
@@ -487,6 +491,11 @@ def create_app(
     application.add_middleware(WriteApiAuthMiddleware, token=selected_write_token)
     from investment_os.api.calendar_routes import create_calendar_router
 
+    application.include_router(
+        thesis_workspace_router(
+            thesis_workspace or (SqlThesisWorkspace(session_factory) if session_factory else None)
+        )
+    )
     application.include_router(create_calendar_router(calendar_product_service))
 
     application.include_router(market_router(market_data_service))
@@ -1544,6 +1553,7 @@ def create_app(
         async def acceptance_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
 
+        @application.get("/thesis", include_in_schema=False)
         @application.get("/analysis", include_in_schema=False)
         async def analysis_ui() -> FileResponse:
             return FileResponse(frontend_dist / "index.html")
