@@ -16,9 +16,9 @@ from test_thesis_engine import NOW, _append_evidence, _insert_instrument
 from investment_os.api.app import create_app
 from investment_os.api.thesis_workspace_routes import thesis_workspace_router
 from investment_os.api.write_auth import WriteApiAuthMiddleware
-from investment_os.application.thesis_workspace import ThesisCommand
+from investment_os.application.thesis_workspace import ConditionInput, ThesisCommand
 from investment_os.domain.enums import ThesisState
-from investment_os.domain.thesis import InvalidationCondition, ThesisChangeReason
+from investment_os.domain.thesis import ThesisChangeReason
 from investment_os.infrastructure.persistence.models import EvidenceRecord
 from investment_os.infrastructure.persistence.repositories import AuditRepository, OutboxRepository
 from investment_os.infrastructure.thesis_engine import (
@@ -39,6 +39,17 @@ async def prepare(engine, **evidence_updates):
     )
     # Test setup updates must precede append-only insertion; use a separate new record.
     if evidence_updates:
+        wrong_instrument = evidence_updates.get("instrument_id")
+        if wrong_instrument is not None and wrong_instrument != instrument:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        "INSERT INTO instrument (id, symbol, exchange, asset_type, currency, "
+                        "lot_size, status, created_by, correlation_id) VALUES "
+                        "(:id, :symbol, 'TEST', 'EQUITY', 'CNY', 1, 'ACTIVE', 'pytest', :correlation)"
+                    ),
+                    {"id": wrong_instrument, "symbol": str(uuid4()), "correlation": uuid4()},
+                )
         async with sessions() as session:
             old = await session.get(EvidenceRecord, evidence)
             values = {c.name: getattr(old, c.name) for c in EvidenceRecord.__table__.columns}
@@ -121,7 +132,9 @@ async def test_initial_non_unknown_forbidden_without_effects(database_engine, st
                 update={
                     "state": ThesisState(state),
                     "invalidation_conditions": (
-                        InvalidationCondition("test", "test", "1", "test"),
+                        ConditionInput(
+                            condition="test", measurement="test", threshold="1", window="test"
+                        ),
                     ),
                 }
             )
@@ -181,7 +194,6 @@ async def test_future_each_business_time_rejected_at_preview_and_save(database_e
         ({"expires_at": NOW}, "EXPIRED"),
         ({"expires_at": NOW - timedelta(microseconds=1)}, "EXPIRED"),
         ({"quality_score": Decimal("0")}, "INVALID"),
-        ({"quality_score": Decimal("1.01")}, "INVALID"),
         ({"freshness_status": "STALE"}, "INVALID"),
         ({"freshness_status": "NOT_YET_AVAILABLE"}, "INVALID"),
         ({"instrument_id": uuid4()}, "WRONG_INSTRUMENT"),
@@ -229,7 +241,11 @@ async def test_successful_request_receipt_replays_after_later_expiry_without_new
     receipt = await store.save(cmd)
     before = await database_snapshot(sessions)
     expired = SqlThesisWorkspace(sessions, now=lambda: NOW + timedelta(seconds=2))
-    assert not (await expired.read(cmd.instrument_id)).evidence[0].eligible
+    assert not next(
+        e
+        for e in (await expired.read(cmd.instrument_id)).evidence
+        if e.evidence_id in cmd.draft.domain().evidence_ids
+    ).eligible
     assert await expired.save(cmd) == receipt
     assert await database_snapshot(sessions) == before
     with pytest.raises(ValueError, match="THESIS_EVIDENCE_EXPIRED"):
@@ -460,3 +476,10 @@ async def test_read_zero_effects_and_server_utc_saved_no_backdate(database_engin
     before = await database_snapshot(sessions)
     assert (await store.read(cmd.instrument_id)).current == receipt.saved
     assert await database_snapshot(sessions) == before
+
+
+async def test_database_quality_over_one_rejected_before_command_can_use_it(database_engine):
+    from sqlalchemy.exc import IntegrityError
+
+    with pytest.raises(IntegrityError, match="quality_range"):
+        await prepare(database_engine, quality_score=Decimal("1.01"))

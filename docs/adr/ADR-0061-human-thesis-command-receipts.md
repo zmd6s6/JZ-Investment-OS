@@ -24,4 +24,4 @@
 
 ## 迁移与恢复
 
-0029接0028，仅新增只追加thesis_command_receipt及保护trigger；不修改旧版本。空表可降级再升级；有回执时拒绝破坏性降级，回退应用保留表或前向修复。仅专属合成云PG/API/Worker验证，不操作Owner数据库或Docker引擎。迁移、故障回滚、并发、精确到期及回执后到期重放须具名实测。Owner部署/Checkpoint接受PENDING，402PARTIAL/501BLOCKED不变。
+0029接0028，仅新增只追加thesis_command_receipt及保护trigger，并为既有thesis_version_evidence追加UPDATE/DELETE保护（不回写数据）；不修改旧版本。空表可降级再升级；有回执时拒绝破坏性降级，回退应用保留表或前向修复。仅专属合成云PG/API/Worker验证，不操作Owner数据库或Docker引擎。迁移、故障回滚、并发、精确到期及回执后到期重放须具名实测。Owner部署/Checkpoint接受PENDING，402PARTIAL/501BLOCKED不变。

@@ -10,6 +10,9 @@ depends_on = None
 
 
 def upgrade():
+    op.execute("""CREATE TRIGGER trg_thesis_version_evidence_append_only
+      BEFORE UPDATE OR DELETE ON thesis_version_evidence
+      FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation()""")
     op.execute("""CREATE TABLE thesis_command_receipt (
       request_id uuid PRIMARY KEY,
       instrument_id uuid NOT NULL REFERENCES instrument(id),
@@ -37,3 +40,4 @@ def downgrade():
             "Thesis receipts exist; retain table and forward-fix; never delete audit history"
         )
     op.drop_table("thesis_command_receipt")
+    op.execute("DROP TRIGGER trg_thesis_version_evidence_append_only ON thesis_version_evidence")
