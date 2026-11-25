@@ -13,6 +13,7 @@ const navItems = [
   { href: "/valuation", label: "估值对账" },
   { href: "/opportunities", label: "机会漏斗" },
   { href: "/analysis", label: "团队分析" },
+  { href: "/thesis", label: "投资逻辑" },
   { href: "/decisions", label: "决策中心" },
 ] as const;
 

@@ -521,7 +521,9 @@ work_items:
   - id: MVP-412
     title: Human-authored evidence-backed Thesis workspace and explicit immutable revisions
     priority: 0
-    status: READY
+    status: IN_PROGRESS
+    claim_branch: agent/MVP-412
+    claim_owner: pr-02-review-and-next-stage-monitor / mvp412_thesis_developer
     stage: PRODUCT-06
     checkpoint: B
     depends_on:

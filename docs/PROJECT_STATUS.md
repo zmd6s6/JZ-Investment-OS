@@ -1,5 +1,9 @@
 # 项目状态
 
+## MVP-412 人工投资逻辑工作台候选
+
+已合法create-only Claim于实际Release38c3fc27。正在接通人工UNKNOWN初建/同状态内容修订、零写预览与明确CAS幂等保存、中文/thesis及原Analysis入口。当前仅实现候选，真实PG/API/生产Worker/浏览器及完整CI/独立Gate尚待验证，不宣称集成或Owner接受；402PARTIAL/501BLOCKED保持。证据、失败与恢复见docs/agent/work-items/MVP-412.md。
+
 ## MVP-411 Analysis完整历史候选
 
 `/analysis` 新增typed稳定30页、中文加载更早/边界与独立精确Run ID，复用PR59原GET/冻结Trace；旧tuple列表与权限保持。原FAILED/CANCELLED无产物可达，分页失败保留行，详情失败清Bridge/动作，有效ID失败也保持本次URL供刷新。前端184项、纯unit750项、ruff/mypy/build/Schema通过；业务516ec00云端真实PG/API6项与生产Worker/Chromium历史及原59月报链接2项通过，105seed历史与九角色真实产物分开、零历史GET写及原hash保持，390图已目视查看。当前最终HEAD完整CI与独立Gate仍待核，只在PR61实际经Gate合入Release后INTEGRATED生效；Owner部署/接受PENDING，402 PARTIAL/501 BLOCKED保持。详见docs/agent/work-items/MVP-411.md。

@@ -237,3 +237,8 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 /analysis运行历史 → “加载更早运行”到30/100之外，或输入完整“精确运行编号” → 查看原保存状态/冻结Trace → 刷新同一URL。已加载数量及还有无更早页明确可见。FAILED/CANCELLED无Shadow或Decision不补造，模型同意不会继承；分页503保留行可重试，详情503/404清旧正文/Bridge/取消重试，恢复只读GET。有效ID失败也保留本次URL，刷新不能回到旧成功选择。
 
 业务516ec00云端专属真实PG/API6项6.61s与生产AnalysisWorkerRunner/MonthlyReviewRunner/Chromium两场景19.4s已通过；先真实Worker九角色再105条显式合成seed，四页106项到旧原Run，精确失败/取消/刷新/390px及全表零写/hash保持有证据，前一85efb01截图已目视查看。184前端、750纯unit与build/静态检查通过。最后CI补完整前端门禁和404刷新断言，最终完整CI/独立Gate仍须核新HEAD，只有PR61实际通过Gate合入后INTEGRATED/ACCEPTANCE_READY生效。Owner部署/Checkpoint接受PENDING，402 PARTIAL/501 BLOCKED保持；详见MVP411工作项。
+
+
+## MVP-412 人工投资逻辑（IN_PROGRESS候选）
+
+入口/analysis选择标的后进入/thesis，读取原来源及四时间，填写具名人工草稿、预览差异后明确保存。初建仅UNKNOWN，修订保持原状态；冲突保留草稿，未知结果仅明确同请求恢复，不自动分析/选证据/恢复模型同意。完整真实PG/API/Worker/UI与390px仍NOT VERIFIED，独立Gate、Release集成及Owner部署/接受PENDING。详见work-items/MVP-412.md。

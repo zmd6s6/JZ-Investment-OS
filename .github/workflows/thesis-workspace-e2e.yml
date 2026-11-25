@@ -1,0 +1,114 @@
+name: Human Thesis workspace E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/analysis-history-e2e.yml'
+      - 'src/investment_os/**'
+      - 'web/**'
+      - 'scripts/analysis_e2e_stack.py'
+      - 'tests/integration/test_thesis_workspace.py'
+      - 'scripts/thesis_e2e_snapshot.py'
+      - 'tests/integration/analysis_fixture.py'
+      - 'migrations/**'
+      - 'uv.lock'
+  push:
+    branches: [agent/MVP-412, release/mvp-beta]
+
+permissions:
+  contents: read
+
+jobs:
+  thesis-workspace-real-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mvp412_ci_analysis_synthetic
+          POSTGRES_USER: investment_os
+          POSTGRES_PASSWORD: local-development-only # pragma: allowlist secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U investment_os -d mvp412_ci_analysis_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      E2E_BASE_URL: http://127.0.0.1:18163
+      E2E_WRITE_TOKEN: synthetic-mvp203-only
+      ANALYSIS_SYNTHETIC_DATABASE_URL: postgresql+asyncpg://investment_os:local-development-only@127.0.0.1:5432/mvp412_ci_analysis_synthetic # pragma: allowlist secret
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.9'
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen --group dev
+      - run: npm ci --prefix web --no-audit --no-fund
+      - run: npm test --prefix web
+      - run: npm run build --prefix web
+      - run: npx --prefix web playwright install --with-deps chromium
+      - name: Named real PostgreSQL and API Thesis boundaries
+        env:
+          INVESTMENT_OS_TEST_DATABASE_URL: postgresql+asyncpg://investment_os:local-development-only@127.0.0.1:5432/mvp412_ci_tests_analysis_synthetic # pragma: allowlist secret
+        run: |
+          uv run python - <<'PY'
+          import asyncio, os, asyncpg
+          async def create_only():
+              connection = await asyncpg.connect(os.environ["ANALYSIS_SYNTHETIC_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://", 1))
+              try:
+                  await connection.execute('CREATE DATABASE mvp412_ci_tests_analysis_synthetic')
+              finally:
+                  await connection.close()
+          asyncio.run(create_only())
+          PY
+          uv run pytest tests/integration/test_thesis_workspace.py --no-cov
+      - name: Start actual synthetic API, PostgreSQL and production Worker
+        shell: bash
+        run: |
+          mkdir -p .runtime
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          url = os.environ["ANALYSIS_SYNTHETIC_DATABASE_URL"]
+          Path('.runtime/mvp412-databases.json').write_text(json.dumps({'browser_url': url}))
+          PY
+          uv run python scripts/analysis_e2e_stack.py --port 18163 --database-url "$ANALYSIS_SYNTHETIC_DATABASE_URL" > .runtime/mvp412-api.log 2>&1 &
+          echo $! > .runtime/mvp412-stack.pid
+          python - <<'PY'
+          import time, urllib.request
+          for attempt in range(60):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:18163/health/ready', timeout=2) as r:
+                      if r.status == 200:
+                          break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise SystemExit('Synthetic API did not become ready')
+          PY
+      - name: UI-authored Thesis and separately consented production Worker freeze
+        working-directory: web
+        run: npx playwright test thesis-workspace.spec.ts --workers=1 --reporter=list
+      - name: Synthetic diagnostics on failure
+        if: failure()
+        run: tail -n 100 .runtime/mvp412-api.log .runtime/mvp203-browser-worker.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: thesis-workspace-browser-evidence
+          path: |
+            .runtime/mvp412-thesis-390.png
+            .runtime/mvp412-analysis-390.png
+            .runtime/mvp412-api.log
+            .runtime/mvp203-browser-worker.log
+            web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Stop dedicated synthetic stack
+        if: always()
+        run: test ! -f .runtime/mvp412-stack.pid || kill "$(cat .runtime/mvp412-stack.pid)" || true

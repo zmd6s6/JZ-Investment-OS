@@ -47,6 +47,7 @@ os.environ.update(
         "INVESTMENT_OS_WORKER_READY_FILE": str(Path(runtime.name) / "worker-ready"),
     }
 )
+model_requests = []
 release = threading.Event()
 release.set()
 
@@ -54,6 +55,14 @@ release.set()
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
+
+    def do_GET(self):
+        body = json.dumps({"model_requests": len(model_requests), "roles": model_requests}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_POST(self):
         data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))) or b"{}")
@@ -66,6 +75,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             release.wait(25)
             wrapper = json.loads(data["messages"][1]["content"])
+            model_requests.append(wrapper["role"])
             value = (
                 {"invalid": True}
                 if data.get("model") == "synthetic-invalid-cio" and wrapper["role"] == "CIO"

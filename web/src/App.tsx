@@ -1,3 +1,4 @@
+import { ThesisPage } from "./ThesisPage";
 import { useEffect, useState } from "react";
 
 import { AnalysisPage } from "./AnalysisPage";
@@ -238,6 +239,7 @@ function HomePage() {
 
 export function App() {
   const path = window.location.pathname;
+  if (path === "/thesis") return <ThesisPage />;
   if (path === "/analysis") return <AnalysisPage />;
   if (path === "/decisions") return <DecisionCenterPage />;
   if (path === "/calendar") return <CalendarPage />;
