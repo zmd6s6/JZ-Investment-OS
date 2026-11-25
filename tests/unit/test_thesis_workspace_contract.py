@@ -115,3 +115,45 @@ def test_canonical_hash_ignores_order_but_binds_instrument_actor_baseline_and_co
     q = deepcopy(p)
     q["draft"]["long_term_summary"] = "改动"
     assert ThesisCommand.model_validate(q).canonical_hash() != a.canonical_hash()
+
+
+@pytest.mark.parametrize("bad_field", ["long_term_summary", "evidence_ids", "instrument_id"])
+async def test_new_workspace_validation_names_chinese_fields_without_affecting_legacy_errors(
+    bad_field,
+):
+    import httpx
+    from fastapi import FastAPI
+
+    from investment_os.api.thesis_workspace_routes import thesis_workspace_router
+
+    app = FastAPI()
+    app.include_router(thesis_workspace_router(None))
+
+    @app.post("/legacy-validation")
+    async def legacy(command: ThesisCommand):
+        return None
+
+    value = payload()
+    expected = {
+        "long_term_summary": "长期逻辑摘要",
+        "evidence_ids": "引用证据",
+        "instrument_id": "标的编号",
+    }[bad_field]
+    if bad_field == "long_term_summary":
+        value["draft"][bad_field] = ""
+    elif bad_field == "evidence_ids":
+        value["draft"]["pillars"][0]["claim"][bad_field] = []
+    else:
+        value[bad_field] = "malformed"
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app), base_url="http://test"
+    ) as client:
+        response = await client.post("/api/v1/thesis-workspace/preview", json=value)
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == "THESIS_INPUT_INVALID"
+        assert expected in response.json()["detail"]["message"]
+        assert "合成事实" not in response.json()["detail"]["message"]
+        legacy_error = await client.post("/legacy-validation", json=value)
+        assert legacy_error.status_code == 422 and isinstance(legacy_error.json()["detail"], list)
+        path = await client.get("/api/v1/thesis-workspace/malformed")
+        assert path.status_code == 422 and "标的编号" in path.json()["detail"]["message"]

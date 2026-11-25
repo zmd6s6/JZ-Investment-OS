@@ -422,9 +422,10 @@ async def test_authenticated_api_strict_schema_write_denial_and_existing_reads(d
             ).status_code == 422
         bad = cmd.model_dump(mode="json")
         bad["draft"]["pillars"][0]["claim"]["evidence_ids"] = []
-        assert (
-            await client.post("/api/v1/thesis-workspace/save", json=bad, headers=headers)
-        ).status_code == 422
+        rejected = await client.post("/api/v1/thesis-workspace/save", json=bad, headers=headers)
+        assert rejected.status_code == 422
+        assert rejected.json()["detail"]["code"] == "THESIS_INPUT_INVALID"
+        assert "引用证据" in rejected.json()["detail"]["message"]
         assert (
             await client.post(
                 "/api/v1/thesis-workspace/preview",
