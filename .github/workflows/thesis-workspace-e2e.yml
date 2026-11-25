@@ -66,7 +66,7 @@ jobs:
                   await connection.close()
           asyncio.run(create_only())
           PY
-          uv run pytest tests/integration/test_thesis_workspace.py --no-cov
+          uv run pytest tests/integration/test_thesis_workspace.py tests/integration/test_weekly_review_pipeline.py::test_weekly_empty_migration_downgrade_upgrade_retains_old_monthly_history --no-cov
       - name: Start actual synthetic API, PostgreSQL and production Worker
         shell: bash
         run: |
