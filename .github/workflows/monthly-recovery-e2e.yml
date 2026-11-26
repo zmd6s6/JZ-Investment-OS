@@ -1,0 +1,106 @@
+name: Monthly authorization recovery E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/monthly-recovery-e2e.yml'
+      - 'src/investment_os/**'
+      - 'web/**'
+      - 'scripts/monthly_recovery_e2e_stack.py'
+      - 'tests/integration/test_monthly_review*.py'
+      - 'migrations/**'
+      - 'uv.lock'
+  push:
+    branches: [agent/MVP-404, release/mvp-beta]
+
+permissions:
+  contents: read
+
+jobs:
+  monthly-recovery-real-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mvp404_recovery_synthetic
+          POSTGRES_USER: investment_os
+          POSTGRES_PASSWORD: local-development-only # pragma: allowlist secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U investment_os -d mvp404_recovery_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      E2E_BASE_URL: http://127.0.0.1:18164
+      E2E_WRITE_TOKEN: synthetic-monthly-only
+      MONTHLY_SYNTHETIC_DATABASE_URL: postgresql+asyncpg://investment_os:local-development-only@127.0.0.1:5432/mvp404_recovery_synthetic # pragma: allowlist secret
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.9'
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen --group dev
+      - run: npm ci --prefix web --no-audit --no-fund
+      - run: npm test --prefix web
+      - run: npm run build --prefix web
+      - run: npx --prefix web playwright install --with-deps chromium
+      - name: Named real PostgreSQL monthly authorization and recovery boundaries
+        env:
+          INVESTMENT_OS_TEST_DATABASE_URL: postgresql+asyncpg://investment_os:local-development-only@127.0.0.1:5432/mvp404_recovery_tests_synthetic # pragma: allowlist secret
+        run: |
+          uv run python - <<'PY'
+          import asyncio, os, asyncpg
+          async def create_only():
+              connection = await asyncpg.connect(os.environ["MONTHLY_SYNTHETIC_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://", 1))
+              try:
+                  await connection.execute('CREATE DATABASE mvp404_recovery_tests_synthetic')
+              finally:
+                  await connection.close()
+          asyncio.run(create_only())
+          PY
+          uv run pytest tests/unit/test_monthly_review_contract.py tests/integration/test_monthly_review_pipeline.py tests/integration/test_monthly_review_concurrency.py tests/integration/test_monthly_comparable_baseline.py --no-cov
+      - name: Start actual API and CLI Worker with synthetic source drift
+        shell: bash
+        run: |
+          mkdir -p .runtime
+          uv run python scripts/monthly_recovery_e2e_stack.py --port 18164 --database-url "$MONTHLY_SYNTHETIC_DATABASE_URL" > .runtime/mvp404-recovery-api.log 2>&1 &
+          echo $! > .runtime/mvp404-recovery-stack.pid
+          python - <<'PY'
+          import time, urllib.request
+          for attempt in range(150):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:18164/health/ready', timeout=2) as r:
+                      if r.status == 200:
+                          break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise SystemExit('Synthetic monthly API/Worker stack did not become ready')
+          PY
+      - name: UI same-task recovery after three actual Worker failures
+        working-directory: web
+        run: npx playwright test monthly-recovery.spec.ts --workers=1 --reporter=list
+      - name: Synthetic diagnostics on failure
+        if: failure()
+        run: tail -n 100 .runtime/mvp404-recovery-api.log .runtime/mvp404-recovery-worker.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: monthly-recovery-browser-evidence
+          path: |
+            .runtime/mvp404-recovery-390.png
+            .runtime/mvp404-recovery-fixture.json
+            .runtime/mvp404-recovery-api.log
+            .runtime/mvp404-recovery-worker.log
+            web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Stop dedicated synthetic stack
+        if: always()
+        run: test ! -f .runtime/mvp404-recovery-stack.pid || kill "$(cat .runtime/mvp404-recovery-stack.pid)" || true

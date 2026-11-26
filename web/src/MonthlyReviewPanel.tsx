@@ -131,10 +131,13 @@ type Report = History & {
         excluded: Record<string, string>;
     } | null;
 };
+class MonthlyHttpError extends Error {
+    constructor(message: string, readonly status: number) { super(message); }
+}
 async function read<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await apiFetch(path, init);
     if (!response.ok)
-        throw new Error(await readApiError(response));
+        throw new MonthlyHttpError(await readApiError(response), response.status);
     return response.json() as Promise<T>;
 }
 const post = (value: unknown) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
@@ -169,6 +172,8 @@ export function MonthlyReviewPanel() {
     const [start, setStart] = useState(""), [end, setEnd] = useState(""), [validFrom, setValidFrom] = useState(""), [validUntil, setValidUntil] = useState("");
     const [source, setSource] = useState(""), [sources, setSources] = useState(""), [retention, setRetention] = useState("");
     const [ack, setAck] = useState(false), [confirmed, setConfirmed] = useState(false), [preview, setPreview] = useState<Prepared | null>(null), [modeConfirm, setModeConfirm] = useState<string[]>([]);
+    const [revision, setRevision] = useState<{ schedule_id: string; version: number } | null>(null);
+    const [uncertain, setUncertain] = useState<Prepared | null>(null);
     const [report, setReport] = useState<Report | null>(null);
     const busy = useRef(false), reads = useRef(0), modeRequests = useRef(new Map<string, string>()), reportRead = useRef(0);
     const currentBook = books.find(value => value.portfolio_id === book), currentCalendar = calendars.find(value => value.import_id === calendar);
@@ -209,7 +214,7 @@ export function MonthlyReviewPanel() {
         });
         return () => { controller.abort(); ++reads.current; ++reportRead.current; };
     }, []);
-    async function act(operation: () => Promise<void>, readOnly = false) {
+    async function act(operation: () => Promise<void>, readOnly: boolean | "revision" = false) {
         if (busy.current)
             return;
         busy.current = true;
@@ -220,7 +225,7 @@ export function MonthlyReviewPanel() {
             await operation();
         }
         catch (e) {
-            setError(readOnly ? `${String(e)} 加载下一页失败，已有内容保留；可重试或刷新。` : `${String(e)} 写入结果未知时请先只读刷新核对, 保留原输入与请求身份后再明确重试; 不自动重新提交。`);
+            setError(readOnly === "revision" ? `${String(e)} 读取原授权失败，草稿保留；请刷新核对后重试，未提交修订。` : readOnly ? `${String(e)} 加载下一页失败，已有内容保留；可重试或刷新。` : `${String(e)} 写入结果未知时请先只读刷新核对, 保留原输入与请求身份后再明确重试; 不自动重新提交。`);
         }
         finally {
             busy.current = false;
@@ -245,6 +250,46 @@ export function MonthlyReviewPanel() {
             setMessage("已加载下一页；若记录同时变化，请刷新后重新浏览。");
         }, true);
     }
+    async function currentConfiguration(scheduleId: string) {
+        for (let offset = 0; ; offset += 50) {
+            const page = await read<Config[]>(`/api/v1/runtime/monthly${offset ? `?offset=${offset}` : ""}`);
+            if (!Array.isArray(page)) throw new Error("月度授权响应格式不符。");
+            const value = page.find(item => item.schedule_id === scheduleId);
+            if (value) {
+                if (value.revoked) throw new Error("月度授权已永久撤销，不可修订或复活。");
+                return value;
+            }
+            if (page.length < 50) throw new Error("原月度任务不存在，未建立替代任务。");
+        }
+    }
+    async function revise(scheduleId: string, keepDraft = false) {
+        setPreview(null); setConfirmed(false); setAck(false);
+        await act(async () => {
+            setHealthy(false);
+            const [current, b, c] = await Promise.all([
+                currentConfiguration(scheduleId), read<Book[]>("/api/v1/portfolios"),
+                read<{ configurations: Calendar[] }>("/api/v1/calendar"),
+            ]);
+            if (!Array.isArray(b) || !Array.isArray(c.configurations)) throw new Error("当前范围或日历读取失败。");
+            setBooks(b); setCalendars(c.configurations.filter(value => ["SSE", "SZSE"].includes(value.venue)));
+            setRevision({ schedule_id: current.schedule_id, version: current.version });
+            setHealthy(true);
+            if (!keepDraft) {
+                const command = current.prepared.command;
+                const localTime = (value: unknown) => {
+                    const date = new Date(String(value));
+                    return Number.isNaN(date.getTime()) ? "" : new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                };
+                setName(String(command.name)); setStart(String(command.coverage_start)); setEnd(String(command.coverage_end));
+                setValidFrom(localTime(command.valid_from)); setValidUntil(localTime(command.valid_until));
+                setRetention(String(command.retention_days)); setSource(String(command.quote_source_name));
+                setSources(Array.isArray(command.evidence_source_names) ? command.evidence_source_names.join("\n") : "");
+                setBook(""); setCalendar("");
+            }
+            setPreview(null); setConfirmed(false); setAck(false);
+            setMessage("已读取原月度任务当前版本。请明确重选并核对当前组合、日历、来源和期限；保存追加暂停版本，不改写既往报告。修订后不沿用旧版本的比较基线。");
+        }, "revision");
+    }
     async function prepare() {
         setPreview(null);
         setConfirmed(false);
@@ -257,14 +302,30 @@ export function MonthlyReviewPanel() {
                 throw new Error("必须明确完整自然月: 首月1日至末月最后一天, 覆盖最多366日。");
             if (!name.trim() || !source.trim() || !validFrom || !validUntil || new Date(validUntil) <= new Date(validFrom) || !Number.isInteger(Number(retention)) || Number(retention) < 1 || Number(retention) > 3650)
                 throw new Error("请填写任务/来源、有效起止和1至3650天报告使用期, 截止须晚于开始。");
-            const command = { request_id: crypto.randomUUID(), schedule_id: crypto.randomUUID(), expected_version: 0, name, mode: "LOCAL_MONTHLY_REVIEW", frequency: "MONTHLY_AFTER_COMPLETE_CALENDAR_MONTH", market: currentCalendar.venue, portfolio_id: book, portfolio_instrument_ids: currentBook.positions.map(value => value.instrument_id), calendar_import_id: calendar, coverage_start: start, coverage_end: end, quote_source_name: source, evidence_source_names: sources.split("\n").map(value => value.trim()).filter(Boolean), valid_from: new Date(validFrom).toISOString(), valid_until: new Date(validUntil).toISOString(), retention_days: Number(retention), pause_method: "MONTHLY_UI_PAUSE_OR_REVOKE", missed_run_policy: "LOCAL_CURRENT_KNOWLEDGE_EXPLICIT_PERIOD", complete_calendar_acknowledgement: true, monthly_frequency_acknowledgement: true, scope_acknowledgement: true, local_only_acknowledgement: true, model_profile_ids: [], data_profile_ids: [], limits: { currency: "NONE", task_tokens: 0, day_tokens: 0, task_cost: "0", day_cost: "0" } };
+            const command = { request_id: crypto.randomUUID(), schedule_id: revision?.schedule_id ?? crypto.randomUUID(), expected_version: revision?.version ?? 0, name, mode: "LOCAL_MONTHLY_REVIEW", frequency: "MONTHLY_AFTER_COMPLETE_CALENDAR_MONTH", market: currentCalendar.venue, portfolio_id: book, portfolio_instrument_ids: currentBook.positions.map(value => value.instrument_id), calendar_import_id: calendar, coverage_start: start, coverage_end: end, quote_source_name: source, evidence_source_names: sources.split("\n").map(value => value.trim()).filter(Boolean), valid_from: new Date(validFrom).toISOString(), valid_until: new Date(validUntil).toISOString(), retention_days: Number(retention), pause_method: "MONTHLY_UI_PAUSE_OR_REVOKE", missed_run_policy: "LOCAL_CURRENT_KNOWLEDGE_EXPLICIT_PERIOD", complete_calendar_acknowledgement: true, monthly_frequency_acknowledgement: true, scope_acknowledgement: true, local_only_acknowledgement: true, model_profile_ids: [], data_profile_ids: [], limits: { currency: "NONE", task_tokens: 0, day_tokens: 0, task_cost: "0", day_cost: "0" } };
             setPreview(await read<Prepared>("/api/v1/runtime/monthly/preview", post(command)));
         });
     }
     async function save() {
         if (!preview || !confirmed)
             return;
-        await act(async () => { await read<Config>("/api/v1/runtime/monthly", post({ command: preview.command, preview_hash: preview.content_hash })); setPreview(null); setConfirmed(false); await load(); setMessage("月度授权已保存, 默认暂停。核对保存范围后另行启用。"); });
+        await submit(preview);
+    }
+    async function submit(prepared: Prepared) {
+        await act(async () => {
+            try {
+                await read<Config>("/api/v1/runtime/monthly", post({ command: prepared.command, preview_hash: prepared.content_hash }));
+            } catch (e) {
+                if (e instanceof MonthlyHttpError && e.status < 500) {
+                    setUncertain(null); setPreview(null); setConfirmed(false); setAck(false);
+                    throw new Error(`${String(e)} 草稿已保留，请核对当前版本并重新预览；未覆盖当前授权。`);
+                }
+                setUncertain(prepared);
+                throw new Error("保存响应未知。原草稿及请求UUID已冻结，请只读刷新核对，再明确以原请求恢复；不会暗中创建新版本。");
+            }
+            setUncertain(null); setPreview(null); setConfirmed(false); setRevision(null);
+            await load(); setMessage("月度授权已保存, 默认暂停。核对保存范围后另行启用。");
+        });
     }
     async function mode(config: Config, action: string) {
         const key = `${config.schedule_id}:${config.version}:${action}`;
@@ -286,13 +347,15 @@ export function MonthlyReviewPanel() {
     return <section aria-label="月度组合复核"><Panel title="月度组合复核" description="独立月频许可, 默认暂停。当前仅本地已存资料, 零网络/模型/费用; 不生成投资动作或批准。"><div className="daily-runtime">
     {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
     <button disabled={working} onClick={() => void act(() => load())}>刷新月度状态与报告</button>
+    {uncertain && <section aria-label="月度保存结果待核对"><p>写入结果未知，保留请求{String(uncertain.command.request_id)}与任务{String(uncertain.command.schedule_id)}。先刷新核对；恢复使用同UUID、同内容，不自动重写。</p><button disabled={working} onClick={() => void submit(uncertain)}>已核对，使用原请求恢复月度保存</button></section>}
+    {revision && <p>正在修订原月度任务{revision.schedule_id} · 当前核对版本{revision.version}。<button disabled={working || !!uncertain} onClick={() => void revise(revision.schedule_id, true)}>核对当前版本（保留草稿）</button><button disabled={working || !!uncertain} onClick={() => { setRevision(null); setPreview(null); setConfirmed(false); setAck(false); }}>退出月度修订</button></p>}
     {!healthy && <p>月度状态未确认, 写操作不可用。读取失败不会显示旧配置为当前成功。</p>}
     <form onSubmit={e => { e.preventDefault(); void prepare(); }} onChange={e => {
             setPreview(null);
             setConfirmed(false);
             if (!(e.target instanceof HTMLInputElement && e.target.type === "checkbox"))
                 setAck(false);
-        }}><fieldset disabled={working || !healthy}><legend>建立新的独立月度授权</legend>
+        }}><fieldset disabled={working || !healthy || !!uncertain}><legend>{revision ? "修订此月度授权（原任务追加暂停版本）" : "建立新的独立月度授权"}</legend>
       <label>月度任务名称<input value={name} onChange={e => setName(e.target.value)} required/></label>
       <label>月度组合<select aria-label="月度组合" value={book} onChange={e => setBook(e.target.value)} required><option value="">请选择组合</option>{books.map(value => <option key={value.portfolio_id} value={value.portfolio_id}>{value.name}</option>)}</select></label>
       <p>冻结组合全部持仓: {currentBook?.positions.map(value => `${value.name} ${value.symbol}`).join("、") || "尚未选择非空组合"}。新成员或身份变化须重新授权, 不自动扩大范围。</p>
@@ -308,8 +371,8 @@ export function MonthlyReviewPanel() {
       <label><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} required/>我独立确认完整月覆盖、全部组合与来源、月频/期限/暂停方式, 仅本地零费用复核。</label>
       <button type="submit">预览完整月度授权（不保存）</button>
     </fieldset></form>
-    {preview && <section aria-label="月度授权预览"><h3>完整月度授权预览</h3><p>组合全部: {preview.members.map(value => `${value.name} ${value.symbol}`).join("、")}</p><p>日历 {preview.calendar_source} / {preview.calendar_version} · {preview.calendar_hash}</p><p>{String(preview.command.coverage_start)} 至 {String(preview.command.coverage_end)} · 完整月结束后一次 · 报告使用{String(preview.command.retention_days)}天</p><p>本地报价 {String(preview.command.quote_source_name)} · 本地资料 {String(preview.command.evidence_source_names)} · 授权 {String(preview.command.valid_from)} 至 {String(preview.command.valid_until)}</p><p>固定LOCAL_MONTHLY_REVIEW, 模型/资料档案为空, 费用与Token=0。暂停/永久撤销在此页面。</p><label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>已核对本次全部月度范围与零成本, 明确保存为暂停。</label><button disabled={working || !healthy || !confirmed} onClick={() => void save()}>保存月度授权为暂停</button></section>}
-    <h3>已保存月度任务</h3><p>每页最多50条；记录变化时请刷新后重新浏览。</p>{configs.map(value => <article key={value.schedule_id}><h4>{String(value.prepared.command.name)} · {value.revoked ? "已永久撤销" : value.enabled ? "已启用" : "已暂停"}</h4><p>版本{value.version} · {value.blocker ?? "等待完整自然月结束及Worker轮询"}</p><p>完整月范围{String(value.prepared.command.coverage_start)} 至{String(value.prepared.command.coverage_end)} · {value.prepared.calendar_source} / {value.prepared.calendar_version}</p><p>组合全部{value.prepared.members.map(member => `${member.name} ${member.symbol}`).join("、")} · {String(value.prepared.command.quote_source_name)} · 本地来源{String(value.prepared.command.evidence_source_names)}</p><label><input type="checkbox" checked={modeConfirm.includes(value.schedule_id)} onChange={e => setModeConfirm(old => e.target.checked ? [...old, value.schedule_id] : old.filter(id => id !== value.schedule_id))}/>我已核对此保存月度授权, 明确确认本次启停或永久撤销。</label>{["ENABLE", "PAUSE", "REVOKE"].map((action, index) => <button key={action} disabled={working || !healthy || value.revoked || !modeConfirm.includes(value.schedule_id)} onClick={() => void mode(value, action)}>{["启用月度复核", "暂停月度复核", "永久撤销月度授权"][index]}</button>)}</article>)}
+    {preview && <section aria-label="月度授权预览"><h3>完整月度授权预览</h3><p>组合全部: {preview.members.map(value => `${value.name} ${value.symbol}`).join("、")}</p><p>日历 {preview.calendar_source} / {preview.calendar_version} · {preview.calendar_hash}</p><p>{String(preview.command.coverage_start)} 至 {String(preview.command.coverage_end)} · 完整月结束后一次 · 报告使用{String(preview.command.retention_days)}天</p><p>本地报价 {String(preview.command.quote_source_name)} · 本地资料 {String(preview.command.evidence_source_names)} · 授权 {String(preview.command.valid_from)} 至 {String(preview.command.valid_until)}</p><p>固定LOCAL_MONTHLY_REVIEW, 模型/资料档案为空, 费用与Token=0。暂停/永久撤销在此页面。</p><label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>已核对本次全部月度范围与零成本, 明确保存为暂停。</label><button disabled={working || !healthy || !confirmed || !!uncertain} onClick={() => void save()}>保存月度授权为暂停</button></section>}
+    <h3>已保存月度任务</h3><p>每页最多50条；记录变化时请刷新后重新浏览。</p>{configs.map(value => <article key={value.schedule_id}><h4>{String(value.prepared.command.name)} · {value.revoked ? "已永久撤销" : value.enabled ? "已启用" : "已暂停"}</h4><p>版本{value.version} · {value.blocker ?? "等待完整自然月结束及Worker轮询"}</p><p>完整月范围{String(value.prepared.command.coverage_start)} 至{String(value.prepared.command.coverage_end)} · {value.prepared.calendar_source} / {value.prepared.calendar_version}</p><p>组合全部{value.prepared.members.map(member => `${member.name} ${member.symbol}`).join("、")} · {String(value.prepared.command.quote_source_name)} · 本地来源{String(value.prepared.command.evidence_source_names)}</p><button disabled={working || !healthy || value.revoked || !!uncertain} onClick={() => void revise(value.schedule_id)}>修订此月度授权</button><label><input type="checkbox" checked={modeConfirm.includes(value.schedule_id)} onChange={e => setModeConfirm(old => e.target.checked ? [...old, value.schedule_id] : old.filter(id => id !== value.schedule_id))}/>我已核对此保存月度授权, 明确确认本次启停或永久撤销。</label>{["ENABLE", "PAUSE", "REVOKE"].map((action, index) => <button key={action} disabled={working || !healthy || value.revoked || !!uncertain || !modeConfirm.includes(value.schedule_id)} onClick={() => void mode(value, action)}>{["启用月度复核", "暂停月度复核", "永久撤销月度授权"][index]}</button>)}</article>)}
     {moreConfigs && <button disabled={working || !healthy} onClick={() => void loadMore("configs")}>加载更多月度授权</button>}
     <h3>真实月度任务记录</h3>{tasks.length ? tasks.map(task => <p key={task.task_run_id} id={`monthly_task-${task.task_run_id}`} ref={element => { if (element && window.location.hash === `#monthly_task-${task.task_run_id}`) element.scrollIntoView?.(); }}>任务{task.task_run_id} · {task.status} · 尝试{task.attempt} · {task.error_code ?? "无记录错误"}{task.status === "FAILED" && task.attempt >= 3 ? " · 本授权月份重试已耗尽, 修复后保存新暂停授权再确认启用" : ""}</p>) : <p>没有记录不代表Worker健康; 可能尚未到期、暂停或未运行。失败最多三次本地重试, 来源修复须新暂停版本再确认启用。</p>}
     {moreTasks && <button disabled={working || !healthy} onClick={() => void loadMore("tasks")}>加载更多月度任务记录</button>}

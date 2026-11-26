@@ -1,3 +1,9 @@
+## 2026-11-26 MVP-404 同任务授权修订恢复候选（Owner PENDING）
+
+/calendar 已保存月度任务增加“修订此月度授权”：只读重新核当前版本、组合及日历，明确重选当前范围后预览，以原schedule_id/CAS显式追加PAUSED revision，再独立启用。CAS冲突保留草稿并要求重核/预览；未知保存响应冻结原UUID/内容并提供显式原请求恢复；REVOKED不复活。复用ADR0050既有恢复语义，不沿用跨revision比较基线，不另建任务代替恢复。完整既有月度链INTEGRATED事实保留，本修复仅功能PR独立Gate且真正合入后生效。
+
+业务0f9de76在专属CI45832981787完整207前端、build67、48月度unit/真实PG与实际生产CLI Worker/API/Chromium恢复1项已通过，390截图已目视无横溢出；原成功OPEN月有真实持仓快照，三次FAILED后的UI同任务修订/CAS/未知响应回执/暂停/独立enable与旧历史不变均实证。Ruff503/mypy183/OpenAPI/PolicySchema/secret675/Compose配置通过；本机Docker未启动/重启，Owner18102/15433未操作。最终文档HEAD完整基线CI及独立Gate仍PENDING，不借旧HEAD结果；Owner部署/PRODUCT08/Checkpoint接受PENDING，402PARTIAL/501BLOCKED保持。精确证据、旧CI失败与限制见MVP-404工作项及PR64。
+
 # 项目状态
 
 ## MVP-412 人工投资逻辑工作台候选
