@@ -252,3 +252,14 @@ PR53经独立Gate6959326529后已于2026-11-17T19:59:29Z实际合入Release `ef0
 CAS冲突：中文错误、草稿保留，点击“核对当前版本（保留草稿）”，重新确认预览后再保存。未知写响应：表单冻结保留UUID/内容，点击页面“刷新月度状态与报告”只读核对，再明确“已核对，使用原请求恢复月度保存”；不自动重放或另造任务。永久撤销不可修订，当前来源/日历漂移、授权过期仍由既有后端拒绝。修订读取失败关闭写操作，刷新后可恢复。
 
 业务0f9de76真实CI45832981787完整207前端、48月度unit/PG、实际API/CLI Worker/Chromium恢复1项已通过：原真实OPEN成功月→另月三次FAILED→UI原任务修订/CAS冲突保草稿→丢失实际commit响应→同请求回执恢复→暂停→独立启用→未成功月真实报告。旧完整报告/FAILED任务保持，成功月不重复且无跨revision基线；390截图已目视查看，无横溢出。唯一网络故障注入为丢弃一次真实commit响应，成功链/Worker无stub。无Owner环境/真实付费/数据操作；最终文档HEAD完整基线CI与独立GatePENDING，不借旧绿，Owner本人接受PENDING。
+
+
+## 2026-11-27 MVP-408 同任务周度授权修订恢复候选（Owner PENDING）
+
+/calendar 原周任务提供“修订此周度授权”：分页读取当前CAS并重新核当前组合/观察清单/日历；旧scope及逐日OPEN/CLOSED清单清空，须明确重选/完整录入后零写预览，以原schedule_id显式保存新PAUSED revision，再独立ENABLE。CAS冲突保留草稿，未知保存响应冻结原UUID/内容并仅明确同请求恢复；REVOKED终端、旧prepared=null不可补造。任务切换/迟到预览/刷新失效保护及观察项变更重新确认已补，修订不继承旧baseline。
+
+业务源码09fee931b8ad778e43b1742eda8ab415fa4d34a7在专属CI45885197006通过217前端、104周度unit/真实PG（53.31s）和实际生产CLI Worker/API/Chromium恢复1项（5.2s）。三次FAILED→原任务修订/真实CAS冲突保草稿/真实commit丢回执/同UUID同内容恢复/暂停/独立ENABLE/未成功周真实报告均实证；原FAILED完整记录、旧报告/hash、跨revision成功周唯一与无旧基线保持。390截图已目视无横溢出，本机Ruff504/mypy183/OpenAPI/PolicySchema/secret651/Compose配置通过。完整最终HEAD CI与独立Gate仍PENDING，不借旧HEAD结果；复用已合入ADR0057/accepted0050，无后端/Schema/迁移/SQL治理变化。
+
+唯一PR65仅真正合入后本修复生效，原408 INTEGRATED、402PARTIAL、501BLOCKED保持；Owner部署/PRODUCT08/Checkpoint接受PENDING。Docker engine离线未启动/重启，Owner18102/15433、真实数据/费用未操作。精确证据与回滚见MVP408工作项/交接。
+
+入口 /calendar → 已保存周度任务（含“加载更多周度授权”之后的原项）→ 修订此周度授权 → 明确当前组合/观察清单/日历及每一天OPEN/CLOSED、来源/期限 → 预览 → 确认保存暂停 → 另行确认启用 → 刷新原任务和未成功周报告。已成功周跨revision不重复，三次失败旧记录与旧报告hash不改写，缺基线明确未知。失败时保草稿并核当前版本/重预览；保存响应未知时先只读刷新，再明确原请求恢复。真实API/PG/Worker/Chromium合成证据不代表Owner接受。
