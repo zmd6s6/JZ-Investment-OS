@@ -77,6 +77,20 @@ async def seed_authorizations_and_wait_for_real_worker():
         sessions, service, _, base, ids = await setup(engine)
         earlier_end = base.coverage_start - timedelta(days=1)
         earlier_start = earlier_end.replace(day=1)
+        initial_calendar = await CalendarProductService(
+            SqlCalendarProduct(sessions)
+        ).import_calendar(
+            CalendarImportCommand(
+                request_id=uuid4(),
+                expected_version=1,
+                venue="SSE",
+                source_name="original synthetic open monthly source",
+                source_version="v2",
+                confirmed_source=True,
+                csv_text=f"business_date,close_at\n{earlier_start},15:00\n{base.coverage_start},15:00\n{base.coverage_end},15:00\n",
+            )
+        )
+        base = base.model_copy(update={"calendar_import_id": initial_calendar.import_id})
         first = base.model_copy(
             update={"coverage_start": earlier_start, "coverage_end": earlier_end}
         )
@@ -105,10 +119,10 @@ async def seed_authorizations_and_wait_for_real_worker():
         replacement = await CalendarProductService(SqlCalendarProduct(sessions)).import_calendar(
             CalendarImportCommand(
                 request_id=uuid4(),
-                expected_version=1,
+                expected_version=2,
                 venue="SSE",
                 source_name="repaired synthetic monthly source",
-                source_version="v2",
+                source_version="v3",
                 confirmed_source=True,
                 csv_text=f"business_date,close_at\n{base.coverage_start},15:00\n{base.coverage_end},15:00\n",
             )

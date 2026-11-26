@@ -474,12 +474,25 @@ async def test_monthly_same_schedule_revision_recovers_exhausted_month_preservin
     sessions, service, runner, base, _ = await setup(database_engine)
     earlier_end = base.coverage_start - timedelta(days=1)
     earlier_start = earlier_end.replace(day=1)
+    initial_calendar = await CalendarProductService(SqlCalendarProduct(sessions)).import_calendar(
+        CalendarImportCommand(
+            request_id=uuid4(),
+            expected_version=1,
+            venue="SSE",
+            source_name="original synthetic open monthly source",
+            source_version="v2",
+            confirmed_source=True,
+            csv_text=f"business_date,close_at\n{earlier_start},15:00\n{base.coverage_start},15:00\n{base.coverage_end},15:00\n",
+        )
+    )
+    base = base.model_copy(update={"calendar_import_id": initial_calendar.import_id})
     original = base.model_copy(
         update={"coverage_start": earlier_start, "coverage_end": earlier_end}
     )
     await enable(service, original)
     assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
     old_report = (await service.reports(base.schedule_id))[0]
+    assert old_report.local_inputs is not None
     current = (await service.configurations())[0]
     expanded = base.model_copy(
         update={
@@ -492,10 +505,10 @@ async def test_monthly_same_schedule_revision_recovers_exhausted_month_preservin
     replacement = await CalendarProductService(SqlCalendarProduct(sessions)).import_calendar(
         CalendarImportCommand(
             request_id=uuid4(),
-            expected_version=1,
+            expected_version=2,
             venue="SSE",
             source_name="repaired synthetic monthly source",
-            source_version="v2",
+            source_version="v3",
             confirmed_source=True,
             csv_text=f"business_date,close_at\n{base.coverage_start},15:00\n{base.coverage_end},15:00\n",
         )

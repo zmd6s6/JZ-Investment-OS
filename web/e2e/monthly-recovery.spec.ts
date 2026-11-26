@@ -9,6 +9,8 @@ test.beforeEach(async ({ context }) => {
 
 test("actual CLI Worker exhausted month recovers through same-task UI revision, CAS and lost-response receipt", async ({ page, request }) => {
   test.setTimeout(90000);
+  expect(fixture.report.local_inputs).not.toBeNull();
+  expect(fixture.report.phase).toBe("DEGRADED");
   await page.goto("/calendar");
   const panel = page.getByRole("region", { name: "月度组合复核" });
   const card = panel.locator("article").filter({ has: page.getByRole("heading", { name: /合成月度组合复核/ }) });
