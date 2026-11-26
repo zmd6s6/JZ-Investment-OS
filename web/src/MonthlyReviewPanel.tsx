@@ -214,7 +214,7 @@ export function MonthlyReviewPanel() {
         });
         return () => { controller.abort(); ++reads.current; ++reportRead.current; };
     }, []);
-    async function act(operation: () => Promise<void>, readOnly = false) {
+    async function act(operation: () => Promise<void>, readOnly: boolean | "revision" = false) {
         if (busy.current)
             return;
         busy.current = true;
@@ -225,7 +225,7 @@ export function MonthlyReviewPanel() {
             await operation();
         }
         catch (e) {
-            setError(readOnly ? `${String(e)} 加载下一页失败，已有内容保留；可重试或刷新。` : `${String(e)} 写入结果未知时请先只读刷新核对, 保留原输入与请求身份后再明确重试; 不自动重新提交。`);
+            setError(readOnly === "revision" ? `${String(e)} 读取原授权失败，草稿保留；请刷新核对后重试，未提交修订。` : readOnly ? `${String(e)} 加载下一页失败，已有内容保留；可重试或刷新。` : `${String(e)} 写入结果未知时请先只读刷新核对, 保留原输入与请求身份后再明确重试; 不自动重新提交。`);
         }
         finally {
             busy.current = false;
@@ -288,7 +288,7 @@ export function MonthlyReviewPanel() {
             }
             setPreview(null); setConfirmed(false); setAck(false);
             setMessage("已读取原月度任务当前版本。请明确重选并核对当前组合、日历、来源和期限；保存追加暂停版本，不改写既往报告。修订后不沿用旧版本的比较基线。");
-        }, true);
+        }, "revision");
     }
     async function prepare() {
         setPreview(null);
