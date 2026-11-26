@@ -213,6 +213,7 @@ work_items:
       expected: Owner can review and persist the complete scope/frequency/providers/budget/retention/pause authorization before explicit enablement, pause or revoke it, inspect daily outcome/action-required/hold-watch/veto/degraded fields, and see a fail-closed reason for every missing/changed authorization field without any external call.
 
   - id: MVP-404
+    # 同任务授权修订恢复为原Claim followup候选；仅该功能PR实际合入后生效，既有INTEGRATED事实及Owner PENDING保持。
     title: Monthly portfolio review and report E2E
     priority: 2
     # 仅本项PR经独立Gate实际合入Release后生效，非Owner接受。

@@ -107,3 +107,76 @@ test("monthly pagination failure retains visible records and names a read failur
     expect(screen.getByRole("heading", { name: /已保留0/ })).toBeVisible();
     expect(screen.getByRole("button", { name: "加载更多月度授权" })).toBeEnabled();
 });
+
+const existing = {
+    schedule_id: "44444444-4444-4444-8444-444444444444", revision_id: "old-revision", version: 7, enabled: true, revoked: false, blocker: null,
+    prepared: { command: { name: "原月度任务", portfolio_id: book.portfolio_id, coverage_start: "2026-10-01", coverage_end: "2026-10-31", valid_from: "2026-10-01T00:00:00Z", valid_until: "2026-12-01T00:00:00Z", retention_days: 7, quote_source_name: "旧来源", evidence_source_names: ["旧资料"] }, content_hash: "old-hash", calendar_source: "旧日历", calendar_version: "v0", calendar_hash: "old-calendar", members: book.positions },
+};
+function revisionMock() {
+    const fetch = mock(), original = fetch.getMockImplementation()!;
+    fetch.mockImplementation(async (url, init) => String(url) === "/api/v1/runtime/monthly" && !init?.method ? response([existing]) : original(url, init));
+    return fetch;
+}
+async function reviseAndPreview() {
+    fireEvent.click(await screen.findByRole("button", { name: "修订此月度授权" }));
+    await screen.findByText(/已读取原月度任务当前版本/);
+    expect(screen.getByLabelText("月度组合")).toHaveValue("");
+    expect(screen.getByLabelText("月度显式日历")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("月度组合"), { target: { value: book.portfolio_id } });
+    fireEvent.change(screen.getByLabelText("月度显式日历"), { target: { value: calendar.import_id } });
+    fireEvent.change(screen.getByLabelText("月度本地报价来源"), { target: { value: "修复来源" } });
+    fireEvent.click(screen.getByLabelText(/我独立确认完整月覆盖/));
+    fireEvent.click(screen.getByRole("button", { name: "预览完整月度授权（不保存）" }));
+    await screen.findByRole("heading", { name: "完整月度授权预览" });
+}
+test("monthly revision rereads current CAS and reselects scope, saves same schedule paused without enable", async () => {
+    const fetch = revisionMock(); render(<MonthlyReviewPanel />);
+    await reviseAndPreview();
+    const preview = fetch.mock.calls.find(([url]) => String(url).endsWith("/preview"));
+    expect(JSON.parse(String(preview?.[1]?.body))).toMatchObject({ schedule_id: existing.schedule_id, expected_version: 7, quote_source_name: "修复来源", calendar_import_id: calendar.import_id });
+    expect(fetch.mock.calls.filter(([, init]) => init?.method)).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText(/已核对本次全部月度范围/));
+    fireEvent.click(screen.getByRole("button", { name: "保存月度授权为暂停" }));
+    await screen.findByText(/月度授权已保存, 默认暂停/);
+    expect(fetch.mock.calls.filter(([, init]) => init?.method)).toHaveLength(2);
+    expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/mode"))).toBe(false);
+});
+test("monthly CAS conflict preserves draft and requires refreshed current version and new preview", async () => {
+    const fetch = revisionMock(), original = fetch.getMockImplementation()!;
+    fetch.mockImplementation(async (url, init) => String(url) === "/api/v1/runtime/monthly" && init?.method === "POST" ? response({ detail: { code: "MONTHLY_VERSION_CONFLICT", message: "版本冲突" } }, 409) : original(url, init));
+    render(<MonthlyReviewPanel />); await reviseAndPreview();
+    fireEvent.click(screen.getByLabelText(/已核对本次全部月度范围/)); fireEvent.click(screen.getByRole("button", { name: "保存月度授权为暂停" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("草稿已保留");
+    expect(screen.getByLabelText("月度本地报价来源")).toHaveValue("修复来源");
+    expect(screen.queryByRole("heading", { name: "完整月度授权预览" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "核对当前版本（保留草稿）" }));
+    await screen.findByText(/已读取原月度任务当前版本/);
+    expect(screen.getByLabelText("月度本地报价来源")).toHaveValue("修复来源");
+    expect(screen.getByLabelText(/我独立确认完整月覆盖/)).not.toBeChecked();
+});
+test("monthly unknown committed response freezes draft and explicitly recovers identical UUID and body", async () => {
+    const fetch = revisionMock(), original = fetch.getMockImplementation()!; let saves = 0;
+    fetch.mockImplementation(async (url, init) => {
+        if (String(url) === "/api/v1/runtime/monthly" && init?.method === "POST" && ++saves === 1) throw new TypeError("synthetic lost response after commit");
+        return original(url, init);
+    });
+    render(<MonthlyReviewPanel />); await reviseAndPreview();
+    fireEvent.click(screen.getByLabelText(/已核对本次全部月度范围/)); fireEvent.click(screen.getByRole("button", { name: "保存月度授权为暂停" }));
+    await screen.findByRole("region", { name: "月度保存结果待核对" });
+    expect(screen.getByLabelText("月度本地报价来源")).toBeDisabled();
+    expect(saves).toBe(1);
+    fireEvent.click(screen.getByRole("button", { name: "刷新月度状态与报告" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "已核对，使用原请求恢复月度保存" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "已核对，使用原请求恢复月度保存" }));
+    await screen.findByText(/月度授权已保存, 默认暂停/);
+    const writes = fetch.mock.calls.filter(([url, init]) => String(url) === "/api/v1/runtime/monthly" && init?.method === "POST");
+    expect(writes).toHaveLength(2); expect(writes[0][1]?.body).toBe(writes[1][1]?.body);
+});
+test("monthly revoked card cannot revise and concurrent revoke reread rejects without preview or save", async () => {
+    const fetch = revisionMock(), original = fetch.getMockImplementation()!; let reads = 0;
+    fetch.mockImplementation(async (url, init) => String(url) === "/api/v1/runtime/monthly" && !init?.method ? response([{ ...existing, revoked: ++reads > 1 }]) : original(url, init));
+    render(<MonthlyReviewPanel />); fireEvent.click(await screen.findByRole("button", { name: "修订此月度授权" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("永久撤销");
+    expect(screen.getByRole("button", { name: "预览完整月度授权（不保存）" })).toBeDisabled();
+    expect(fetch.mock.calls.every(([, init]) => !init?.method)).toBe(true);
+});
