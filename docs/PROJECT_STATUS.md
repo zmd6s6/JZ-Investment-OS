@@ -1,8 +1,10 @@
 ## 2026-11-27 MVP-408 同任务周度授权修订恢复候选（Owner PENDING）
 
-/calendar 原周任务新增“修订此周度授权”：分页读取当前CAS并重新核当前组合/观察清单/日历；旧scope及逐日OPEN/CLOSED清单清空，须明确重选/完整录入后零写预览。以原schedule_id显式保存新PAUSED revision，再独立ENABLE；CAS冲突保留草稿，未知保存响应冻结原UUID/内容且只允许明确同请求恢复。REVOKED终端、旧prepared=null不自动补造；任务切换/迟到预览/只读刷新清旧预览，修订不继承旧基线。
+/calendar 原周任务提供“修订此周度授权”：分页读取当前CAS并重新核当前组合/观察清单/日历；旧scope及逐日OPEN/CLOSED清单清空，须明确重选/完整录入后零写预览，以原schedule_id显式保存新PAUSED revision，再独立ENABLE。CAS冲突保留草稿，未知保存响应冻结原UUID/内容并仅明确同请求恢复；REVOKED终端、旧prepared=null不可补造。任务切换/迟到预览/刷新失效保护及观察项变更重新确认已补，修订不继承旧baseline。
 
-复用已合入ADR0057及accepted0050既有恢复语义，无后端/Schema/迁移/调度/投资治理变化。聚焦15前端通过4.44s，TS/Vite build67模块与Ruff通过；新增真实PG恢复及专属云PG/API/实际CLI Worker/Chromium用例尚NOT VERIFIED，完整最终HEAD CI/独立GatePENDING。原408 INTEGRATED保持，本修复仅功能PR最终Gate且真正合入Release后生效；Owner部署/PRODUCT08/Checkpoint接受PENDING、402PARTIAL/501BLOCKED保持。精确证据和恢复见MVP408工作项/交接。
+业务源码09fee931b8ad778e43b1742eda8ab415fa4d34a7在专属CI45885197006通过217前端、104周度unit/真实PG（53.31s）和实际生产CLI Worker/API/Chromium恢复1项（5.2s）。三次FAILED→原任务修订/真实CAS冲突保草稿/真实commit丢回执/同UUID同内容恢复/暂停/独立ENABLE/未成功周真实报告均实证；原FAILED完整记录、旧报告/hash、跨revision成功周唯一与无旧基线保持。390截图已目视无横溢出，本机Ruff504/mypy183/OpenAPI/PolicySchema/secret651/Compose配置通过。完整最终HEAD CI与独立Gate仍PENDING，不借旧HEAD结果；复用已合入ADR0057/accepted0050，无后端/Schema/迁移/SQL治理变化。
+
+唯一PR65仅真正合入后本修复生效，原408 INTEGRATED、402PARTIAL、501BLOCKED保持；Owner部署/PRODUCT08/Checkpoint接受PENDING。Docker engine离线未启动/重启，Owner18102/15433、真实数据/费用未操作。精确证据与回滚见MVP408工作项/交接。
 
 ## 2026-11-26 MVP-404 同任务授权修订恢复候选（Owner PENDING）
 
