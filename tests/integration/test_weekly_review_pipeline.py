@@ -835,3 +835,111 @@ async def test_weekly_baseline_expiry_uses_capture_knowledge_time_not_dispatch_t
         assert latest.holdings[0].core_change is None
         assert "NO_COMPARABLE_POSITION_BASELINE" in latest.holdings[0].unknowns
     assert await service.replay(first.report_id) == first
+
+
+async def test_weekly_same_schedule_revision_recovers_exhausted_week_preserving_history(
+    database_engine,
+):
+    """ADR0057 recovery changes authorization, never successful periods or failed audit history."""
+    sessions, service, runner, base, _ = await setup(database_engine)
+    earlier_end = base.coverage_start - timedelta(days=1)
+    earlier_start = earlier_end - timedelta(days=6)
+    earlier_days = {
+        earlier_start + timedelta(days=i): "OPEN" if i == 0 else "CLOSED" for i in range(7)
+    }
+    initial_calendar = await CalendarProductService(SqlCalendarProduct(sessions)).import_calendar(
+        CalendarImportCommand(
+            request_id=uuid4(),
+            expected_version=1,
+            venue="SSE",
+            source_name="original synthetic open weekly source",
+            source_version="v2",
+            confirmed_source=True,
+            csv_text=f"business_date,close_at\n{earlier_start},15:00\n{base.coverage_start},15:00\n{base.coverage_end},15:00\n",
+        )
+    )
+    base = base.model_copy(update={"calendar_import_id": initial_calendar.import_id})
+    original = base.model_copy(
+        update={
+            "coverage_start": earlier_start,
+            "coverage_end": earlier_end,
+            "calendar_days": earlier_days,
+        }
+    )
+    await enable(service, original)
+    assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
+    old_report = (await service.reports(base.schedule_id))[0]
+    assert old_report.local_inputs is not None
+    current = (await service.configurations())[0]
+    expanded = base.model_copy(
+        update={
+            "request_id": uuid4(),
+            "expected_version": current.version,
+            "coverage_start": earlier_start,
+            "calendar_days": earlier_days | base.calendar_days,
+        }
+    )
+    await enable(service, expanded)
+    replacement = await CalendarProductService(SqlCalendarProduct(sessions)).import_calendar(
+        CalendarImportCommand(
+            request_id=uuid4(),
+            expected_version=2,
+            venue="SSE",
+            source_name="repaired synthetic weekly source",
+            source_version="v3",
+            confirmed_source=True,
+            csv_text=f"business_date,close_at\n{earlier_start},15:00\n{base.coverage_start},15:00\n{base.coverage_end},15:00\n",
+        )
+    )
+    for _ in range(4):
+        assert await runner.dispatch_due(now=datetime.now(UTC)) == ()
+    failed = next(task for task in await service.runs() if task.status == "FAILED")
+    assert failed.attempt == 3
+    async with sessions() as session:
+        before = await session.scalar(
+            text("SELECT to_jsonb(t) FROM task_run t WHERE id=:id"), {"id": failed.task_run_id}
+        )
+    current = (await service.configurations())[0]
+    revised = expanded.model_copy(
+        update={
+            "request_id": uuid4(),
+            "expected_version": current.version,
+            "calendar_import_id": replacement.import_id,
+        }
+    )
+    prepared = await service.preview(revised, datetime.now(UTC))
+    saved = await service.save(revised, prepared.content_hash)
+    assert saved.schedule_id == base.schedule_id and not saved.enabled
+    assert await runner.dispatch_due(now=datetime.now(UTC)) == ()
+    # Lost save response recovery returns the same immutable receipt, not another revision.
+    assert await service.save(revised, prepared.content_hash) == saved
+    assert (await service.configurations())[0].version == saved.version
+    with pytest.raises(WeeklyError, match="WEEKLY_VERSION_CONFLICT"):
+        await service.save(
+            revised.model_copy(update={"request_id": uuid4()}), prepared.content_hash
+        )
+    await service.mode(
+        saved.schedule_id,
+        DailyMode(
+            request_id=uuid4(), expected_version=saved.version, action="ENABLE", confirmed=True
+        ),
+    )
+    assert len(await runner.dispatch_due(now=datetime.now(UTC))) == 1
+    assert await runner.dispatch_due(now=datetime.now(UTC)) == ()
+    reports = await service.reports(base.schedule_id)
+    assert len(reports) == 2
+    assert await service.replay(old_report.report_id) == old_report
+    recovered = next(report for report in reports if report.report_id != old_report.report_id)
+    assert recovered.period_start == base.coverage_start
+    assert recovered.baseline_report_id is None
+    async with sessions() as session:
+        assert (
+            await session.scalar(
+                text("SELECT to_jsonb(t) FROM task_run t WHERE id=:id"), {"id": failed.task_run_id}
+            )
+            == before
+        )
+        assert await session.scalar(text("SELECT count(*) FROM weekly_local_configuration")) == 1
+        assert await session.scalar(text("SELECT count(*) FROM weekly_local_authorization")) == 3
+        assert await session.scalar(text("SELECT count(*) FROM analysis_run")) == 0
+        assert await session.scalar(text("SELECT count(*) FROM llm_usage")) == 0

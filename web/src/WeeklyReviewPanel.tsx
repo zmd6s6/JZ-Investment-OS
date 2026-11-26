@@ -134,10 +134,13 @@ type Report = History & {
         excluded: Record<string, string>;
     } | null;
 };
+class WeeklyHttpError extends Error {
+    constructor(message: string, readonly status: number) { super(message); }
+}
 async function read<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await apiFetch(path, init);
     if (!response.ok)
-        throw new Error(await readApiError(response));
+        throw new WeeklyHttpError(await readApiError(response), response.status);
     return response.json() as Promise<T>;
 }
 const post = (value: unknown) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
@@ -173,11 +176,15 @@ export function WeeklyReviewPanel() {
     const [source, setSource] = useState(""), [sources, setSources] = useState(""), [retention, setRetention] = useState("");
     const [ack, setAck] = useState(false), [confirmed, setConfirmed] = useState(false), [preview, setPreview] = useState<Prepared | null>(null), [modeConfirm, setModeConfirm] = useState<string[]>([]);
     const [watches, setWatches] = useState<Position[]>([]), [selected, setSelected] = useState<string[]>([]), [manifest, setManifest] = useState("");
+    const [revision, setRevision] = useState<{ schedule_id: string; version: number } | null>(null);
+    const [uncertain, setUncertain] = useState<Prepared | null>(null);
     const [report, setReport] = useState<Report | null>(null);
-    const busy = useRef(false), reads = useRef(0), modeRequests = useRef(new Map<string, string>()), reportRead = useRef(0);
+    const busy = useRef(false), reads = useRef(0), modeRequests = useRef(new Map<string, string>()), reportRead = useRef(0), draft = useRef(0);
     const currentBook = books.find(value => value.portfolio_id === book), currentCalendar = calendars.find(value => value.import_id === calendar);
     async function load(signal?: AbortSignal) {
         const id = ++reads.current;
+        ++draft.current;
+        setPreview(null); setConfirmed(false); setAck(false);
         setHealthy(false);
         setModeConfirm([]);
         setConfigs([]);
@@ -211,7 +218,7 @@ export function WeeklyReviewPanel() {
             if (!controller.signal.aborted)
                 setError(String(e));
         });
-        return () => { controller.abort(); ++reads.current; ++reportRead.current; };
+        return () => { controller.abort(); ++reads.current; ++reportRead.current; ++draft.current; };
     }, []);
     async function act(operation: () => Promise<void>, readOnly = false, readFailure = "加载下一页失败，已有内容保留；可重试或刷新。") {
         if (busy.current)
@@ -249,7 +256,53 @@ export function WeeklyReviewPanel() {
             setMessage("已加载下一页；若记录同时变化，请刷新后重新浏览。");
         }, true);
     }
+    async function currentConfiguration(scheduleId: string) {
+        for (let offset = 0; ; offset += 50) {
+            const page = await read<Config[]>(`/api/v1/runtime/weekly${offset ? `?offset=${offset}` : ""}`);
+            if (!Array.isArray(page)) throw new Error("周度授权响应格式不符。");
+            const current = page.find(value => value.schedule_id === scheduleId);
+            if (current) {
+                if (current.revoked) throw new Error("周度授权已永久撤销，不可修订或复活。");
+                if (!current.prepared) throw new Error("旧格式周度许可未验证，不可自动补造修订；请明确建立新的独立授权。");
+                return current;
+            }
+            if (page.length < 50) throw new Error("原周度任务不存在，未建立替代任务。");
+        }
+    }
+    async function revise(scheduleId: string, keepDraft = false) {
+        if (busy.current || uncertain) return;
+        const request = ++draft.current;
+        setPreview(null); setConfirmed(false); setAck(false);
+        await act(async () => {
+            setHealthy(false);
+            const [current, b, c, w] = await Promise.all([
+                currentConfiguration(scheduleId), read<Book[]>("/api/v1/portfolios"),
+                read<{ configurations: Calendar[] }>("/api/v1/calendar"), read<Position[]>("/api/v1/watchlist"),
+            ]);
+            if (request !== draft.current) return;
+            if (![b, c.configurations, w].every(Array.isArray)) throw new Error("当前组合、观察清单或日历读取失败。");
+            setBooks(b); setWatches(w); setCalendars(c.configurations.filter(value => ["SSE", "SZSE"].includes(value.venue)));
+            setRevision({ schedule_id: current.schedule_id, version: current.version });
+            if (!keepDraft) {
+                const command = current.prepared!.command;
+                const localTime = (value: unknown) => {
+                    const date = new Date(String(value));
+                    return Number.isNaN(date.getTime()) ? "" : new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                };
+                setName(String(command.name)); setStart(String(command.coverage_start)); setEnd(String(command.coverage_end));
+                setValidFrom(localTime(command.valid_from)); setValidUntil(localTime(command.valid_until));
+                setRetention(String(command.retention_days)); setSource(String(command.quote_source_name));
+                setSources(Array.isArray(command.evidence_source_names) ? command.evidence_source_names.join("\n") : "");
+                // Old scope or closed-day declarations never silently become renewed consent.
+                setBook(""); setCalendar(""); setSelected([]); setManifest("");
+            }
+            setHealthy(true);
+            setMessage("已读取原周度任务当前版本。请重新明确组合、观察清单、当前日历和完整逐日清单，核对来源/期限；保存只追加暂停版本，既往报告不变且不沿用旧版本比较基线。");
+        }, true, "读取原授权失败，草稿保留；请刷新核对后重试，未提交修订。");
+    }
     async function prepare() {
+        if (busy.current || uncertain) return;
+        const request = ++draft.current;
         setPreview(null);
         setConfirmed(false);
         await act(async () => {
@@ -267,16 +320,38 @@ export function WeeklyReviewPanel() {
             }
             if (!name.trim() || !source.trim() || !validFrom || !validUntil || new Date(validUntil) <= new Date(validFrom) || !Number.isInteger(Number(retention)) || Number(retention) < 1 || Number(retention) > 3650)
                 throw new Error("请填写任务/来源、有效起止和1至3650天报告使用期, 截止须晚于开始。");
-            const command = { request_id: crypto.randomUUID(), schedule_id: crypto.randomUUID(), expected_version: 0, name, mode: "LOCAL_WEEKLY_PORTFOLIO_WATCHLIST_REVIEW", frequency: "WEEKLY_AFTER_COMPLETE_CALENDAR_WEEK", market: currentCalendar.venue, portfolio_id: book, portfolio_instrument_ids: currentBook.positions.map(value => value.instrument_id), watchlist_instrument_ids: selected, calendar_days: calendarDays, calendar_import_id: calendar, coverage_start: start, coverage_end: end, quote_source_name: source, evidence_source_names: sources.split("\n").map(value => value.trim()).filter(Boolean), valid_from: new Date(validFrom).toISOString(), valid_until: new Date(validUntil).toISOString(), retention_days: Number(retention), pause_method: "WEEKLY_UI_PAUSE_OR_REVOKE", missed_run_policy: "LOCAL_CURRENT_KNOWLEDGE_EXPLICIT_WEEK", complete_calendar_acknowledgement: true, weekly_frequency_acknowledgement: true, scope_acknowledgement: true, local_only_acknowledgement: true, model_profile_ids: [], data_profile_ids: [], limits: { currency: "NONE", task_tokens: 0, day_tokens: 0, task_cost: "0", day_cost: "0" } };
-            setPreview(await read<Prepared>("/api/v1/runtime/weekly/preview", post(command)));
-        });
+            const command = { request_id: crypto.randomUUID(), schedule_id: revision?.schedule_id ?? crypto.randomUUID(), expected_version: revision?.version ?? 0, name, mode: "LOCAL_WEEKLY_PORTFOLIO_WATCHLIST_REVIEW", frequency: "WEEKLY_AFTER_COMPLETE_CALENDAR_WEEK", market: currentCalendar.venue, portfolio_id: book, portfolio_instrument_ids: currentBook.positions.map(value => value.instrument_id), watchlist_instrument_ids: selected, calendar_days: calendarDays, calendar_import_id: calendar, coverage_start: start, coverage_end: end, quote_source_name: source, evidence_source_names: sources.split("\n").map(value => value.trim()).filter(Boolean), valid_from: new Date(validFrom).toISOString(), valid_until: new Date(validUntil).toISOString(), retention_days: Number(retention), pause_method: "WEEKLY_UI_PAUSE_OR_REVOKE", missed_run_policy: "LOCAL_CURRENT_KNOWLEDGE_EXPLICIT_WEEK", complete_calendar_acknowledgement: true, weekly_frequency_acknowledgement: true, scope_acknowledgement: true, local_only_acknowledgement: true, model_profile_ids: [], data_profile_ids: [], limits: { currency: "NONE", task_tokens: 0, day_tokens: 0, task_cost: "0", day_cost: "0" } };
+            const value = await read<Prepared>("/api/v1/runtime/weekly/preview", post(command));
+            if (request === draft.current) setPreview(value);
+        }, true, "预览未保存；请核对草稿后重新预览。");
     }
     async function save() {
         if (!preview || !confirmed)
             return;
-        await act(async () => { await read<Config>("/api/v1/runtime/weekly", post({ command: preview.command, preview_hash: preview.content_hash })); setPreview(null); setConfirmed(false); await load(); setMessage("周度授权已保存, 默认暂停。核对保存范围后另行启用。"); });
+        await submit(preview);
+    }
+    async function submit(prepared: Prepared) {
+        const request = draft.current;
+        await act(async () => {
+            try {
+                await read<Config>("/api/v1/runtime/weekly", post({ command: prepared.command, preview_hash: prepared.content_hash }));
+            } catch (e) {
+                if (request !== draft.current) return;
+                setPreview(null); setConfirmed(false); setAck(false);
+                if (e instanceof WeeklyHttpError && e.status < 500) {
+                    setUncertain(null);
+                    throw new Error(`${String(e)} 草稿已保留，请核对当前版本并重新预览；未覆盖当前授权。`);
+                }
+                setUncertain(prepared);
+                throw new Error("保存响应未知。原草稿及请求UUID已冻结，请只读刷新核对，再明确以原请求恢复；不会暗中创建新版本。");
+            }
+            if (request !== draft.current) return;
+            setUncertain(null); setPreview(null); setConfirmed(false); setRevision(null);
+            await load(); setMessage("周度授权已保存, 默认暂停。核对保存范围后另行启用。");
+        });
     }
     async function mode(config: Config, action: string) {
+        if (uncertain) return;
         const key = `${config.schedule_id}:${config.version}:${action}`;
         if (!modeRequests.current.has(key))
             modeRequests.current.set(key, crypto.randomUUID());
@@ -296,13 +371,16 @@ export function WeeklyReviewPanel() {
     return <section aria-label="周度组合复核"><Panel title="周度组合复核" description="独立周频许可, 默认暂停。当前仅本地已存资料, 零网络/模型/费用; 不生成投资动作或批准。"><div className="daily-runtime">
     {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
     <button disabled={working} onClick={() => void act(() => load())}>刷新周度状态与报告</button>
+    {uncertain && <section aria-label="周度保存结果待核对"><p>写入结果未知，保留请求{String(uncertain.command.request_id)}与任务{String(uncertain.command.schedule_id)}。先只读刷新核对；恢复使用同UUID、同内容，不自动重写。</p><button disabled={working} onClick={() => void submit(uncertain)}>已核对，使用原请求恢复周度保存</button></section>}
+    {revision && <p>正在修订原周度任务{revision.schedule_id} · 当前核对版本{revision.version}。<button disabled={working || !!uncertain} onClick={() => void revise(revision.schedule_id, true)}>核对当前版本（保留草稿）</button><button disabled={working || !!uncertain} onClick={() => { ++draft.current; setRevision(null); setPreview(null); setConfirmed(false); setAck(false); setBook(""); setCalendar(""); setSelected([]); setManifest(""); }}>退出周度修订</button></p>}
     {!healthy && <p>周度状态未确认, 写操作不可用。读取失败不会显示旧配置为当前成功。</p>}
     <form onSubmit={e => { e.preventDefault(); void prepare(); }} onChange={e => {
+            ++draft.current;
             setPreview(null);
             setConfirmed(false);
             if (!(e.target instanceof HTMLInputElement && e.target.type === "checkbox"))
                 setAck(false);
-        }}><fieldset disabled={working || !healthy}><legend>建立新的独立周度授权</legend>
+        }}><fieldset disabled={working || !healthy || !!uncertain}><legend>{revision ? "修订此周度授权（原任务追加暂停版本）" : "建立新的独立周度授权"}</legend>
       <label>周度任务名称<input value={name} onChange={e => setName(e.target.value)} required/></label>
       <label>周度组合<select aria-label="周度组合" value={book} onChange={e => setBook(e.target.value)} required><option value="">请选择组合</option>{books.map(value => <option key={value.portfolio_id} value={value.portfolio_id}>{value.name}</option>)}</select></label>
       <p>冻结组合全部持仓: {currentBook?.positions.map(value => `${value.name} ${value.symbol}`).join("、") || "尚未选择非空组合"}。新成员或身份变化须重新授权, 不自动扩大范围。</p>
@@ -320,8 +398,8 @@ export function WeeklyReviewPanel() {
       <label><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} required/>我独立确认完整周覆盖、全部组合与来源、周频/期限/暂停方式, 仅本地零费用复核。</label>
       <button type="submit">预览完整周度授权（不保存）</button>
     </fieldset></form>
-    {preview && <section aria-label="周度授权预览"><h3>完整周度授权预览</h3><p>组合全部: {preview.members.map(value => `${value.name} ${value.symbol}`).join("、")}</p><p>日历 {preview.calendar_source} / {preview.calendar_version} · {preview.calendar_hash}</p><p>{String(preview.command.coverage_start)} 至 {String(preview.command.coverage_end)} · 完整周结束后一次 · 报告使用{String(preview.command.retention_days)}天</p><p>本地报价 {String(preview.command.quote_source_name)} · 本地资料 {String(preview.command.evidence_source_names)} · 授权 {String(preview.command.valid_from)} 至 {String(preview.command.valid_until)}</p><p>固定LOCAL_WEEKLY_PORTFOLIO_WATCHLIST_REVIEW, 模型/资料档案为空, 费用与Token=0。暂停/永久撤销在此页面。</p><label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>已核对本次全部周度范围与零成本, 明确保存为暂停。</label><button disabled={working || !healthy || !confirmed} onClick={() => void save()}>保存周度授权为暂停</button></section>}
-    <h3>已保存周度任务</h3><p>每页最多50条；记录变化时请刷新后重新浏览。</p>{configs.map(value => <article key={value.schedule_id}><h4>{String(value.prepared?.command.name ?? `旧格式授权 ${value.schedule_id}`)} · {value.revoked ? "已永久撤销" : value.enabled ? "已启用" : "已暂停"}</h4><p>版本{value.version} · {value.blocker ?? "等待完整自然周结束及Worker轮询"}</p>{value.prepared ? <><p>完整周范围{String(value.prepared.command.coverage_start)} 至{String(value.prepared.command.coverage_end)} · {value.prepared.calendar_source} / {value.prepared.calendar_version}</p><p>组合全部{value.prepared.members.map(member => `${member.name} ${member.symbol}`).join("、")} · {String(value.prepared.command.quote_source_name)} · 本地来源{String(value.prepared.command.evidence_source_names)}</p></> : <p>旧格式来源/完整周许可未验证，禁止启用或运行；保留原历史，可明确暂停或永久撤销。需要运行时请建立新授权。</p>}<label><input type="checkbox" checked={modeConfirm.includes(value.schedule_id)} onChange={e => setModeConfirm(old => e.target.checked ? [...old, value.schedule_id] : old.filter(id => id !== value.schedule_id))}/>我已核对此保存周度授权, 明确确认本次启停或永久撤销。</label>{["ENABLE", "PAUSE", "REVOKE"].map((action, index) => <button key={action} disabled={working || !healthy || value.revoked || (action === "ENABLE" && !value.prepared) || !modeConfirm.includes(value.schedule_id)} onClick={() => void mode(value, action)}>{["启用周度复核", "暂停周度复核", "永久撤销周度授权"][index]}</button>)}</article>)}
+    {preview && <section aria-label="周度授权预览"><h3>完整周度授权预览</h3><p>组合全部: {preview.members.map(value => `${value.name} ${value.symbol}`).join("、")}</p><p>日历 {preview.calendar_source} / {preview.calendar_version} · {preview.calendar_hash}</p><p>{String(preview.command.coverage_start)} 至 {String(preview.command.coverage_end)} · 完整周结束后一次 · 报告使用{String(preview.command.retention_days)}天</p><p>本地报价 {String(preview.command.quote_source_name)} · 本地资料 {String(preview.command.evidence_source_names)} · 授权 {String(preview.command.valid_from)} 至 {String(preview.command.valid_until)}</p><p>固定LOCAL_WEEKLY_PORTFOLIO_WATCHLIST_REVIEW, 模型/资料档案为空, 费用与Token=0。暂停/永久撤销在此页面。</p><label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>已核对本次全部周度范围与零成本, 明确保存为暂停。</label><button disabled={working || !healthy || !confirmed || !!uncertain} onClick={() => void save()}>保存周度授权为暂停</button></section>}
+    <h3>已保存周度任务</h3><p>每页最多50条；记录变化时请刷新后重新浏览。</p>{configs.map(value => <article key={value.schedule_id}><h4>{String(value.prepared?.command.name ?? `旧格式授权 ${value.schedule_id}`)} · {value.revoked ? "已永久撤销" : value.enabled ? "已启用" : "已暂停"}</h4><p>版本{value.version} · {value.blocker ?? "等待完整自然周结束及Worker轮询"}</p>{value.prepared ? <><p>完整周范围{String(value.prepared.command.coverage_start)} 至{String(value.prepared.command.coverage_end)} · {value.prepared.calendar_source} / {value.prepared.calendar_version}</p><p>组合全部{value.prepared.members.map(member => `${member.name} ${member.symbol}`).join("、")} · {String(value.prepared.command.quote_source_name)} · 本地来源{String(value.prepared.command.evidence_source_names)}</p></> : <p>旧格式来源/完整周许可未验证，禁止启用或运行；保留原历史，可明确暂停或永久撤销。需要运行时请建立新授权。</p>}<button disabled={working || !healthy || value.revoked || !value.prepared || !!uncertain} onClick={() => void revise(value.schedule_id)}>修订此周度授权</button><label><input type="checkbox" checked={modeConfirm.includes(value.schedule_id)} onChange={e => setModeConfirm(old => e.target.checked ? [...old, value.schedule_id] : old.filter(id => id !== value.schedule_id))}/>我已核对此保存周度授权, 明确确认本次启停或永久撤销。</label>{["ENABLE", "PAUSE", "REVOKE"].map((action, index) => <button key={action} disabled={working || !healthy || value.revoked || !!uncertain || (action === "ENABLE" && !value.prepared) || !modeConfirm.includes(value.schedule_id)} onClick={() => void mode(value, action)}>{["启用周度复核", "暂停周度复核", "永久撤销周度授权"][index]}</button>)}</article>)}
     {moreConfigs && <button disabled={working || !healthy} onClick={() => void loadMore("configs")}>加载更多周度授权</button>}
     <h3>真实周度任务记录</h3>{tasks.length ? tasks.map(task => <p key={task.task_run_id} id={`weekly_task-${task.task_run_id}`} ref={element => { if (element && window.location.hash === `#weekly_task-${task.task_run_id}`) element.scrollIntoView?.(); }}>任务{task.task_run_id} · {task.status} · 尝试{task.attempt} · {task.error_code ?? "无记录错误"}{task.status === "FAILED" && task.attempt >= 3 ? " · 本授权周次重试已耗尽, 修复后保存新暂停授权再确认启用" : ""}</p>) : <p>没有记录不代表Worker健康; 可能尚未到期、暂停或未运行。失败最多三次本地重试, 来源修复须新暂停版本再确认启用。</p>}
     {moreTasks && <button disabled={working || !healthy} onClick={() => void loadMore("tasks")}>加载更多周度任务记录</button>}

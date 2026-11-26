@@ -1,3 +1,9 @@
+## 2026-11-27 MVP-408 同任务周度授权修订恢复候选（Owner PENDING）
+
+/calendar 原周任务新增“修订此周度授权”：分页读取当前CAS并重新核当前组合/观察清单/日历；旧scope及逐日OPEN/CLOSED清单清空，须明确重选/完整录入后零写预览。以原schedule_id显式保存新PAUSED revision，再独立ENABLE；CAS冲突保留草稿，未知保存响应冻结原UUID/内容且只允许明确同请求恢复。REVOKED终端、旧prepared=null不自动补造；任务切换/迟到预览/只读刷新清旧预览，修订不继承旧基线。
+
+复用已合入ADR0057及accepted0050既有恢复语义，无后端/Schema/迁移/调度/投资治理变化。聚焦15前端通过4.44s，TS/Vite build67模块与Ruff通过；新增真实PG恢复及专属云PG/API/实际CLI Worker/Chromium用例尚NOT VERIFIED，完整最终HEAD CI/独立GatePENDING。原408 INTEGRATED保持，本修复仅功能PR最终Gate且真正合入Release后生效；Owner部署/PRODUCT08/Checkpoint接受PENDING、402PARTIAL/501BLOCKED保持。精确证据和恢复见MVP408工作项/交接。
+
 ## 2026-11-26 MVP-404 同任务授权修订恢复候选（Owner PENDING）
 
 /calendar 已保存月度任务增加“修订此月度授权”：只读重新核当前版本、组合及日历，明确重选当前范围后预览，以原schedule_id/CAS显式追加PAUSED revision，再独立启用。CAS冲突保留草稿并要求重核/预览；未知保存响应冻结原UUID/内容并提供显式原请求恢复；REVOKED不复活。复用ADR0050既有恢复语义，不沿用跨revision比较基线，不另建任务代替恢复。完整既有月度链INTEGRATED事实保留，本修复仅功能PR独立Gate且真正合入后生效。
