@@ -378,7 +378,7 @@ export function WeeklyReviewPanel() {
             ++draft.current;
             setPreview(null);
             setConfirmed(false);
-            if (!(e.target instanceof HTMLInputElement && e.target.type === "checkbox"))
+            if (!(e.target instanceof HTMLInputElement && e.target.name === "weekly-scope-ack"))
                 setAck(false);
         }}><fieldset disabled={working || !healthy || !!uncertain}><legend>{revision ? "修订此周度授权（原任务追加暂停版本）" : "建立新的独立周度授权"}</legend>
       <label>周度任务名称<input value={name} onChange={e => setName(e.target.value)} required/></label>
@@ -395,7 +395,7 @@ export function WeeklyReviewPanel() {
       <label>周度本地报价来源<input value={source} onChange={e => setSource(e.target.value)} required/></label>
       <label>周度允许本地资料来源（每行一个）<textarea value={sources} onChange={e => setSources(e.target.value)}/></label>
       <p>每个完整自然周结束后按最后显式会话标记业务时间; 已结束周只捕获当前可知账本, 不伪造历史周末持仓。无会话明确闭市跳过。无模型/资料档案, 单任务与UTC日预算均NONE/0。Daily启用不授予周频许可。</p>
-      <label><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} required/>我独立确认完整周覆盖、全部组合与来源、周频/期限/暂停方式, 仅本地零费用复核。</label>
+      <label><input type="checkbox" name="weekly-scope-ack" checked={ack} onChange={e => setAck(e.target.checked)} required/>我独立确认完整周覆盖、全部组合与来源、周频/期限/暂停方式, 仅本地零费用复核。</label>
       <button type="submit">预览完整周度授权（不保存）</button>
     </fieldset></form>
     {preview && <section aria-label="周度授权预览"><h3>完整周度授权预览</h3><p>组合全部: {preview.members.map(value => `${value.name} ${value.symbol}`).join("、")}</p><p>日历 {preview.calendar_source} / {preview.calendar_version} · {preview.calendar_hash}</p><p>{String(preview.command.coverage_start)} 至 {String(preview.command.coverage_end)} · 完整周结束后一次 · 报告使用{String(preview.command.retention_days)}天</p><p>本地报价 {String(preview.command.quote_source_name)} · 本地资料 {String(preview.command.evidence_source_names)} · 授权 {String(preview.command.valid_from)} 至 {String(preview.command.valid_until)}</p><p>固定LOCAL_WEEKLY_PORTFOLIO_WATCHLIST_REVIEW, 模型/资料档案为空, 费用与Token=0。暂停/永久撤销在此页面。</p><label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>已核对本次全部周度范围与零成本, 明确保存为暂停。</label><button disabled={working || !healthy || !confirmed || !!uncertain} onClick={() => void save()}>保存周度授权为暂停</button></section>}

@@ -181,3 +181,26 @@ test("weekly completed preview is invalidated by readonly refresh and returning 
   expect(screen.getByLabelText("逐日完整覆盖清单")).toHaveValue("");
   expect(fetch.mock.calls.some(([url, init]) => String(url) === "/api/v1/runtime/weekly" && init?.method === "POST")).toBe(false);
 });
+
+test("weekly watchlist change invalidates preview and independently confirmed scope", async () => {
+  mock(); render(<WeeklyReviewPanel />); await revise(); chooseScope(); await preview();
+  fireEvent.click(screen.getByLabelText(/当前观察项/));
+  expect(screen.queryByRole("heading", { name: "完整周度授权预览" })).toBeNull();
+  expect(screen.getByLabelText(/我独立确认完整周覆盖/)).not.toBeChecked();
+});
+
+test("weekly pending save prevents task switch and all new writes until original receipt completes", async () => {
+  const fetch = mock(), original = fetch.getMockImplementation()!;
+  let resolve: ((value: Response) => void) | undefined;
+  fetch.mockImplementation(async (url, init) => String(url) === "/api/v1/runtime/weekly" && init?.method === "POST" ? new Promise<Response>(done => { resolve = done; }) : original(url, init));
+  render(<WeeklyReviewPanel />); await revise(); chooseScope(); await preview(); save();
+  expect(screen.getByRole("button", { name: "修订此周度授权" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "核对当前版本（保留草稿）" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "退出周度修订" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "刷新周度状态与报告" })).toBeDisabled();
+  expect(screen.getByLabelText("周度任务名称")).toBeDisabled();
+  resolve!(response({ ...config(), enabled: false }));
+  await screen.findByText(/周度授权已保存, 默认暂停/);
+  expect(screen.queryByText(/正在修订原周度任务/)).toBeNull();
+  expect(fetch.mock.calls.filter(([url, init]) => String(url) === "/api/v1/runtime/weekly" && init?.method === "POST")).toHaveLength(1);
+});
