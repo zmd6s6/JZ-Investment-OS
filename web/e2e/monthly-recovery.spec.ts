@@ -79,7 +79,7 @@ test("actual CLI Worker exhausted month recovers through same-task UI revision, 
   await panel.locator("article").filter({ hasText: `报告${recovered.report_id}` }).getByRole("button", { name: "打开月报冻结快照" }).click();
   await expect(panel.getByRole("region", { name: "月报冻结快照" })).toContainText("首次运行, 无可比基线");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: ".runtime/mvp404-recovery-390.png", fullPage: true });
+  await page.screenshot({ path: "../.runtime/mvp404-recovery-390.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   await card.getByLabel(/我已核对此保存月度授权/).check();
   await card.getByRole("button", { name: "永久撤销月度授权" }).click();
