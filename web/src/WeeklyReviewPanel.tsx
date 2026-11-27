@@ -147,6 +147,9 @@ async function requestJson<T>(path: string, init: RequestInit): Promise<T> {
     }, init.signal);
 }
 type ModeRequest = { schedule_id: string; request_id: string; expected_version: number; action: string };
+type Reconciliation = { identity: string; generation: number; checked: boolean };
+const saveIdentity = (prepared: Prepared) => JSON.stringify(["SAVE", prepared.command, prepared.content_hash]);
+const modeIdentity = (command: ModeRequest) => JSON.stringify(["MODE", command]);
 const post = (value: unknown) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
 const missing = (value: string | null | undefined) => value == null ? "未提供" : /^-?\d+\.\d+$/.test(value) ? value.replace(/0+$/, "").replace(/\.$/, "") : value;
 const labels: Record<string, string> = {
@@ -186,7 +189,27 @@ export function WeeklyReviewPanel() {
     const [report, setReport] = useState<Report | null>(null);
     const busy = useRef(false), reads = useRef(0), modeRequests = useRef(new Map<string, string>()), reportRead = useRef(0), draft = useRef(0);
     const lifetime = useRef<AbortController | null>(null), operations = useRef(0);
+    const pendingReadback = useRef<Reconciliation | null>(null), unknownGeneration = useRef(0);
+    const [reconciled, setReconciled] = useState<number | null>(null);
     const unknownWrite = !!uncertain || !!uncertainMode;
+    const ready = (identity: string) => pendingReadback.current?.identity === identity && pendingReadback.current.checked && reconciled === pendingReadback.current.generation;
+    const saveReady = !!uncertain && ready(saveIdentity(uncertain));
+    const modeReady = !!uncertainMode && ready(modeIdentity(uncertainMode));
+    function markUnknown(identity: string) {
+        pendingReadback.current = { identity, generation: ++unknownGeneration.current, checked: false };
+        setReconciled(null);
+    }
+    function clearReadback() { pendingReadback.current = null; setReconciled(null); }
+    function consumeReadback(identity: string) {
+        const value = pendingReadback.current;
+        if (!value || value.identity !== identity || !value.checked) {
+            setError("请先成功只读刷新本次未知请求，再明确使用原请求恢复。");
+            return false;
+        }
+        value.checked = false;
+        setReconciled(null);
+        return true;
+    }
     async function read<T>(path: string, init: RequestInit = {}): Promise<T> {
         const owner = lifetime.current;
         const value = await requestJson<T>(path, { ...init, signal: init.signal ?? owner?.signal });
@@ -213,7 +236,7 @@ export function WeeklyReviewPanel() {
             read<Config[]>("/api/v1/runtime/weekly", { signal }), read<History[]>("/api/v1/runtime/weekly/history", { signal }), read<Task[]>("/api/v1/runtime/weekly/runs", { signal }), read<Position[]>("/api/v1/watchlist", { signal }),
         ]);
         if (id !== reads.current || signal?.aborted)
-            return;
+            return false;
         if (![b, c.configurations, conf, h, t, w].every(Array.isArray))
             throw new Error("周度响应格式不符, 当前状态未确认。");
         setBooks(b); setWatches(w);
@@ -224,6 +247,22 @@ export function WeeklyReviewPanel() {
         setConfigOffset(conf.length); setHistoryOffset(h.length); setTaskOffset(t.length);
         setMoreConfigs(conf.length === 50); setMoreHistory(h.length === 60); setMoreTasks(t.length === 60);
         setHealthy(true);
+        return true;
+    }
+    async function refresh() {
+        await act(async () => {
+            const value = pendingReadback.current;
+            if (value) value.checked = false;
+            setReconciled(null);
+            const success = await load();
+            // Only this explicit successful refresh can reconcile the exact
+            // UNKNOWN occurrence captured at its start, never a newer one.
+            if (success && value && pendingReadback.current === value) {
+                value.checked = true;
+                setReconciled(value.generation);
+                setMessage("已成功只读刷新本次未知请求，请核对当前状态后明确使用原请求恢复。");
+            }
+        }, true, "只读状态加载失败，原草稿保留；可明确刷新重读。");
     }
     useEffect(() => {
         const controller = new AbortController();
@@ -233,7 +272,7 @@ export function WeeklyReviewPanel() {
             if (!controller.signal.aborted && reads.current === initialRead)
                 setError(String(e));
         });
-        return () => { controller.abort(); lifetime.current = null; ++operations.current; busy.current = false; ++reads.current; ++reportRead.current; ++draft.current; };
+        return () => { controller.abort(); lifetime.current = null; pendingReadback.current = null; ++operations.current; busy.current = false; ++reads.current; ++reportRead.current; ++draft.current; };
     }, []);
     async function act(operation: () => Promise<void>, readOnly = false, readFailure = "加载下一页失败，已有内容保留；可重试或刷新。") {
         if (busy.current)
@@ -346,6 +385,7 @@ export function WeeklyReviewPanel() {
         await submit(preview);
     }
     async function submit(prepared: Prepared) {
+        if (busy.current || (pendingReadback.current ? !consumeReadback(saveIdentity(prepared)) : unknownWrite)) return;
         const request = draft.current;
         const owner = lifetime.current;
         await act(async () => {
@@ -355,13 +395,16 @@ export function WeeklyReviewPanel() {
                 if (owner !== lifetime.current || owner?.signal.aborted) return;
                 setPreview(null); setConfirmed(false); setAck(false);
                 if (e instanceof WeeklyHttpError && e.status < 500) {
+                    clearReadback();
                     setUncertain(null);
                     throw new Error(`${String(e)} 草稿已保留，请核对当前版本并重新预览；未覆盖当前授权。`);
                 }
+                markUnknown(saveIdentity(prepared));
                 setUncertain(prepared);
                 throw new Error(`${String(e)} 保存响应未知。服务端可能已经保存，取消请求不等于回滚。原草稿及请求UUID已冻结，请只读刷新核对，再明确以原请求恢复；不会暗中创建新版本。`);
             }
             if (owner !== lifetime.current || owner?.signal.aborted) return;
+            clearReadback();
             if (request !== draft.current) {
                 setUncertain(null); setPreview(null); setConfirmed(false); setHealthy(false);
                 setMessage("原周度保存回执已确认，草稿在等待期间发生变化；原输入保留，请只读刷新核对原任务后重新预览。");
@@ -380,6 +423,7 @@ export function WeeklyReviewPanel() {
         await submitMode({ schedule_id: config.schedule_id, request_id: modeRequests.current.get(key)!, expected_version: config.version, action });
     }
     async function submitMode(command: ModeRequest) {
+        if (busy.current || (pendingReadback.current ? !consumeReadback(modeIdentity(command)) : unknownWrite)) return;
         const owner = lifetime.current;
         await act(async () => {
             try {
@@ -389,13 +433,16 @@ export function WeeklyReviewPanel() {
                 if (owner !== lifetime.current || owner?.signal.aborted) return;
                 setModeConfirm([]);
                 if (e instanceof WeeklyHttpError && e.status < 500) {
+                    clearReadback();
                     setUncertainMode(null); setHealthy(false);
                     throw new Error(`${String(e)} 启停请求已拒绝，请只读刷新当前版本后重新确认。`);
                 }
+                markUnknown(modeIdentity(command));
                 setUncertainMode(command);
                 throw new Error(`${String(e)} 周度启停响应未知，服务端可能已提交。取消请求不等于回滚；请只读刷新核对，再明确以原UUID和动作恢复回执。`);
             }
             if (owner !== lifetime.current || owner?.signal.aborted) return;
+            clearReadback();
             setUncertainMode(null);
             setMessage("周度启停回执已确认，正在只读刷新当前状态。");
             await load(); setMessage("周度命令已确认并刷新当前状态。暂停确认后旧任务不能再提交; 永久撤销不可恢复。");
@@ -414,9 +461,9 @@ export function WeeklyReviewPanel() {
     }
     return <section aria-label="周度组合复核"><Panel title="周度组合复核" description="独立周频许可, 默认暂停。当前仅本地已存资料, 零网络/模型/费用; 不生成投资动作或批准。"><div className="daily-runtime">
     {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
-    <button disabled={working} onClick={() => void act(() => load(), true, "只读状态加载失败，原草稿保留；可明确刷新重读。")}>刷新周度状态与报告</button>
-    {uncertain && <section aria-label="周度保存结果待核对"><p>写入结果未知，保留请求{String(uncertain.command.request_id)}与任务{String(uncertain.command.schedule_id)}。先只读刷新核对；恢复使用同UUID、同内容，不自动重写。</p><button disabled={working} onClick={() => void submit(uncertain)}>已核对，使用原请求恢复周度保存</button></section>}
-    {uncertainMode && <section aria-label="周度启停结果待核对"><p>启停响应未知，服务端可能已提交。任务{uncertainMode.schedule_id} · 动作{uncertainMode.action} · 请求{uncertainMode.request_id}。请先只读刷新核对，再明确以原UUID/版本/动作恢复回执；不自动重试。</p><button disabled={working} onClick={() => void submitMode(uncertainMode)}>已核对，使用原请求恢复周度启停</button></section>}
+    <button disabled={working} onClick={() => void refresh()}>刷新周度状态与报告</button>
+    {uncertain && <section aria-label="周度保存结果待核对"><p>写入结果未知，保留请求{String(uncertain.command.request_id)}与任务{String(uncertain.command.schedule_id)}。先成功只读刷新核对本次未知请求；恢复使用同UUID、同内容，不自动重写。</p><button disabled={working || !saveReady} onClick={() => void submit(uncertain)}>已核对，使用原请求恢复周度保存</button></section>}
+    {uncertainMode && <section aria-label="周度启停结果待核对"><p>启停响应未知，服务端可能已提交。任务{uncertainMode.schedule_id} · 动作{uncertainMode.action} · 请求{uncertainMode.request_id}。请先成功只读刷新核对本次未知请求，再明确以原UUID/版本/动作恢复回执；不自动重试。</p><button disabled={working || !modeReady} onClick={() => void submitMode(uncertainMode)}>已核对，使用原请求恢复周度启停</button></section>}
     {revision && <p>正在修订原周度任务{revision.schedule_id} · 当前核对版本{revision.version}。<button disabled={working || unknownWrite} onClick={() => void revise(revision.schedule_id, true)}>核对当前版本（保留草稿）</button><button disabled={working || unknownWrite} onClick={() => { ++draft.current; setRevision(null); setPreview(null); setConfirmed(false); setAck(false); setBook(""); setCalendar(""); setSelected([]); setManifest(""); }}>退出周度修订</button></p>}
     {!healthy && <p>周度状态未确认, 写操作不可用。读取失败不会显示旧配置为当前成功。</p>}
     <form onSubmit={e => { e.preventDefault(); void prepare(); }} onChange={e => {

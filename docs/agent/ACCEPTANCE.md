@@ -274,3 +274,14 @@ PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge SUCCESS�
 仅Weekly接入opt-in helper，不改全局apiFetch、Monthly、后端/Schema/迁移/SQL/治理。PR66新最终HEAD完整CI/独立Gate仍PENDING，不借19旧绿；本修复只真正合入后生效。原408 INTEGRATED、402PARTIAL、501BLOCKED及Owner部署/PRODUCT08/Checkpoint接受PENDING保持。Docker engine/Owner18102/15433/真实数据/费用均未操作，npm既有dev5high不无关升级。精确命令、历史失败和回滚见MVP408工作项/交接。
 
 入口/calendar→周度组合复核：读取超过15秒可见中文未确认提示、原草稿保留、刷新解锁；迟到读取不复活旧详情/许可。保存或启停超过15秒显示服务端可能已提交，原UUID/内容/动作/CAS冻结；先只读刷新核对，再点击相应“已核对，使用原请求恢复周度保存/启停”，不会自动重发或启用。真实成功API/CLI Worker/PG不stub，只明确延迟GET及已commit SAVE/PAUSE响应；39聚焦及6真实浏览器场景证明恢复与旧历史保留。Owner部署/接受仍PENDING。
+
+
+## 2026-11-27 PR66 UNKNOWN只读核对围栏修复（fixed-awaiting-review）
+
+独立HOLD7208376750经root及独立Reviewer确认是真实P2：最终2349虽然全部CI成功，但SAVE/MODE恢复按钮与handler没有落实ACCEPTANCE先成功显式只读刷新再恢复契约。原独立四反例（两命令×未刷新/GET503后）在作者树先RED4/4，实际POST从1增2；本轮按root授权恢复原408唯一writer，修本PR，不绕文案或全绿门禁。
+
+现在UNKNOWN按SAVE完整command+preview hash或MODE原UUID/action/CAS绑定独立occurrence。只有该次UNKNOWN之后成功完成的显式“刷新周度状态与报告”授予一次恢复许可；失败/超时刷新、再次UNKNOWN、许可消费均清除。按钮和handler都核精确身份，旧刷新、其他报告GET、迟到GET和已排队旧handler不能许可，不换UUID/CAS/内容、不自动POST或启用。原独立四红已GREEN，新增八边界/正常反例通过；聚焦51项/8.84s、完整251前端/34files/44.32s和build68通过。
+
+扩展真实延迟E2E断言SAVE/MODE未refresh及503后零恢复POST、成功GET后才精确回执重放，SAVE同UUID再次15秒UNKNOWN必须重新核对；保留原90秒上限。该新真实栈/新最终HEADCI尚NOT VERIFIED，状态fixed-awaiting-review，独立Gate未通过。本修复仅PR66真正合入后生效，Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED不变；Monthly/全局apiFetch/后端/治理未改，Owner/Docker/真实数据与费用不碰。
+
+验收：每次SAVE/MODE进入UNKNOWN后恢复按钮禁用，未完成本次明确只读刷新不得再次POST；刷新503/超时/结构错误仍禁用。成功显式刷新后可核对当前状态，再恢复同UUID/body/action/CAS；再次UNKNOWN需要新的成功刷新，其他报告读取/旧刷新不能替代。该规则在handler也检查，不只靠disabled文案。

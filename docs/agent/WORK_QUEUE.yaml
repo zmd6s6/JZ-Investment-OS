@@ -390,7 +390,7 @@ work_items:
   # Planner proposal only: NOT READY on release/mvp-beta until this PR is merged.
   # Independent weekly portfolio/watchlist review, not MVP-402 weekly opportunities or MVP-404 monthly report.
   - id: MVP-408
-    # 原PR53/65已实际合入；周度请求deadline恢复候选仅新功能PR实际合入后生效，Owner仍PENDING。
+    # 原PR53/65已实际合入；PR66 deadline及UNKNOWN显式只读核对修复仅真正合入后生效，Owner仍PENDING。
     title: Owner-controlled weekly local portfolio and watchlist review
     priority: 1
     status: INTEGRATED

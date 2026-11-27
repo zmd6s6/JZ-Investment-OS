@@ -191,6 +191,7 @@ test("weekly timeout preserves dispatched save identity even if a queued draft c
   expect(screen.getByRole("region", { name: "周度保存结果待核对" })).toHaveTextContent(JSON.parse(String(sent[1]?.body)).command.request_id);
   expect(screen.getByLabelText("周度任务名称")).toHaveValue("排队到达的草稿");
   fetch.mockImplementation(original);
+  fireEvent.click(screen.getByRole("button", { name: "刷新周度状态与报告" })); await advance(0);
   fireEvent.click(screen.getByRole("button", { name: "已核对，使用原请求恢复周度保存" })); await advance(0);
   const writes = fetch.mock.calls.filter(([url, init]) => String(url) === "/api/v1/runtime/weekly" && init?.method === "POST");
   expect(writes).toHaveLength(2); expect(writes[1][1]?.body).toBe(sent[1]?.body);
