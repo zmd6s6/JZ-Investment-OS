@@ -1,3 +1,11 @@
+## 2026-11-27 MVP-404 月度请求期限与UNKNOWN核对候选（Owner PENDING）
+
+既有PR64已实际合入2462daef，后续同Claim发现Monthly fetch/body持续pending锁住busy，reload会丢原草稿/身份。本候选仅Monthly复用PR66已合入requestDeadline15秒完整fetch/正文/error decode边界，GET/preview超时中文解锁且保草稿；SAVE/MODE超时UNKNOWN冻结完整原UUID/body/action/CAS，服务端可能已提交，abort不等于回滚。只有该UNKNOWN后明确成功只读刷新才能给当前入口一次恢复许可；失败/超时readback、许可消费、再次UNKNOWN均撤销，identity/occurrence/每次成功readback新lease/render捕获generation拒绝无关GET、迟到读取和旧排队handler。已确认回执后GET超时仍确认；unmount清timer/listener/epoch，不改全局apiFetch/Weekly/helper/后端/Schema/迁移/accepted ADR或投资治理。
+
+先RED：新期限14项中13fail/1pass，新核对/occurrence14项全fail；修后具名聚焦58项5.98s通过（新期限/错误正文/临界/旧回调与原Monthly12、共享helper），build68通过。Ruff504/check/mypy183/OpenAPI与PolicySchema通过；其余检查取实际输出。生产9989、验证8029174专属真实CI45975587357已SUCCESS：291frontend、build68、48月度unit/PG26.75s及实际API/PG/生产CLIWorker/Chromium延迟GET/真实commitSAVE/MODE恢复1项1.1m。390 GET/UNKNOWN提示图已下载目视无横溢出，原90s未放宽；初次末尾周/月定位器错误及修复留档。完整最终HEAD基线pytest/integration/coverage/安全与独立Gate仍PENDING，不能借802旧绿。受控fake-timer/React旧callback模型不冒称自然网络或真实产品验收。
+
+OwnerDecisionNONE，只有本followup功能PR经独立Gate且真正合入后生效；原404 INTEGRATED、402PARTIAL/501BLOCKED及Owner部署/PRODUCT08/Checkpoint接受PENDING保持。Dockerengine离线未启动/重启，Owner18102/15433、真实数据/费用、Policy/Strategy/券商未碰，原3截图目录保留；npm dev5high未无关升级。详细操作、证据和回滚见MVP404工作项/交接。
+
 ## 2026-11-27 PR66同P2 occurrence/许可回调补闭（fixed-awaiting-review）
 
 root授权补闭同一queued handler/许可撤销P2。独立以React __reactProps受控模型复现：UNKNOWN#1回调可消费成功readback后的#2许可；作者树原两例先RED2/2后GREEN2/2。再将既有failed-refresh两用例延展到重新成功核对，实际RED2/2后GREEN，旧被撤销回调不能借替代许可。这些是受控回调模型，不冒称自然浏览器竞态复现或投资治理缺陷。
