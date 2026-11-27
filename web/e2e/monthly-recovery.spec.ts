@@ -30,6 +30,10 @@ test("actual CLI Worker month recovers through bounded reads and delayed committ
   await expect(panel.getByRole("alert")).toContainText("15秒", { timeout: 20000 });
   await expect(panel.getByRole("button", { name: "刷新月度状态与报告" })).toBeEnabled();
   await expect(panel.getByLabel("月度任务名称")).toHaveValue("请求超时仍保留的月草稿");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await panel.getByRole("alert").screenshot({ path: "../.runtime/mvp404-deadline-get-390.png" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.unroute("**/api/v1/runtime/monthly");
   await panel.getByRole("button", { name: "刷新月度状态与报告" }).click();
   await expect(card).toBeVisible(); releaseRead();
@@ -78,6 +82,10 @@ test("actual CLI Worker month recovers through bounded reads and delayed committ
   await expect(panel.getByLabel("月度本地报价来源")).toBeDisabled();
   const recoverSave = panel.getByRole("button", { name: "已核对，使用原请求恢复月度保存" });
   await expect(recoverSave).toBeDisabled();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await panel.getByRole("region", { name: "月度保存结果待核对" }).screenshot({ path: "../.runtime/mvp404-deadline-unknown-390.png" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await page.setViewportSize({ width: 1280, height: 720 });
   await recoverSave.dispatchEvent("click");
   expect(writeBodies).toHaveLength(2); // CAS rejection + actual committed save, no recovery POST.
   await page.unroute("**/api/v1/runtime/monthly");

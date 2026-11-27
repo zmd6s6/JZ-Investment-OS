@@ -95,6 +95,8 @@ jobs:
           name: monthly-recovery-browser-evidence
           path: |
             .runtime/mvp404-recovery-390.png
+            .runtime/mvp404-deadline-get-390.png
+            .runtime/mvp404-deadline-unknown-390.png
             .runtime/mvp404-recovery-fixture.json
             .runtime/mvp404-recovery-api.log
             .runtime/mvp404-recovery-worker.log
