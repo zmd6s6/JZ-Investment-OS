@@ -287,18 +287,14 @@ PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge SUCCESS�
 可操作验收：每次SAVE/MODE UNKNOWN后恢复按钮禁用；本次成功明确只读刷新前不得再次POST，刷新503/超时/无效结构仍禁用。成功显式刷新后核对当前状态，再恢复原UUID/body/action/CAS；再次UNKNOWN须新的成功刷新，旧刷新和其他报告读取不能替代。handler同样核对，已排队旧按钮回调不能越过disabled围栏。新真实CLIWorker/PG/API/Chromium对此已有合成证据，Owner部署/接受不由此替代。
 
 
-## 2026-11-27 PR66同P2回调occurrence边界补闭（fixed-awaiting-review）
+## 2026-11-27 PR66同P2 occurrence/许可回调补闭（fixed-awaiting-review）
 
-独立Reviewer确认114的原四反例已GREEN，又以既有React __reactProps受控旧回调模型复现SAVE/MODE两窄边界：UNKNOWN#1成功核对后保留旧handler，重试进入#2并成功核对后，#1旧handler仍能消费#2许可。root将其认定为同一P2未满足承诺并恢复原唯一writer；这是受控回调模型，未声称自然浏览器竞态实测或投资治理缺陷。
+root授权补闭同一queued handler/许可撤销P2。独立以React __reactProps受控模型复现：UNKNOWN#1回调可消费成功readback后的#2许可；作者树原两例先RED2/2后GREEN2/2。再将既有failed-refresh两用例延展到重新成功核对，实际RED2/2后GREEN，旧被撤销回调不能借替代许可。这些是受控回调模型，不冒称自然浏览器竞态复现或投资治理缺陷。
 
-最小实现让恢复按钮携带其render的reconciled generation，经submit/submitMode传至consumeReadback，与当前occurrence严格匹配；不把mutable ref最新generation当captured。当前#2合法handler仍可恢复，原UUID/body/action/CAS完全不变。独立两反例在作者树先RED2/2（POST2→3）后GREEN2/2，并补当前handler成功/字节相同断言；含原4+8等聚焦53passed9.60s及build68通过。新完整frontend、实际CLIWorker/PG/API/Chromium及最终HEAD全CI待核，不借114原绿；HOLD仍fixed-awaiting-review，不自resolve/Gate/merge。
+最终业务892b073f81934d4b36faa4d6194115d406d56fc4让恢复回调携其render的state generation，submit/submitMode/consume严格核对；每次UNKNOWN及成功readback各有新许可版本，仍归属本次UNKNOWN对象/完整identity，不读取mutable ref最新版本冒充captured。旧occurrence/已撤销许可回调均不能消费新许可，当前合法handler仍恢复原UUID/body/action/CAS。原4+8等聚焦53passed10.09s、完整253frontend/35files55.40s/build68通过。
 
-同PR66最小补闭，不改Monthly/global apiFetch/helper/后端/Schema/SQL/治理；Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED保持，Owner/Docker/真实数据费用不碰。
+892新真实Weekly45946660821 SUCCESS：253前端/build68、104unit/PG49.47s、新实际CLIWorker/API/PG/Chromium恢复1项1.1m和原周5项15.2s；Monthly48+1/History6+2/Thesis41+2同892全SUCCESS。当前artifact15175315416已实际下载、390恢复图目视无横溢出。受控旧回调证明与真实正常恢复证据分开，原90s上限未放宽。
 
-恢复事件同时绑定本次UNKNOWN occurrence：旧occurrence的受控排队回调不能消费新occurrence已成功readback的许可；当前occurrence合法入口仍能恢复原请求。该边界仅作为受控旧回调回归证据，不冒充自然浏览器复现。
+本次最终证据新HEAD全CI/独立Gate仍PENDING，不能借114或892旧绿，不自resolve HOLD/Gate/merge。仅同PR66前端围栏补闭，Monthly/global apiFetch/helper/后端/Schema/SQL/治理未改，Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED保持。Owner/Docker/真实数据费用不碰。
 
-
-## 2026-11-27 同P2已撤销readback的替代许可边界
-
-延展既有SAVE/MODE failed-refresh两用例，受控旧回调在失败刷新后再次成功刷新时仍可借用替代许可，实际RED2/2（.runtime/weekly-readback-replacement-red.log）。本轮仍是同一已承诺的queued旧handler/许可撤销边界，非自然浏览器复现或新治理缺陷。每次成功readback现在分配新lease generation，仍归属本次UNKNOWN对象及完整identity；callback携render时state generation，旧被撤销lease及旧UNKNOWN回调均不能消费替代许可，当前合法handler仍精确恢复原UUID/body/action/CAS。仅一行许可版本更新及内部计数命名，不扩功能/后端/授权范围。
-
+每个恢复入口事件绑定其渲染时本次核对许可版本；即使后来成功核对新UNKNOWN或替代被撤销readback，旧入口回调也不能借新许可。当前合法入口仍允许精确原请求恢复。旧回调边界通过受控React回归证明；实际CLIWorker/API/浏览器证明正常当前入口恢复，两者不混称自然竞态。
