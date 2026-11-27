@@ -285,3 +285,14 @@ PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge SUCCESS�
 本轮最终证据HEAD完整CI/独立Gate仍PENDING，HOLD为fixed-awaiting-review不自解。Monthly/全局apiFetch/后端/治理未改，仅PR66真正合入生效；Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED不变。Owner/Docker/真实数据/费用不碰，精确证据和限制见MVP408工作项/交接。
 
 可操作验收：每次SAVE/MODE UNKNOWN后恢复按钮禁用；本次成功明确只读刷新前不得再次POST，刷新503/超时/无效结构仍禁用。成功显式刷新后核对当前状态，再恢复原UUID/body/action/CAS；再次UNKNOWN须新的成功刷新，旧刷新和其他报告读取不能替代。handler同样核对，已排队旧按钮回调不能越过disabled围栏。新真实CLIWorker/PG/API/Chromium对此已有合成证据，Owner部署/接受不由此替代。
+
+
+## 2026-11-27 PR66同P2回调occurrence边界补闭（fixed-awaiting-review）
+
+独立Reviewer确认114的原四反例已GREEN，又以既有React __reactProps受控旧回调模型复现SAVE/MODE两窄边界：UNKNOWN#1成功核对后保留旧handler，重试进入#2并成功核对后，#1旧handler仍能消费#2许可。root将其认定为同一P2未满足承诺并恢复原唯一writer；这是受控回调模型，未声称自然浏览器竞态实测或投资治理缺陷。
+
+最小实现让恢复按钮携带其render的reconciled generation，经submit/submitMode传至consumeReadback，与当前occurrence严格匹配；不把mutable ref最新generation当captured。当前#2合法handler仍可恢复，原UUID/body/action/CAS完全不变。独立两反例在作者树先RED2/2（POST2→3）后GREEN2/2，并补当前handler成功/字节相同断言；含原4+8等聚焦53passed9.60s及build68通过。新完整frontend、实际CLIWorker/PG/API/Chromium及最终HEAD全CI待核，不借114原绿；HOLD仍fixed-awaiting-review，不自resolve/Gate/merge。
+
+同PR66最小补闭，不改Monthly/global apiFetch/helper/后端/Schema/SQL/治理；Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED保持，Owner/Docker/真实数据费用不碰。
+
+恢复事件同时绑定本次UNKNOWN occurrence：旧occurrence的受控排队回调不能消费新occurrence已成功readback的许可；当前occurrence合法入口仍能恢复原请求。该边界仅作为受控旧回调回归证据，不冒充自然浏览器复现。

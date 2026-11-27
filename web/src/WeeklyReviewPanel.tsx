@@ -200,9 +200,9 @@ export function WeeklyReviewPanel() {
         setReconciled(null);
     }
     function clearReadback() { pendingReadback.current = null; setReconciled(null); }
-    function consumeReadback(identity: string) {
+    function consumeReadback(identity: string, expectedGeneration: number | null) {
         const value = pendingReadback.current;
-        if (!value || value.identity !== identity || !value.checked) {
+        if (!value || value.identity !== identity || value.generation !== expectedGeneration || !value.checked) {
             setError("请先成功只读刷新本次未知请求，再明确使用原请求恢复。");
             return false;
         }
@@ -384,8 +384,8 @@ export function WeeklyReviewPanel() {
             return;
         await submit(preview);
     }
-    async function submit(prepared: Prepared) {
-        if (busy.current || (pendingReadback.current ? !consumeReadback(saveIdentity(prepared)) : unknownWrite)) return;
+    async function submit(prepared: Prepared, expectedGeneration: number | null = null) {
+        if (busy.current || (pendingReadback.current ? !consumeReadback(saveIdentity(prepared), expectedGeneration) : unknownWrite)) return;
         const request = draft.current;
         const owner = lifetime.current;
         await act(async () => {
@@ -422,8 +422,8 @@ export function WeeklyReviewPanel() {
             modeRequests.current.set(key, crypto.randomUUID());
         await submitMode({ schedule_id: config.schedule_id, request_id: modeRequests.current.get(key)!, expected_version: config.version, action });
     }
-    async function submitMode(command: ModeRequest) {
-        if (busy.current || (pendingReadback.current ? !consumeReadback(modeIdentity(command)) : unknownWrite)) return;
+    async function submitMode(command: ModeRequest, expectedGeneration: number | null = null) {
+        if (busy.current || (pendingReadback.current ? !consumeReadback(modeIdentity(command), expectedGeneration) : unknownWrite)) return;
         const owner = lifetime.current;
         await act(async () => {
             try {
@@ -462,8 +462,8 @@ export function WeeklyReviewPanel() {
     return <section aria-label="周度组合复核"><Panel title="周度组合复核" description="独立周频许可, 默认暂停。当前仅本地已存资料, 零网络/模型/费用; 不生成投资动作或批准。"><div className="daily-runtime">
     {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
     <button disabled={working} onClick={() => void refresh()}>刷新周度状态与报告</button>
-    {uncertain && <section aria-label="周度保存结果待核对"><p>写入结果未知，保留请求{String(uncertain.command.request_id)}与任务{String(uncertain.command.schedule_id)}。先成功只读刷新核对本次未知请求；恢复使用同UUID、同内容，不自动重写。</p><button disabled={working || !saveReady} onClick={() => void submit(uncertain)}>已核对，使用原请求恢复周度保存</button></section>}
-    {uncertainMode && <section aria-label="周度启停结果待核对"><p>启停响应未知，服务端可能已提交。任务{uncertainMode.schedule_id} · 动作{uncertainMode.action} · 请求{uncertainMode.request_id}。请先成功只读刷新核对本次未知请求，再明确以原UUID/版本/动作恢复回执；不自动重试。</p><button disabled={working || !modeReady} onClick={() => void submitMode(uncertainMode)}>已核对，使用原请求恢复周度启停</button></section>}
+    {uncertain && <section aria-label="周度保存结果待核对"><p>写入结果未知，保留请求{String(uncertain.command.request_id)}与任务{String(uncertain.command.schedule_id)}。先成功只读刷新核对本次未知请求；恢复使用同UUID、同内容，不自动重写。</p><button disabled={working || !saveReady} onClick={() => void submit(uncertain, reconciled)}>已核对，使用原请求恢复周度保存</button></section>}
+    {uncertainMode && <section aria-label="周度启停结果待核对"><p>启停响应未知，服务端可能已提交。任务{uncertainMode.schedule_id} · 动作{uncertainMode.action} · 请求{uncertainMode.request_id}。请先成功只读刷新核对本次未知请求，再明确以原UUID/版本/动作恢复回执；不自动重试。</p><button disabled={working || !modeReady} onClick={() => void submitMode(uncertainMode, reconciled)}>已核对，使用原请求恢复周度启停</button></section>}
     {revision && <p>正在修订原周度任务{revision.schedule_id} · 当前核对版本{revision.version}。<button disabled={working || unknownWrite} onClick={() => void revise(revision.schedule_id, true)}>核对当前版本（保留草稿）</button><button disabled={working || unknownWrite} onClick={() => { ++draft.current; setRevision(null); setPreview(null); setConfirmed(false); setAck(false); setBook(""); setCalendar(""); setSelected([]); setManifest(""); }}>退出周度修订</button></p>}
     {!healthy && <p>周度状态未确认, 写操作不可用。读取失败不会显示旧配置为当前成功。</p>}
     <form onSubmit={e => { e.preventDefault(); void prepare(); }} onChange={e => {
