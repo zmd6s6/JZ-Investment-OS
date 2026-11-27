@@ -171,8 +171,8 @@ test("actual CLI Worker month recovers through bounded reads and delayed committ
   await page.reload();
   await expect(card).toContainText("已启用");
   await expect(panel).toContainText(recovered.report_id);
-  await panel.locator("article").filter({ hasText: `报告${recovered.report_id}` }).getByRole("button", { name: "打开周报冻结快照" }).click();
-  await expect(panel.getByRole("region", { name: "周报冻结快照" })).toContainText("首次运行, 无可比基线");
+  await panel.locator("article").filter({ hasText: `报告${recovered.report_id}` }).getByRole("button", { name: "打开月报冻结快照" }).click();
+  await expect(panel.getByRole("region", { name: "月报冻结快照" })).toContainText("首次运行, 无可比基线");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "../.runtime/mvp404-recovery-390.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
