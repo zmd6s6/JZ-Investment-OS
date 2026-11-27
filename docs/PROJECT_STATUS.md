@@ -1,3 +1,29 @@
+## 2026-11-27 PR66同P2 occurrence/许可回调补闭（fixed-awaiting-review）
+
+root授权补闭同一queued handler/许可撤销P2。独立以React __reactProps受控模型复现：UNKNOWN#1回调可消费成功readback后的#2许可；作者树原两例先RED2/2后GREEN2/2。再将既有failed-refresh两用例延展到重新成功核对，实际RED2/2后GREEN，旧被撤销回调不能借替代许可。这些是受控回调模型，不冒称自然浏览器竞态复现或投资治理缺陷。
+
+最终业务892b073f81934d4b36faa4d6194115d406d56fc4让恢复回调携其render的state generation，submit/submitMode/consume严格核对；每次UNKNOWN及成功readback各有新许可版本，仍归属本次UNKNOWN对象/完整identity，不读取mutable ref最新版本冒充captured。旧occurrence/已撤销许可回调均不能消费新许可，当前合法handler仍恢复原UUID/body/action/CAS。原4+8等聚焦53passed10.09s、完整253frontend/35files55.40s/build68通过。
+
+892新真实Weekly45946660821 SUCCESS：253前端/build68、104unit/PG49.47s、新实际CLIWorker/API/PG/Chromium恢复1项1.1m和原周5项15.2s；Monthly48+1/History6+2/Thesis41+2同892全SUCCESS。当前artifact15175315416已实际下载、390恢复图目视无横溢出。受控旧回调证明与真实正常恢复证据分开，原90s上限未放宽。
+
+本次最终证据新HEAD全CI/独立Gate仍PENDING，不能借114或892旧绿，不自resolve HOLD/Gate/merge。仅同PR66前端围栏补闭，Monthly/global apiFetch/helper/后端/Schema/SQL/治理未改，Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED保持。Owner/Docker/真实数据费用不碰。
+
+## 2026-11-27 PR66 UNKNOWN只读核对围栏修复（fixed-awaiting-review）
+
+独立HOLD7208376750经root和独立Reviewer确认为真实P2：2349即使全部11CI绿，SAVE/MODE恢复仍未落实ACCEPTANCE先成功显式只读刷新再恢复的契约。业务9e1ab28666b8ad84b91ff9804a9fe9db1d10fc24现按SAVE完整command/hash或MODE UUID/action/CAS及每次UNKNOWN独立occurrence绑定核对。只有该次UNKNOWN后的成功显式刷新授予一次恢复，失败/超时readback、再次UNKNOWN、许可消费立即撤销；按钮和handler双围栏，旧刷新/其他report GET/late read/queued旧handler均不能许可，原UUID/body/action/CAS不变，无auto POST/enable。
+
+原独立四反例在作者树先RED4/4后GREEN4/4，新增八正常/失败/边界，聚焦51passed/8.84s、完整251frontend/34files/44.32s、build68通过。9e专属Weekly45935018185实际251前端/build68、104PG42.23s、真实CLIWorker/API/PG/Chromium新核对延迟1项1.1m及原周5项14.0s通过；未refresh及GET503后零恢复POST、成功GET精确原请求重放、同UUID再次UNKNOWN须重核已实证，原90s上限不变。Monthly48+1、History6+2、Thesis41+2同9全SUCCESS，当前390截图已实际下载目视。
+
+本轮最终证据HEAD完整CI/独立Gate仍PENDING，HOLD为fixed-awaiting-review不自解。Monthly/全局apiFetch/后端/治理未改，仅PR66真正合入生效；Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED不变。Owner/Docker/真实数据/费用不碰，精确证据和限制见MVP408工作项/交接。
+
+## 2026-11-27 MVP-408 周度请求期限恢复候选（Owner PENDING）
+
+PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge SUCCESS记录7205645249；随后独立发现周度fetch/body一直pending导致busy无恢复出口。本修复给Weekly整个fetch/正文/错误正文链加15秒有限Promise race，不依赖传输遵守abort；恰等/超过期限及迟到成功/拒绝不采用，unmount清timer/listener及operation epoch。GET/preview超时解锁/保草稿/明确只读重读；SAVE和启停超时按UNKNOWN冻结原UUID/内容/动作/CAS，先只读刷新再显式原请求恢复，不自动retry/enable，不把abort当服务端回滚。已确认写入而后续刷新超时保持“回执已确认”，初始旧读取晚失败不覆盖新成功。
+
+实现源码75e0c3c、验证HEAD19b5717在专属CI45924349081通过239前端、build68、104周度unit/真实PG41.64s、新真实API/PG/生产CLI Worker/Chromium三次15秒延迟恢复1项51.6s及原周度5项18.3s。Monthly48+1、Analysis6+2、Thesis41+2同19全部成功；390恢复/失败图已实际下载并目视无横溢出。6项先RED全失败，最终39聚焦/239完整前端正常失败边界通过；Ruff504/check/mypy183/OpenAPI/PolicySchema/secret654/Compose配置通过。
+
+仅Weekly接入opt-in helper，不改全局apiFetch、Monthly、后端/Schema/迁移/SQL/治理。PR66新最终HEAD完整CI/独立Gate仍PENDING，不借19旧绿；本修复只真正合入后生效。原408 INTEGRATED、402PARTIAL、501BLOCKED及Owner部署/PRODUCT08/Checkpoint接受PENDING保持。Docker engine/Owner18102/15433/真实数据/费用均未操作，npm既有dev5high不无关升级。精确命令、历史失败和回滚见MVP408工作项/交接。
+
 ## 2026-11-27 MVP-408 同任务周度授权修订恢复候选（Owner PENDING）
 
 /calendar 原周任务提供“修订此周度授权”：分页读取当前CAS并重新核当前组合/观察清单/日历；旧scope及逐日OPEN/CLOSED清单清空，须明确重选/完整录入后零写预览，以原schedule_id显式保存新PAUSED revision，再独立ENABLE。CAS冲突保留草稿，未知保存响应冻结原UUID/内容并仅明确同请求恢复；REVOKED终端、旧prepared=null不可补造。任务切换/迟到预览/刷新失效保护及观察项变更重新确认已补，修订不继承旧baseline。

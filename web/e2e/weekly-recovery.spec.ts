@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
   await context.addInitScript(() => sessionStorage.setItem("investment_os_write_token", "synthetic-weekly-only"));
 });
 
-test("actual CLI Worker exhausted week recovers through same-task UI revision, CAS and lost-response receipt", async ({ page, request }) => {
+test("actual CLI Worker week recovers through bounded reads and delayed committed SAVE and mode receipts", async ({ page, request }) => {
   test.setTimeout(90000);
   expect(fixture.report.local_inputs).not.toBeNull();
   expect(fixture.report.phase).toBe("DEGRADED");
@@ -15,6 +15,24 @@ test("actual CLI Worker exhausted week recovers through same-task UI revision, C
   const panel = page.getByRole("region", { name: "周度组合复核" });
   const card = panel.locator("article").filter({ has: page.getByRole("heading", { name: /合成周度组合复核/ }) });
   await expect(panel).toContainText(`任务${fixture.failed_task.task_run_id} · FAILED · 尝试3`);
+  // Read the actual API response, then intentionally withhold delivery beyond
+  // the product's 15s deadline. No source or successful response is stubbed.
+  await panel.getByLabel("周度任务名称").fill("请求超时仍保留的周草稿");
+  let releaseRead!: () => void;
+  const heldRead = new Promise<void>(resolve => { releaseRead = resolve; });
+  await page.route("**/api/v1/runtime/weekly", async route => {
+    if (route.request().method() !== "GET") return route.continue();
+    const result = await route.fetch(); expect(result.status()).toBe(200);
+    await heldRead;
+    await route.fulfill({ response: result }).catch(() => {}); // Caller may already have aborted.
+  });
+  await panel.getByRole("button", { name: "刷新周度状态与报告" }).click();
+  await expect(panel.getByRole("alert")).toContainText("15秒", { timeout: 20000 });
+  await expect(panel.getByRole("button", { name: "刷新周度状态与报告" })).toBeEnabled();
+  await expect(panel.getByLabel("周度任务名称")).toHaveValue("请求超时仍保留的周草稿");
+  await page.unroute("**/api/v1/runtime/weekly");
+  await panel.getByRole("button", { name: "刷新周度状态与报告" }).click();
+  await expect(card).toBeVisible(); releaseRead();
   const writeBodies: string[] = [];
   page.on("request", req => { if (req.method() === "POST" && req.url().endsWith("/api/v1/runtime/weekly")) writeBodies.push(req.postData()!); });
   await card.getByRole("button", { name: "修订此周度授权" }).click();
@@ -44,27 +62,93 @@ test("actual CLI Worker exhausted week recovers through same-task UI revision, C
   await panel.getByRole("button", { name: "预览完整周度授权（不保存）" }).click();
   await expect(panel.getByRole("heading", { name: "完整周度授权预览" })).toBeVisible();
   await panel.getByLabel(/已核对本次全部周度范围/).check();
-  // The production API commits; only delivery of its response is intentionally lost.
+  // The production API commits; only delivery is delayed beyond the product's
+  // actual deadline. Abort never means the server transaction rolled back.
+  let releaseSave!: () => void;
+  const heldSave = new Promise<void>(resolve => { releaseSave = resolve; });
   await page.route("**/api/v1/runtime/weekly", async route => {
     if (route.request().method() !== "POST") return route.continue();
     const result = await route.fetch();
     expect(result.status()).toBe(200);
-    await route.abort("connectionfailed");
-    await page.unroute("**/api/v1/runtime/weekly");
+    await heldSave;
+    await route.fulfill({ response: result }).catch(() => {});
   });
   await panel.getByRole("button", { name: "保存周度授权为暂停" }).click();
-  await expect(panel.getByRole("region", { name: "周度保存结果待核对" })).toBeVisible();
+  await expect(panel.getByRole("region", { name: "周度保存结果待核对" })).toBeVisible({ timeout: 20000 });
+  await expect(panel.getByRole("alert")).toContainText("服务端可能已经保存");
   await expect(panel.getByLabel("周度本地报价来源")).toBeDisabled();
+  const recoverSave = panel.getByRole("button", { name: "已核对，使用原请求恢复周度保存" });
+  await expect(recoverSave).toBeDisabled();
+  await recoverSave.dispatchEvent("click");
+  expect(writeBodies).toHaveLength(2); // CAS rejection + actual committed save, no recovery POST.
+  await page.unroute("**/api/v1/runtime/weekly");
+  await page.route("**/api/v1/runtime/weekly", route => route.request().method() === "GET" ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "显式合成只读核对失败" }) }) : route.continue());
+  await panel.getByRole("button", { name: "刷新周度状态与报告" }).click();
+  await expect(panel.getByRole("alert")).toContainText("只读状态加载失败");
+  await expect(recoverSave).toBeDisabled(); await recoverSave.dispatchEvent("click");
+  expect(writeBodies).toHaveLength(2);
+  await page.unroute("**/api/v1/runtime/weekly");
   await panel.getByRole("button", { name: "刷新周度状态与报告" }).click();
   await expect(card).toContainText("已暂停");
-  await panel.getByRole("button", { name: "已核对，使用原请求恢复周度保存" }).click();
+  releaseSave();
+  await expect(panel.getByRole("region", { name: "周度保存结果待核对" })).toBeVisible();
+  await expect(recoverSave).toBeEnabled();
+  // Even the same request becoming UNKNOWN again consumes the readback grant.
+  let releaseReceipt!: () => void;
+  const heldReceipt = new Promise<void>(resolve => { releaseReceipt = resolve; });
+  await page.route("**/api/v1/runtime/weekly", async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    const result = await route.fetch(); expect(result.status()).toBe(200);
+    await heldReceipt; await route.fulfill({ response: result }).catch(() => {});
+  });
+  await recoverSave.click();
+  await expect(recoverSave).toBeDisabled();
+  await expect(panel.getByRole("button", { name: "刷新周度状态与报告" })).toBeEnabled({ timeout: 20000 });
+  await expect(recoverSave).toBeDisabled();
+  expect(writeBodies).toHaveLength(3); expect(writeBodies[1]).toBe(writeBodies[2]);
+  await page.unroute("**/api/v1/runtime/weekly");
+  releaseReceipt();
+  await expect(recoverSave).toBeDisabled();
+  await panel.getByRole("button", { name: "刷新周度状态与报告" }).click();
+  await expect(recoverSave).toBeEnabled();
+  await recoverSave.click();
   await expect(panel).toContainText("周度授权已保存, 默认暂停");
-  expect(writeBodies).toHaveLength(3);
-  expect(writeBodies[1]).toBe(writeBodies[2]);
+  expect(writeBodies).toHaveLength(4);
+  expect(writeBodies[1]).toBe(writeBodies[3]);
   const saved = (await (await request.get("/api/v1/runtime/weekly", { headers })).json())[0];
   expect(saved.schedule_id).toBe(fixture.schedule_id);
   expect(saved.enabled).toBe(false);
   expect((await (await request.get(`/api/v1/runtime/weekly/reports?schedule_id=${fixture.schedule_id}`, { headers })).json()).length).toBe(1);
+  // A mode command has the same uncertainty fence and recovers its original
+  // request/CAS even after a current-state refresh has observed a newer version.
+  const modeBodies: string[] = [];
+  page.on("request", req => { if (req.method() === "POST" && req.url().endsWith(`/weekly/${fixture.schedule_id}/mode`)) modeBodies.push(req.postData()!); });
+  let releaseMode!: () => void;
+  const heldMode = new Promise<void>(resolve => { releaseMode = resolve; });
+  await page.route(`**/api/v1/runtime/weekly/${fixture.schedule_id}/mode`, async route => {
+    const result = await route.fetch(); expect(result.status()).toBe(200);
+    await heldMode; await route.fulfill({ response: result }).catch(() => {});
+  });
+  await card.getByLabel(/我已核对此保存周度授权/).check();
+  await card.getByRole("button", { name: "暂停周度复核" }).click();
+  await expect(panel.getByRole("region", { name: "周度启停结果待核对" })).toBeVisible({ timeout: 20000 });
+  expect(modeBodies).toHaveLength(1);
+  const recoverMode = panel.getByRole("button", { name: "已核对，使用原请求恢复周度启停" });
+  await expect(recoverMode).toBeDisabled(); await recoverMode.dispatchEvent("click");
+  expect(modeBodies).toHaveLength(1);
+  await page.unroute(`**/api/v1/runtime/weekly/${fixture.schedule_id}/mode`);
+  await page.route("**/api/v1/runtime/weekly", route => route.request().method() === "GET" ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "显式合成启停只读核对失败" }) }) : route.continue());
+  await panel.getByRole("button", { name: "刷新周度状态与报告" }).click();
+  await expect(panel.getByRole("alert")).toContainText("只读状态加载失败");
+  await expect(recoverMode).toBeDisabled(); await recoverMode.dispatchEvent("click");
+  expect(modeBodies).toHaveLength(1);
+  await page.unroute("**/api/v1/runtime/weekly");
+  await panel.getByRole("button", { name: "刷新周度状态与报告" }).click();
+  await expect(card).toContainText("已暂停"); releaseMode();
+  await expect(card.getByRole("button", { name: "启用周度复核" })).toBeDisabled();
+  await expect(recoverMode).toBeEnabled(); await recoverMode.click();
+  await expect(panel).toContainText("周度命令已确认并刷新当前状态");
+  expect(modeBodies).toHaveLength(2); expect(modeBodies[0]).toBe(modeBodies[1]);
   await card.getByLabel(/我已核对此保存周度授权/).check();
   await card.getByRole("button", { name: "启用周度复核" }).click();
   await expect.poll(async () => (await (await request.get(`/api/v1/runtime/weekly/reports?schedule_id=${fixture.schedule_id}`, { headers })).json()).length, { timeout: 30000 }).toBe(2);
