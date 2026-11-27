@@ -189,14 +189,14 @@ export function WeeklyReviewPanel() {
     const [report, setReport] = useState<Report | null>(null);
     const busy = useRef(false), reads = useRef(0), modeRequests = useRef(new Map<string, string>()), reportRead = useRef(0), draft = useRef(0);
     const lifetime = useRef<AbortController | null>(null), operations = useRef(0);
-    const pendingReadback = useRef<Reconciliation | null>(null), unknownGeneration = useRef(0);
+    const pendingReadback = useRef<Reconciliation | null>(null), readbackGeneration = useRef(0);
     const [reconciled, setReconciled] = useState<number | null>(null);
     const unknownWrite = !!uncertain || !!uncertainMode;
     const ready = (identity: string) => pendingReadback.current?.identity === identity && pendingReadback.current.checked && reconciled === pendingReadback.current.generation;
     const saveReady = !!uncertain && ready(saveIdentity(uncertain));
     const modeReady = !!uncertainMode && ready(modeIdentity(uncertainMode));
     function markUnknown(identity: string) {
-        pendingReadback.current = { identity, generation: ++unknownGeneration.current, checked: false };
+        pendingReadback.current = { identity, generation: ++readbackGeneration.current, checked: false };
         setReconciled(null);
     }
     function clearReadback() { pendingReadback.current = null; setReconciled(null); }
@@ -258,6 +258,9 @@ export function WeeklyReviewPanel() {
             // Only this explicit successful refresh can reconcile the exact
             // UNKNOWN occurrence captured at its start, never a newer one.
             if (success && value && pendingReadback.current === value) {
+                // Replacing a revoked readback creates a new lease even within
+                // the same UNKNOWN; an older rendered callback cannot borrow it.
+                value.generation = ++readbackGeneration.current;
                 value.checked = true;
                 setReconciled(value.generation);
                 setMessage("已成功只读刷新本次未知请求，请核对当前状态后明确使用原请求恢复。");

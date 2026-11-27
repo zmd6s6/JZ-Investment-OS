@@ -296,3 +296,9 @@ PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge SUCCESS�
 同PR66最小补闭，不改Monthly/global apiFetch/helper/后端/Schema/SQL/治理；Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED保持，Owner/Docker/真实数据费用不碰。
 
 恢复事件同时绑定本次UNKNOWN occurrence：旧occurrence的受控排队回调不能消费新occurrence已成功readback的许可；当前occurrence合法入口仍能恢复原请求。该边界仅作为受控旧回调回归证据，不冒充自然浏览器复现。
+
+
+## 2026-11-27 同P2已撤销readback的替代许可边界
+
+延展既有SAVE/MODE failed-refresh两用例，受控旧回调在失败刷新后再次成功刷新时仍可借用替代许可，实际RED2/2（.runtime/weekly-readback-replacement-red.log）。本轮仍是同一已承诺的queued旧handler/许可撤销边界，非自然浏览器复现或新治理缺陷。每次成功readback现在分配新lease generation，仍归属本次UNKNOWN对象及完整identity；callback携render时state generation，旧被撤销lease及旧UNKNOWN回调均不能消费替代许可，当前合法handler仍精确恢复原UUID/body/action/CAS。仅一行许可版本更新及内部计数命名，不扩功能/后端/授权范围。
+

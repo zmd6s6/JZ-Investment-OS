@@ -1,3 +1,7 @@
+## 2026-11-27 同P2已撤销readback的替代许可边界
+
+延展既有SAVE/MODE failed-refresh两用例，受控旧回调在失败刷新后再次成功刷新时仍可借用替代许可，实际RED2/2（.runtime/weekly-readback-replacement-red.log）。本轮仍是同一已承诺的queued旧handler/许可撤销边界，非自然浏览器复现或新治理缺陷。每次成功readback现在分配新lease generation，仍归属本次UNKNOWN对象及完整identity；callback携render时state generation，旧被撤销lease及旧UNKNOWN回调均不能消费替代许可，当前合法handler仍精确恢复原UUID/body/action/CAS。仅一行许可版本更新及内部计数命名，不扩功能/后端/授权范围。
+
 ## 2026-11-27 PR66同P2回调occurrence边界补闭（fixed-awaiting-review）
 
 独立Reviewer确认114的原四反例已GREEN，又以既有React __reactProps受控旧回调模型复现SAVE/MODE两窄边界：UNKNOWN#1成功核对后保留旧handler，重试进入#2并成功核对后，#1旧handler仍能消费#2许可。root将其认定为同一P2未满足承诺并恢复原唯一writer；这是受控回调模型，未声称自然浏览器竞态实测或投资治理缺陷。

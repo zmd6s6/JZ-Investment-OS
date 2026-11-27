@@ -146,6 +146,16 @@ for (const kind of ["save", "mode"] as const) {
     expect(screen.getByRole("button", { name: label })).toBeDisabled();
     await act(async () => { queuedRecovery(); }); await advance(0);
     expect(fetch.mock.calls.filter(([url, init]) => isWrite(url, init))).toHaveLength(1);
+    // A replacement successful readback also has a new lease; the callback
+    // whose earlier readback was revoked must not borrow that replacement.
+    fetch.mockImplementation(original);
+    fireEvent.click(screen.getByRole("button", { name: "刷新周度状态与报告" })); await advance(0);
+    expect(screen.getByRole("button", { name: label })).toBeEnabled();
+    await act(async () => { queuedRecovery(); }); await advance(0);
+    expect(fetch.mock.calls.filter(([url, init]) => isWrite(url, init))).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: label })); await advance(0);
+    const writes = fetch.mock.calls.filter(([url, init]) => isWrite(url, init));
+    expect(writes).toHaveLength(2); expect(writes[1][1]?.body).toBe(writes[0][1]?.body);
   });
 }
 
