@@ -105,7 +105,14 @@ jobs:
         with:
           name: weekly-recovery-browser-evidence
           path: |
-            .runtime/mvp408-*.png
+            .runtime/mvp408-recovery-390.png
+            .runtime/mvp408-real-weekly-report.png
+            .runtime/mvp408-real-weekly-chain.png
+            .runtime/mvp408-rejected-week.png
+            .runtime/mvp408-pagination-review.png
+            .runtime/mvp408-narrow-read-failure.png
+            .runtime/mvp408-closed-gap-actual-baseline.png
+            .runtime/mvp408-closed-gap-first-baseline.png
             .runtime/mvp408-recovery-fixture.json
             .runtime/mvp408-browser-fixture.json
             .runtime/mvp408-recovery-api.log
