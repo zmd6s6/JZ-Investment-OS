@@ -228,8 +228,9 @@ export function WeeklyReviewPanel() {
     useEffect(() => {
         const controller = new AbortController();
         lifetime.current = controller;
+        const initialRead = reads.current + 1;
         void load(controller.signal).catch(e => {
-            if (!controller.signal.aborted)
+            if (!controller.signal.aborted && reads.current === initialRead)
                 setError(String(e));
         });
         return () => { controller.abort(); lifetime.current = null; ++operations.current; busy.current = false; ++reads.current; ++reportRead.current; ++draft.current; };
@@ -367,6 +368,7 @@ export function WeeklyReviewPanel() {
                 return;
             }
             setUncertain(null); setPreview(null); setConfirmed(false); setRevision(null);
+            setMessage("周度授权保存回执已确认，正在只读刷新当前状态。");
             await load(); setMessage("周度授权已保存, 默认暂停。核对保存范围后另行启用。");
         });
     }
@@ -395,6 +397,7 @@ export function WeeklyReviewPanel() {
             }
             if (owner !== lifetime.current || owner?.signal.aborted) return;
             setUncertainMode(null);
+            setMessage("周度启停回执已确认，正在只读刷新当前状态。");
             await load(); setMessage("周度命令已确认并刷新当前状态。暂停确认后旧任务不能再提交; 永久撤销不可恢复。");
         });
     }

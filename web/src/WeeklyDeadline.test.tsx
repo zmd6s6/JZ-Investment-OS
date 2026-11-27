@@ -195,3 +195,39 @@ test("weekly timeout preserves dispatched save identity even if a queued draft c
   const writes = fetch.mock.calls.filter(([url, init]) => String(url) === "/api/v1/runtime/weekly" && init?.method === "POST");
   expect(writes).toHaveLength(2); expect(writes[1][1]?.body).toBe(sent[1]?.body);
 });
+
+test("weekly expired initial read cannot overwrite a newer explicit successful refresh with stale failure", async () => {
+  const fetch = mock(), original = fetch.getMockImplementation()!;
+  fetch.mockImplementation(async (url, init) => String(url) === "/api/v1/runtime/weekly" ? new Promise(() => {}) : original(url, init));
+  vi.useFakeTimers(); render(<WeeklyReviewPanel />); await advance(0);
+  fetch.mockImplementation(original);
+  fireEvent.click(screen.getByRole("button", { name: "刷新周度状态与报告" })); await advance(0);
+  expect(screen.getByRole("heading", { name: /原周任务/ })).toBeVisible();
+  await advance();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("heading", { name: /原周任务/ })).toBeVisible();
+  expect(screen.getByRole("button", { name: "预览完整周度授权（不保存）" })).toBeEnabled();
+});
+
+for (const kind of ["save", "mode"] as const) {
+  test(`weekly confirmed ${kind} receipt remains confirmed when only its subsequent refresh times out`, async () => {
+    const fetch = mock(), original = fetch.getMockImplementation()!; await open();
+    if (kind === "save") { fill(); await prepare(); }
+    else fireEvent.click(screen.getByLabelText(/我已核对此保存周度授权/));
+    let committed = false;
+    fetch.mockImplementation(async (url, init) => {
+      if (init?.method === "POST") { committed = true; return response(config); }
+      if (committed && String(url) === "/api/v1/runtime/weekly") return new Promise(() => {});
+      return original(url, init);
+    });
+    vi.useFakeTimers();
+    if (kind === "save") save(); else fireEvent.click(screen.getByRole("button", { name: "暂停周度复核" }));
+    await advance();
+    expect(screen.getByRole("status")).toHaveTextContent("回执已确认");
+    expect(screen.getByRole("alert")).toHaveTextContent("15秒");
+    expect(screen.queryByRole("region", { name: "周度保存结果待核对" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "周度启停结果待核对" })).toBeNull();
+    expect(screen.getByRole("button", { name: "刷新周度状态与报告" })).toBeEnabled();
+    expect(fetch.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(kind === "save" ? 2 : 1);
+  });
+}
