@@ -263,3 +263,14 @@ CAS冲突：中文错误、草稿保留，点击“核对当前版本（保留�
 唯一PR65仅真正合入后本修复生效，原408 INTEGRATED、402PARTIAL、501BLOCKED保持；Owner部署/PRODUCT08/Checkpoint接受PENDING。Docker engine离线未启动/重启，Owner18102/15433、真实数据/费用未操作。精确证据与回滚见MVP408工作项/交接。
 
 入口 /calendar → 已保存周度任务（含“加载更多周度授权”之后的原项）→ 修订此周度授权 → 明确当前组合/观察清单/日历及每一天OPEN/CLOSED、来源/期限 → 预览 → 确认保存暂停 → 另行确认启用 → 刷新原任务和未成功周报告。已成功周跨revision不重复，三次失败旧记录与旧报告hash不改写，缺基线明确未知。失败时保草稿并核当前版本/重预览；保存响应未知时先只读刷新，再明确原请求恢复。真实API/PG/Worker/Chromium合成证据不代表Owner接受。
+
+
+## 2026-11-27 MVP-408 周度请求期限恢复候选（Owner PENDING）
+
+PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge工作流SUCCESS（1274Python/480integration/88.61%）记录于7205645249；下方旧候选措辞保留当次事实。独立随后复现周度GET/POST一直pending会锁住busy，页面没有保草稿恢复出口。本轮仅Weekly给整个fetch及正文/错误正文读取增加15秒有限Promise race，尽力abort不等于服务端回滚；等于/超过期限及迟到结果不采用，卸载清理listener/timer及operation epoch。
+
+GET/preview超时释放busy、保草稿并可明确只读重读；SAVE及ENABLE/PAUSE/REVOKE超时为UNKNOWN，冻结原UUID/内容/版本/动作，锁定其他写操作，先只读刷新后显式同请求恢复，不自动retry/enable。前后/相等边界、fetch/body挂起、迟到成功及拒绝、草稿变化和新任务/报告选择均有具名回归；原scope/Watchlist/完整逐日清单/CAS/PAUSED/terminal revoke/legacy不退化。小型opt-in helper当前只由Weekly使用，不修改全局apiFetch或Monthly，不改变后端/Schema/SQL/投资治理，不需新治理ADR。
+
+6项前端反例先RED全部失败，修后首聚焦35通过7.64s、build68通过；新增完整frontend与实际专属PG/API/CLIWorker/Chromium15秒延迟故障路径待验证，最终HEAD完整CI/独立GatePENDING。本修复仅新功能PR实际合入后生效；原408 INTEGRATED、402PARTIAL、501BLOCKED、Owner部署/PRODUCT08/Checkpoint接受PENDING保持。Docker engine/Owner18102/15433/真实DB/费用均未操作；已知npm dev链5high不无关升级。
+
+验收入口：/calendar“周度组合复核”。故障读取超过15秒后可见中文未确认提示、草稿保留、刷新按钮可用；迟到响应不恢复旧详情/许可。保存或启停超过15秒时明确服务端可能已提交，原请求身份冻结，先只读刷新核对，点击相应“已核对，使用原请求恢复周度保存/启停”；不得自动再提交、默认为回滚或自动启用。新真实栈证据当前NOT VERIFIED，Owner部署/接受PENDING。

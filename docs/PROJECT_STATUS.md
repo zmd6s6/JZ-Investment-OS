@@ -1,3 +1,11 @@
+## 2026-11-27 MVP-408 周度请求期限恢复候选（Owner PENDING）
+
+PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge工作流SUCCESS（1274Python/480integration/88.61%）记录于7205645249；下方旧候选措辞保留当次事实。独立随后复现周度GET/POST一直pending会锁住busy，页面没有保草稿恢复出口。本轮仅Weekly给整个fetch及正文/错误正文读取增加15秒有限Promise race，尽力abort不等于服务端回滚；等于/超过期限及迟到结果不采用，卸载清理listener/timer及operation epoch。
+
+GET/preview超时释放busy、保草稿并可明确只读重读；SAVE及ENABLE/PAUSE/REVOKE超时为UNKNOWN，冻结原UUID/内容/版本/动作，锁定其他写操作，先只读刷新后显式同请求恢复，不自动retry/enable。前后/相等边界、fetch/body挂起、迟到成功及拒绝、草稿变化和新任务/报告选择均有具名回归；原scope/Watchlist/完整逐日清单/CAS/PAUSED/terminal revoke/legacy不退化。小型opt-in helper当前只由Weekly使用，不修改全局apiFetch或Monthly，不改变后端/Schema/SQL/投资治理，不需新治理ADR。
+
+6项前端反例先RED全部失败，修后首聚焦35通过7.64s、build68通过；新增完整frontend与实际专属PG/API/CLIWorker/Chromium15秒延迟故障路径待验证，最终HEAD完整CI/独立GatePENDING。本修复仅新功能PR实际合入后生效；原408 INTEGRATED、402PARTIAL、501BLOCKED、Owner部署/PRODUCT08/Checkpoint接受PENDING保持。Docker engine/Owner18102/15433/真实DB/费用均未操作；已知npm dev链5high不无关升级。
+
 ## 2026-11-27 MVP-408 同任务周度授权修订恢复候选（Owner PENDING）
 
 /calendar 原周任务提供“修订此周度授权”：分页读取当前CAS并重新核当前组合/观察清单/日历；旧scope及逐日OPEN/CLOSED清单清空，须明确重选/完整录入后零写预览，以原schedule_id显式保存新PAUSED revision，再独立ENABLE。CAS冲突保留草稿，未知保存响应冻结原UUID/内容并仅明确同请求恢复；REVOKED终端、旧prepared=null不可补造。任务切换/迟到预览/刷新失效保护及观察项变更重新确认已补，修订不继承旧baseline。
