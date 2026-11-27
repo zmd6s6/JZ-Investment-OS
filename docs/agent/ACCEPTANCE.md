@@ -303,4 +303,4 @@ root授权补闭同一queued handler/许可撤销P2。独立以React __reactProp
 
 入口 /calendar → 月度组合复核。GET/预览超过15秒：中文提示响应未确认、原草稿保留、按钮解锁，明确刷新/重新预览；迟到成功/错误不得替换新选择或恢复旧预览。保存或启停超过15秒：显示服务端可能已经提交，原UUID/内容/动作/CAS冻结，不能把取消当回滚；恢复按钮保持禁用，先点击“刷新月度状态与报告”并成功读取本次未知请求的当前状态，再核对并明确“已核对，使用原请求恢复月度保存/启停”。刷新失败/超时/结构无效、再次UNKNOWN或已消费均需新的成功核对；其他报告GET、过时回调和被撤销许可不授权恢复，当前合法入口保持同body精确重放。回执已确认仅后续GET超时，仍明确回执确认，不制造UNKNOWN。
 
-本地fake-timer/受控React聚焦58通过、build68；新真实专属API/PG/CLIWorker/Chromium延迟GET/真实commitSAVE/MODE与旧三FAILED恢复/历史保持场景尚NOT VERIFIED，等待本HEAD CI，不把模拟挂起当真实产品证明。只Monthly opt-in，Weekly/helper/globalAPI和后端不改；原404工程INTEGRATED保留，本修复仅实际merge后生效。Owner部署/接受PENDING，无OwnerDB/Docker操作，无真实付费或交易。
+本地fake-timer/受控React聚焦58通过、build68；8029174真实专属CI45975587357完整291frontend、48月度unit/PG26.75s与实际API/PG/生产CLIWorker/Chromium延迟GET/真实commitSAVE/MODE和旧三FAILED恢复1项1.1m已通过；未readback/503零恢复POST、同请求/再次UNKNOWN重核及原历史保持实证。390 GET超时/UNKNOWN反馈图已下载目视无横溢出，原90s上限保持。初次测试周/月定位器错误已保留并纠正；完整最终HEAD基线CI与独立Gate仍PENDING，不借802旧绿，不把模拟挂起/旧callback模型当自然网络产品证明。只Monthly opt-in，Weekly/helper/globalAPI和后端不改；原404工程INTEGRATED保留，本修复仅实际merge后生效。Owner部署/接受PENDING，无OwnerDB/Docker操作，无真实付费或交易。
