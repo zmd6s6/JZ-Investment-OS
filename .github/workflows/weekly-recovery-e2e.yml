@@ -86,6 +86,17 @@ jobs:
       - name: UI same-task recovery after three actual Worker failures
         working-directory: web
         run: npx playwright test weekly-recovery.spec.ts --workers=1 --reporter=list
+      - name: Connect original weekly regression to the same actual CLI Worker stack
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+          fixture = json.loads(Path('.runtime/mvp408-recovery-fixture.json').read_text())
+          Path('.runtime/mvp408-browser-fixture.json').write_text(json.dumps({'ids': {'portfolio': fixture['portfolio_id']}}))
+          PY
+      - name: Original weekly configuration, failed reads, pagination, narrow UI and baseline regression
+        working-directory: web
+        run: npx playwright test weekly-review.spec.ts --workers=1 --reporter=list
       - name: Synthetic diagnostics on failure
         if: failure()
         run: tail -n 100 .runtime/mvp408-recovery-api.log .runtime/mvp408-recovery-worker.log || true
@@ -94,8 +105,9 @@ jobs:
         with:
           name: weekly-recovery-browser-evidence
           path: |
-            .runtime/mvp408-recovery-390.png
+            .runtime/mvp408-*.png
             .runtime/mvp408-recovery-fixture.json
+            .runtime/mvp408-browser-fixture.json
             .runtime/mvp408-recovery-api.log
             .runtime/mvp408-recovery-worker.log
             web/test-results
