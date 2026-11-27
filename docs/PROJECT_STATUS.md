@@ -1,10 +1,10 @@
 ## 2026-11-27 MVP-408 周度请求期限恢复候选（Owner PENDING）
 
-PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge工作流SUCCESS（1274Python/480integration/88.61%）记录于7205645249；下方旧候选措辞保留当次事实。独立随后复现周度GET/POST一直pending会锁住busy，页面没有保草稿恢复出口。本轮仅Weekly给整个fetch及正文/错误正文读取增加15秒有限Promise race，尽力abort不等于服务端回滚；等于/超过期限及迟到结果不采用，卸载清理listener/timer及operation epoch。
+PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge SUCCESS记录7205645249；随后独立发现周度fetch/body一直pending导致busy无恢复出口。本修复给Weekly整个fetch/正文/错误正文链加15秒有限Promise race，不依赖传输遵守abort；恰等/超过期限及迟到成功/拒绝不采用，unmount清timer/listener及operation epoch。GET/preview超时解锁/保草稿/明确只读重读；SAVE和启停超时按UNKNOWN冻结原UUID/内容/动作/CAS，先只读刷新再显式原请求恢复，不自动retry/enable，不把abort当服务端回滚。已确认写入而后续刷新超时保持“回执已确认”，初始旧读取晚失败不覆盖新成功。
 
-GET/preview超时释放busy、保草稿并可明确只读重读；SAVE及ENABLE/PAUSE/REVOKE超时为UNKNOWN，冻结原UUID/内容/版本/动作，锁定其他写操作，先只读刷新后显式同请求恢复，不自动retry/enable。前后/相等边界、fetch/body挂起、迟到成功及拒绝、草稿变化和新任务/报告选择均有具名回归；原scope/Watchlist/完整逐日清单/CAS/PAUSED/terminal revoke/legacy不退化。小型opt-in helper当前只由Weekly使用，不修改全局apiFetch或Monthly，不改变后端/Schema/SQL/投资治理，不需新治理ADR。
+实现源码75e0c3c、验证HEAD19b5717在专属CI45924349081通过239前端、build68、104周度unit/真实PG41.64s、新真实API/PG/生产CLI Worker/Chromium三次15秒延迟恢复1项51.6s及原周度5项18.3s。Monthly48+1、Analysis6+2、Thesis41+2同19全部成功；390恢复/失败图已实际下载并目视无横溢出。6项先RED全失败，最终39聚焦/239完整前端正常失败边界通过；Ruff504/check/mypy183/OpenAPI/PolicySchema/secret654/Compose配置通过。
 
-6项前端反例先RED全部失败，修后首聚焦35通过7.64s、build68通过；新增完整frontend与实际专属PG/API/CLIWorker/Chromium15秒延迟故障路径待验证，最终HEAD完整CI/独立GatePENDING。本修复仅新功能PR实际合入后生效；原408 INTEGRATED、402PARTIAL、501BLOCKED、Owner部署/PRODUCT08/Checkpoint接受PENDING保持。Docker engine/Owner18102/15433/真实DB/费用均未操作；已知npm dev链5high不无关升级。
+仅Weekly接入opt-in helper，不改全局apiFetch、Monthly、后端/Schema/迁移/SQL/治理。PR66新最终HEAD完整CI/独立Gate仍PENDING，不借19旧绿；本修复只真正合入后生效。原408 INTEGRATED、402PARTIAL、501BLOCKED及Owner部署/PRODUCT08/Checkpoint接受PENDING保持。Docker engine/Owner18102/15433/真实数据/费用均未操作，npm既有dev5high不无关升级。精确命令、历史失败和回滚见MVP408工作项/交接。
 
 ## 2026-11-27 MVP-408 同任务周度授权修订恢复候选（Owner PENDING）
 
