@@ -278,10 +278,10 @@ PR65已按独立Gate7203786437实际合入Release77d3821，五postmerge SUCCESS�
 
 ## 2026-11-27 PR66 UNKNOWN只读核对围栏修复（fixed-awaiting-review）
 
-独立HOLD7208376750经root及独立Reviewer确认是真实P2：最终2349虽然全部CI成功，但SAVE/MODE恢复按钮与handler没有落实ACCEPTANCE先成功显式只读刷新再恢复契约。原独立四反例（两命令×未刷新/GET503后）在作者树先RED4/4，实际POST从1增2；本轮按root授权恢复原408唯一writer，修本PR，不绕文案或全绿门禁。
+独立HOLD7208376750经root和独立Reviewer确认为真实P2：2349即使全部11CI绿，SAVE/MODE恢复仍未落实ACCEPTANCE先成功显式只读刷新再恢复的契约。业务9e1ab28666b8ad84b91ff9804a9fe9db1d10fc24现按SAVE完整command/hash或MODE UUID/action/CAS及每次UNKNOWN独立occurrence绑定核对。只有该次UNKNOWN后的成功显式刷新授予一次恢复，失败/超时readback、再次UNKNOWN、许可消费立即撤销；按钮和handler双围栏，旧刷新/其他report GET/late read/queued旧handler均不能许可，原UUID/body/action/CAS不变，无auto POST/enable。
 
-现在UNKNOWN按SAVE完整command+preview hash或MODE原UUID/action/CAS绑定独立occurrence。只有该次UNKNOWN之后成功完成的显式“刷新周度状态与报告”授予一次恢复许可；失败/超时刷新、再次UNKNOWN、许可消费均清除。按钮和handler都核精确身份，旧刷新、其他报告GET、迟到GET和已排队旧handler不能许可，不换UUID/CAS/内容、不自动POST或启用。原独立四红已GREEN，新增八边界/正常反例通过；聚焦51项/8.84s、完整251前端/34files/44.32s和build68通过。
+原独立四反例在作者树先RED4/4后GREEN4/4，新增八正常/失败/边界，聚焦51passed/8.84s、完整251frontend/34files/44.32s、build68通过。9e专属Weekly45935018185实际251前端/build68、104PG42.23s、真实CLIWorker/API/PG/Chromium新核对延迟1项1.1m及原周5项14.0s通过；未refresh及GET503后零恢复POST、成功GET精确原请求重放、同UUID再次UNKNOWN须重核已实证，原90s上限不变。Monthly48+1、History6+2、Thesis41+2同9全SUCCESS，当前390截图已实际下载目视。
 
-扩展真实延迟E2E断言SAVE/MODE未refresh及503后零恢复POST、成功GET后才精确回执重放，SAVE同UUID再次15秒UNKNOWN必须重新核对；保留原90秒上限。该新真实栈/新最终HEADCI尚NOT VERIFIED，状态fixed-awaiting-review，独立Gate未通过。本修复仅PR66真正合入后生效，Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED不变；Monthly/全局apiFetch/后端/治理未改，Owner/Docker/真实数据与费用不碰。
+本轮最终证据HEAD完整CI/独立Gate仍PENDING，HOLD为fixed-awaiting-review不自解。Monthly/全局apiFetch/后端/治理未改，仅PR66真正合入生效；Owner部署/PRODUCT08/Checkpoint接受PENDING、原408INTEGRATED/402PARTIAL/501BLOCKED不变。Owner/Docker/真实数据/费用不碰，精确证据和限制见MVP408工作项/交接。
 
-验收：每次SAVE/MODE进入UNKNOWN后恢复按钮禁用，未完成本次明确只读刷新不得再次POST；刷新503/超时/结构错误仍禁用。成功显式刷新后可核对当前状态，再恢复同UUID/body/action/CAS；再次UNKNOWN需要新的成功刷新，其他报告读取/旧刷新不能替代。该规则在handler也检查，不只靠disabled文案。
+可操作验收：每次SAVE/MODE UNKNOWN后恢复按钮禁用；本次成功明确只读刷新前不得再次POST，刷新503/超时/无效结构仍禁用。成功显式刷新后核对当前状态，再恢复原UUID/body/action/CAS；再次UNKNOWN须新的成功刷新，旧刷新和其他报告读取不能替代。handler同样核对，已排队旧按钮回调不能越过disabled围栏。新真实CLIWorker/PG/API/Chromium对此已有合成证据，Owner部署/接受不由此替代。
